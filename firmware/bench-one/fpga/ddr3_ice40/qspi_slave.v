@@ -81,11 +81,19 @@ module qspi_slave #(
     output reg  [3:0]           io_o,
     output reg  [3:0]           io_oe,         /* per line, so single-bit replies drive only IO1 */
 
-    /* buffer port, synchronous read on sck */
-    output reg  [BUF_BITS-1:0]  buf_addr,
+    /* Buffer port. The WRITE side is combinational, deliberately.
+     *
+     * A registered write loses the last byte of every transaction. The buffer commits on a posedge of
+     * sck, so a registered buf_we/buf_wdata asserted when the final nibble arrives needs one MORE
+     * edge to take effect -- and there is never another edge, because FlexSPI stops clocking the
+     * moment a transaction ends. On hardware that is one corrupt byte per transaction: with 32-byte
+     * cache-line writebacks, one byte in thirty-two, which presents as flaky RAM rather than as a
+     * logic bug. Driving these combinationally makes the write commit on the same edge that captures
+     * the nibble. */
+    output wire [BUF_BITS-1:0]  buf_addr,
     input  wire [7:0]           buf_rdata,
-    output reg  [7:0]           buf_wdata,
-    output reg                  buf_we,
+    output wire [7:0]           buf_wdata,
+    output wire                 buf_we,
 
     /* to the DDR3 side; the bridge synchronises and edge-detects these */
     output reg  [31:0]          req_addr,
@@ -139,8 +147,15 @@ module qspi_slave #(
      * together one clock after they are assigned, so incrementing buf_addr in the same breath as
      * asserting buf_we stores each byte one slot too high. The pointer advances independently and
      * buf_addr is set to the slot actually being written. */
-    reg [BUF_BITS-1:0] wptr;
+    reg [BUF_BITS-1:0] wptr;     /* next buffer byte a write will fill */
+    reg [BUF_BITS-1:0] rptr;     /* buffer address the read side is walking */
     assign wr_count = wptr;
+
+    /* Reads keep the registered pointer; writes present their address and data on the same edge that
+     * the second nibble of a byte arrives. */
+    assign buf_we    = (ph == P_WDATA) && !cs_n && nib[0];
+    assign buf_wdata = {sh[3:0], io_i};
+    assign buf_addr  = (ph == P_WDATA) ? wptr : rptr;
 
     /* A flip-flop has ONE asynchronous reset, not two. Listing both chip select and reset as edge
      * events is legal Verilog and unsynthesisable, and yosys says so rather than picking one. So the
@@ -202,17 +217,13 @@ module qspi_slave #(
             ph           <= P_CMD;
             nib          <= 0;
             sh           <= 32'd0;
-            buf_we       <= 1'b0;
             req_start    <= 1'b0;
             req_addr     <= 32'd0;
             req_is_write <= 1'b0;
-            buf_addr     <= {BUF_BITS{1'b0}};
-            buf_wdata    <= 8'h00;
+            rptr         <= {BUF_BITS{1'b0}};
             byte_reg     <= 8'h00;
             lat          <= 8'h00;
         end else begin
-            buf_we <= 1'b0;
-
             case (ph)
             P_CMD:
                 if (quad) begin
@@ -265,8 +276,8 @@ module qspi_slave #(
             P_DUMMY:
                 if (lat != 0) begin
                     lat <= lat - 1'b1;
-                    if (lat == 2) buf_addr <= {BUF_BITS{1'b0}};
-                    if (lat == 1) buf_addr <= {{(BUF_BITS-1){1'b0}}, 1'b1};
+                    if (lat == 2) rptr <= {BUF_BITS{1'b0}};
+                    if (lat == 1) rptr <= {{(BUF_BITS-1){1'b0}}, 1'b1};
                 end else begin
                     /* byte 0 is on buf_rdata now. buf_addr must STAY at 1 through the first nibble
                      * pair: the buffer's read is registered, so the byte for an address appears one
@@ -282,18 +293,14 @@ module qspi_slave #(
                 nib <= nib + 1'b1;
                 if (nib[0]) begin
                     byte_reg <= buf_rdata;
-                    buf_addr <= buf_addr + 1'b1;
+                    rptr     <= rptr + 1'b1;
                 end
             end
 
             P_WDATA: begin
                 sh  <= {sh[27:0], io_i};
                 nib <= nib + 1'b1;
-                if (nib[0]) begin
-                    buf_addr  <= wptr;          /* the slot being written, not the next one */
-                    buf_wdata <= {sh[3:0], io_i};
-                    buf_we    <= 1'b1;
-                end
+                /* Nothing to do: the address, data and enable are combinational, above. */
             end
 
             P_WIN: begin

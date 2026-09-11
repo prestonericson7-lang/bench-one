@@ -32,14 +32,18 @@ for ck in 8 4; do
   printf "  CK_DIV=%s : %s\n" "$ck" "$(vvp build/c.vvp | grep -oE 'PASSED|FAILED.*')"
 done
 
-echo "=== 4. synthesis for iCE40-HX8K ==="
+echo "=== 4. the whole chain: a FlexSPI master, the gateware, a DDR3 device ==="
+iverilog -g2005 -o build/chain.vvp ddr3_ctrl.v qspi_slave.v ddr3_bridge.v ddr3_top.v     ddr3_model.v tb_chain.v
+vvp build/chain.vvp | grep -E "SCLK|initialised|identity|match|flagged|carrying|wrong|model:|PASSED|FAILED"
+
+echo "=== 5. synthesis for iCE40-HX8K ==="
 yosys -p "read_verilog ddr3_ctrl.v qspi_slave.v ddr3_bridge.v ddr3_top.v; \
           synth_ice40 -top ddr3_top -json build/ddr3.json; stat" > build/synth.log 2>&1
 awk '/Printing statistics/,0' build/synth.log |
   grep -E '^ +[0-9]+ +SB_(LUT4|RAM40_4K|IO)$' | sort -u -k2 | sed 's/^ */  /'
 echo "  out of 7680 LUT4s and 16 block RAMs on an HX8K"
 
-echo "=== 5. place and route ==="
+echo "=== 6. place and route ==="
 if [ ! -f alchitry_cu.pcf ]; then
   echo "  SKIPPED: alchitry_cu.pcf does not exist."
   echo "  Copy alchitry_cu.pcf.template and fill in the ball names from Alchitry's own cu.pcf."

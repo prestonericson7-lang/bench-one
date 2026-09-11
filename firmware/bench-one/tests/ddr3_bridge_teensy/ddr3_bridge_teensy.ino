@@ -40,14 +40,18 @@
  *  data and return whatever the buffer held before. Eight DDR3 data lines deliver 8 bytes every four
  *  memory clocks, and four FlexSPI lines carry half a byte per clock:
  *
- *      memory clock   DDR3 supplies   matching link   FlexSPI setting
- *       6.25 MHz       12.5 MB/s       25 MHz          not reachable, see MEM_MHZ 6 below
- *      12.50 MHz       25.0 MB/s       50 MHz          49.5 MHz  -- first light
- *      25.00 MHz       50.0 MB/s      100 MHz          99.0 MHz  -- once translators are in
+ *      memory clock   DDR3 supplies   link must be under   FlexSPI setting
+ *       6.25 MHz       12.5 MB/s       25 MHz               unreachable, see MEM_MHZ 6
+ *      12.50 MHz       25.0 MB/s       50 MHz               49.5 MHz
+ *      25.00 MHz       50.0 MB/s      100 MHz               88 MHz, for margin
  *
- *  The slowest FlexSPI2 can run is 49.5 MHz, which is its slowest source divided by eight. That is
- *  why a 6.25 MHz memory clock needs the read buffer shrunk instead: the link cannot be slowed to
- *  match it, so each transaction is made small enough that the dummy window covers the whole fetch.
+ *  "At least as fast" is not enough: it has to be FASTER, because every DRAM request carries some
+ *  fixed overhead no matter how the chunks are sized. Pairing a 99 MHz link with a 25 MHz memory is
+ *  49.5 MB/s against 50 and the end-to-end simulation fails; 88 MHz is 44 against 50 and it passes.
+ *
+ *  The slowest FlexSPI2 can run is 49.5 MHz, its slowest source divided by eight. That is why a
+ *  6.25 MHz memory clock needs short transactions instead: the link cannot be slowed to match it, so
+ *  each transaction is made small enough that the dummy window covers the whole fetch.
  *
  *  EXPECTED RESULTS, from the cost model that already predicts the PSRAM number
  *  --------------------------------------------------------------------------
@@ -86,19 +90,20 @@
 #define MEM_MHZ          12
 
 #if   MEM_MHZ == 25
-  #define FLEXSPI_MHZ    99     /* 49.5 MB/s link against 50 MB/s of memory */
-  #define FPGA_DUMMY     80
-  #define AHB_BUFSZ      64     /* 512-byte transactions; memory keeps up, so they can be long */
+  /* 88 MHz is 44 MB/s against 50 MB/s of memory: a 12% margin. 99 MHz was tried and is wrong --
+   * 49.5 MB/s against 50 leaves nothing for the per-chunk overhead that always exists, and the reads
+   * then run ahead of the data. The end-to-end simulation fails at zero margin and passes at this. */
+  #define FLEXSPI_MHZ    88
+  #define FPGA_DUMMY     200
+  #define AHB_BUFSZ      32     /* 256-byte transactions; must stay under the gateware's RD_AHEAD */
 #elif MEM_MHZ == 12
-  #define FLEXSPI_MHZ    50     /* 24.75 MB/s link against 25 MB/s of memory */
-  #define FPGA_DUMMY     120
-  #define AHB_BUFSZ      64
+  #define FLEXSPI_MHZ    50     /* 24.75 MB/s against 25 MB/s of memory */
+  #define FPGA_DUMMY     200
+  #define AHB_BUFSZ      32
 #elif MEM_MHZ == 6
   /* The link cannot be slowed to 25 MHz, so it will outrun a 6.25 MHz memory two to one. The answer
    * is to make each transaction short enough that the dummy window covers the WHOLE fetch, rather
-   * than relying on the fill staying ahead of the reader. 64 bytes is 8 bursts, 5.1 us at 6.25 MHz,
-   * which is 253 cycles at 49.5 MHz -- just inside the LUT's 255-cycle dummy field. Slow and
-   * correct beats fast and wrong. */
+   * than relying on the fill staying ahead of the reader. Slow and correct beats fast and wrong. */
   #define FLEXSPI_MHZ    50
   #define FPGA_DUMMY     255
   #define AHB_BUFSZ      8      /* 64-byte transactions */

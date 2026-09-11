@@ -61,7 +61,39 @@ module ddr3_bridge #(
 
     /* Memory clock divider, needed here only to size the request limit below. */
     parameter integer SYS_HZ   = 100_000_000,
-    parameter integer CK_DIV   = 4
+    parameter integer CK_DIV   = 4,
+
+    /* Bursts fetched per DRAM request during a read. This is a RESPONSIVENESS limit, not a bandwidth
+     * one, and getting it wrong is expensive in a way that is easy to miss.
+     *
+     * Filling the whole 1 KB buffer on every read takes 128 bursts, which is 20.5 us at a 25 MHz
+     * memory clock, and the bridge can accept nothing for all of it. A Teensy reading 32-byte cache
+     * lines issues a transaction roughly every microsecond, so essentially every request after the
+     * first arrives while busy and is served late, with whatever the buffer still held.
+     *
+     * Sixteen bursts is 128 bytes and about 2.96 us including the CAS pipeline and the store. Eight
+     * was tried and is worse, not better: the per-chunk overhead does not shrink with the chunk, so at
+     * eight bursts it is 24% of the time and the effective rate falls to 36 MB/s, below the link.
+     * Sixteen amortises it to 43 MB/s, and the open-row policy in the controller is what makes even
+     * that possible -- without it every chunk pays a fresh ACTIVATE and PRECHARGE.
+     *
+     * The fetch then continues chunk by chunk for as long as the Teensy keeps clocking and stops when
+     * chip select rises, so the amount fetched matches the length of the actual transaction without
+     * anyone having to know it in advance. */
+    parameter integer RD_CHUNK = 16,
+
+    /* How far ahead a read fetches, in bursts. This is what decides whether the bridge is free when
+     * the NEXT transaction arrives, and it was the root cause of nearly every deferral.
+     *
+     * Fetching until the buffer is full means 128 bursts, and since the fetch only stops when chip
+     * select rises it always overruns past the end of the transaction -- so the bridge is still busy
+     * when the next one starts, and that request gets deferred. A deferred write is the worst case:
+     * its data sits in a buffer that the following transaction is free to overwrite.
+     *
+     * 40 bursts is 320 bytes, comfortably ahead of the 256-byte transactions the AHB buffer issues,
+     * and the fetch then finishes on its own about half a microsecond after the data phase ends. Raise
+     * it only alongside the AHB buffer size, and never above the 128 bursts the buffer can hold. */
+    parameter integer RD_AHEAD = 40
 ) (
     input  wire                 sys_clk,
     input  wire                 sys_rst,
@@ -95,7 +127,9 @@ module ddr3_bridge #(
     input  wire                 init_done,
 
     output wire                 idle,
-    output reg                  err_overrun   /* a burst arrived before the last one was stored */
+    output reg                  err_overrun,  /* a burst arrived before the last one was stored */
+    output reg                  err_deferred, /* a request arrived while busy and had to wait */
+    output reg                  err_align     /* an unaligned WRITE was requested; see below */
 );
 
     /* Longest single request, in bursts, derived rather than chosen. This is a REFRESH budget, not a
@@ -136,21 +170,100 @@ module ddr3_bridge #(
     wire start_edge = (st_sync[2:1] == 2'b01);
     wire cs_rise    = (cs_sync[2:1] == 2'b01);
 
+    /* A request that arrives while the bridge is busy is LATCHED, not dropped.
+     *
+     * Dropping it was silent and total: the Teensy clocked out its dummy cycles and then read whatever
+     * the buffer happened to hold from the previous transaction, which is stale data wearing the shape
+     * of real data. Latching at least serves it, a little late, and err_deferred records that it
+     * happened so bring-up can see it on an LED rather than inferring it from bad numbers.
+     *
+     * Being late is still wrong if the dummy window expires first, so this is a safety net and not a
+     * licence. The window has to cover the worst case: with cache-line-sized writes, a 32-byte drain
+     * is about 640 ns at a 12.5 MHz memory clock against a dummy window of 2.4 us, which is
+     * comfortable. A 256-byte write takes 5.1 us to drain and no dummy count covers it, so a large
+     * write followed immediately by a read needs a gap the driver has to provide. */
+    reg                pend;
+    reg                pend_write;
+    reg [31:0]         pend_addr;
+    reg [BUF_BITS-1:0] pend_count;   /* bytes the deferred write delivered, latched at chip select */
+
+    /* Sticky: the read transaction this fetch belongs to has ended.
+     *
+     * Testing the chip-select LEVEL at a chunk boundary does not work. The gap between two
+     * transactions is about 48 ns, and a chunk is 1.28 us, so the high period falls entirely between
+     * two tests and is never seen. The fetch then runs to the full buffer -- 128 bursts, some 20 us --
+     * and the next request waits far beyond any dummy window that could cover it. The symptom is a
+     * read returning the PREVIOUS transaction's data in full, which looks like an addressing fault.
+     *
+     * The edge detector cannot miss that pulse, because 48 ns is several sys_clk periods, so the edge
+     * is latched here and the chunk loop tests the latch. */
+    reg                rd_ended;
+
+    /* Which request the idle state is about to service, computed once.
+     *
+     * Selecting inline with (start_edge && !pend) three separate times was a hazard: if a request
+     * arrived while the bridge was idle AND an older one was still pending, every one of those tests
+     * chose the OLD request while the same cycle cleared pend -- servicing the stale address and
+     * discarding the new request entirely. Deciding once removes the possibility of the three tests
+     * disagreeing. */
+    wire        sel_pend  = pend;
+    wire [31:0] sel_addr  = sel_pend ? pend_addr  : (q_addr + q_win_base);
+    wire        sel_write = sel_pend ? pend_write : q_is_write;
+
     localparam [3:0] B_IDLE  = 0,
                      B_RD_REQ = 1, B_RD_WAIT = 2,
-                     B_WR_WAIT= 3, B_WR_PRIME= 4, B_WR_REQ = 5, B_WR_FEED = 6;
+                     B_WR_WAIT= 3, B_WR_LOAD = 4, B_WR_REQ = 5, B_WR_HOLD = 6;
 
     reg [3:0]          bst;
     reg [31:0]         addr;        /* effective address of the next burst to transfer */
     reg [BUF_BITS-1:0] fill;        /* next buffer byte to write (reads) */
     reg [8:0]          need;        /* bursts still to request for this transaction */
     reg [7:0]          got;         /* bursts still expected from the current request */
+    /* Bytes of the first burst to discard, so that buffer[0] really is the requested address.
+     *
+     * DDR3 transfers whole eight-byte bursts, so a request for address N arrives as the burst
+     * containing N. Filling the buffer from the burst boundary puts the wrong byte at buffer[0] and
+     * displaces the entire transfer by up to seven bytes -- data that is present, plausible, and in
+     * the wrong place, which is the hardest kind of wrong to notice. Discarding the leading bytes
+     * fixes reads completely.
+     *
+     * Writes cannot be fixed the same way. Writing a partial burst needs the data mask, and DM is
+     * tied low here so every byte of every burst is committed. An unaligned write is therefore
+     * refused rather than misplaced: err_align latches and the transfer is aligned down, which is
+     * visible instead of silent. In practice a Teensy never does this -- writes reach the bridge as
+     * cache-line writebacks, which are 32-byte aligned. */
+    reg [2:0]          skip;
     reg [63:0]         racc;        /* word being unpacked into the buffer */
     reg [3:0]          rcnt;        /* bytes left to store from racc */
     reg [63:0]         wacc;        /* word being assembled from the buffer */
     reg [3:0]          wcnt;        /* bytes still to fetch into wacc */
     reg [7:0]          wleft;       /* bursts still to hand the controller */
-    reg [BUF_BITS-1:0] wpos;        /* next buffer byte to read (writes) */
+    /* ONE authoritative pointer: wnext is the index of the next byte to consume. buf_addr is derived
+     * from it inside the load loop and never used as the pointer itself.
+     *
+     * Every earlier arrangement failed the same way. The buffer's read is registered, so the byte for
+     * an address appears a cycle later, and any scheme where the address register is shared between a
+     * loop and a wait state drifts: while B_WR_REQ waited for the controller, buf_addr held its value
+     * and the registered read quietly advanced one byte past the one wanted. The symptom was eight
+     * correct bytes followed by a duplicate -- which reads like a buffer bug and is a pipeline bug.
+     *
+     * The fix is uniformity: one ten-cycle load, two cycles to fill the read pipeline and eight to
+     * shift, used identically for the first word and every word after it. No special cases. */
+    reg [BUF_BITS-1:0] wnext;
+
+    /* wacc holds a complete word that has not yet been handed over.
+     *
+     * The controller latches wd_data on the SAME cycle it pulses wd_take, so the next word has to be
+     * presented BEFORE the take, not in response to it. Updating wd_data on the take handed the
+     * controller the previous word every time, and since the first word is correct that shows up as
+     * every burst writing word 0 -- eight right bytes followed by the same eight bytes forever, which
+     * looks like a buffer addressing fault and is not one.
+     *
+     * This flag also absorbs the take that the controller emits when it ACCEPTS the request. That one
+     * acknowledges word 0, which was already presented, so it must not be mistaken for a request for
+     * the next. */
+    reg                wr_ready;
+    reg                wfirst;   /* this load is the first word, so it must raise the request */
 
     assign idle = (bst == B_IDLE);
 
@@ -161,17 +274,21 @@ module ddr3_bridge #(
     wire [6:0]          a_brst = addr[9:3];
     wire [8:0]          to_row_end = 9'd128 - {2'b00, a_brst};
     wire [8:0]          this_len   = (need < to_row_end) ? need : to_row_end;
+    /* One chunk: whichever is smallest of what is left, what fits in this row, and the chunk size. */
+    wire [8:0]          chunk      = (this_len < RD_CHUNK) ? this_len : RD_CHUNK[8:0];
 
     always @(posedge sys_clk) begin
         buf_we <= 1'b0;
 
         if (sys_rst) begin
             bst <= B_IDLE; addr <= 32'd0; fill <= 0; need <= 0; got <= 0;
-            racc <= 64'd0; rcnt <= 0; wacc <= 64'd0; wcnt <= 0; wleft <= 0; wpos <= 0;
+            racc <= 64'd0; rcnt <= 0; wacc <= 64'd0; wcnt <= 0; wleft <= 0;
             buf_addr <= 0; buf_wdata <= 8'h00;
             req_valid <= 1'b0; req_write <= 1'b0;
             req_bank <= 0; req_row <= 0; req_col <= 0; req_len <= 0;
-            wd_data <= 64'd0; err_overrun <= 1'b0;
+            wd_data <= 64'd0; err_overrun <= 1'b0; err_deferred <= 1'b0; err_align <= 1'b0;
+            pend <= 1'b0; pend_write <= 1'b0; pend_addr <= 32'd0; pend_count <= 0;
+            rd_ended <= 1'b0;
         end else begin
 
             /* --------- storing read data into the buffer, independent of the state machine ------
@@ -183,55 +300,126 @@ module ddr3_bridge #(
                 racc <= rd_data;
                 rcnt <= 8;
             end else if (rcnt != 0) begin
-                buf_addr  <= fill;
-                buf_wdata <= racc[7:0];
-                buf_we    <= 1'b1;
-                racc      <= {8'h00, racc[63:8]};
-                fill      <= fill + 1'b1;
-                rcnt      <= rcnt - 1'b1;
+                if (skip != 0) begin
+                    /* discard a leading byte of the first burst */
+                    skip <= skip - 1'b1;
+                end else begin
+                    buf_addr  <= fill;
+                    buf_wdata <= racc[7:0];
+                    buf_we    <= 1'b1;
+                    fill      <= fill + 1'b1;
+                end
+                racc <= {8'h00, racc[63:8]};
+                rcnt <= rcnt - 1'b1;
             end
+
+            /* Capture a request whenever one arrives. If the bridge is mid-transfer it is held here
+             * until idle instead of being thrown away. */
+            if (start_edge && init_done) begin
+                if (bst == B_IDLE) begin
+                    pend <= 1'b0;
+                end else if (pend) begin
+                    /* A second request while one is already waiting. The slot can only hold one, and
+                     * the older one's data may already be gone, so this is recorded as an outright
+                     * loss rather than silently overwritten. Overwriting was the cascade that made
+                     * every transaction after the first deferral return stale data. */
+                    err_deferred <= 1'b1;
+                end else begin
+                    pend         <= 1'b1;
+                    pend_write   <= q_is_write;
+                    pend_addr    <= q_addr + q_win_base;
+                    err_deferred <= 1'b1;
+                end
+            end
+
+            /* The byte count of a deferred write is only final when its transaction ends, so it is
+             * captured here rather than at defer time. Without this the write is later accepted and
+             * then waits for a chip-select rise belonging to some LATER transaction, which poisons
+             * every request after it. */
+            if (cs_rise && pend && pend_write) pend_count <= q_wr_count;
+
+            /* Latch the end of the transaction a read fetch belongs to. */
+            if (cs_rise && (bst == B_RD_REQ || bst == B_RD_WAIT)) rd_ended <= 1'b1;
 
             case (bst)
             B_IDLE:
-                if (start_edge && init_done) begin
-                    addr  <= q_addr + q_win_base;
+                if ((start_edge || pend) && init_done) begin
+                    addr  <= sel_addr;
                     fill  <= 0;
                     rcnt  <= 0;
-                    if (q_is_write) begin
-                        bst <= B_WR_WAIT;
+                    /* If a NEW request arrived this very cycle while an older one was pending, the old
+                     * one is being serviced now and the new one takes the slot rather than being lost. */
+                    if (start_edge && sel_pend) begin
+                        pend       <= 1'b1;
+                        pend_write <= q_is_write;
+                        pend_addr  <= q_addr + q_win_base;
                     end else begin
+                        pend <= 1'b0;
+                    end
+                    if (sel_write) begin
+                        /* Writes must land on a burst boundary; see the note on `skip`. */
+                        if (sel_addr & 32'd7) err_align <= 1'b1;
+                        skip <= 3'd0;
+                        if (sel_pend) begin
+                            /* Deferred: the transaction has already ended and its count was latched
+                             * at chip select, so there is nothing to wait for. Waiting here is what
+                             * made a deferred write hang until an unrelated transaction ended. */
+                            wleft  <= pend_count[BUF_BITS-1:3];
+                            wnext  <= 0;
+                            wfirst <= 1'b1;
+                            if (pend_count[BUF_BITS-1:3] == 0) bst <= B_IDLE;
+                            else begin
+                                buf_addr <= 0;
+                                wcnt     <= 10;
+                                bst      <= B_WR_LOAD;
+                            end
+                        end else begin
+                            bst <= B_WR_WAIT;
+                        end
+                    end else begin
+                        /* Reads discard the leading bytes of the first burst, so buffer[0] is the
+                         * byte that was actually asked for. */
+                        skip <= sel_addr[2:0];
                         /* Fill the entire buffer, whatever the transaction turns out to be. The
                          * Teensy's AHB buffer can ask for 512 bytes and we have no way to know in
                          * advance, so the only safe answer is to have all 1 KB ready. */
-                        need <= (1 << BUF_BITS) >> 3;
-                        bst  <= B_RD_REQ;
+                        need     <= RD_AHEAD[8:0];
+                        rd_ended <= 1'b0;
+                        bst      <= B_RD_REQ;
                     end
                 end
 
-            /* ---- read: issue requests until the buffer is full, crossing rows as needed ---- */
-            B_RD_REQ:
-                if (need == 0) begin
+            /* ---- read: fetch in chunks for as long as the Teensy is still clocking ---- */
+            B_RD_REQ: begin
+                if (1)
+                    $display("T %0t RD_REQ need=%0d rd_ended=%b fill=%0d skip=%0d row=%0d col=%0d",
+                             $time, need, rd_ended, fill, skip, a_row, {a_brst,3'b0});
+                if (need == 0 || rd_ended) begin
+                    /* Either the buffer is full or the transaction has ended. Nothing is wasted by
+                     * stopping early: the Teensy only reads what it asked for, and stopping promptly
+                     * is what keeps the next request from being deferred past its dummy window. */
                     bst <= B_IDLE;
                 end else begin
                     req_write <= 1'b0;
                     req_bank  <= a_bank;
                     req_row   <= a_row;
                     req_col   <= {a_brst, 3'b000};
-                    req_len   <= (this_len > REQ_MAX) ? REQ_MAX[7:0] : this_len[7:0];
+                    req_len   <= chunk[7:0];
                     req_valid <= 1'b1;            /* HELD until taken; see the header */
                     if (req_valid && req_ready) begin
                         req_valid <= 1'b0;
-                        got       <= (this_len > REQ_MAX) ? REQ_MAX[7:0] : this_len[7:0];
-                        need      <= need - ((this_len > REQ_MAX) ? REQ_MAX : this_len);
-                        addr      <= addr + (((this_len > REQ_MAX) ? REQ_MAX : this_len) << 3);
+                        got       <= chunk[7:0];
+                        need      <= need - chunk;
+                        addr      <= addr + (chunk << 3);
                         bst       <= B_RD_WAIT;
                     end
                 end
+            end
 
             B_RD_WAIT: begin
                 if (rd_valid && got != 0) got <= got - 1'b1;
-                /* Wait for the last word to be unpacked as well as received, or the next request
-                 * would overwrite racc mid-store. */
+                /* Wait for the last word to be stored as well as received, or the next request would
+                 * overwrite racc mid-store. */
                 if (got == 0 && rcnt == 0 && !rd_valid) bst <= B_RD_REQ;
             end
 
@@ -243,37 +431,38 @@ module ddr3_bridge #(
                      * select has risen. Whole bursts only: a partial tail is not written, because
                      * DDR3 has no byte enables wired here. */
                     wleft <= q_wr_count[BUF_BITS-1:3];
-                    wpos  <= 0;
                     if (q_wr_count[BUF_BITS-1:3] == 0) bst <= B_IDLE;
                     else begin
-                        buf_addr <= 0;
-                        /* NINE, not eight. The buffer's read is registered, so the first cycle only
-                         * presents an address and its byte does not appear until the next one. A
-                         * count of eight therefore performs seven shifts, leaving the low byte of
-                         * every word at zero and pushing all eight real bytes up by one position --
-                         * which on hardware writes a zero into every address divisible by eight and
-                         * loses the last byte of each burst. */
-                        wcnt     <= 9;
-                        bst      <= B_WR_PRIME;
+                        wnext  <= 0;
+                        wcnt   <= 10;
+                        wfirst <= 1'b1;
+                        bst    <= B_WR_LOAD;
                     end
                 end
 
             /* The controller latches the first word at the moment it accepts the request, so that
              * word has to exist before req_valid goes up. */
-            B_WR_PRIME: begin
-                /* buf_rdata lags buf_addr by one clock, so the address runs one ahead of the capture
-                 * and the very first cycle shifts nothing. Counting 9 down to 1 performs exactly
-                 * eight shifts, which leaves byte 0 in the low byte of the word -- the position the
-                 * controller sends first. */
-                buf_addr <= wpos + 1'b1;
-                wpos     <= wpos + 1'b1;
-                if (wcnt != 9) wacc <= {buf_rdata, wacc[63:8]};
+            /* Load one word: two cycles to fill the registered read, then eight shifts. Byte 0 ends
+             * in the low byte of the word, which is the beat the controller sends first. */
+            B_WR_LOAD: begin
+                if (wcnt == 10) begin
+                    buf_addr <= wnext;
+                end else begin
+                    buf_addr <= buf_addr + 1'b1;
+                    if (wcnt <= 8) wacc <= {buf_rdata, wacc[63:8]};
+                end
                 wcnt <= wcnt - 1'b1;
-                if (wcnt == 1) bst <= B_WR_REQ;
+                if (wcnt == 1) begin
+                    /* Present the word NOW, before anyone asks for it: the controller latches
+                     * wd_data on the same cycle it pulses wd_take. */
+                    wd_data  <= {buf_rdata, wacc[63:8]};
+                    wr_ready <= 1'b1;
+                    wnext    <= wnext + 8;
+                    bst      <= wfirst ? B_WR_REQ : B_WR_HOLD;
+                end
             end
 
             B_WR_REQ: begin
-                wd_data   <= wacc;
                 req_write <= 1'b1;
                 req_bank  <= a_bank;
                 req_row   <= a_row;
@@ -281,31 +470,33 @@ module ddr3_bridge #(
                 req_len   <= (wleft > REQ_MAX[7:0]) ? REQ_MAX[7:0] : wleft;
                 req_valid <= 1'b1;
                 if (req_valid && req_ready) begin
+                    /* The controller latches word 0 as it accepts, so that word is consumed here and
+                     * the take it emits a cycle later is only an acknowledgement. */
                     req_valid <= 1'b0;
-                    wcnt      <= 9;               /* nine for the same reason as the prime loop */
-                    bst       <= B_WR_FEED;
+                    wr_ready  <= 1'b0;
+                    wfirst    <= 1'b0;
+                    wleft     <= wleft - 1'b1;
+                    wcnt      <= 10;
+                    bst       <= (wleft <= 1) ? B_IDLE : B_WR_LOAD;
                 end
             end
 
-            B_WR_FEED: begin
-                /* Assemble the next word while the current one is on the wire. A burst lasts sixteen
-                 * fabric clocks and this needs eight, so it is always ready in time. */
-                if (wcnt != 0) begin
-                    buf_addr <= wpos + 1'b1;
-                    wpos     <= wpos + 1'b1;
-                    if (wcnt != 9) wacc <= {buf_rdata, wacc[63:8]};
-                    wcnt     <= wcnt - 1'b1;
+            /* A word is assembled and waiting. The controller takes one per burst, every sixteen
+             * fabric clocks, and a load needs ten, so the next one is always ready in time. */
+            B_WR_HOLD:
+                if (wd_take && wr_ready) begin
+                    wr_ready <= 1'b0;
+                    wleft    <= wleft - 1'b1;
+                    if (wleft <= 1) begin
+                        /* Release on the last word rather than waiting for the controller to finish
+                         * the final burst. The next request cannot overtake it: req_ready will not
+                         * assert again until the controller is genuinely idle. */
+                        bst <= B_IDLE;
+                    end else begin
+                        wcnt <= 10;
+                        bst  <= B_WR_LOAD;
+                    end
                 end
-                if (wd_take) begin
-                    wd_data <= wacc;
-                    wcnt    <= 9;
-                    if (wleft != 0) wleft <= wleft - 1'b1;
-                    /* Release on the last take rather than waiting for the controller to finish the
-                     * final burst. The next request cannot overtake it: req_ready will not assert
-                     * again until the controller is genuinely idle. */
-                    if (wleft <= 1) bst <= B_IDLE;
-                end
-            end
 
             default: bst <= B_IDLE;
             endcase

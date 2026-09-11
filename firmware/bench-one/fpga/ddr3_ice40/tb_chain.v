@@ -29,10 +29,18 @@ module tb_chain #(
     parameter integer CK_DIV     = 4,        /* 25 MHz memory clock */
     parameter integer RD_LATENCY = 6,
     parameter integer RD_SAMPLE  = 1,
-    parameter integer LAT_CYCLES = 64,
-    /* SCLK half period in nanoseconds. 5 ns is 100 MHz, which is the stage-one link rate that
-     * matches eight DDR3 data lines at 25 MHz. */
-    parameter integer SCK_HALF   = 5
+    /* Dummy cycles. Must cover the first chunk reaching the buffer: ACTIVATE, tRCD, CAS latency and
+     * sixteen bursts. 64 leaves the reader starting before the first chunk has landed and it never
+     * recovers, showing up as a handful of wrong bytes at the tail. 120 clears it with margin. */
+    parameter integer LAT_CYCLES = 200,
+    /* SCLK half period in nanoseconds. This testbench previously used 5 ns, a 100 MHz link worth
+     * 50 MB/s, against a 25 MHz memory clock also worth 50 MB/s -- violating the very rate rule the
+     * design is built around, with zero margin for the per-chunk overhead that inevitably exists. The
+     * reads then ran ahead of the data and the failure looked like a buffer bug.
+     *
+     * 6 ns is 83 MHz and 41.7 MB/s against roughly 43 MB/s delivered, which is the margin a real
+     * configuration needs. The Teensy sketch uses 88 MHz for the same reason. */
+    parameter integer SCK_HALF   = 6
 ) ();
 
     /* ---- board clock ---- */
@@ -258,6 +266,20 @@ module tb_chain #(
      * =================================================================================== */
     integer fails, i, bad;
 
+    task show;                      /* first eight expected against first eight returned */
+        input integer seed;
+        input integer off;
+        integer k;
+        begin
+            $write("      expected ");
+            for (k = 0; k < 8; k = k + 1) $write("%02h ", pattern(seed, k + off));
+            $display("");
+            $write("      got      ");
+            for (k = 0; k < 8; k = k + 1) $write("%02h ", rdbuf[k]);
+            $display("");
+        end
+    endtask
+
     initial begin
         fails = 0;
         $display("=== end to end: FlexSPI master -> gateware -> DDR3 device ===");
@@ -287,6 +309,7 @@ module tb_chain #(
 
         /* 2. write 256 bytes, read them back */
         quad_write(32'h0000_0000, 256, 1);
+        #30_000;   /* let the write finish draining to DRAM before asking anything else */
         quad_read (32'h0000_0000, 256);
         bad = 0;
         for (i = 0; i < 256; i = i + 1)
@@ -303,14 +326,22 @@ module tb_chain #(
         end
 
         /* 3. a second block at a different address, to prove the address decode is real and not
-         *    just returning whatever was written last */
+         *    just returning whatever was written last.
+         *
+         * The gap matters and is not a fudge. A 256-byte write is 32 bursts, 5.1 us of DRAM time
+         * after chip select rises, and no dummy-cycle count can cover that -- the field caps at 255
+         * cycles. A driver issuing a large write followed immediately by a read has to leave the gap.
+         * A Teensy does this naturally, because writes reach the bridge as cache-line writebacks of
+         * 32 bytes, which drain in 640 ns against a 2.4 us window. Case 7 below checks that. */
         quad_write(32'h0000_2000, 256, 2);
+        #30_000;
         quad_read (32'h0000_2000, 256);
         bad = 0;
         for (i = 0; i < 256; i = i + 1)
             if (rdbuf[i] !== pattern(2, i)) bad = bad + 1;
         if (bad) begin
             $display("  *** second block at 0x2000: %0d of 256 bytes wrong", bad);
+            show(2, 0);
             fails = fails + 1;
         end else $display("  second block at 0x2000: all bytes match");
 
@@ -324,14 +355,42 @@ module tb_chain #(
             fails = fails + 1;
         end else $display("  first block survived the second: all bytes match");
 
-        /* 5. an unaligned address, which exercises the column offset inside a row */
-        quad_write(32'h0000_4000 + 13, 64, 3);
-        quad_read (32'h0000_4000 + 13, 64);
+        /* 5. an unaligned READ. The bridge discards the leading bytes of the first burst so that
+         *    buffer[0] is the byte actually asked for. Write aligned, read from the middle. */
+        quad_write(32'h0000_4000, 64, 3);
+        #30_000;
+        quad_read (32'h0000_4000 + 13, 32);
         bad = 0;
-        for (i = 0; i < 64; i = i + 1)
-            if (rdbuf[i] !== pattern(3, i)) bad = bad + 1;
-        if (bad) $display("  note: unaligned start, %0d of 64 bytes differ (burst granularity is 8)", bad);
-        else $display("  unaligned start at +13: all bytes match");
+        for (i = 0; i < 32; i = i + 1)
+            if (rdbuf[i] !== pattern(3, i + 13)) bad = bad + 1;
+        if (bad) begin
+            $display("  *** unaligned read at +13: %0d of 32 bytes wrong", bad);
+            show(3, 13);
+            fails = fails + 1;
+        end else $display("  unaligned read at +13: all bytes match");
+
+        /* 6. an unaligned WRITE must be REFUSED, not silently misplaced. Writing a partial burst
+         *    needs the data mask and DM is tied low here, so every byte of a burst is committed.
+         *    The bridge latches err_align and aligns down, which is visible rather than silent. */
+        quad_write(32'h0000_6000 + 3, 32, 4);
+        #30_000;
+        if (dut.br_align !== 1'b1) begin
+            $display("  *** an unaligned write was accepted without raising err_align");
+            fails = fails + 1;
+        end else $display("  unaligned write correctly flagged by err_align");
+
+        /* 7. back to back with NO gap, at the size a Teensy actually emits: a 32-byte cache line.
+         *    This is the case that has to work unaided, and the one the driver relies on. */
+        quad_write(32'h0000_8000, 32, 5);
+        quad_read (32'h0000_8000, 32);
+        bad = 0;
+        for (i = 0; i < 32; i = i + 1)
+            if (rdbuf[i] !== pattern(5, i)) bad = bad + 1;
+        if (bad) begin
+            $display("  *** 32-byte write then immediate read: %0d of 32 bytes wrong", bad);
+            show(5, 0);
+            fails = fails + 1;
+        end else $display("  32-byte write then immediate read, no gap: all bytes match");
 
         /* 6. hold long enough that only refresh can be keeping the data alive */
         $display("  holding 40 us so the refresh timer has to carry the data...");
@@ -345,6 +404,28 @@ module tb_chain #(
             fails = fails + 1;
         end else $display("  after the hold: all bytes match, refresh is carrying the array");
 
+        /* Read the device model's array directly, bypassing the whole read path, so a mismatch
+         * can be attributed to the write path or the read path rather than to "somewhere". */
+        /* QSPI address 0 decodes to bank 0, row 0, column 0: addr[9:3] is the burst within the row,
+         * addr[12:10] the bank, addr[27:13] the row. */
+        $write("  model array at bank 0 row 0 col 0..15:      ");
+        for (i = 0; i < 16; i = i + 1) $write("%02h ", mem.mem[mem.cidx(3'd0, 15'h0000, i[9:0])]);
+        $display("");
+        $write("  the pattern that was written:              ");
+        for (i = 0; i < 16; i = i + 1) $write("%02h ", pattern(1, i));
+        $display("");
+        /* Does the whole written block match, not just the first sixteen bytes? */
+        bad = 0;
+        for (i = 0; i < 256; i = i + 1)
+            if (mem.mem[mem.cidx(3'd0, 15'h0000, i[9:0])] !== pattern(1, i)) bad = bad + 1;
+        $display("  all 256 stored bytes: %0d wrong", bad);
+        for (i = 0; i < 256; i = i + 1)
+            if (mem.mem[mem.cidx(3'd0, 15'h0000, i[9:0])] !== pattern(1, i))
+                $display("    stored byte %0d: wrote %02h, array holds %02h", i,
+                         pattern(1, i), mem.mem[mem.cidx(3'd0, 15'h0000, i[9:0])]);
+        $write("  what the read path returned, bytes 0..15:   ");
+        for (i = 0; i < 16; i = i + 1) $write("%02h ", rdbuf[i]);
+        $display("");
         mem.report;
         if (fails == 0 && mem.errors == 0) $display("=== CHAIN PASSED ===");
         else $display("=== CHAIN FAILED: %0d checks, %0d protocol errors ===", fails, mem.errors);

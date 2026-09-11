@@ -82,6 +82,8 @@ module ddr3_model #(
     integer writes    = 0;
     integer reads     = 0;
     integer refreshes = 0;
+    integer short_bursts = 0;
+    integer wcmds = 0;
 
     task oops;
         input [1023:0] msg;
@@ -258,6 +260,7 @@ module ddr3_model #(
                 wq_bank[wq_wr] = ba;
                 wq_row[wq_wr]  = open_row[ba];
                 wq_col[wq_wr]  = a[COL_BITS-1:0];
+                wcmds          = wcmds + 1;
                 wq_wr          = (wq_wr + 1) % WRQ;
                 wq_cnt         = wq_cnt + 1;
             end
@@ -313,7 +316,17 @@ module ddr3_model #(
      * has properly begun. */
     reg dqs_started = 0;
 
-    always @(negedge dqs_oe) dqs_started = 0;
+    always @(negedge dqs_oe) begin
+        dqs_started = 0;
+        /* The bus was released mid-burst: fewer than eight strobe edges arrived for the word the
+         * device was still expecting. One missing byte at the end of a transfer looks like a buffer
+         * bug and is actually the controller letting go one edge early. */
+        if (wr_beat != 0) begin
+            $display("  *** %0t strobe released after only %0d of 8 beats", $realtime, wr_beat);
+            short_bursts = short_bursts + 1;
+            wr_beat = 0;
+        end
+    end
 
     task capture;
         begin

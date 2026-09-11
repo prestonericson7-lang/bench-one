@@ -255,7 +255,26 @@ module ddr3_ctrl #(
     localparam [3:0] S_RESET = 0,  S_CKE  = 1,  S_XPR   = 2,  S_MR2 = 3,
                      S_MR3   = 4,  S_MR1  = 5,  S_MR0   = 6,  S_MODW= 7,
                      S_IDLE  = 8,  S_REFW = 9,  S_RCD   = 10, S_RUN = 11,
-                     S_DRAIN = 12, S_WREC = 13, S_RPW   = 14;
+                     S_DRAIN = 12, S_WREC = 13, S_RPW   = 14, S_PREACT = 15;
+
+    /* ---- open row policy ----------------------------------------------------------------------
+     * A row is left OPEN when a run finishes. The next request pays for an ACTIVATE only if it lands
+     * somewhere else.
+     *
+     * Closing the row every time costs ACTIVATE, tRCD, PRECHARGE and tRP on every request, about
+     * twelve memory clocks or 0.48 us at 25 MHz. Against eight bursts of payload that is 1.76 us for
+     * 64 bytes, which is 36 MB/s where the data alone would be 50 -- and the link then outruns the
+     * memory and returns bytes that have not arrived yet. Keeping the row open removes that overhead
+     * entirely for sequential access, which is the only pattern that matters when the job is
+     * streaming weights.
+     *
+     * The cost is bookkeeping, and both halves of it are tRP violations if got wrong: a refresh needs
+     * every row closed first, and a request to a different row needs a PRECHARGE inserted ahead of its
+     * ACTIVATE. The device model checks tRP, so a mistake here fails the test rather than the board.
+     * -------------------------------------------------------------------------------------- */
+    reg                row_open;
+    reg [BA_BITS-1:0]  cur_bank;
+    reg [ROW_BITS-1:0] cur_row;
 
     reg [3:0]          st;
     reg [31:0]         wait_sys;
@@ -330,6 +349,7 @@ module ddr3_ctrl #(
             ddr_dq_oe <= 1'b0; ddr_dq_o <= 8'h00;
             ddr_dqs_oe <= 1'b0; ddr_dqs_o <= 1'b0;
             left <= 0; rd_due <= 0; col <= 0; is_wr <= 1'b0;
+            row_open <= 1'b0; cur_bank <= 0; cur_row <= 0;
             wb <= 0; w_run <= 1'b0; w_left <= 0; w_arm <= 1'b0; w_pre <= 0; wbuf <= 64'd0;
             dqs_pend <= 1'b0;
             rd_wait <= 0; rd_run <= 1'b0; rd_go <= 1'b0; rd_sub <= 0;
@@ -369,27 +389,63 @@ module ddr3_ctrl #(
                             /* ZQ calibration skipped deliberately: it trims output impedance and
                              * termination, and nothing is terminated at this speed. */
                             cmd <= CMD_PRE; a_next <= 16'h0400;   /* A10 = all banks */
+                            row_open <= 1'b0;
                             st <= S_RPW; wait_ck <= T_RP[9:0];
                         end
 
                 S_IDLE:
                     if (ref_owed != 0) begin
-                        cmd <= CMD_REF; ref_ack <= 1'b1;
-                        st <= S_REFW; wait_ck <= T_RFC[9:0];
+                        /* Refresh requires every row closed. Close first, refresh on the next pass. */
+                        if (row_open) begin
+                            cmd <= CMD_PRE; a_next <= 16'h0400;
+                            row_open <= 1'b0;
+                            st <= S_RPW; wait_ck <= T_RP[9:0];
+                        end else begin
+                            cmd <= CMD_REF; ref_ack <= 1'b1;
+                            st <= S_REFW; wait_ck <= T_RFC[9:0];
+                        end
                     end else if (req_valid) begin
-                        cmd     <= CMD_ACT;
-                        ba_next <= req_bank;
-                        a_next  <= {{(16-ROW_BITS){1'b0}}, req_row};
-                        col     <= {req_col[COL_BITS-1:3], 3'b000};
-                        left    <= req_len;
-                        is_wr   <= req_write;
-                        st      <= S_RCD; wait_ck <= T_RCD[9:0];
+                        col   <= {req_col[COL_BITS-1:3], 3'b000};
+                        left  <= req_len;
+                        is_wr <= req_write;
                         if (req_write) begin
-                            wbuf   <= wd_data;
+                            wbuf    <= wd_data;
                             wd_take <= 1'b1;
-                            w_left <= req_len;
+                            w_left  <= req_len;
+                        end
+                        if (row_open && req_bank == cur_bank && req_row == cur_row) begin
+                            /* Already open: straight to the column commands, no tRCD to wait out.
+                             * This is the case that carries every sequential read. */
+                            ba_next <= req_bank;
+                            st      <= S_RUN; wait_ck <= 0;
+                        end else if (row_open) begin
+                            /* A different row is open. Close it, then activate the one wanted. */
+                            cmd <= CMD_PRE; a_next <= 16'h0400;
+                            row_open <= 1'b0;
+                            st <= S_PREACT; wait_ck <= T_RP[9:0];
+                        end else begin
+                            cmd      <= CMD_ACT;
+                            ba_next  <= req_bank;
+                            a_next   <= {{(16-ROW_BITS){1'b0}}, req_row};
+                            row_open <= 1'b1;
+                            cur_bank <= req_bank;
+                            cur_row  <= req_row;
+                            st <= S_RCD; wait_ck <= T_RCD[9:0];
                         end
                     end
+
+                /* The row that was in the way is closed; now activate the one that was asked for. The
+                 * bridge is still holding the request, so its address is still valid here. */
+                S_PREACT: if (wait_ck != 0) wait_ck <= wait_ck - 1'b1;
+                          else begin
+                              cmd      <= CMD_ACT;
+                              ba_next  <= req_bank;
+                              a_next   <= {{(16-ROW_BITS){1'b0}}, req_row};
+                              row_open <= 1'b1;
+                              cur_bank <= req_bank;
+                              cur_row  <= req_row;
+                              st <= S_RCD; wait_ck <= T_RCD[9:0];
+                          end
 
                 S_REFW: if (wait_ck != 0) wait_ck <= wait_ck - 1'b1; else st <= S_IDLE;
                 S_RCD:  if (wait_ck != 0) wait_ck <= wait_ck - 1'b1; else st <= S_RUN;
@@ -426,17 +482,16 @@ module ddr3_ctrl #(
                     end
 
                 S_DRAIN:
-                    /* Let the last burst finish before closing the row. */
+                    /* Let the last burst finish, then leave the row OPEN. The next request to the same
+                     * row costs nothing at all, which is what makes sequential reads hit full rate. */
                     if (is_wr) begin
                         if (!w_run && !w_arm) begin st <= S_WREC; wait_ck <= T_WR[9:0]; end
                     end else if (rd_due == 0) begin
-                        cmd <= CMD_PRE; a_next <= 16'h0000;
-                        st <= S_RPW; wait_ck <= T_RP[9:0];
+                        st <= S_IDLE;
                     end
 
-                S_WREC: if (wait_ck != 0) wait_ck <= wait_ck - 1'b1;
-                        else begin cmd <= CMD_PRE; a_next <= 16'h0000;
-                                   st <= S_RPW; wait_ck <= T_RP[9:0]; end
+                /* tWR after the last write beat. The row stays open here too. */
+                S_WREC: if (wait_ck != 0) wait_ck <= wait_ck - 1'b1; else st <= S_IDLE;
 
                 S_RPW:  if (wait_ck != 0) wait_ck <= wait_ck - 1'b1; else st <= S_IDLE;
                 default: st <= S_IDLE;

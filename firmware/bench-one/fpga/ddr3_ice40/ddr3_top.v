@@ -28,7 +28,7 @@ module ddr3_top #(
     parameter integer CK_DIV     = 4,        /* 25 MHz memory clock: the fastest that works */
     parameter integer RD_LATENCY = 6,
     parameter integer RD_SAMPLE  = 1,
-    parameter integer LAT_CYCLES = 64,
+    parameter integer LAT_CYCLES = 200,
     parameter integer BUF_BITS   = 10,
     /* Fabric clocks to hold reset after configuration, letting the DIMM's supplies settle before
      * the controller starts counting its 200 us. Shortened in simulation, where 655 us of settling
@@ -180,7 +180,7 @@ module ddr3_top #(
     wire [COL_BITS-1:0] req_col;
     wire [7:0]          req_len;
     wire [63:0]         wd_data, rd_data;
-    wire                wd_take, rd_valid, init_done, br_idle, br_overrun;
+    wire                wd_take, rd_valid, init_done, br_idle, br_overrun, br_deferred, br_align;
 
     ddr3_bridge #(
         .ROW_BITS(ROW_BITS), .COL_BITS(COL_BITS), .BA_BITS(BA_BITS), .BUF_BITS(BUF_BITS),
@@ -193,7 +193,8 @@ module ddr3_top #(
         .req_valid(req_valid), .req_ready(req_ready), .req_write(req_write),
         .req_bank(req_bank), .req_row(req_row), .req_col(req_col), .req_len(req_len),
         .wd_data(wd_data), .wd_take(wd_take), .rd_data(rd_data), .rd_valid(rd_valid),
-        .init_done(init_done), .idle(br_idle), .err_overrun(br_overrun)
+        .init_done(init_done), .idle(br_idle), .err_overrun(br_overrun),
+        .err_deferred(br_deferred), .err_align(br_align)
     );
 
     /* ---- DDR3 controller ---- */
@@ -244,7 +245,7 @@ module ddr3_top #(
     assign led_init = init_done;
     /* Activity, or a latched overrun: if a burst ever arrived before the previous one was
      * stored, this stays lit. A silent dropped burst would look like data corruption. */
-    assign led_act  = br_overrun | ~br_idle;
+    assign led_act  = br_overrun | br_deferred | br_align | ~br_idle;
 
 endmodule
 

@@ -102,6 +102,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [37 — Scaling, and what a new chip would have to be](37-scaling-and-new-silicon.md) | |
 | [38 — DDR3 on a microcontroller](38-ddr3-on-a-microcontroller.md) | 256 MB on one Teensy, the ceilings that decide it, and why the limit turns out not to be the DRAM. **Corrected by 39** |
 | [39 — Closing timing on the DDR3 bridge](39-closing-timing-on-the-ddr3-bridge.md) | the FPGA fabric is the binding ceiling, not the DRAM or the wiring; four logic cuts, a PLL, and the DM0 contact that was missing from the wiring list |
+| [40 — Six PSRAM on one Teensy, brought up](40-psram-bank-brought-up.md) | **the first measured result in this project.** 8 MB verified at 23.7 MB/s write and 14.8 read, by hand; why the hardware controller cannot be used on this wiring; and three of my own bugs that each looked exactly like a hardware fault |
 
 ## Reference
 

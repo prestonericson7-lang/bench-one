@@ -87,9 +87,16 @@ static inline void data_in(void) { GPIO9_GDIR &= ~B_DATA; }
 static inline void put_nib(uint32_t base, uint8_t nib)
 {
     const uint32_t v = base | ((uint32_t)nib << DSHIFT);
-    GPIO9_DR = v;          spin();     /* data set up while the clock is low   */
-    GPIO9_DR = v | B_CLK;  spin();     /* rising edge: the chip latches it     */
-    GPIO9_DR = v;          spin();     /* and back down, which is not optional */
+    /* Three writes, because two does not work: dropping the explicit return to low and letting the
+     * next nibble's data write provide the falling edge fails even at 5.9 MB/s, where this is clean
+     * at 11.6. The edge and the data change must not coincide.
+     *
+     * The waiting, though, does not have to be even. Setup is a register write the chip never sees
+     * until the rising edge, so only the HIGH phase and the recovery need time. Skipping the wait
+     * after the data write costs nothing and is a third of the period. */
+    GPIO9_DR = v;
+    GPIO9_DR = v | B_CLK;  spin();     /* rising edge: the chip latches here */
+    GPIO9_DR = v;          spin();     /* and back down before the next data */
 }
 
 static inline uint8_t get_nib(uint32_t base)
@@ -225,7 +232,8 @@ static void section1(int *best_spin, float *best_rate)
     Serial.println(F("     nops   burst   write MB/s   read MB/s   wrong of 4096"));
     Serial.println(F("     ----   -----   ----------   ---------   -------------"));
 
-    static const uint32_t SPINS[] = { 800, 400, 200, 100, 50, 25, 12, 6, 3, 1, 0 };
+    /* The ceiling is at the fine end, so spend the sweep there. */
+    static const uint32_t SPINS[] = { 25, 12, 6, 4, 3, 2, 1, 0 };
     *best_spin = -1; *best_rate = 0;
     g_gap = 0;
 
@@ -267,7 +275,7 @@ static void section2(void)
 
     static const uint32_t BURSTS[] = { 4, 8, 16, 32 };
     static const uint32_t GAPS[]   = { 0, 2, 10, 50 };
-    g_spin = 3;
+    g_spin = 0;      /* run where there ARE errors, or the grid is all zeros and says nothing */
 
     for (unsigned b = 0; b < 4; b++) {
         g_burst = BURSTS[b];

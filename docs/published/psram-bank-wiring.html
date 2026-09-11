@@ -1,0 +1,589 @@
+<title>Four PSRAM Bank Wiring</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#16191c; --ink-2:#414a52; --ink-3:#6d7780;
+    --bg:#f2f0ec; --panel:#fffdfa; --panel-2:#e7e3db; --rule:#cfc9be;
+    --gnd:#2b2f33;
+    --pwr:#c1272d;
+    --clk:#d4842a;
+    --dat:#2f6fb0;
+    --cs:#6a4c93;
+    --warn:#a3321f;
+    --ok:#2d6a4a;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --disp:"Saira Condensed",system-ui,-apple-system,sans-serif;
+    --body:"Source Sans 3",system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#eae6de; --ink-2:#b3ada2; --ink-3:#857f75;
+      --bg:#15171a; --panel:#1e2125; --panel-2:#282c31; --rule:#383d43;
+      --gnd:#9aa3ab; --pwr:#e8706f; --clk:#e5a95c; --dat:#69a7de; --cs:#a98fd0;
+      --warn:#e0806a; --ok:#6cba90;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eae6de; --ink-2:#b3ada2; --ink-3:#857f75;
+    --bg:#15171a; --panel:#1e2125; --panel-2:#282c31; --rule:#383d43;
+    --gnd:#9aa3ab; --pwr:#e8706f; --clk:#e5a95c; --dat:#69a7de; --cs:#a98fd0;
+    --warn:#e0806a; --ok:#6cba90;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;
+       line-height:1.55;margin:0;padding:0 20px 80px}
+  .wrap{max-width:1040px;margin:0 auto}
+  header{padding:32px 0 18px;border-bottom:3px solid var(--ink);margin-bottom:26px}
+  h1{font-family:var(--disp);font-size:40px;line-height:1.02;margin:0 0 8px;font-weight:700;
+     letter-spacing:-.005em;text-transform:uppercase}
+  .sub{color:var(--ink-2);font-size:16.5px;margin:0;max-width:66ch}
+  h2{font-family:var(--disp);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+     font-weight:700;color:var(--ink-3);margin:40px 0 12px;padding-bottom:6px;
+     border-bottom:1px solid var(--rule)}
+  h3{font-family:var(--disp);font-size:20px;font-weight:600;margin:22px 0 6px;letter-spacing:.01em}
+  p{margin:0 0 12px;max-width:70ch}
+  .m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  b.pin{font-family:var(--mono);font-weight:600}
+
+  .stop{background:var(--panel);border:1px solid var(--warn);border-left:5px solid var(--warn);
+        padding:14px 16px;margin:18px 0}
+  .stop b{color:var(--warn);display:block;margin-bottom:4px;font-family:var(--disp);
+          font-size:17px;letter-spacing:.02em;text-transform:uppercase}
+  .stop p{margin:0 0 8px;font-size:15px}
+  .stop p:last-child{margin:0}
+
+  .board{background:var(--panel);border:1px solid var(--rule);padding:8px;margin:18px 0;
+         overflow-x:auto}
+  svg{display:block;min-width:940px}
+
+  .key{display:flex;flex-wrap:wrap;gap:6px 20px;margin:12px 0 0;font-size:14px;
+       font-family:var(--mono)}
+  .key i{display:inline-block;width:22px;height:4px;margin-right:7px;vertical-align:3px;
+         border-radius:2px}
+
+  .scroll{overflow-x:auto;margin:14px 0;border:1px solid var(--rule);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+     text-align:left;padding:9px 12px;color:var(--ink-3);background:var(--panel-2);
+     border-bottom:1px solid var(--rule);white-space:nowrap;font-weight:600}
+  td{padding:7px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.m,th.m{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .grp td{background:var(--panel-2);font-family:var(--disp);letter-spacing:.1em;
+          text-transform:uppercase;font-size:12px;font-weight:700;color:var(--ink-2)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;
+       vertical-align:0px}
+
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin:16px 0}
+  .card{background:var(--panel);border:1px solid var(--rule);padding:14px 16px}
+  .card h3{margin-top:0}
+  .card .k{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+           color:var(--ink-3);margin-bottom:3px}
+  .card .v{font-family:var(--mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+  .card .n{font-size:14.5px;color:var(--ink-2);margin-top:5px;line-height:1.45}
+
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:16px 0}
+  ol.steps>li{counter-increment:s;position:relative;padding:12px 14px 12px 48px;
+              background:var(--panel);border:1px solid var(--rule);margin-bottom:7px}
+  ol.steps>li::before{content:counter(s);position:absolute;left:14px;top:12px;
+      font-family:var(--mono);font-size:12px;font-weight:600;color:var(--panel);
+      background:var(--ink);width:21px;height:21px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center}
+  ol.steps .t{font-weight:600;margin-bottom:2px}
+  ol.steps .d{font-size:14.5px;color:var(--ink-2);line-height:1.45}
+
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+         font-size:14px;color:var(--ink-3)}
+  footer a{color:var(--clk);font-weight:600}
+  @media (max-width:560px){h1{font-size:29px} body{font-size:15px;padding:0 13px 60px}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Four PSRAM on one Teensy</h1>
+  <p class="sub">Every wire, both ends, by pin number. Four ESP-PSRAM64H chips and a 74LVC138A on
+  perfboard, sharing one chip-select line so the processor still believes it is talking to a single
+  8&nbsp;MB device.</p>
+</header>
+
+<div class="stop">
+  <b>Read this before you cut anything</b>
+  <p><b>The PSRAM already on the Teensy has to stay.</b> The Teensy core probes chip-select 0 first,
+  and if nothing answers there it <b>never probes chip-select 1 at all</b> and reports zero. Your
+  four chips would be perfectly wired and completely invisible. One chip on the underside footprint
+  is what switches the bus on.</p>
+  <p><b>Solder the fast six to the underside pads, not to a breadboard.</b> The clock and four data
+  lines need a ground beside them to return along. A breadboard gives them none, and the failure is
+  not a dead board, it is a wrong byte now and then. The decoder and the resistors can go anywhere.</p>
+</div>
+
+<h2>The board</h2>
+
+<div class="board">
+<svg viewBox="0 0 1000 660" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Layout: Teensy on the left, perfboard on the right holding a 74LVC138A decoder and four PSRAM chips">
+  <defs>
+    <style>
+      .ol{fill:none;stroke:currentColor;stroke-width:2.5}
+      .chip{fill:var(--panel-2);stroke:var(--ink);stroke-width:2}
+      .lbl{font-family:var(--disp);font-size:15px;font-weight:600;fill:var(--ink)}
+      .lblsm{font-family:var(--disp);font-size:12px;font-weight:600;fill:var(--ink-2)}
+      .pn{font-family:var(--mono);font-size:10.5px;fill:var(--ink-2)}
+      .pnb{font-family:var(--mono);font-size:11px;font-weight:600;fill:var(--ink)}
+      .w{fill:none;stroke-width:2.5;stroke-linecap:round}
+      .wt{fill:none;stroke-width:3.5;stroke-linecap:round}
+    </style>
+  </defs>
+
+  <!-- ================= TEENSY ================= -->
+  <rect x="16" y="40" width="96" height="580" rx="3" fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+  <text class="lbl" x="64" y="66" text-anchor="middle">TEENSY 4.1</text>
+  <text class="lblsm" x="64" y="82" text-anchor="middle">underside pads</text>
+
+  <!-- teensy bottom-side pads -->
+  <g>
+    <rect x="26" y="112" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="127">53</text><text class="pn" x="60" y="127">SCLK</text>
+    <rect x="26" y="140" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="155">52</text><text class="pn" x="60" y="155">IO0</text>
+    <rect x="26" y="168" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="183">49</text><text class="pn" x="60" y="183">IO1</text>
+    <rect x="26" y="196" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="211">50</text><text class="pn" x="60" y="211">IO2</text>
+    <rect x="26" y="224" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="239">54</text><text class="pn" x="60" y="239">IO3</text>
+    <rect x="26" y="252" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="34" y="267">51</text><text class="pn" x="60" y="267">SS1</text>
+  </g>
+  <text class="pn" x="26" y="292" fill="var(--ok)">48 = SS0, leave it</text>
+  <text class="pn" x="26" y="306" fill="var(--ok)">onboard chip stays</text>
+
+  <!-- teensy top-side digital pins -->
+  <text class="lblsm" x="64" y="352" text-anchor="middle">top pins</text>
+  <g>
+    <rect x="26" y="362" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="36" y="377">2</text><text class="pn" x="58" y="377">bank A</text>
+    <rect x="26" y="390" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="36" y="405">3</text><text class="pn" x="58" y="405">bank B</text>
+    <rect x="26" y="418" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="36" y="433">4</text><text class="pn" x="58" y="433">bank C</text>
+    <rect x="26" y="452" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="32" y="467" fill="var(--pwr)">3V3</text>
+    <rect x="26" y="480" width="76" height="22" fill="var(--panel-2)" stroke="var(--rule)"/>
+    <text class="pnb" x="32" y="495" fill="var(--gnd)">GND</text>
+  </g>
+
+  <!-- ================= PERFBOARD ================= -->
+  <rect x="168" y="40" width="820" height="580" rx="3" fill="none" stroke="var(--ink)" stroke-width="3"/>
+  <text class="lblsm" x="978" y="610" text-anchor="end">PERFBOARD</text>
+
+  <!-- ---- the seven shared bus rails ---- -->
+  <g>
+    <line class="wt" x1="112" y1="123" x2="930" y2="123" stroke="var(--clk)"/>
+    <line class="wt" x1="112" y1="151" x2="930" y2="151" stroke="var(--dat)"/>
+    <line class="wt" x1="112" y1="179" x2="930" y2="179" stroke="var(--dat)"/>
+    <line class="wt" x1="112" y1="207" x2="930" y2="207" stroke="var(--dat)"/>
+    <line class="wt" x1="112" y1="235" x2="930" y2="235" stroke="var(--dat)"/>
+    <line class="wt" x1="112" y1="463" x2="930" y2="463" stroke="var(--pwr)"/>
+    <line class="wt" x1="112" y1="491" x2="930" y2="491" stroke="var(--gnd)"/>
+    <!-- 22 ohm in series on the clock, at the Teensy end -->
+    <rect x="140" y="115" width="30" height="16" fill="var(--panel)" stroke="var(--clk)" stroke-width="2"/>
+    <text class="pn" x="155" y="127" text-anchor="middle" fill="var(--clk)">22R</text>
+    <text class="pn" x="196" y="113" fill="var(--clk)">SCLK rail</text>
+    <text class="pn" x="196" y="169" fill="var(--dat)">SIO0-3 rails</text>
+    <text class="pn" x="196" y="457" fill="var(--pwr)">3.3 V rail</text>
+    <text class="pn" x="196" y="509" fill="var(--gnd)">GND rail</text>
+  </g>
+
+  <!-- ---- decoder 74LVC138A ---- -->
+  <rect class="chip" x="244" y="268" width="150" height="152" rx="3"/>
+  <circle cx="256" cy="280" r="4" fill="var(--ink)"/>
+  <text class="lbl" x="319" y="336" text-anchor="middle">74LVC</text>
+  <text class="lbl" x="319" y="354" text-anchor="middle">138A</text>
+  <text class="lblsm" x="319" y="258" text-anchor="middle">DECODER</text>
+  <!-- left pins 1..8 -->
+  <g>
+    <text class="pnb" x="238" y="292" text-anchor="end">1</text><text class="pn" x="250" y="292">A</text>
+    <text class="pnb" x="238" y="308" text-anchor="end">2</text><text class="pn" x="250" y="308">B</text>
+    <text class="pnb" x="238" y="324" text-anchor="end">3</text><text class="pn" x="250" y="324">C</text>
+    <text class="pnb" x="238" y="340" text-anchor="end">4</text><text class="pn" x="250" y="340">G2A</text>
+    <text class="pnb" x="238" y="372" text-anchor="end">5</text><text class="pn" x="250" y="372">G2B</text>
+    <text class="pnb" x="238" y="388" text-anchor="end">6</text><text class="pn" x="250" y="388">G1</text>
+    <text class="pnb" x="238" y="404" text-anchor="end">7</text><text class="pn" x="250" y="404">Y7</text>
+    <text class="pnb" x="238" y="418" text-anchor="end">8</text><text class="pn" x="250" y="418">GND</text>
+  </g>
+  <!-- right pins 16..9 -->
+  <g>
+    <text class="pnb" x="400" y="292">16</text><text class="pn" x="370" y="292" text-anchor="end">VCC</text>
+    <text class="pnb" x="400" y="308">15</text><text class="pn" x="370" y="308" text-anchor="end">Y0</text>
+    <text class="pnb" x="400" y="324">14</text><text class="pn" x="370" y="324" text-anchor="end">Y1</text>
+    <text class="pnb" x="400" y="340">13</text><text class="pn" x="370" y="340" text-anchor="end">Y2</text>
+    <text class="pnb" x="400" y="356">12</text><text class="pn" x="370" y="356" text-anchor="end">Y3</text>
+    <text class="pnb" x="400" y="372">11</text><text class="pn" x="370" y="372" text-anchor="end">Y4</text>
+    <text class="pnb" x="400" y="388">10</text><text class="pn" x="370" y="388" text-anchor="end">Y5</text>
+    <text class="pnb" x="400" y="404">9</text><text class="pn" x="370" y="404" text-anchor="end">Y6</text>
+  </g>
+
+  <!-- address + enable wires into the decoder -->
+  <path class="w" d="M112 373 L200 373 L200 288 L244 288" stroke="var(--cs)"/>
+  <path class="w" d="M112 401 L208 401 L208 304 L244 304" stroke="var(--cs)"/>
+  <path class="w" d="M112 429 L216 429 L216 320 L244 320" stroke="var(--cs)"/>
+  <path class="w" d="M112 263 L228 263 L228 336 L244 336" stroke="var(--cs)"/>
+  <text class="pn" x="232" y="252" fill="var(--cs)">51 SS1</text>
+  <!-- decoder power/ground -->
+  <path class="w" d="M394 288 L418 288 L418 463" stroke="var(--pwr)"/>
+  <path class="w" d="M244 416 L226 416 L226 491" stroke="var(--gnd)"/>
+  <path class="w" d="M244 370 L234 370 L234 491" stroke="var(--gnd)"/>
+  <path class="w" d="M244 386 L240 386 L240 463" stroke="var(--pwr)"/>
+
+  <!-- pulldowns -->
+  <g>
+    <rect x="186" y="546" width="34" height="15" fill="var(--panel)" stroke="var(--cs)" stroke-width="2"/>
+    <rect x="228" y="546" width="34" height="15" fill="var(--panel)" stroke="var(--cs)" stroke-width="2"/>
+    <rect x="270" y="546" width="34" height="15" fill="var(--panel)" stroke="var(--cs)" stroke-width="2"/>
+    <text class="pn" x="203" y="558" text-anchor="middle" fill="var(--cs)">10k</text>
+    <text class="pn" x="245" y="558" text-anchor="middle" fill="var(--cs)">10k</text>
+    <text class="pn" x="287" y="558" text-anchor="middle" fill="var(--cs)">10k</text>
+    <path class="w" d="M203 546 L203 500 L200 500 L200 373" stroke="var(--cs)" opacity=".55"/>
+    <path class="w" d="M245 546 L245 505 L208 505 L208 401" stroke="var(--cs)" opacity=".55"/>
+    <path class="w" d="M287 546 L287 510 L216 510 L216 429" stroke="var(--cs)" opacity=".55"/>
+    <path class="w" d="M203 561 L203 578 L287 578 L287 561" stroke="var(--gnd)"/>
+    <path class="w" d="M245 561 L245 578" stroke="var(--gnd)"/>
+    <path class="w" d="M245 578 L245 592" stroke="var(--gnd)"/>
+    <path class="w" d="M232 592 L258 592" stroke="var(--gnd)"/>
+    <path class="w" d="M237 599 L253 599" stroke="var(--gnd)"/>
+    <text class="pn" x="310" y="560" fill="var(--cs)">pulldowns: NOT optional</text>
+  </g>
+
+  <!-- ---- four PSRAM chips ---- -->
+  <!-- chip template positions -->
+  <g id="p1">
+    <rect class="chip" x="520" y="96" width="140" height="92" rx="3"/>
+    <circle cx="532" cy="108" r="4" fill="var(--ink)"/>
+    <text class="lbl" x="590" y="140" text-anchor="middle">PSRAM 1</text>
+    <text class="lblsm" x="590" y="158" text-anchor="middle">bank 0</text>
+    <text class="pnb" x="514" y="112" text-anchor="end">1</text>
+    <text class="pnb" x="514" y="132" text-anchor="end">2</text>
+    <text class="pnb" x="514" y="152" text-anchor="end">3</text>
+    <text class="pnb" x="514" y="172" text-anchor="end">4</text>
+    <text class="pnb" x="666" y="112">8</text>
+    <text class="pnb" x="666" y="132">7</text>
+    <text class="pnb" x="666" y="152">6</text>
+    <text class="pnb" x="666" y="172">5</text>
+  </g>
+  <g id="p2">
+    <rect class="chip" x="790" y="96" width="140" height="92" rx="3"/>
+    <circle cx="802" cy="108" r="4" fill="var(--ink)"/>
+    <text class="lbl" x="860" y="140" text-anchor="middle">PSRAM 2</text>
+    <text class="lblsm" x="860" y="158" text-anchor="middle">bank 1</text>
+    <text class="pnb" x="784" y="112" text-anchor="end">1</text>
+    <text class="pnb" x="784" y="132" text-anchor="end">2</text>
+    <text class="pnb" x="784" y="152" text-anchor="end">3</text>
+    <text class="pnb" x="784" y="172" text-anchor="end">4</text>
+    <text class="pnb" x="936" y="112">8</text>
+    <text class="pnb" x="936" y="132">7</text>
+    <text class="pnb" x="936" y="152">6</text>
+    <text class="pnb" x="936" y="172">5</text>
+  </g>
+  <g id="p3">
+    <rect class="chip" x="520" y="300" width="140" height="92" rx="3"/>
+    <circle cx="532" cy="312" r="4" fill="var(--ink)"/>
+    <text class="lbl" x="590" y="344" text-anchor="middle">PSRAM 3</text>
+    <text class="lblsm" x="590" y="362" text-anchor="middle">bank 2</text>
+    <text class="pnb" x="514" y="316" text-anchor="end">1</text>
+    <text class="pnb" x="514" y="336" text-anchor="end">2</text>
+    <text class="pnb" x="514" y="356" text-anchor="end">3</text>
+    <text class="pnb" x="514" y="376" text-anchor="end">4</text>
+    <text class="pnb" x="666" y="316">8</text>
+    <text class="pnb" x="666" y="336">7</text>
+    <text class="pnb" x="666" y="356">6</text>
+    <text class="pnb" x="666" y="376">5</text>
+  </g>
+  <g id="p4">
+    <rect class="chip" x="790" y="300" width="140" height="92" rx="3"/>
+    <circle cx="802" cy="312" r="4" fill="var(--ink)"/>
+    <text class="lbl" x="860" y="344" text-anchor="middle">PSRAM 4</text>
+    <text class="lblsm" x="860" y="362" text-anchor="middle">bank 3</text>
+    <text class="pnb" x="784" y="316" text-anchor="end">1</text>
+    <text class="pnb" x="784" y="336" text-anchor="end">2</text>
+    <text class="pnb" x="784" y="356" text-anchor="end">3</text>
+    <text class="pnb" x="784" y="376" text-anchor="end">4</text>
+    <text class="pnb" x="936" y="316">8</text>
+    <text class="pnb" x="936" y="336">7</text>
+    <text class="pnb" x="936" y="356">6</text>
+    <text class="pnb" x="936" y="376">5</text>
+  </g>
+
+  <!-- chip-select wires, decoder Y0..Y3 to each chip pin 1 -->
+  <path class="w" d="M394 304 L440 304 L440 74 L508 74 L508 108 L520 108" stroke="var(--cs)"/>
+  <path class="w" d="M394 320 L448 320 L448 66 L778 66 L778 108 L790 108" stroke="var(--cs)"/>
+  <path class="w" d="M394 336 L456 336 L456 278 L508 278 L508 312 L520 312" stroke="var(--cs)"/>
+  <path class="w" d="M394 352 L464 352 L464 270 L778 270 L778 312 L790 312" stroke="var(--cs)"/>
+  <text class="pn" x="444" y="60" fill="var(--cs)">Y0</text>
+  <text class="pn" x="470" y="264" fill="var(--cs)">Y2 / Y3</text>
+
+  <!-- bus stubs into each chip. left side pins 2,3,4 ; right side pins 8,7,6,5 -->
+  <g stroke-linecap="round">
+    <!-- PSRAM 1 -->
+    <path class="w" d="M520 128 L500 128 L500 179 " stroke="var(--dat)"/>
+    <path class="w" d="M520 148 L492 148 L492 207" stroke="var(--dat)"/>
+    <path class="w" d="M520 168 L484 168 L484 491" stroke="var(--gnd)"/>
+    <path class="w" d="M660 108 L676 108 L676 463" stroke="var(--pwr)"/>
+    <path class="w" d="M660 128 L684 128 L684 235" stroke="var(--dat)"/>
+    <path class="w" d="M660 148 L692 148 L692 123" stroke="var(--clk)"/>
+    <path class="w" d="M660 168 L700 168 L700 151" stroke="var(--dat)"/>
+    <!-- PSRAM 2 -->
+    <path class="w" d="M790 128 L770 128 L770 179" stroke="var(--dat)"/>
+    <path class="w" d="M790 148 L762 148 L762 207" stroke="var(--dat)"/>
+    <path class="w" d="M790 168 L754 168 L754 491" stroke="var(--gnd)"/>
+    <path class="w" d="M930 108 L946 108 L946 463" stroke="var(--pwr)"/>
+    <path class="w" d="M930 128 L954 128 L954 235" stroke="var(--dat)"/>
+    <path class="w" d="M930 148 L962 148 L962 123" stroke="var(--clk)"/>
+    <path class="w" d="M930 168 L970 168 L970 151" stroke="var(--dat)"/>
+    <!-- PSRAM 3 -->
+    <path class="w" d="M520 332 L500 332 L500 179" stroke="var(--dat)"/>
+    <path class="w" d="M520 352 L492 352 L492 207" stroke="var(--dat)"/>
+    <path class="w" d="M520 372 L484 372 L484 491" stroke="var(--gnd)"/>
+    <path class="w" d="M660 312 L676 312 L676 463" stroke="var(--pwr)"/>
+    <path class="w" d="M660 332 L684 332 L684 235" stroke="var(--dat)"/>
+    <path class="w" d="M660 352 L692 352 L692 123" stroke="var(--clk)"/>
+    <path class="w" d="M660 372 L700 372 L700 151" stroke="var(--dat)"/>
+    <!-- PSRAM 4 -->
+    <path class="w" d="M790 332 L770 332 L770 179" stroke="var(--dat)"/>
+    <path class="w" d="M790 352 L762 352 L762 207" stroke="var(--dat)"/>
+    <path class="w" d="M790 372 L754 372 L754 491" stroke="var(--gnd)"/>
+    <path class="w" d="M930 312 L946 312 L946 463" stroke="var(--pwr)"/>
+    <path class="w" d="M930 332 L954 332 L954 235" stroke="var(--dat)"/>
+    <path class="w" d="M930 352 L962 352 L962 123" stroke="var(--clk)"/>
+    <path class="w" d="M930 372 L970 372 L970 151" stroke="var(--dat)"/>
+  </g>
+
+  <!-- 100nF per chip, drawn between pin 8 and pin 4 -->
+  <g>
+    <rect x="470" y="196" width="40" height="15" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/>
+    <text class="pn" x="490" y="208" text-anchor="middle">104</text>
+    <rect x="740" y="196" width="40" height="15" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/>
+    <text class="pn" x="760" y="208" text-anchor="middle">104</text>
+    <rect x="470" y="400" width="40" height="15" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/>
+    <text class="pn" x="490" y="412" text-anchor="middle">104</text>
+    <rect x="740" y="400" width="40" height="15" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/>
+    <text class="pn" x="760" y="412" text-anchor="middle">104</text>
+    <rect x="420" y="296" width="40" height="15" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/>
+    <text class="pn" x="440" y="308" text-anchor="middle">104</text>
+    <text class="pn" x="470" y="440" fill="var(--ink-3)">one 100 nF per chip, pin 8 to pin 4, AT the chip</text>
+  </g>
+</svg>
+</div>
+
+<div class="key">
+  <span><i style="background:var(--clk)"></i>SCLK, one rail</span>
+  <span><i style="background:var(--dat)"></i>SIO0&ndash;3, four rails</span>
+  <span><i style="background:var(--cs)"></i>chip select, one per chip</span>
+  <span><i style="background:var(--pwr)"></i>3.3 V</span>
+  <span><i style="background:var(--gnd)"></i>ground</span>
+</div>
+
+<p style="margin-top:14px">Seven signals are <b>shared rails</b>: run them as continuous columns down
+the perfboard and drop a short stub into each chip. Only pin&nbsp;1 is different on every chip, and
+that is the whole point of the decoder.</p>
+
+<h2>The four chips, and what you get</h2>
+<div class="cols">
+  <div class="card">
+    <div class="k">Installed</div>
+    <div class="v">40 MB</div>
+    <div class="n">Four chips of 8&nbsp;MB on the perfboard plus the 8&nbsp;MB already on the Teensy.</div>
+  </div>
+  <div class="card">
+    <div class="k">Addressable at once</div>
+    <div class="v">16 MB</div>
+    <div class="n">The onboard chip is always there. The bank appears as a second 8&nbsp;MB window, and
+    the three address pins choose which of the four answers inside it.</div>
+  </div>
+  <div class="card">
+    <div class="k">Speed</div>
+    <div class="v">unchanged</div>
+    <div class="n">The decoder sits only in the chip-select path. The clock and data go straight
+    through, so a banked chip runs at the same rate as an onboard one.</div>
+  </div>
+</div>
+
+<h2>The wire list</h2>
+<p>Twenty-seven wires. Work down the table and tick them off.</p>
+
+<div class="scroll"><table>
+<thead><tr><th class="m">#</th><th>from</th><th>to</th><th>notes</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">The shared bus &mdash; Teensy underside pads to the rails</td></tr>
+<tr><td class="m">1</td><td class="m">Teensy pad 53</td><td class="m">SCLK rail</td>
+    <td><b>22&nbsp;&#8486; in series, at the Teensy end.</b> Marked <span class="m">220</span>. Damps the
+    reflection from hanging four loads on one clock. Leave it out and you get occasional wrong bytes,
+    not a dead board, which is far harder to find.</td></tr>
+<tr><td class="m">2</td><td class="m">Teensy pad 52</td><td class="m">SIO0 rail</td><td></td></tr>
+<tr><td class="m">3</td><td class="m">Teensy pad 49</td><td class="m">SIO1 rail</td><td></td></tr>
+<tr><td class="m">4</td><td class="m">Teensy pad 50</td><td class="m">SIO2 rail</td><td></td></tr>
+<tr><td class="m">5</td><td class="m">Teensy pad 54</td><td class="m">SIO3 rail</td><td></td></tr>
+<tr><td class="m">6</td><td class="m">Teensy 3.3 V</td><td class="m">3.3 V rail</td><td></td></tr>
+<tr><td class="m">7</td><td class="m">Teensy GND</td><td class="m">GND rail</td>
+    <td>Run a second ground wire <b>loose inside the bundle</b> with wires 1&ndash;5. That is the
+    return path, and without one beside them the fast lines ring.</td></tr>
+
+<tr class="grp"><td colspan="4">The decoder &mdash; 74LVC138A</td></tr>
+<tr><td class="m">8</td><td class="m">Teensy pad 51 (SS1)</td><td class="m">decoder pin 4 &mdash; G2A</td>
+    <td><b>This is the trick.</b> The decoder only pulls an output low when that enable is low, so the
+    chip select your PSRAM sees is the controller's own signal with the controller's own timing,
+    steered to one chip. You are routing a real chip select, not faking one in software.</td></tr>
+<tr><td class="m">9</td><td class="m">Teensy pin 2</td><td class="m">decoder pin 1 &mdash; A</td><td>plus wire 15</td></tr>
+<tr><td class="m">10</td><td class="m">Teensy pin 3</td><td class="m">decoder pin 2 &mdash; B</td><td>plus wire 16</td></tr>
+<tr><td class="m">11</td><td class="m">Teensy pin 4</td><td class="m">decoder pin 3 &mdash; C</td>
+    <td>Stays low with four chips. Wire it anyway so a fifth and sixth chip cost no rework.</td></tr>
+<tr><td class="m">12</td><td class="m">decoder pin 5 &mdash; G2B</td><td class="m">GND</td><td></td></tr>
+<tr><td class="m">13</td><td class="m">decoder pin 6 &mdash; G1</td><td class="m">3.3 V</td><td></td></tr>
+<tr><td class="m">14</td><td class="m">decoder pin 16 &mdash; VCC</td><td class="m">3.3 V</td>
+    <td>100&nbsp;nF to ground right at this pin</td></tr>
+<tr><td class="m">&mdash;</td><td class="m">decoder pin 8 &mdash; GND</td><td class="m">GND</td><td>counted with wire 12</td></tr>
+<tr><td class="m">15</td><td class="m">decoder pin 1 &mdash; A</td><td class="m">GND</td><td><b>10 k&#8486; resistor.</b> Not optional, see below</td></tr>
+<tr><td class="m">16</td><td class="m">decoder pin 2 &mdash; B</td><td class="m">GND</td><td><b>10 k&#8486; resistor</b></td></tr>
+<tr><td class="m">17</td><td class="m">decoder pin 3 &mdash; C</td><td class="m">GND</td><td><b>10 k&#8486; resistor</b></td></tr>
+
+<tr class="grp"><td colspan="4">Chip selects &mdash; one wire per chip, and the only wire that differs</td></tr>
+<tr><td class="m">18</td><td class="m">decoder pin 15 &mdash; Y0</td><td class="m">PSRAM 1 pin 1</td><td>bank 0</td></tr>
+<tr><td class="m">19</td><td class="m">decoder pin 14 &mdash; Y1</td><td class="m">PSRAM 2 pin 1</td><td>bank 1</td></tr>
+<tr><td class="m">20</td><td class="m">decoder pin 13 &mdash; Y2</td><td class="m">PSRAM 3 pin 1</td><td>bank 2</td></tr>
+<tr><td class="m">21</td><td class="m">decoder pin 12 &mdash; Y3</td><td class="m">PSRAM 4 pin 1</td><td>bank 3</td></tr>
+
+<tr class="grp"><td colspan="4">Each PSRAM onto the rails &mdash; identical for all four chips</td></tr>
+<tr><td class="m">22</td><td class="m">pin 2 &mdash; SIO1</td><td class="m">SIO1 rail</td><td rowspan="6">
+    Six stubs per chip, so twenty-four short wires. Keep every one of them <b>under 50 mm and all the
+    same length.</b> 30 AWG wire-wrap wire.</td></tr>
+<tr><td class="m">23</td><td class="m">pin 3 &mdash; SIO2</td><td class="m">SIO2 rail</td></tr>
+<tr><td class="m">24</td><td class="m">pin 4 &mdash; VSS</td><td class="m">GND rail</td></tr>
+<tr><td class="m">25</td><td class="m">pin 5 &mdash; SIO0</td><td class="m">SIO0 rail</td></tr>
+<tr><td class="m">26</td><td class="m">pin 6 &mdash; SCLK</td><td class="m">SCLK rail</td></tr>
+<tr><td class="m">27</td><td class="m">pin 7 &mdash; SIO3</td><td class="m">SIO3 rail</td></tr>
+<tr><td class="m">&mdash;</td><td class="m">pin 8 &mdash; VCC</td><td class="m">3.3 V rail</td>
+    <td>and a 100&nbsp;nF from this pin straight across to pin 4</td></tr>
+</tbody>
+</table></div>
+
+<h2>The two chip pinouts, so you never have to look them up</h2>
+<div class="cols">
+  <div class="card">
+    <h3>ESP-PSRAM64H</h3>
+    <p style="font-size:14.5px;color:var(--ink-2);margin-bottom:8px">Dot in the corner marks pin 1.
+    Numbering runs down that side and back up the other.</p>
+    <div class="scroll" style="margin:0"><table>
+      <thead><tr><th class="m">pin</th><th>name</th><th>goes to</th></tr></thead>
+      <tbody>
+      <tr><td class="m">1</td><td class="m">CE#</td><td><span class="dot" style="background:var(--cs)"></span>its own decoder output</td></tr>
+      <tr><td class="m">2</td><td class="m">SIO1</td><td><span class="dot" style="background:var(--dat)"></span>rail</td></tr>
+      <tr><td class="m">3</td><td class="m">SIO2</td><td><span class="dot" style="background:var(--dat)"></span>rail</td></tr>
+      <tr><td class="m">4</td><td class="m">VSS</td><td><span class="dot" style="background:var(--gnd)"></span>ground</td></tr>
+      <tr><td class="m">5</td><td class="m">SIO0</td><td><span class="dot" style="background:var(--dat)"></span>rail</td></tr>
+      <tr><td class="m">6</td><td class="m">SCLK</td><td><span class="dot" style="background:var(--clk)"></span>rail</td></tr>
+      <tr><td class="m">7</td><td class="m">SIO3</td><td><span class="dot" style="background:var(--dat)"></span>rail</td></tr>
+      <tr><td class="m">8</td><td class="m">VCC</td><td><span class="dot" style="background:var(--pwr)"></span>3.3 V</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>74LVC138A</h3>
+    <p style="font-size:14.5px;color:var(--ink-2);margin-bottom:8px">Notch or dot at the pin&nbsp;1 end.
+    Down the left side 1 to 8, up the right side 9 to 16.</p>
+    <div class="scroll" style="margin:0"><table>
+      <thead><tr><th class="m">pin</th><th>name</th><th>goes to</th></tr></thead>
+      <tbody>
+      <tr><td class="m">1</td><td class="m">A</td><td>Teensy 2, plus 10 k to GND</td></tr>
+      <tr><td class="m">2</td><td class="m">B</td><td>Teensy 3, plus 10 k to GND</td></tr>
+      <tr><td class="m">3</td><td class="m">C</td><td>Teensy 4, plus 10 k to GND</td></tr>
+      <tr><td class="m">4</td><td class="m">G2A</td><td><b>Teensy pad 51, SS1</b></td></tr>
+      <tr><td class="m">5</td><td class="m">G2B</td><td>ground</td></tr>
+      <tr><td class="m">6</td><td class="m">G1</td><td>3.3 V</td></tr>
+      <tr><td class="m">7</td><td class="m">Y7</td><td>unused</td></tr>
+      <tr><td class="m">8</td><td class="m">GND</td><td>ground</td></tr>
+      <tr><td class="m">9</td><td class="m">Y6</td><td>unused</td></tr>
+      <tr><td class="m">10</td><td class="m">Y5</td><td>unused, spare chip</td></tr>
+      <tr><td class="m">11</td><td class="m">Y4</td><td>unused, spare chip</td></tr>
+      <tr><td class="m">12</td><td class="m">Y3</td><td>PSRAM 4 pin 1</td></tr>
+      <tr><td class="m">13</td><td class="m">Y2</td><td>PSRAM 3 pin 1</td></tr>
+      <tr><td class="m">14</td><td class="m">Y1</td><td>PSRAM 2 pin 1</td></tr>
+      <tr><td class="m">15</td><td class="m">Y0</td><td>PSRAM 1 pin 1</td></tr>
+      <tr><td class="m">16</td><td class="m">VCC</td><td>3.3 V, 100 nF to ground here</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+<h2>Passives, all of them</h2>
+<div class="scroll"><table>
+<thead><tr><th class="m">qty</th><th>part</th><th>where</th><th>why</th></tr></thead>
+<tbody>
+<tr><td class="m">4</td><td class="m">100 nF &middot; 104</td><td>each PSRAM, pin 8 to pin 4</td>
+    <td>As close to the chip as it will go. Not back at the rail.</td></tr>
+<tr><td class="m">1</td><td class="m">100 nF &middot; 104</td><td>decoder pin 16 to pin 8</td><td></td></tr>
+<tr><td class="m">1</td><td class="m">10 &micro;F</td><td>anywhere on the 3.3 V rail</td><td>Bulk, for the whole board.</td></tr>
+<tr><td class="m">1</td><td class="m">22 &#8486; &middot; 220</td><td>in series on SCLK, <b>at the Teensy end</b></td>
+    <td>Damps the reflection from four loads on one clock line.</td></tr>
+<tr><td class="m">3</td><td class="m">10 k&#8486; &middot; 103</td><td>decoder pins 1, 2, 3 each to ground</td>
+    <td>The pulldowns. See the next section.</td></tr>
+</tbody>
+</table></div>
+<p>Current is not a concern: one chip is selected at a time, so roughly 35&nbsp;mA active plus about a
+milliamp of standby across the others. The Teensy's regulator has 250&nbsp;mA spare.</p>
+
+<h2>Three things that will waste your evening</h2>
+
+<h3>The pulldowns are not optional</h3>
+<p>The Teensy core probes the bus <b>before your code runs</b>, so whichever bank the address pins
+happen to select at power-on is the one it finds. Floating pins can select a decoder output with no
+chip on it, nothing answers, and the core reports 8&nbsp;MB instead of 16. That looks exactly like a
+bad solder joint and will send you reflowing a board that was fine. Three 10&nbsp;k resistors hold bank
+0 selected at boot and the problem disappears.</p>
+
+<h3>Get the LVC part, not the HC part</h3>
+<p>The decoder is only in the chip-select path, so whatever it takes to propagate arrives as the chip
+select being <b>late</b> against a clock that went straight through.</p>
+<div class="scroll"><table>
+<thead><tr><th>part</th><th class="m">delay at 3.3 V</th><th>against one 88 MHz clock of 11.4 ns</th></tr></thead>
+<tbody>
+<tr><td class="m">74HC138</td><td class="m">~30 ns</td><td>nearly three clocks late</td></tr>
+<tr><td class="m">74LVC138A</td><td class="m">~5 ns</td><td>under half a clock</td></tr>
+</tbody></table></div>
+<p>With an HC part the first read of every burst is taken while no chip is listening. If an HC is all
+you have, the sketch can raise the chip-select setup time to cover it at a cost of about one percent
+of bandwidth, which is in the code and commented. Halving the bus clock also works and costs 63%.</p>
+
+<h3>The cache will lie to you</h3>
+<p>The upper 8&nbsp;MB is a window, and whichever bank the address pins select is what appears in it.
+Switch banks without telling the cache and the processor hands you <b>the previous bank's data</b>,
+with no error and no warning. Plausible wrong numbers, which is the worst failure there is. The flush
+lives inside the bank-select function in the sketch so it cannot be forgotten.</p>
+
+<h2>Bring-up, in an order that cannot mislead you</h2>
+<ol class="steps">
+  <li><div class="t">Meter the board with no Teensy attached</div>
+     <div class="d">3.3 V rail to ground: not a short. Every PSRAM pin 8 to the 3.3 V rail: continuous.
+     Every pin 4 to ground: continuous. Each chip's pin 1 to its own decoder output, and to
+     <b>nothing else</b>.</div></li>
+  <li><div class="t">Power the board alone and check the decoder</div>
+     <div class="d">With A, B and C all low, decoder pin 15 should be the only output near 0 V and the
+     rest near 3.3 V. Drive A high by hand and pin 14 should take over.</div></li>
+  <li><div class="t">Attach the Teensy and just look at the reported size</div>
+     <div class="d">Run the bank sketch. It prints what the core found before it tests anything. You
+     want 16 MB: 8 onboard, 8 for the bank. Anything less and the list of causes is printed for you,
+     in order of likelihood.</div></li>
+  <li><div class="t">Then run the bank test, which is built to be hard to fool</div>
+     <div class="d">It writes <b>every</b> bank before reading <b>any</b>. Writing and reading one bank
+     at a time passes with the decoder disconnected, because the data never leaves cache. Written this
+     way, a dead decoder means all four writes hit the same chip and three banks fail.</div></li>
+</ol>
+
+<footer>
+  <p style="margin:0 0 12px;font-size:15px;color:var(--ink-2)">
+    This build and the rest of the machine on
+    <a href="https://www.youtube.com/@littlebrainsbigmess">Little Brains Big Mess</a>.
+  </p>
+  Pin numbers are from the ESP-PSRAM64H and 74x138 datasheets. The chip-select probe order comes from
+  the Teensy core's own <span class="m">startup.c</span>, which calls the chip-select 0 probe first and
+  skips chip-select 1 entirely when it returns zero. Propagation delays are datasheet typicals at
+  3.3&nbsp;V. Nothing on this page has been built yet: it is a design to check, not a design to trust.
+</footer>
+</div>

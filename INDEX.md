@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**424 tracked files.** This page exists so you never have to guess which directory something is in.
+**425 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -22,6 +22,7 @@ If you know what you want, use the table. If you do not, start at
 | Put 256 MB of DDR3 on a microcontroller | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) |
 | Wire the DDR3 up tonight | **[WIRING.md](firmware/bench-one/fpga/ddr3_ice40/WIRING.md)** — every wire, both ends, and the part in between. Read [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) first |
 | Flash an FPGA once it arrives | `openFPGALoader -b cu firmware/bench-one/fpga/ddr3_ice40/bitstreams/cfgA.bin` |
+| Wire four PSRAM onto a Teensy | the [bank wiring sheet](https://claude.ai/code/artifact/45fa2229-3517-411a-8129-e652d17b0277) — board view, pinouts and all 27 wires — and [docs/22](docs/22-psram-bank-wiring.md) for the seven-chip version |
 | See the numbers taken off real boards | [docs/19](docs/19-measured-hardware.md), [docs/23](docs/23-real-runtime-measured.md), [tests/results/](firmware/bench-one/tests/results/) |
 | Build and flash something | [firmware/bench-one/tests/](firmware/bench-one/tests/) — one directory per experiment, each self-contained |
 | Wire the whole stack | [docs/10 — build sheet](docs/10-build-sheet.md) |

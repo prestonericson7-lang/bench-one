@@ -40,34 +40,41 @@
  *  data and return whatever the buffer held before. Eight DDR3 data lines deliver 8 bytes every four
  *  memory clocks, and four FlexSPI lines carry half a byte per clock:
  *
- *      memory clock   DDR3 supplies   link must be under   FlexSPI setting
- *       6.25 MHz       12.5 MB/s       25 MHz               unreachable, see MEM_MHZ 6
- *      12.50 MHz       25.0 MB/s       50 MHz               49.5 MHz
- *      25.00 MHz       50.0 MB/s      100 MHz               88 MHz, for margin
+ *      memory clock   DDR3 supplies   link may consume   how to get there
+ *       6.25  MHz      12.5  MB/s      10.9 MB/s          ONE line at 49.5 MHz = 6.19,  ratio 2.02
+ *      12.50  MHz      25.0  MB/s      21.7 MB/s          nothing at all: see MEM_KHZ 12500
+ *      15.625 MHz      31.25 MB/s      27.2 MB/s          four lines at 49.5 MHz = 24.75, ratio 1.26
  *
- *  "At least as fast" is not enough: it has to be FASTER, because every DRAM request carries some
- *  fixed overhead no matter how the chunks are sized. Pairing a 99 MHz link with a 25 MHz memory is
- *  49.5 MB/s against 50 and the end-to-end simulation fails; 88 MHz is 44 against 50 and it passes.
+ *  "At least as fast" is not enough: it has to be FASTER, because every DRAM request carries fixed
+ *  overhead no matter how the chunks are sized. Take 15% as the floor. A 99 MHz link against a 25 MHz
+ *  memory is 49.5 MB/s against 50, and the end-to-end simulation fails outright.
  *
- *  The slowest FlexSPI2 can run is 49.5 MHz, its slowest source divided by eight. That is why a
- *  6.25 MHz memory clock needs short transactions instead: the link cannot be slowed to match it, so
- *  each transaction is made small enough that the dummy window covers the whole fetch.
+ *  WHAT SETS THE MEMORY CLOCK is not the DIMM -- with the DLL disabled it accepts anything from 8 ns
+ *  to 7.8 us -- but the FPGA fabric. The Alchitry Cu's oscillator is 100 MHz and the gateware does
+ *  not close there: measured across eight placer seeds it lands between 81.5 and 97.4 MHz, so the
+ *  best seed nearly makes it, and a bitstream that works because of a lucky seed is not a bitstream.
+ *  The gateware therefore takes sys_clk from the PLL at 50 or 62.5 MHz, and the memory clock is
+ *  sys_clk divided by CK_DIV, which cannot go below 4. Hence 6.25 and 15.625 MHz, and nothing rounder.
+ *
+ *  The slowest FlexSPI2 can run is 49.5 MHz, its slowest source divided by eight. BOTH configurations
+ *  here use exactly that, and differ only in how many data lines they use.
  *
  *  EXPECTED RESULTS, from the cost model that already predicts the PSRAM number
  *  --------------------------------------------------------------------------
  *  Reading and unpacking ADD on a CPU; only fabric overlaps them. With the measured 39.3 MB/s unpack
  *  rate, effective throughput is 1/(1/read + 1/unpack):
  *
- *      PSRAM            33.9 raw -> 18.2 effective    (this matches the measured 18.2, which is the
- *      12.5 MHz memory  25.0 raw -> 15.3 effective     reason the model is trusted for the rest)
- *      25 MHz memory    50.0 raw -> 22.0 effective
- *      link-limited     66.5 raw -> 24.7 effective
- *      infinite link             -> 39.3 effective
+ *      PSRAM             33.9 raw -> 18.2 effective   (this matches the MEASURED 18.2, which is the
+ *      cfgA, one line     6.19 raw ->  5.4 effective    only reason the model is trusted for the rest)
+ *      cfgB, four lines  24.75 raw -> 15.2 effective
+ *      link-limited      66.5 raw -> 24.7 effective
+ *      infinite link              -> 39.3 effective
  *
- *  So first light is SLOWER than the PSRAM, and that is fine: it is proving 256 MB works at all.
- *  Speed arrives with the faster translators. And note where it stops: past about 66 MB/s the
- *  Teensy's own nibble unpacking is the wall and more bus speed buys nothing, so the next real win
- *  after that is in the unpack kernel, not the memory.
+ *  BE CLEAR ABOUT WHAT THIS BUYS. The fast configuration is 15.2 MB/s against the PSRAM's measured
+ *  18.2. THE DDR3 BANK IS NOT FASTER THAN THE PSRAM and was never going to be -- the ceiling is the
+ *  Teensy's own nibble unpacking at 39.3 MB/s, and the link and the unpacker share that by
+ *  reciprocals. What it buys is CAPACITY: 256 MB against 8 MB, a factor of 32, at roughly unchanged
+ *  bandwidth. Past about 66 MB/s of link the unpack kernel is the only thing left to improve.
  *
  *  CAPACITY
  *  --------
@@ -83,74 +90,85 @@
 #include <Arduino.h>
 
 /* ============================================================================================
- *  SECTION 1 -- configuration. MEM_MHZ must match what the bitstream was built for.
+ *  SECTION 1 -- configuration. MEM_KHZ must match what the bitstream was built for.
  * ========================================================================================= */
 
-/* The gateware's CK_DIV as a memory clock in MHz: 6 means CK_DIV 16, 12 means 8, 25 means 4. */
-#define MEM_MHZ          6
+/* ============================================================================================
+ *  THE TWO CONFIGURATIONS. MEM_KHZ must match the bitstream, and the sketch checks that it does by
+ *  reading CK_DIV back out of the gateware identity word before it touches any data.
+ *
+ *      MEM_KHZ   gateware build   sys_clk    CK_DIV   data lines   line rate    translator
+ *       6250     build/cfgA.bin   50.0 MHz      8     1 (single)   12.5  Mb/s   TXB0108 is fine
+ *      15625     build/cfgB.bin   62.5 MHz      4     4 (quad)     31.25 Mb/s   needs SN74AVC8T245
+ *
+ *  Kilohertz, not megahertz, because neither real clock is a whole number of megahertz and rounding
+ *  15.625 down to 15 puts the rate-rule check below on the wrong side of the line.
+ * ========================================================================================= */
+#define MEM_KHZ          6250
 
-#if   MEM_MHZ == 25
-  /* 79.2 MHz is 39.6 MB/s against 50 MB/s of memory, a 21% margin, and it is the fastest setting
-   * verified end to end. 88 and 99 MHz were both tried: 99 is 49.5 against 50 and fails outright,
-   * and 88 is 44 against 50, which is closer to the edge than anything simulated. */
-  #define FLEXSPI_MHZ    79
+#if   MEM_KHZ == 6250
+  /* FIRST LIGHT, AND THE ONLY CONFIGURATION THAT WORKS WITH WEAK LEVEL TRANSLATORS.
+   *
+   * Four data lines cannot be used here. FlexSPI2 bottoms out at 49.5 MHz, which on four lines
+   * consumes 24.75 MB/s, and a 6.25 MHz memory delivers 12.5 -- the link outruns it two to one, and
+   * no dummy count fixes a sustained rate. ONE line at the same clock consumes 6.19 MB/s, which
+   * leaves a factor of two in hand.
+   *
+   * The payoff is the data lines. DDR3 data is double rate, so 6.25 MHz means 12.5 Mb/s, inside a
+   * TXB0108 20-to-100 Mbps rating. At 15.625 MHz it is 31.25 Mb/s and it is not. So this
+   * configuration is slow -- about a third of the onboard PSRAM -- and it proves 256 MB of DDR3 works
+   * using parts most people already own.
+   *
+   * SINGLE_BIT switches the read LUT to one pin. Writes stay in quad mode: they are rare, they are
+   * not rate critical, and the write path has the whole transaction to drain. */
+  #define CK_DIV         8
+  #define FLEXSPI_MHZ    50     /* 396/8 = 49.5 MHz. Named 50 because 50 is what the divisor asks for. */
   #define FPGA_DUMMY     200
-  #define AHB_BUFSZ      32     /* 256-byte transactions; must stay under the gateware's RD_AHEAD */
+  #define AHB_BUFSZ      32     /* 256-byte transactions; must stay under the gateware RD_AHEAD */
+  #define SINGLE_BIT     1
+  #define GATEWARE_BIN   "build/cfgA.bin"
 
-#elif MEM_MHZ == 12
-  /* THIS CONFIGURATION CANNOT WORK, and the compiler stops here rather than letting it be wired.
+#elif MEM_KHZ == 15625
+  /* THE FAST CONFIGURATION. Four lines at the same 49.5 MHz consume 24.75 MB/s against 31.25 MB/s of
+   * memory: a 26% margin, the rate rule satisfied with room to spare.
    *
-   * A 12.5 MHz memory clock delivers 25 MB/s on eight data lines. The slowest FlexSPI2 can be made to
-   * run is 49.5 MHz, its slowest source divided by eight, which consumes 24.75 MB/s. That is a 1%
-   * margin, and 1% is not a margin: every DRAM request carries fixed overhead, so the reader catches
-   * up and returns bytes that have not arrived. The end-to-end simulation fails three of its seven
-   * cases at exactly this pairing, and passes at 41.7 MB/s -- a link speed FlexSPI2 cannot reach.
-   *
-   * Use MEM_MHZ 25. If the level translators cannot carry 50 Mb/s data lines, the fix is a wider DDR3
-   * bus, not a slower one: see the note on MEM_MHZ 6. */
-  #error "MEM_MHZ 12 is unreachable: the FlexSPI2 clock floor of 49.5 MHz outruns a 12.5 MHz memory"
-
-#elif MEM_MHZ == 6
-  /* THE SLOW PATH, AND THE ONLY ONE THAT WORKS WITH WEAK LEVEL TRANSLATORS.
-   *
-   * Four data lines cannot be used here. FlexSPI2's slowest clock is 49.5 MHz, which on four lines
-   * consumes 24.75 MB/s, and a 6.25 MHz memory delivers 12.5 -- the link outruns it two to one and no
-   * dummy count fixes a sustained rate. ONE line at the same clock consumes 6.2 MB/s, which leaves a
-   * factor of two in hand.
-   *
-   * The payoff is the data lines: 6.25 MHz means 12.5 Mb/s, inside a TXB0108's rating, where 25 MHz
-   * means 50 Mb/s and is not. So this configuration is slow -- about a fifth of the onboard PSRAM --
-   * and it proves 256 MB of DDR3 works using only translators most people already own.
-   *
-   * SINGLE_BIT switches the read LUT to one pin. Writes stay in quad mode: they are rare, they are not
-   * rate-critical, and the write path has the whole transaction to drain. */
+   * This needs REAL level translators on the ten bidirectional lines. 31.25 Mb/s is outside the part
+   * of a TXB0108 range you would want to rely on. SN74AVC8T245, direction driven from the FPGA. A
+   * 74LVC8T245 will not do: its VCCB floor is 1.65 V and the DIMM is 1.5 V. */
+  #define CK_DIV         4
   #define FLEXSPI_MHZ    50
   #define FPGA_DUMMY     200
   #define AHB_BUFSZ      32
-  #define SINGLE_BIT     1
+  #define SINGLE_BIT     0
+  #define GATEWARE_BIN   "build/cfgB.bin"
+
+#elif MEM_KHZ == 12500
+  /* THIS CONFIGURATION CANNOT WORK, and the compiler stops here rather than letting it be wired.
+   *
+   * 12.5 MHz delivers 25 MB/s on eight data lines. The slowest FlexSPI2 can be made to run is
+   * 49.5 MHz, which on four lines consumes 24.75 MB/s. That is 1% of margin, and 1% is not a margin:
+   * every DRAM request carries fixed overhead, so the reader catches up and returns bytes that have
+   * not arrived yet. Dropping to a single line instead wastes three quarters of the link for nothing,
+   * because 15625 runs four lines at the very same clock.
+   *
+   * Use 15625 if you have the translators for it, 6250 if you do not. */
+  #error "MEM_KHZ 12500 is unreachable: four lines at the FlexSPI2 49.5 MHz floor leave 1% of margin"
 
 #else
-  #error "MEM_MHZ must be 25, and must match the gateware's CK_DIV of 4"
-#endif
-
-/* A belt-and-braces check on the rule above, in case someone edits the numbers rather than the mode.
- * Memory delivers 8 bytes per 4 memory clocks, so 2 * MEM_MHZ megabytes per second. The link carries
- * half a byte per clock, so FLEXSPI_MHZ / 2. Demand at least 15% of headroom. */
-#ifndef SINGLE_BIT
-  #define SINGLE_BIT 0
+  #error "MEM_KHZ must be 6250 (build/cfgA.bin) or 15625 (build/cfgB.bin)"
 #endif
 
 /* A belt-and-braces check on the rate rule, in case someone edits the numbers rather than the mode.
- * Memory delivers 8 bytes per 4 memory clocks, so 2 * MEM_MHZ MB/s. A four-line link carries half a
- * byte per clock; a one-line link carries an eighth. Demand 15% of headroom either way. */
+ * Eight DDR3 data lines deliver 8 bytes per 4 memory clocks, so 2 * MEM_KHZ kB/s. A four-line link
+ * carries half a byte per clock; a one-line link an eighth. Demand 15% of headroom either way. */
 #if SINGLE_BIT
-  #if (FLEXSPI_MHZ * 100) > (2 * MEM_MHZ * 8 * 85)
-    #error "single-bit link too fast for the memory: FLEXSPI_MHZ/8 must be under 85% of 2*MEM_MHZ"
-  #endif
+  #define LINK_KBPS      (FLEXSPI_MHZ * 1000 / 8)
 #else
-#if (FLEXSPI_MHZ * 100) > (2 * MEM_MHZ * 2 * 85)
-  #error "the link is too fast for the memory: FLEXSPI_MHZ/2 must be under 85% of 2*MEM_MHZ"
+  #define LINK_KBPS      (FLEXSPI_MHZ * 1000 / 2)
 #endif
+#define DRAM_KBPS        (2 * MEM_KHZ)
+#if (LINK_KBPS * 115) > (DRAM_KBPS * 100)
+  #error "rate rule violated: the link would outrun the memory with less than 15% of margin"
 #endif
 
 #define FPGA_MB          224    /* 240 MB aperture minus the PSRAM's 16 */
@@ -159,7 +177,9 @@
  * falling-edge command register; late strobes need more. */
 #define SWEEP_LAT_LO     4
 #define SWEEP_LAT_HI     11
-#define SWEEP_SAMP_MAX   (MEM_MHZ == 25 ? 4 : (MEM_MHZ == 12 ? 8 : 16))
+/* The sample phase is a position within one memory clock, so it runs 0..CK_DIV-1 and there is
+ * nothing to guess about the bound. */
+#define SWEEP_SAMP_MAX   CK_DIV
 
 /* LUT sequence slots. 0 to 6 belong to the core's PSRAM setup; these are ours. */
 #define SEQ_FPGA_RD      8
@@ -338,19 +358,18 @@ static bool fpga_init()
      * here turns a mismatch from a silent wrong-data fault into one printed line. The dummy-cycle
      * count and the maximum transaction length both depend on it, so disagreeing is not survivable:
      * the reads would be fast, confident and wrong, which reads exactly like a wiring fault. */
-    uint32_t ck_div   = (id >> 24) & 0xFF;
-    uint32_t want_div = (MEM_MHZ == 25) ? 4 : (MEM_MHZ == 12 ? 8 : 16);
-    if (ck_div != want_div) {
-        Serial.printf("    MISMATCH: bitstream built for CK_DIV %lu, a %lu MHz memory clock,\n",
-                      (unsigned long)ck_div, (unsigned long)(100 / (ck_div ? ck_div : 1)));
-        Serial.printf("    but MEM_MHZ is %d here, which expects CK_DIV %lu.\n",
-                      MEM_MHZ, (unsigned long)want_div);
-        Serial.println("    Set MEM_MHZ at the top of this sketch to match, and reflash.");
+    uint32_t ck_div = (id >> 24) & 0xFF;
+    if (ck_div != CK_DIV) {
+        Serial.printf("    MISMATCH: this bitstream was built for CK_DIV %lu,\n",
+                      (unsigned long)ck_div);
+        Serial.printf("    but MEM_KHZ is %d here, which expects CK_DIV %d (%s).\n",
+                      MEM_KHZ, CK_DIV, GATEWARE_BIN);
+        Serial.println("    Either flash the matching bitstream, or set MEM_KHZ to match this one.");
         Serial.println("    Continuing would produce fast, confident, wrong data.");
         return false;
     }
-    Serial.printf("    gateware confirms CK_DIV %lu, a %lu MHz memory clock\n",
-                  (unsigned long)ck_div, (unsigned long)(100 / ck_div));
+    Serial.printf("    gateware confirms CK_DIV %d, a %d kHz memory clock, %s link\n",
+                  CK_DIV, MEM_KHZ, SINGLE_BIT ? "single-bit" : "four-line");
 
 #if SINGLE_BIT
     /* Deliberately NOT entering quad mode: the single-bit read command is only decoded outside it.
@@ -387,7 +406,10 @@ static bool calibrate(uint8_t *best_lat, uint8_t *best_samp)
     for (uint32_t i = 0; i < CAL_BYTES; i++) cal_ref[i] = (uint8_t)(i * 0x9D + 0x3B);
 
     /* Lay the pattern down at the nominal setting. */
-    fpga_set_timing(MEM_MHZ == 25 ? 6 : 6, 1, true);
+    /* The nominal setting: CAS 6, plus one because the controller registers commands on the
+     * falling edge, is RD_LATENCY 6 in the gateware's numbering. Sample phase 1 is only a starting
+     * point -- the whole purpose of the sweep below is that this number cannot be calculated. */
+    fpga_set_timing(6, 1, true);
     for (uint32_t i = 0; i < CAL_BYTES; i++) p[i] = cal_ref[i];
     arm_dcache_flush_delete((void *)p, CAL_BYTES);
 
@@ -514,8 +536,11 @@ void setup()
     Serial.println("=== DDR3 behind a Teensy 4.1, through an FPGA acting as a wire ===");
     Serial.printf("  CPU %lu MHz, onboard PSRAM %u MB\n",
                   (unsigned long)(F_CPU_ACTUAL / 1000000), external_psram_size);
-    Serial.printf("  built for a %d MHz memory clock: link %d MHz, %d dummy cycles, %d-byte reads\n",
-                  MEM_MHZ, FLEXSPI_MHZ, FPGA_DUMMY, AHB_BUFSZ * 8);
+    Serial.printf("  built for a %d kHz memory clock (CK_DIV %d, %s): link %d MHz, "
+                  "%d dummy cycles, %d-byte reads\n",
+                  MEM_KHZ, CK_DIV, SINGLE_BIT ? "1 data line" : "4 data lines",
+                  FLEXSPI_MHZ, FPGA_DUMMY, AHB_BUFSZ * 8);
+    Serial.printf("  expects gateware %s\n", GATEWARE_BIN);
 
     if (!flexspi2_set_clock(FLEXSPI_MHZ)) {
         Serial.printf("  %d MHz is not in the clock table; stopping\n", FLEXSPI_MHZ);
@@ -556,8 +581,10 @@ void setup()
     uint32_t n = 8u << 20;
     float r = read_rate((volatile uint32_t *)fpga_base, n);
     float u = unpack_rate((volatile uint8_t *)fpga_base, n);
-    float link = FLEXSPI_MHZ / 2.0f;
-    float mem  = (MEM_MHZ == 25) ? 50.0f : (MEM_MHZ == 12 ? 25.0f : 12.5f);
+    /* Both ceilings in MB/s. The link carries half a byte per clock on four lines and an eighth
+     * on one; eight DDR3 data lines carry two bytes per memory clock. */
+    float link = SINGLE_BIT ? (FLEXSPI_MHZ / 8.0f) : (FLEXSPI_MHZ / 2.0f);
+    float mem  = 2.0f * MEM_KHZ / 1000.0f;
     Serial.println();
     Serial.printf("    sequential read  %.1f MB/s\n", r);
     Serial.printf("    read and unpack  %.1f MB/s\n", u);

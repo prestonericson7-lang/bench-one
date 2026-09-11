@@ -230,7 +230,8 @@ module ddr3_bridge #(
 
     localparam [3:0] B_IDLE  = 0,
                      B_RD_REQ = 1, B_RD_WAIT = 2,
-                     B_WR_WAIT= 3, B_WR_LOAD = 4, B_WR_REQ = 5, B_WR_HOLD = 6;
+                     B_WR_WAIT= 3, B_WR_LOAD = 4, B_WR_REQ = 5, B_WR_HOLD = 6,
+                     B_RD_CALC= 7;
 
     reg [3:0]          bst;
     reg [31:0]         addr;        /* effective address of the next burst to transfer */
@@ -290,10 +291,55 @@ module ddr3_bridge #(
     wire [BA_BITS-1:0]  a_bank = addr[12:10];
     wire [ROW_BITS-1:0] a_row  = addr[27:13];
     wire [6:0]          a_brst = addr[9:3];
-    wire [8:0]          to_row_end = 9'd128 - {2'b00, a_brst};
-    wire [8:0]          this_len   = (need < to_row_end) ? need : to_row_end;
-    /* One chunk: whichever is smallest of what is left, what fits in this row, and the chunk size. */
-    wire [8:0]          chunk      = (this_len < RD_CHUNK) ? this_len : RD_CHUNK[8:0];
+
+    /* ---- chunk sizing, REGISTERED rather than combinational ----------------------------------
+     *
+     * One chunk is the smallest of three things: what is left of the transaction, what fits in the
+     * open row, and the chunk size. Written the obvious way -- 128 minus the burst index, then two
+     * comparisons -- that is three carry chains in series off `addr` and `need`, and on an HX8K it
+     * measured 16.3 ns. The Alchitry Cu's oscillator is 100 MHz, so that path alone failed the whole
+     * design by a factor of 1.6.
+     *
+     * Dividing the clock is not an option. The memory clock is sys_clk / CK_DIV and the controller
+     * cannot run below CK_DIV 4, so the 25 MHz configuration needs a full 100 MHz here. The chain has
+     * to be cut instead.
+     *
+     * Cut in two places. to_row_end_r registers the subtraction. chunk_r then does ONE comparison
+     * between two registered values and two comparisons against a CONSTANT, which synthesise in
+     * parallel, so the remaining path is a single 9-bit compare and two mux levels.
+     *
+     * The price is latency, not throughput. to_row_end_r lags addr by one cycle, chunk_r lags it by
+     * two, and need_next/addr_next by three -- so B_RD_CALC holds for four cycles before a request may
+     * be issued. Four cycles out of the 256 a chunk takes to transfer is 1.6%, and in practice even
+     * that is free: B_RD_WAIT is always far longer than four cycles, so the only settle ever actually
+     * waited on is the first one of a transaction. */
+    reg [8:0]           to_row_end_r;
+    reg [8:0]           chunk_r;
+    reg [1:0]           calc;
+    /* What need and addr BECOME if this request is accepted, computed while the request is still
+     * waiting. The accept cycle then only loads a register, so the acceptance path is req_rdy_r ->
+     * enable -> flop, with no arithmetic hanging off the end of it. */
+    reg [8:0]           need_next;
+    reg [31:0]          addr_next;
+
+    always @(posedge sys_clk) begin
+        if (sys_rst) begin
+            to_row_end_r <= 9'd128;
+            chunk_r      <= 9'd0;
+            calc         <= 2'd0;
+            need_next    <= 9'd0;
+            addr_next    <= 32'd0;
+        end else begin
+            need_next    <= need - chunk_r;
+            addr_next     <= addr + {chunk_r, 3'b000};
+            to_row_end_r <= 9'd128 - {2'b00, addr[9:3]};
+            chunk_r      <= (need < to_row_end_r)
+                              ? ((need         < RD_CHUNK[8:0]) ? need         : RD_CHUNK[8:0])
+                              : ((to_row_end_r < RD_CHUNK[8:0]) ? to_row_end_r : RD_CHUNK[8:0]);
+            if (bst == B_RD_CALC && calc != 2'd0) calc <= calc - 1'b1;
+            else if (bst != B_RD_CALC)            calc <= 2'd3;
+        end
+    end
 
     always @(posedge sys_clk) begin
         buf_we <= 1'b0;
@@ -362,7 +408,8 @@ module ddr3_bridge #(
             end
 
             /* Latch the end of the transaction a read fetch belongs to. */
-            if (cs_rise && (bst == B_RD_REQ || bst == B_RD_WAIT)) rd_ended <= 1'b1;
+            if (cs_rise && (bst == B_RD_REQ || bst == B_RD_WAIT || bst == B_RD_CALC))
+                rd_ended <= 1'b1;
 
             case (bst)
             B_IDLE:
@@ -409,7 +456,7 @@ module ddr3_bridge #(
                          * advance, so the only safe answer is to have all 1 KB ready. */
                         need     <= RD_AHEAD[8:0];
                         rd_ended <= 1'b0;
-                        bst      <= B_RD_REQ;
+                        bst      <= B_RD_CALC;
                     end
                 end
 
@@ -425,13 +472,13 @@ module ddr3_bridge #(
                     req_bank  <= a_bank;
                     req_row   <= a_row;
                     req_col   <= {a_brst, 3'b000};
-                    req_len   <= chunk[7:0];
+                    req_len   <= chunk_r[7:0];
                     req_valid <= 1'b1;            /* HELD until taken; see the header */
                     if (req_valid && req_ready) begin
                         req_valid <= 1'b0;
-                        got       <= chunk[7:0];
-                        need      <= need - chunk;
-                        addr      <= addr + (chunk << 3);
+                        got       <= chunk_r[7:0];
+                        need      <= need_next;
+                        addr      <= addr_next;
                         bst       <= B_RD_WAIT;
                     end
                 end
@@ -441,7 +488,17 @@ module ddr3_bridge #(
                 if (rd_valid && got != 0) got <= got - 1'b1;
                 /* Wait for the last word to be stored as well as received, or the next request would
                  * overwrite racc mid-store. */
-                if (got == 0 && rcnt == 0 && !rd_valid) bst <= B_RD_REQ;
+                if (got == 0 && rcnt == 0 && !rd_valid) bst <= B_RD_CALC;
+            end
+
+            /* Let the registered chunk arithmetic settle before it is used. Entering B_RD_REQ with a
+             * stale chunk_r would size one request off the PREVIOUS address, which puts real data at
+             * the wrong buffer offset -- the failure mode that is hardest to spot. */
+            B_RD_CALC: begin
+                if (calc == 2'd0) begin
+                    if (need == 0 || rd_ended) bst <= B_IDLE;
+                    else                       bst <= B_RD_REQ;
+                end
             end
 
             /* ---- write: the Teensy has to finish delivering before anything can be sent ---- */

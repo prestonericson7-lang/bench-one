@@ -24,8 +24,29 @@
 `timescale 1ns / 1ps
 
 module ddr3_top #(
-    parameter integer SYS_HZ     = 100_000_000,
-    parameter integer CK_DIV     = 4,        /* 25 MHz memory clock: the fastest that works */
+    /* ---- clocking ----------------------------------------------------------------------------
+     * The board oscillator is 100 MHz and the fabric cannot run there. Measured on this design,
+     * place-and-route closes between 81.5 and 97.4 MHz depending only on the placer seed: the best
+     * seed very nearly makes 100 MHz, and a bitstream that works because of a lucky seed is not a
+     * bitstream, so sys_clk comes from the PLL instead and the oscillator is only its reference.
+     *
+     * SYS_HZ is the POST-PLL frequency and everything downstream derives its timing from it.
+     * USE_PLL 0 bypasses the primitive so the same source simulates, where clk is driven at SYS_HZ
+     * directly.
+     *
+     * The two settings that are actually built, both from icepll with DIVR 0 so the phase detector
+     * runs at the full 100 MHz:
+     *
+     *    62.5 MHz   DIVF  9, DIVQ 4, FILTER 5   CK_DIV 4 -> 15.625 MHz memory, 31.25 MB/s of DRAM
+     *    50.0 MHz   DIVF  7, DIVQ 4, FILTER 5   CK_DIV 8 ->  6.25  MHz memory, 12.5  MB/s of DRAM
+     * -------------------------------------------------------------------------------------- */
+    parameter integer SYS_HZ     = 62_500_000,
+    parameter integer USE_PLL    = 1,
+    parameter integer PLL_DIVR   = 0,
+    parameter integer PLL_DIVF   = 9,
+    parameter integer PLL_DIVQ   = 4,
+    parameter integer PLL_FILTER = 5,
+    parameter integer CK_DIV     = 4,        /* 15.625 MHz memory at 62.5 MHz sys_clk */
     parameter integer RD_LATENCY = 6,
     parameter integer RD_SAMPLE  = 1,
     parameter integer LAT_CYCLES = 200,
@@ -35,7 +56,7 @@ module ddr3_top #(
      * is 655 us of nothing happening. */
     parameter integer RST_HOLD   = 65535
 ) (
-    input  wire        clk,          /* 100 MHz board oscillator */
+    input  wire        clk,          /* 100 MHz board oscillator (PLL reference) */
     input  wire        rst_n,        /* Alchitry reset button, active low */
 
     /* ---- Teensy FlexSPI2 side, 3.3 V, direct ---- */
@@ -67,12 +88,45 @@ module ddr3_top #(
     localparam integer COL_BITS = 10;
     localparam integer BA_BITS  = 3;
 
+    /* ---- sys_clk ------------------------------------------------------------------------------
+     * SB_PLL40_CORE rather than SB_PLL40_PAD: on the Cu the oscillator lands on P7, which is a global
+     * buffer input and is already being used as an ordinary clock input by this design, so the
+     * reference is taken from fabric. The extra jitter is irrelevant here -- the memory clock is
+     * sys_clk divided by at least four, and the DIMM's own tCK window with the DLL disabled runs from
+     * 8 ns all the way to 7.8 us. */
+    wire sys_clk;
+    wire pll_lock;
+
+    generate
+        if (USE_PLL != 0) begin : g_pll
+            SB_PLL40_CORE #(
+                .FEEDBACK_PATH("SIMPLE"),
+                .PLLOUT_SELECT("GENCLK"),
+                .DIVR(PLL_DIVR[3:0]),
+                .DIVF(PLL_DIVF[6:0]),
+                .DIVQ(PLL_DIVQ[2:0]),
+                .FILTER_RANGE(PLL_FILTER[2:0])
+            ) pll_i (
+                .REFERENCECLK (clk),
+                .PLLOUTCORE   (sys_clk),
+                .LOCK         (pll_lock),
+                .RESETB       (1'b1),
+                .BYPASS       (1'b0)
+            );
+        end else begin : g_nopll
+            /* Simulation and any board whose oscillator is already the wanted frequency. */
+            assign sys_clk  = clk;
+            assign pll_lock = 1'b1;
+        end
+    endgenerate
+
     /* Reset: hold for a while after configuration so the DIMM's supplies have settled before the
-     * controller starts counting its 200 us. */
+     * controller starts counting its 200 us. Also held until the PLL has locked, because until then
+     * sys_clk is not at its final frequency and every timer derived from it would be wrong. */
     reg [15:0] rst_cnt = 16'd0;
     reg        sys_rst = 1'b1;
-    always @(posedge clk) begin
-        if (!rst_n) begin
+    always @(posedge sys_clk) begin
+        if (!rst_n || !pll_lock) begin
             rst_cnt <= 16'd0;
             sys_rst <= 1'b1;
         end else if (rst_cnt != RST_HOLD[15:0]) begin
@@ -111,12 +165,12 @@ module ddr3_top #(
     reg  [7:0]          qb_rdata;
 
     /* rdbuf: written by the bridge on clk, read by the QSPI slave on sck */
-    always @(posedge clk)      if (qb_we) rdbuf[qb_addr] <= qb_wdata;
+    always @(posedge sys_clk)  if (qb_we) rdbuf[qb_addr] <= qb_wdata;
     always @(posedge qspi_sck) qa_rdata <= rdbuf[qa_addr];
 
     /* wrbuf: written by the QSPI slave on sck, read by the bridge on clk */
     always @(posedge qspi_sck) if (qa_we) wrbuf[qa_addr] <= qa_wdata;
-    always @(posedge clk)      qb_rdata <= wrbuf[qb_addr];
+    always @(posedge sys_clk)  qb_rdata <= wrbuf[qb_addr];
 
     /* ---- QSPI slave, Teensy facing ---- */
     wire [3:0]  q_io_i;
@@ -133,7 +187,7 @@ module ddr3_top #(
     /* Bring the config toggle across from the sck domain: two flops to settle it, a third to see the
      * change against. This is the only place the two domains meet outside the buffers. */
     reg [2:0] cfg_sync = 3'b000;
-    always @(posedge clk) begin
+    always @(posedge sys_clk) begin
         if (sys_rst) cfg_sync <= 3'b000;
         else         cfg_sync <= {cfg_sync[1:0], q_cfgstb};
     end
@@ -186,7 +240,7 @@ module ddr3_top #(
         .ROW_BITS(ROW_BITS), .COL_BITS(COL_BITS), .BA_BITS(BA_BITS), .BUF_BITS(BUF_BITS),
         .SYS_HZ(SYS_HZ), .CK_DIV(CK_DIV)
     ) br (
-        .sys_clk(clk), .sys_rst(sys_rst),
+        .sys_clk(sys_clk), .sys_rst(sys_rst),
         .q_start(q_start), .q_is_write(q_is_write), .q_addr(q_addr),
         .q_win_base(q_win), .q_cs_n(qspi_cs_n), .q_wr_count(q_wrcount),
         .buf_addr(qb_addr), .buf_wdata(qb_wdata), .buf_we(qb_we), .buf_rdata(qb_rdata),
@@ -212,7 +266,7 @@ module ddr3_top #(
         .ROW_BITS(ROW_BITS), .COL_BITS(COL_BITS), .BA_BITS(BA_BITS),
         .RD_SAMPLE(RD_SAMPLE), .RD_LATENCY(RD_LATENCY)
     ) ctl (
-        .sys_clk(clk), .sys_rst(sys_rst),
+        .sys_clk(sys_clk), .sys_rst(sys_rst),
         /* The controller takes a clean single-cycle pulse in its own clock domain; the toggle from
          * the sck domain was turned into one by the synchroniser above. */
         .cfg_rd_latency(q_lat), .cfg_rd_sample(q_samp), .cfg_load(q_cfgload),

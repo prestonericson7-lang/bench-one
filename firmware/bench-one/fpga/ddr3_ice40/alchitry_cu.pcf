@@ -1,0 +1,161 @@
+# ===========================================================================================
+#  alchitry_cu.pcf -- pin constraints for ddr3_top on an Alchitry Cu (iCE40-HX8K-CB132)
+# ===========================================================================================
+#
+#  Each line below names an FPGA BALL. What you actually solder to is a numbered HEADER PIN, and the
+#  two are not the same thing. The header pin is in the comment, with the DIMM contact at the far
+#  end. WIRING.md is the same information as a table, plus the part that goes in between.
+#
+#  WHERE THE NUMBERS COME FROM, AND HOW EACH ONE WAS CHECKED
+#  --------------------------------------------------------
+#  Ball designators: Alchitry's Cu V2 schematic, which lists the iCE40's IOL/IOT/IOR/IOB signal
+#  names against CB132 balls.   https://cdn.alchitry.com/docs/Cu-V2/CuSchematic.pdf  (rev v14)
+#
+#  Ball <-> header pin: Alchitry's own pin converter -- the code their tools run to turn a board pin
+#  name into a ball, so it is the definition and not a description of one. Read as source, not as a
+#  summary of source.
+#  https://github.com/alchitry/Alchitry-Labs/blob/master/src/com/alchitry/labs/hardware/pinout/AlchitryCuPinConverter.java
+#
+#  That table was then CHECKED a second and independent way, because one source for a number you are
+#  about to solder to is not enough. Alchitry's io.acf gives the Io board's signals against board pin
+#  names; a third party's hand-converted alchitry-io.pcf gives the same signals against balls. Those
+#  two were produced by different people from different documents, and composing them reproduces the
+#  converter on all 65 entries, with zero disagreements.
+#
+#  DIMM contacts: the 240-pin UDIMM pin configuration table, which is JEDEC and so identical across
+#  vendors. Taken from Samsung's 2 Gb B-die UDIMM datasheet rev 1.03 section 4.0, read out of the PDF
+#  rather than from a search result.
+#
+#  Clock-capable balls: read out of the toolchain's own device database instead of a document --
+#  share/icebox/chipdb-8k.txt, its .gbufin tile list crossed with padin_glb_netwk's IO index and the
+#  cb132 ball table. Six of the eight global pads are bonded on this package:
+#      GBIN0 = P8  (the Cu's reset button)        GBIN4 = A6  (header B2)
+#      GBIN1 = A7  (header B3)                    GBIN5 = P7  (the Cu's oscillator)
+#      GBIN3 = G3  (header A9)                    GBIN6 = H3  (header A43)
+#  GBIN2 and GBIN7 are not bonded on CB132 at all. That is why the oscillator and the button are on
+#  no header, and why qspi_sck is on A43 -- see the Teensy section.
+#
+#  HOW THE SIGNALS ARE GROUPED, AND WHY
+#  ------------------------------------
+#  By CONNECTOR, not by FPGA bank. All of the Cu's I/O is 3.3 V, so the FPGA's own bank boundaries
+#  buy nothing here, and they do not line up with the connectors anyway -- balls A1 to A5 come out on
+#  header A, balls A6 to A12 on header B, so an arrangement that looks tidy inside the chip is
+#  scattered across two connectors outside it. Every one of these wires is soldered by hand, so the
+#  grouping that matters is the one you can see:
+#
+#      header A, pins 2..18    the ten data lines and the clock pair   1.5 V, through translators
+#      header A, pins 20..40   left empty -- the gap between domains
+#      header A, pins 42..49   the Teensy                              3.3 V, direct
+#      header B, pins 2..37    all 24 address, bank, command, control  1.5 V, through dividers
+#      header C, pins 2..40    ODT and the two indicators
+#
+#  Both 1.5 V groups run in pin order, so each ribbon leaves the board already sorted and there is no
+#  crossing to get wrong. The twelve empty positions between pin 18 and pin 42 are deliberate: they
+#  put about an inch and a quarter between the translated data lines and the Teensy's link.
+#
+#  READING THE HEADER. Each bank is 50 positions in two rows of 25. Every third position, counting
+#  from the end of each row, is a power or ground pin -- 1, 4, 7 ... 25 and 26, 29, 32 ... 50 -- which
+#  is exactly why the signal numbers below skip. BEFORE SOLDERING ANYTHING, put a meter on continuity
+#  between the board's ground and the position you believe is pin 1. Getting the row orientation
+#  backwards mirrors all 32 signals, and it is the one mistake here that costs a DIMM.
+#
+#  BOARD REVISION. Clock and reset are the same on Cu V1 and V2. The ONBOARD LED balls are not, which
+#  is why the two indicators below are header pins you hang your own LED on -- a revision difference
+#  then costs an indicator rather than a wrong connection.
+# ===========================================================================================
+
+# ---- clock and reset. Onboard. Not on any header, nothing to wire. ----
+set_io clk        P7      # 100 MHz oscillator, GBIN5.  PLL reference; sys_clk is 50 or 62.5 MHz
+set_io rst_n      P8      # reset button, GBIN0, active low
+
+# ===========================================================================================
+#  HEADER A, pins 2..18 -- DDR3 DATA GROUP.  Bidirectional, 1.5 V, through translators.
+#  Consecutive header pins in signal order. These are the only lines where skew matters at all.
+# ===========================================================================================
+set_io ddr_dq[0]  M1      # header A2   -> DIMM contact 3     DQ0
+set_io ddr_dq[1]  L1      # header A3   -> DIMM contact 4     DQ1
+set_io ddr_dq[2]  J1      # header A5   -> DIMM contact 9     DQ2
+set_io ddr_dq[3]  J3      # header A6   -> DIMM contact 10    DQ3
+set_io ddr_dq[4]  G1      # header A8   -> DIMM contact 122   DQ4   (back side)
+set_io ddr_dq[5]  G3      # header A9   -> DIMM contact 123   DQ5   (back side)
+set_io ddr_dq[6]  E1      # header A11  -> DIMM contact 128   DQ6   (back side)
+set_io ddr_dq[7]  D1      # header A12  -> DIMM contact 129   DQ7   (back side)
+
+# The strobe is DIFFERENTIAL. Driving DQS0 and leaving DQS0# open leaves the module's write receiver,
+# which is a comparator, with no reference, and write data then lands at random. Both halves, adjacent
+# translator channels, equal wire lengths.
+set_io ddr_dqs    C1      # header A14  -> DIMM contact 7     DQS0
+set_io ddr_dqs_n  B1      # header A15  -> DIMM contact 6     DQS0#
+
+# Same rule for the clock pair, and this is the one pair worth measuring with a ruler.
+set_io ddr_ck_p   D3      # header A17  -> DIMM contact 184   CK0
+set_io ddr_ck_n   C3      # header A18  -> DIMM contact 185   CK0#
+
+# ===========================================================================================
+#  HEADER A, pins 20..40 -- deliberately EMPTY. Do not wire anything here.
+# ===========================================================================================
+
+# ===========================================================================================
+#  HEADER A, pins 42..49 -- TEENSY 4.1 FlexSPI2.  3.3 V both ends: wire DIRECTLY, no translation.
+#
+#  qspi_sck is on A43 because ball H3 is GBIN6, a dedicated global clock pad. From any other header
+#  position the clock would reach the global network through ordinary routing, arriving later than the
+#  data pins it samples -- a couple of nanoseconds of sampling skew that shows up as occasional wrong
+#  bytes and reads exactly like a bad solder joint. Four global pads reach the headers and this is
+#  what one of them is for.
+# ===========================================================================================
+set_io qspi_cs_n   H1     # header A42  <- Teensy pin 51  (FlexSPI2 SS1, the free select)
+set_io qspi_sck    H3     # header A43  <- Teensy pin 53  GBIN6
+set_io qspi_io[0]  K3     # header A45 <-> Teensy pin 52
+set_io qspi_io[1]  K4     # header A46 <-> Teensy pin 49
+set_io qspi_io[2]  N1     # header A48 <-> Teensy pin 50
+set_io qspi_io[3]  P1     # header A49 <-> Teensy pin 54
+
+# ===========================================================================================
+#  HEADER B, pins 2..37 -- ADDRESS, BANK, COMMAND, CONTROL. Output only, 1.5 V, through dividers.
+#  Twenty-four signals on twenty-four consecutive header positions, in order.
+#
+#  None of these is timing critical. They are updated half a memory period before the edge that
+#  latches them, which is 80 ns of setup at a 6.25 MHz memory clock against a required 170 ps. That
+#  margin is the reason hand wiring works at all.
+# ===========================================================================================
+set_io ddr_a[0]   A6      # header B2   -> DIMM contact 188   A0
+set_io ddr_a[1]   A7      # header B3   -> DIMM contact 181   A1
+set_io ddr_a[2]   A10     # header B5   -> DIMM contact 61    A2
+set_io ddr_a[3]   A11     # header B6   -> DIMM contact 180   A3
+set_io ddr_a[4]   C9      # header B8   -> DIMM contact 59    A4
+set_io ddr_a[5]   C10     # header B9   -> DIMM contact 58    A5
+set_io ddr_a[6]   A12     # header B11  -> DIMM contact 178   A6
+set_io ddr_a[7]   B14     # header B12  -> DIMM contact 56    A7
+set_io ddr_a[8]   C14     # header B14  -> DIMM contact 177   A8
+set_io ddr_a[9]   D14     # header B15  -> DIMM contact 175   A9
+set_io ddr_a[10]  E14     # header B17  -> DIMM contact 70    A10/AP  (precharge-all: not optional)
+set_io ddr_a[11]  E12     # header B18  -> DIMM contact 55    A11
+set_io ddr_a[12]  F14     # header B20  -> DIMM contact 174   A12/BC
+set_io ddr_a[13]  G14     # header B21  -> DIMM contact 196   A13
+set_io ddr_a[14]  H12     # header B23  -> DIMM contact 172   A14
+
+set_io ddr_ba[0]  J12     # header B24  -> DIMM contact 71    BA0
+set_io ddr_ba[1]  H11     # header B27  -> DIMM contact 190   BA1
+set_io ddr_ba[2]  G11     # header B28  -> DIMM contact 52    BA2
+
+set_io ddr_cs_n   G12     # header B30  -> DIMM contact 193   S0#
+set_io ddr_ras_n  F12     # header B31  -> DIMM contact 192   RAS#
+set_io ddr_cas_n  F11     # header B33  -> DIMM contact 74    CAS#
+set_io ddr_we_n   E11     # header B34  -> DIMM contact 73    WE#
+
+set_io ddr_cke    D12     # header B36  -> DIMM contact 50    CKE0
+set_io ddr_reset_n D11    # header B37  -> DIMM contact 168   RESET#
+
+# ===========================================================================================
+#  HEADER C -- the rest.
+# ===========================================================================================
+# ODT must be held low: on-die termination is unsupported with the DLL disabled and Rtt is 0. It is
+# driven rather than strapped so the gateware owns it, but tying DIMM contact 195 straight to ground
+# and leaving C2 unconnected is equally correct and one divider cheaper.
+set_io ddr_odt     M3     # header C2   -> DIMM contact 195   ODT0
+
+# Indicators. Your own LED and a series resistor to ground. Header pins rather than the board's own
+# LEDs, because the onboard LED balls differ between Cu revisions.
+set_io led_init    P10    # header C39  -- lit once the DIMM has finished initialising
+set_io led_act     P9     # header C40  -- flickers on activity, LATCHES ON if a fault was detected

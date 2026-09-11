@@ -26,32 +26,51 @@
 `timescale 1ns / 1ps
 
 module tb_chain #(
-    parameter integer CK_DIV     = 4,        /* 25 MHz memory clock */
+    /* ---- fabric clock -------------------------------------------------------------------------
+     * sys_clk is NOT the board oscillator. The Cu's oscillator is 100 MHz and this design does not
+     * close there -- measured, across eight placer seeds, it lands between 81.5 and 97.4 MHz -- so the
+     * real build takes sys_clk from the PLL and the testbench drives that frequency directly with
+     * USE_PLL 0. SYS_HALF is half its period in nanoseconds.
+     *
+     *    62.5 MHz (SYS_HALF 8)  with CK_DIV 4 -> 15.625 MHz memory, 31.25 MB/s of DRAM
+     *    50.0 MHz (SYS_HALF 10) with CK_DIV 8 ->  6.25  MHz memory, 12.5  MB/s of DRAM
+     * -------------------------------------------------------------------------------------- */
+    parameter integer SYS_HZ     = 62_500_000,
+    parameter integer SYS_HALF   = 8,
+    parameter integer CK_DIV     = 4,        /* 15.625 MHz memory clock */
     parameter integer RD_LATENCY = 6,
     parameter integer RD_SAMPLE  = 1,
     /* Dummy cycles. Must cover the first chunk reaching the buffer: ACTIVATE, tRCD, CAS latency and
      * sixteen bursts. 64 leaves the reader starting before the first chunk has landed and it never
      * recovers, showing up as a handful of wrong bytes at the tail. 120 clears it with margin. */
     parameter integer LAT_CYCLES = 200,
-    /* SCLK half period in nanoseconds. This testbench previously used 5 ns, a 100 MHz link worth
-     * 50 MB/s, against a 25 MHz memory clock also worth 50 MB/s -- violating the very rate rule the
-     * design is built around, with zero margin for the per-chunk overhead that inevitably exists. The
-     * reads then ran ahead of the data and the failure looked like a buffer bug.
+    /* SCLK half period in nanoseconds, and the single most important number in this file.
      *
-     * 6 ns is 83 MHz and 41.7 MB/s against roughly 43 MB/s delivered, which is the margin a real
-     * configuration needs. The Teensy sketch uses 88 MHz for the same reason. */
-    parameter integer SCK_HALF   = 6,
+     * THE RATE RULE. FlexSPI cannot be stalled once a read has started, so the DRAM must supply the
+     * buffer faster than the link drains it, with real margin for the per-request overhead -- take
+     * 15%. DRAM delivers CK_MHz x 2 MB/s on eight lines. The link delivers SCK_MHz / 2 MB/s on four
+     * lines and SCK_MHz / 8 on one.
+     *
+     * This testbench once used 5 ns: a 100 MHz link worth 50 MB/s against a 25 MHz memory also worth
+     * 50 MB/s. Zero margin, so the reader ran ahead of the data, and the failure looked exactly like a
+     * buffer bug.
+     *
+     * 10 ns is 50 MHz, which happens to suit BOTH shipped configurations:
+     *    four lines, 25 MB/s   against 31.25 MB/s of DRAM at 15.625 MHz   ->  1.25x
+     *    one line,  6.25 MB/s  against 12.5  MB/s of DRAM at  6.25  MHz   ->  2.00x
+     * It is also FlexSPI2's slowest setting, 396/8, so the Teensy needs no unusual divider. */
+    parameter integer SCK_HALF   = 10,
 
-    /* The quad cases need a 25 MHz memory clock: four lines at FlexSPI2's slowest setting consume
-     * 24.75 MB/s and anything below 25 MHz memory cannot keep up. At slower memory clocks only the
-     * single-bit path is valid, so set this to 0 and the quad cases are skipped rather than failing
-     * for a reason that is a property of the configuration and not a bug. */
+    /* The quad cases need a memory clock of at least 14.4 MHz: four lines at FlexSPI2's slowest
+     * setting consume 25 MB/s and the rate rule then wants 28.75 MB/s of DRAM behind them. Below that
+     * only the single-bit path is valid, so set this to 0 and the quad cases are skipped rather than
+     * failing for a reason that is a property of the configuration and not a bug. */
     parameter integer QUAD_OK    = 1
 ) ();
 
     /* ---- board clock ---- */
     reg clk = 0;
-    always #5 clk = ~clk;                    /* 100 MHz */
+    always #SYS_HALF clk = ~clk;             /* this is sys_clk: the DUT is built with USE_PLL 0 */
     reg rst_n = 0;
 
     /* ---- the QSPI bus ---- */
@@ -77,6 +96,7 @@ module tb_chain #(
     wire        led_init, led_act;
 
     ddr3_top #(
+        .SYS_HZ(SYS_HZ), .USE_PLL(0),
         .CK_DIV(CK_DIV), .RD_LATENCY(RD_LATENCY), .RD_SAMPLE(RD_SAMPLE),
         .LAT_CYCLES(LAT_CYCLES), .BUF_BITS(10),
         .RST_HOLD(64)                        /* no point simulating 655 us of settling */
@@ -324,8 +344,14 @@ module tb_chain #(
     initial begin
         fails = 0;
         $display("=== end to end: FlexSPI master -> gateware -> DDR3 device ===");
-        $display("  SCLK %0d MHz, dummy %0d cycles, memory clock %0d MHz",
-                 1000 / (2*SCK_HALF), LAT_CYCLES, 100 / CK_DIV);
+        /* Printed in kHz because the interesting configurations land on fractions of a megahertz:
+         * 15625 kHz and 6250 kHz, not 25 and 6. Truncating those to whole MHz is how the banner came
+         * to claim a 25 MHz memory clock on a build that was running at 15.625. */
+        $display("  fabric %0d kHz, CK_DIV %0d -> memory %0d kHz, DRAM %0d kB/s",
+                 SYS_HZ/1000, CK_DIV, (SYS_HZ/1000)/CK_DIV, 2*((SYS_HZ/1000)/CK_DIV));
+        $display("  SCLK %0d MHz, %0d data line%s -> link %0d kB/s, dummy %0d cycles",
+                 1000 / (2*SCK_HALF), QUAD_OK ? 4 : 1, QUAD_OK ? "s" : "",
+                 QUAD_OK ? (1000/(2*SCK_HALF))*1000/2 : (1000/(2*SCK_HALF))*1000/8, LAT_CYCLES);
 
         repeat (10) @(posedge clk);
         rst_n = 1'b1;

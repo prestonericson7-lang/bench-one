@@ -33,9 +33,17 @@ Three ceilings stack, and the lowest one wins. Knowing which is which saves week
 | | rate | where it comes from |
 |---|---|---|
 | Teensy external bus | **66.5 MB/s** | FlexSPI2, four data lines, 133 MHz single rate. RT1060 datasheet table 38. |
-| DDR3 at 25 MHz, 8 lines | **50 MB/s** | 8 bytes per BL8 burst, one burst per 4 memory clocks. |
+| DDR3 at 25 MHz, 8 lines | 50 MB/s | 8 bytes per BL8 burst, one burst per 4 memory clocks. The DDR3 side's own ceiling. |
+| **the iCE40 fabric** | **15.625 MHz memory** | the one that actually binds. See below. |
 | Teensy nibble unpack | **39.3 MB/s** | measured on hardware, earlier in this project |
 | Onboard PSRAM, for comparison | **33.9 MB/s** | measured on hardware |
+
+**The fabric, not the DRAM, sets the memory clock.** The Alchitry Cu's oscillator is 100 MHz and this
+design does not close there: measured across eight placer seeds, Fmax lands between **81.5 and
+97.4 MHz**. The best seed nearly makes it, and a bitstream that works because of a lucky seed is not a
+bitstream. So `sys_clk` comes from the PLL at 50 or 62.5 MHz, the oscillator is only its reference,
+and the memory clock is `sys_clk / CK_DIV` with `CK_DIV` never below 4. That is why the two shipped
+configurations run the DIMM at 6.25 and 15.625 MHz and not at anything rounder.
 
 Reading and unpacking **add** on a CPU; only fabric overlaps them. So effective throughput is
 `1/(1/read + 1/unpack)`, which predicts the measured PSRAM figure of 18.2 MB/s exactly, and that is
@@ -44,15 +52,19 @@ why the rest of this table is worth believing:
 | configuration | raw read | effective | vs PSRAM |
 |---|---|---|---|
 | PSRAM, 16 MB | 33.9 | 18.2 | 1.00× |
-| this bridge, single-bit link, 6.25 MHz memory | 6.2 | 5.4 | 0.29× |
-| this bridge, four-line link, 25 MHz memory | 39.6 | 19.5 | 1.07× |
-| four lines at the bus ceiling | 66.5 | 24.7 | 1.36× |
+| `cfgA`, single-bit link, 6.25 MHz memory | 6.19 | 5.4 | 0.30× |
+| `cfgB`, four-line link, 15.625 MHz memory | 24.75 | 15.2 | 0.84× |
+| four lines at the bus ceiling, if the fabric allowed it | 66.5 | 24.7 | 1.36× |
 | if the link were infinite | — | 39.3 | 2.16× |
 
-**First light is much slower than the PSRAM it replaces** — about a fifth, on the single-bit path.
-That is expected and fine: it is proving 256 MB works at all, with translators already on the bench. And note where the curve flattens — past about 66 MB/s the processor's own
-nibble unpacking is the wall, so more bus speed buys nothing. The next real win after that is in the
-unpack kernel, not the memory.
+**Be clear about what this buys: it is not bandwidth.** Even the fast configuration is 15.2 MB/s
+against the PSRAM's measured 18.2. The DDR3 bank is not faster than the PSRAM and was never going to
+be — the wall is the Teensy's own nibble unpacking at 39.3 MB/s, which the link and the unpacker share
+by reciprocals, and the fabric caps the link well below that.
+
+What it buys is **capacity: 256 MB against 8 MB, a factor of 32, at roughly unchanged bandwidth.**
+That is the whole case for building it. Past about 66 MB/s of link the unpack kernel is the only thing
+left to improve, and no amount of memory work touches it.
 
 ---
 
@@ -124,8 +136,9 @@ is 8 bits, so up to 255 cycles), and keeping the link clock no faster than the m
 | `ddr3_model.v` | a DDR3 device that **checks its master** and fails loudly. Simulation only |
 | `tb_ddr3.v` | controller against that model: init, round trip, refresh, read calibration |
 | `tb_chain.v` | the whole path, with a FlexSPI-accurate master driving it |
-| `alchitry_cu.pcf.template` | pin constraints, with the ball names deliberately left blank |
-| `build.sh` | runs every check in order and stops at the first failure |
+| `alchitry_cu.pcf` | pin constraints: ball, header pin number and DIMM contact for every signal |
+| `WIRING.md` | the build sheet — every wire, the part it passes through, and both ends |
+| `build.sh` | runs every check in order, then produces both bitstreams |
 
 The Teensy side is one sketch: `../../tests/ddr3_bridge_teensy/`.
 
@@ -139,28 +152,47 @@ Install an [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) relea
 OSS_CAD=/path/to/oss-cad-suite sh build.sh
 ```
 
-That runs five things and stops at the first failure:
+It stops at the first failure, and simulation comes before synthesis on purpose: a design that fails
+its testbench should never reach a file you could flash.
 
 1. **The controller against a checking model.** The model enforces mode register order, the DLL
    disable bit, CL and CWL, Rtt being zero, tRCD, tRP, and the refresh debt limit. It refuses column
    commands until it has seen a complete initialisation.
 2. **The read calibration sweep.** The model is told to return data 10 to 14 half-clocks late and the
    controller must be tunable to catch it every time. This is what replaces DQS.
-3. **Memory clock limits.** 25 MHz passes; 50 MHz does not, and the reason is in the notes below.
-4. **Synthesis for an iCE40-HX8K**, reporting utilisation.
-5. **Place and route**, skipped until you supply the pin file.
+3. **Memory clock divider limits.** `CK_DIV` below 4 has no quarter-period position for write data and
+   must fail; the build checks that it does.
+4. **`cfgB` end to end** — 62.5 MHz fabric, 15.625 MHz memory, four-line link, seven cases.
+5. **`cfgA` end to end** — 50 MHz fabric, 6.25 MHz memory, single-bit link.
+6. **Synthesis** for each configuration, reporting utilisation.
+7. **Place and route on four placer seeds each, all of which must pass**, then `icepack`.
 
-### The two things you must supply
+Step 7 checks every seed rather than one because this design's Fmax moves by 10 MHz between seeds. A
+single passing run would prove nothing about the next one. Current worst case: 87.50 MHz against
+`cfgA`'s 50 MHz requirement, and 91.78 against `cfgB`'s 62.5.
 
-**Pin constraints.** `alchitry_cu.pcf.template` lists every signal with the DIMM contact it goes to,
-and leaves the FPGA ball names as `PLACEHOLDER`. They are not guessed on purpose: a wrong ball on a
-data line shorts a 1.5 V chip to a 3.3 V driver. Copy them from your board vendor's own constraint
-file.
+Output:
 
-**A working `nextpnr`.** Some OSS CAD Suite extracts ship without the embedded Python standard
-library, and `nextpnr-ice40` then aborts at startup with *failed to get the Python codec of the
-filesystem encoding*. No environment variable fixes it; the files are absent. Reinstall from a
-complete archive or install nextpnr separately. Simulation and synthesis are unaffected.
+| | |
+|---|---|
+| `build/cfgA.bin` | 6.25 MHz memory, single-bit link. **Build this one first** — it is the one that works with TXB0108s. |
+| `build/cfgB.bin` | 15.625 MHz memory, four-line link. Needs direction-controlled translators. |
+
+### Flashing
+
+The Cu has a USB-C programmer on board. Nothing else to buy.
+
+```bash
+openFPGALoader -b cu build/cfgA.bin
+```
+
+`-b cu` is the whole trick: it knows the Cu's FTDI interface and the iCE40's configuration protocol.
+Configuration is volatile, so add `-f` to write the flash once the thing works.
+
+If `nextpnr-ice40` aborts at startup with *failed to get the Python codec of the filesystem encoding*,
+the OSS CAD Suite extract is missing its embedded Python standard library. No environment variable
+fixes it; the files are absent. Reinstall from a complete archive. Simulation and synthesis are
+unaffected, and several releases have shipped broken this way.
 
 ---
 
@@ -201,27 +233,32 @@ oscillate.
 Flash the sketch with no DIMM wired first. It will report that the FPGA did not answer, which
 confirms the sketch runs and the bus is alive before any 1.5 V part is at risk.
 
-Then set `MEM_MHZ` in the sketch to match the `CK_DIV` the gateware was built with. You do not have
+Then set `MEM_KHZ` in the sketch to match the `CK_DIV` the gateware was built with. You do not have
 to get this right by memory — the gateware reports its own divider in the top byte of its identity
 word and the sketch refuses to run on a mismatch, because disagreeing changes the dummy-cycle count
 and produces fast, confident, wrong data that reads exactly like a wiring fault.
 
-| `MEM_MHZ` | `CK_DIV` | memory clock | data lines | link | use |
-|---|---|---|---|---|---|
-| 6 | 16 | 6.25 MHz | **12.5 Mb/s** | one pin, 6.2 MB/s | works with TXB0108-class parts |
-| 25 | 4 | 25 MHz | 50 Mb/s | four pins, 39.6 MB/s | full speed, needs real translators |
+| `MEM_KHZ` | bitstream | `sys_clk` | `CK_DIV` | memory | data lines | link | use |
+|---|---|---|---|---|---|---|---|
+| 6250 | `cfgA.bin` | 50 MHz | 8 | 6.25 MHz | **12.5 Mb/s** | one pin, 6.19 MB/s | works with TXB0108-class parts |
+| 15625 | `cfgB.bin` | 62.5 MHz | 4 | 15.625 MHz | 31.25 Mb/s | four pins, 24.75 MB/s | full speed, needs real translators |
+
+Both run FlexSPI2 at its 49.5 MHz floor and differ only in how many data lines they use.
 
 **There is no middle setting, and the reason is arithmetic.** FlexSPI2's slowest possible clock is
-49.5 MHz, which on four lines consumes 24.75 MB/s. A 12.5 MHz memory delivers 25 MB/s, a 1% margin,
+49.5 MHz, which on four lines consumes 24.75 MB/s. A 12.5 MHz memory delivers 25 MB/s — a 1% margin,
 and 1% is not a margin: every DRAM request carries fixed overhead, so the reader catches up and
 returns bytes that have not arrived. Three of seven end-to-end cases fail at exactly that pairing.
-6.25 MHz on four lines is worse still.
 
 The way out is not a slower link but a **narrower** one. One pin at the same 49.5 MHz consumes
-6.2 MB/s, which leaves a factor of two in hand against a 12.5 MB/s memory — and 6.25 MHz means
-12.5 Mb/s on the data lines, inside a TXB0108's rating where 50 Mb/s is not. That configuration is
-slow, roughly a fifth of the onboard PSRAM, and it proves 256 MB of DDR3 works using translators most
-people already own. Both are verified end to end; `build.sh` runs both.
+6.19 MB/s, which leaves a factor of two in hand against a 12.5 MB/s memory — and 6.25 MHz means
+12.5 Mb/s on the data lines, inside a TXB0108's rating where 31.25 Mb/s is not. That configuration is
+slow, about a third of the onboard PSRAM, and it proves 256 MB of DDR3 works using translators most
+people already own.
+
+Both are verified end to end and `build.sh` builds both. The sketch reads `CK_DIV` back out of the
+gateware's identity word and refuses to run on a mismatch, because disagreeing changes the dummy-cycle
+count and produces fast, confident, wrong data that reads exactly like a wiring fault.
 
 The sketch then **calibrates itself.** It writes a pattern, sweeps every read latency and sample
 offset, and prints a grid of which ones read back clean:

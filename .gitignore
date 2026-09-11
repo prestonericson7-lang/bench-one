@@ -46,3 +46,9 @@ __pycache__/
 Thumbs.db
 *~
 *.swp
+
+# The two shipped FPGA bitstreams ARE tracked, despite the *.bin rule above. They are build products,
+# but they are the build products you need on the bench on the day the board arrives, and they cost
+# 270 kB. build.sh regenerates them identically; this is insurance against the toolchain, not a
+# substitute for it.
+!firmware/bench-one/fpga/ddr3_ice40/bitstreams/*.bin

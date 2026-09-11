@@ -285,8 +285,25 @@ module ddr3_ctrl #(
     reg                is_wr;
 
     wire in_init = (st <= S_MODW);
-    assign init_done = !in_init;
-    assign busy      = (st != S_IDLE);
+    /* init_done and busy are REGISTERED for the same reason req_ready is: both are decodes of st, both
+     * leave the module, and both land in the bridge's state machine where a couple of extra LUT levels
+     * turn into a failing path across the die. Neither is timing-critical in meaning -- init_done rises
+     * once, about 700 us after power-on, and never falls; busy only drives an indicator and a status
+     * bit -- so a cycle of lag is invisible. */
+    reg init_done_r = 1'b0;
+    reg busy_r      = 1'b1;
+    assign init_done = init_done_r;
+    assign busy      = busy_r;
+
+    always @(posedge sys_clk) begin
+        if (sys_rst) begin
+            init_done_r <= 1'b0;
+            busy_r      <= 1'b1;
+        end else begin
+            init_done_r <= !in_init;
+            busy_r      <= (st != S_IDLE);
+        end
+    end
     /* req_ready means "I am accepting a request ON THIS CYCLE", not "I am available".
      *
      * Requests are only ever latched on a memory clock rising edge, which is one fabric cycle in
@@ -295,7 +312,28 @@ module ddr3_ctrl #(
      * request three times out of four at CK_DIV 4. That failure is silent and total: the bridge waits
      * forever for data that was never requested. Qualifying with ck_rise makes
      * (req_valid && req_ready) a true acceptance. */
-    assign req_ready = (st == S_IDLE) && (ref_owed == 0) && !in_init && ck_rise;
+    /* And it is REGISTERED, because the bridge's acceptance logic sits on the far side of the die.
+     *
+     * Written combinationally this was two LUT levels off st, ref_owed and phase, feeding the bridge's
+     * request arithmetic, feeding a 9-bit subtract: five levels and four long routes, 12.5 ns measured,
+     * which failed the Alchitry Cu's 100 MHz oscillator outright. Since the only cycle that can ever
+     * accept is a ck_rise, and phase is a free-running counter, that cycle is PREDICTABLE one cycle
+     * ahead -- so the whole term can be computed early and clocked out as a flop.
+     *
+     * req_rdy_r is therefore high on exactly the cycles ck_rise is high and the controller is free, and
+     * the bridge sees a register output instead of a combinational tree.
+     *
+     * It cannot double-accept. After an acceptance at phase 0 the next candidate cycle is phase
+     * CK_DIV-1, which is CK_DIV-1 cycles later, and st has long since left S_IDLE -- CK_DIV is never
+     * below 4, which the controller already enforces for an unrelated reason. */
+    reg req_rdy_r = 1'b0;
+    assign req_ready = req_rdy_r;
+
+    always @(posedge sys_clk) begin
+        if (sys_rst) req_rdy_r <= 1'b0;
+        else     req_rdy_r <= (st == S_IDLE) && (ref_owed == 0) && !in_init
+                              && (phase == CK_DIV-1);
+    end
 
     /* Write pump. A WRITE is issued every four clocks while write latency is six, so burst n+1 is
      * commanded before burst n's data has finished leaving. A single arming slot therefore gets
@@ -332,8 +370,23 @@ module ddr3_ctrl #(
     reg [3:0]  rbeat;
     reg [63:0] rbuf;
 
-    wire rd_first = rd_run && !rd_go && (rd_wait == 0) &&
-                    (phase == rd_sample_r[PH_BITS-1:0]);
+    /* (phase == rd_sample_r) is a register-against-register comparison, and it sat in the middle of the
+     * read-return path: rd_wait -> this compare -> rd_tick -> rbeat -> rd_valid, which then crosses to
+     * the bridge. Seven levels and nine nanoseconds of routing.
+     *
+     * phase is a free-running counter, so the cycle on which it will equal rd_sample_r is known one
+     * cycle in advance. Predicting it and clocking the result out removes the comparison from the path
+     * without changing which cycle the sample lands on -- rd_at_sample is high on exactly the cycles
+     * (phase == rd_sample_r) would have been. */
+    wire [PH_BITS-1:0] phase_next = (phase == CK_DIV-1) ? {PH_BITS{1'b0}} : (phase + 1'b1);
+    reg                rd_at_sample = 1'b0;
+
+    always @(posedge sys_clk) begin
+        if (sys_rst) rd_at_sample <= 1'b0;
+        else         rd_at_sample <= (phase_next == rd_sample_r[PH_BITS-1:0]);
+    end
+
+    wire rd_first = rd_run && !rd_go && (rd_wait == 0) && rd_at_sample;
     wire rd_next  = rd_run && rd_go && (rd_sub == 0);
     wire rd_tick  = rd_first || rd_next;
 

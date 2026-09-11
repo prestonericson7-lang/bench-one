@@ -115,97 +115,368 @@
   resistors can sit anywhere.</p>
 </div>
 
-<h2 class="plain">How it fits together</h2>
-<p class="lede">Four blocks. Seven wires are <b>shared by every chip</b>; one wire per chip is
-<b>different</b>, and that one wire is the entire reason the decoder is there.</p>
+<h2 class="plain">The whole board</h2>
+<p class="lede">This is the thing itself. The Teensy on the left, the decoder under it, the four chips
+in a column on the right. <b>Seven lanes run down the board and every chip taps every one of them</b>
+&mdash; that is how the chips connect to each other. Only pin&nbsp;1 gets its own wire, and that is the
+entire reason the decoder exists.</p>
 
 <div class="board">
-<svg viewBox="0 0 1100 560" xmlns="http://www.w3.org/2000/svg" role="img"
-     aria-label="Block overview: Teensy feeds a shared seven-wire bus to all four PSRAM chips, and feeds a decoder which gives each chip its own chip-select wire">
+<svg viewBox="0 0 1340 1520" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Board wiring: the Teensy feeds seven shared lanes that run down the board, every PSRAM taps every lane, and the decoder gives each PSRAM its own chip-select wire">
   <defs><style>
-    .bx{fill:var(--panel-2);stroke:var(--ink);stroke-width:3}
-    .t1{font-family:var(--disp);font-size:26px;font-weight:700;fill:var(--ink)}
-    .t2{font-family:var(--disp);font-size:17px;font-weight:600;fill:var(--ink-2)}
-    .t3{font-family:var(--mono);font-size:15px;fill:var(--ink-2)}
-    .tw{font-family:var(--mono);font-size:15px;font-weight:600}
-    .ar{fill:none;stroke-width:6;stroke-linecap:round}
-  </style>
-  <marker id="ah" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
-    <path d="M0,0 L7,3.5 L0,7 z" fill="context-stroke"/>
-  </marker>
-  </defs>
-
-  <!-- Teensy -->
-  <rect class="bx" x="30" y="140" width="190" height="280" rx="4"/>
-  <text class="t1" x="125" y="265" text-anchor="middle">TEENSY</text>
-  <text class="t1" x="125" y="292" text-anchor="middle">4.1</text>
-  <text class="t2" x="125" y="322" text-anchor="middle">keeps its own</text>
-  <text class="t2" x="125" y="342" text-anchor="middle">PSRAM on SS0</text>
-
-  <!-- shared bus -->
-  <path class="ar" d="M220 220 L420 220" stroke="var(--dat)" marker-end="url(#ah)"/>
-  <text class="tw" x="228" y="205" fill="var(--dat)">7 wires, SHARED by all four</text>
-  <text class="t3" x="228" y="243">clock, 4 data, 3.3 V, ground</text>
-
-  <rect class="bx" x="420" y="70" width="150" height="300" rx="4" fill="var(--panel)"/>
-  <text class="t1" x="495" y="205" text-anchor="middle">BUS</text>
-  <text class="t1" x="495" y="232" text-anchor="middle">RAILS</text>
-  <text class="t2" x="495" y="262" text-anchor="middle">7 columns</text>
-  <text class="t2" x="495" y="282" text-anchor="middle">down the board</text>
-
-  <!-- decoder -->
-  <path class="ar" d="M220 380 L420 440" stroke="var(--cs)" marker-end="url(#ah)"/>
-  <text class="tw" x="232" y="415" fill="var(--cs)">4 wires</text>
-  <text class="t3" x="232" y="437">pins 2, 3, 4 + SS1</text>
-  <rect class="bx" x="420" y="400" width="150" height="120" rx="4"/>
-  <text class="t1" x="495" y="448" text-anchor="middle">74LVC</text>
-  <text class="t1" x="495" y="474" text-anchor="middle">138A</text>
-  <text class="t2" x="495" y="500" text-anchor="middle">picks ONE chip</text>
-
-  <!-- four psram -->
-  <g>
-    <rect class="bx" x="810" y="40" width="260" height="100" rx="4"/>
-    <text class="t1" x="940" y="82" text-anchor="middle">PSRAM 1</text>
-    <text class="t2" x="940" y="108" text-anchor="middle">8 MB &middot; bank 0</text>
-
-    <rect class="bx" x="810" y="170" width="260" height="100" rx="4"/>
-    <text class="t1" x="940" y="212" text-anchor="middle">PSRAM 2</text>
-    <text class="t2" x="940" y="238" text-anchor="middle">8 MB &middot; bank 1</text>
-
-    <rect class="bx" x="810" y="300" width="260" height="100" rx="4"/>
-    <text class="t1" x="940" y="342" text-anchor="middle">PSRAM 3</text>
-    <text class="t2" x="940" y="368" text-anchor="middle">8 MB &middot; bank 2</text>
-
-    <rect class="bx" x="810" y="430" width="260" height="100" rx="4"/>
-    <text class="t1" x="940" y="472" text-anchor="middle">PSRAM 4</text>
-    <text class="t2" x="940" y="498" text-anchor="middle">8 MB &middot; bank 3</text>
-  </g>
-
-  <!-- bus to chips -->
-  <path class="ar" d="M570 150 L650 150 L650 78 L806 78" stroke="var(--dat)" marker-end="url(#ah)"/>
-  <path class="ar" d="M650 150 L650 208 L806 208" stroke="var(--dat)" marker-end="url(#ah)"/>
-  <path class="ar" d="M570 290 L650 290 L650 338 L806 338" stroke="var(--dat)" marker-end="url(#ah)"/>
-  <path class="ar" d="M650 290 L650 468 L806 468" stroke="var(--dat)" marker-end="url(#ah)"/>
-  <text class="tw" x="596" y="140" fill="var(--dat)">same 7 to</text>
-  <text class="tw" x="596" y="160" fill="var(--dat)">every chip</text>
-
-  <!-- decoder to chips -->
-  <path class="ar" d="M570 424 L720 424 L720 116 L806 116" stroke="var(--cs)" marker-end="url(#ah)"/>
-  <path class="ar" d="M570 448 L706 448 L706 246 L806 246" stroke="var(--cs)" marker-end="url(#ah)"/>
-  <path class="ar" d="M570 472 L692 472 L692 376 L806 376" stroke="var(--cs)" marker-end="url(#ah)"/>
-  <path class="ar" d="M570 496 L678 496 L678 506 L806 506" stroke="var(--cs)" marker-end="url(#ah)"/>
-  <text class="tw" x="600" y="530" fill="var(--cs)">1 wire each &mdash; the DIFFERENT one</text>
+    .body{fill:var(--panel-2);stroke:var(--ink);stroke-width:3}
+    .lane{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+    .stub{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+    .leg{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
+    .cname{font-family:var(--disp);font-size:27px;font-weight:700;fill:var(--ink)}
+    .csub{font-family:var(--disp);font-size:16px;font-weight:600;fill:var(--ink-3)}
+    .pnum{font-family:var(--mono);font-size:19px;font-weight:700;fill:var(--ink)}
+    .sig{font-family:var(--mono);font-size:15px;font-weight:600;fill:var(--ink-2)}
+    .llbl{font-family:var(--mono);font-size:16px;font-weight:700}
+    .grp{font-family:var(--disp);font-size:15px;font-weight:700;fill:var(--ink-3);letter-spacing:.12em}
+    .note{font-family:"Source Sans 3",sans-serif;font-size:17px;font-weight:600;fill:var(--ink)}
+    .note2{font-family:"Source Sans 3",sans-serif;font-size:15px;fill:var(--ink-3)}
+  </style></defs>
+  <path class="lane" d="M680 120 L680 1180" stroke="var(--dat)"/>
+  <path class="lane" d="M650 140 L650 1220" stroke="var(--dat)"/>
+  <path class="lane" d="M620 160 L620 1260" stroke="var(--gnd)"/>
+  <path class="lane" d="M1040 100 L1040 1140" stroke="var(--pwr)"/>
+  <path class="lane" d="M1070 80 L1070 1180" stroke="var(--dat)"/>
+  <path class="lane" d="M1100 60 L1100 1220" stroke="var(--clk)"/>
+  <path class="lane" d="M1130 40 L1130 1260" stroke="var(--dat)"/>
+  <path class="stub" d="M186 240 L210 240 L210 40 L1130 40" stroke="var(--dat)"/>
+  <circle cx="1130" cy="40" r="7" fill="var(--dat)"/>
+  <text class="llbl" x="222" y="28" fill="var(--dat)">SIO0</text>
+  <path class="stub" d="M186 292 L228 292 L228 60 L1100 60" stroke="var(--clk)"/>
+  <circle cx="1100" cy="60" r="7" fill="var(--clk)"/>
+  <text class="llbl" x="240" y="48" fill="var(--clk)">SCLK</text>
+  <path class="stub" d="M186 344 L246 344 L246 80 L1070 80" stroke="var(--dat)"/>
+  <circle cx="1070" cy="80" r="7" fill="var(--dat)"/>
+  <text class="llbl" x="258" y="68" fill="var(--dat)">SIO3</text>
+  <path class="stub" d="M186 396 L264 396 L264 100 L1040 100" stroke="var(--pwr)"/>
+  <circle cx="1040" cy="100" r="7" fill="var(--pwr)"/>
+  <text class="llbl" x="276" y="88" fill="var(--pwr)">VCC</text>
+  <path class="stub" d="M186 448 L282 448 L282 120 L680 120" stroke="var(--dat)"/>
+  <circle cx="680" cy="120" r="7" fill="var(--dat)"/>
+  <text class="llbl" x="294" y="108" fill="var(--dat)">SIO1</text>
+  <path class="stub" d="M186 500 L300 500 L300 140 L650 140" stroke="var(--dat)"/>
+  <circle cx="650" cy="140" r="7" fill="var(--dat)"/>
+  <text class="llbl" x="312" y="128" fill="var(--dat)">SIO2</text>
+  <path class="stub" d="M186 552 L318 552 L318 160 L620 160" stroke="var(--gnd)"/>
+  <circle cx="620" cy="160" r="7" fill="var(--gnd)"/>
+  <text class="llbl" x="330" y="148" fill="var(--gnd)">VSS</text>
+  <rect class="body" x="720" y="200" width="280" height="200" rx="6"/>
+  <circle cx="746" cy="226" r="8" fill="var(--ink)"/>
+  <text class="cname" x="860" y="304" text-anchor="middle">PSRAM 1</text>
+  <text class="csub" x="860" y="330" text-anchor="middle">bank 0 &#183; dot = pin 1</text>
+  <line class="leg" x1="720" y1="240" x2="698" y2="240"/>
+  <text class="pnum" x="690" y="247" text-anchor="end">1</text>
+  <line class="leg" x1="1000" y1="240" x2="1022" y2="240"/>
+  <text class="pnum" x="1030" y="247">8</text>
+  <line class="leg" x1="720" y1="280" x2="698" y2="280"/>
+  <text class="pnum" x="690" y="287" text-anchor="end">2</text>
+  <line class="leg" x1="1000" y1="280" x2="1022" y2="280"/>
+  <text class="pnum" x="1030" y="287">7</text>
+  <line class="leg" x1="720" y1="320" x2="698" y2="320"/>
+  <text class="pnum" x="690" y="327" text-anchor="end">3</text>
+  <line class="leg" x1="1000" y1="320" x2="1022" y2="320"/>
+  <text class="pnum" x="1030" y="327">6</text>
+  <line class="leg" x1="720" y1="360" x2="698" y2="360"/>
+  <text class="pnum" x="690" y="367" text-anchor="end">4</text>
+  <line class="leg" x1="1000" y1="360" x2="1022" y2="360"/>
+  <text class="pnum" x="1030" y="367">5</text>
+  <path class="stub" d="M698 280 L680 280" stroke="var(--dat)"/>
+  <circle cx="680" cy="280" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 320 L650 320" stroke="var(--dat)"/>
+  <circle cx="650" cy="320" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 360 L620 360" stroke="var(--gnd)"/>
+  <circle cx="620" cy="360" r="7" fill="var(--gnd)"/>
+  <path class="stub" d="M1022 240 L1040 240" stroke="var(--pwr)"/>
+  <circle cx="1040" cy="240" r="7" fill="var(--pwr)"/>
+  <path class="stub" d="M1022 280 L1070 280" stroke="var(--dat)"/>
+  <circle cx="1070" cy="280" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 320 L1100 320" stroke="var(--clk)"/>
+  <circle cx="1100" cy="320" r="7" fill="var(--clk)"/>
+  <path class="stub" d="M1022 360 L1130 360" stroke="var(--dat)"/>
+  <circle cx="1130" cy="360" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 240 L1010 240 L1010 382 L710 382 L710 360" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
+  <rect x="831" y="369" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text class="sig" x="860" y="388" text-anchor="middle">104</text>
+  <rect class="body" x="720" y="500" width="280" height="200" rx="6"/>
+  <circle cx="746" cy="526" r="8" fill="var(--ink)"/>
+  <text class="cname" x="860" y="604" text-anchor="middle">PSRAM 2</text>
+  <text class="csub" x="860" y="630" text-anchor="middle">bank 1 &#183; dot = pin 1</text>
+  <line class="leg" x1="720" y1="540" x2="698" y2="540"/>
+  <text class="pnum" x="690" y="547" text-anchor="end">1</text>
+  <line class="leg" x1="1000" y1="540" x2="1022" y2="540"/>
+  <text class="pnum" x="1030" y="547">8</text>
+  <line class="leg" x1="720" y1="580" x2="698" y2="580"/>
+  <text class="pnum" x="690" y="587" text-anchor="end">2</text>
+  <line class="leg" x1="1000" y1="580" x2="1022" y2="580"/>
+  <text class="pnum" x="1030" y="587">7</text>
+  <line class="leg" x1="720" y1="620" x2="698" y2="620"/>
+  <text class="pnum" x="690" y="627" text-anchor="end">3</text>
+  <line class="leg" x1="1000" y1="620" x2="1022" y2="620"/>
+  <text class="pnum" x="1030" y="627">6</text>
+  <line class="leg" x1="720" y1="660" x2="698" y2="660"/>
+  <text class="pnum" x="690" y="667" text-anchor="end">4</text>
+  <line class="leg" x1="1000" y1="660" x2="1022" y2="660"/>
+  <text class="pnum" x="1030" y="667">5</text>
+  <path class="stub" d="M698 580 L680 580" stroke="var(--dat)"/>
+  <circle cx="680" cy="580" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 620 L650 620" stroke="var(--dat)"/>
+  <circle cx="650" cy="620" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 660 L620 660" stroke="var(--gnd)"/>
+  <circle cx="620" cy="660" r="7" fill="var(--gnd)"/>
+  <path class="stub" d="M1022 540 L1040 540" stroke="var(--pwr)"/>
+  <circle cx="1040" cy="540" r="7" fill="var(--pwr)"/>
+  <path class="stub" d="M1022 580 L1070 580" stroke="var(--dat)"/>
+  <circle cx="1070" cy="580" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 620 L1100 620" stroke="var(--clk)"/>
+  <circle cx="1100" cy="620" r="7" fill="var(--clk)"/>
+  <path class="stub" d="M1022 660 L1130 660" stroke="var(--dat)"/>
+  <circle cx="1130" cy="660" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 540 L1010 540 L1010 682 L710 682 L710 660" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
+  <rect x="831" y="669" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text class="sig" x="860" y="688" text-anchor="middle">104</text>
+  <rect class="body" x="720" y="800" width="280" height="200" rx="6"/>
+  <circle cx="746" cy="826" r="8" fill="var(--ink)"/>
+  <text class="cname" x="860" y="904" text-anchor="middle">PSRAM 3</text>
+  <text class="csub" x="860" y="930" text-anchor="middle">bank 2 &#183; dot = pin 1</text>
+  <line class="leg" x1="720" y1="840" x2="698" y2="840"/>
+  <text class="pnum" x="690" y="847" text-anchor="end">1</text>
+  <line class="leg" x1="1000" y1="840" x2="1022" y2="840"/>
+  <text class="pnum" x="1030" y="847">8</text>
+  <line class="leg" x1="720" y1="880" x2="698" y2="880"/>
+  <text class="pnum" x="690" y="887" text-anchor="end">2</text>
+  <line class="leg" x1="1000" y1="880" x2="1022" y2="880"/>
+  <text class="pnum" x="1030" y="887">7</text>
+  <line class="leg" x1="720" y1="920" x2="698" y2="920"/>
+  <text class="pnum" x="690" y="927" text-anchor="end">3</text>
+  <line class="leg" x1="1000" y1="920" x2="1022" y2="920"/>
+  <text class="pnum" x="1030" y="927">6</text>
+  <line class="leg" x1="720" y1="960" x2="698" y2="960"/>
+  <text class="pnum" x="690" y="967" text-anchor="end">4</text>
+  <line class="leg" x1="1000" y1="960" x2="1022" y2="960"/>
+  <text class="pnum" x="1030" y="967">5</text>
+  <path class="stub" d="M698 880 L680 880" stroke="var(--dat)"/>
+  <circle cx="680" cy="880" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 920 L650 920" stroke="var(--dat)"/>
+  <circle cx="650" cy="920" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 960 L620 960" stroke="var(--gnd)"/>
+  <circle cx="620" cy="960" r="7" fill="var(--gnd)"/>
+  <path class="stub" d="M1022 840 L1040 840" stroke="var(--pwr)"/>
+  <circle cx="1040" cy="840" r="7" fill="var(--pwr)"/>
+  <path class="stub" d="M1022 880 L1070 880" stroke="var(--dat)"/>
+  <circle cx="1070" cy="880" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 920 L1100 920" stroke="var(--clk)"/>
+  <circle cx="1100" cy="920" r="7" fill="var(--clk)"/>
+  <path class="stub" d="M1022 960 L1130 960" stroke="var(--dat)"/>
+  <circle cx="1130" cy="960" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 840 L1010 840 L1010 982 L710 982 L710 960" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
+  <rect x="831" y="969" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text class="sig" x="860" y="988" text-anchor="middle">104</text>
+  <rect class="body" x="720" y="1100" width="280" height="200" rx="6"/>
+  <circle cx="746" cy="1126" r="8" fill="var(--ink)"/>
+  <text class="cname" x="860" y="1204" text-anchor="middle">PSRAM 4</text>
+  <text class="csub" x="860" y="1230" text-anchor="middle">bank 3 &#183; dot = pin 1</text>
+  <line class="leg" x1="720" y1="1140" x2="698" y2="1140"/>
+  <text class="pnum" x="690" y="1147" text-anchor="end">1</text>
+  <line class="leg" x1="1000" y1="1140" x2="1022" y2="1140"/>
+  <text class="pnum" x="1030" y="1147">8</text>
+  <line class="leg" x1="720" y1="1180" x2="698" y2="1180"/>
+  <text class="pnum" x="690" y="1187" text-anchor="end">2</text>
+  <line class="leg" x1="1000" y1="1180" x2="1022" y2="1180"/>
+  <text class="pnum" x="1030" y="1187">7</text>
+  <line class="leg" x1="720" y1="1220" x2="698" y2="1220"/>
+  <text class="pnum" x="690" y="1227" text-anchor="end">3</text>
+  <line class="leg" x1="1000" y1="1220" x2="1022" y2="1220"/>
+  <text class="pnum" x="1030" y="1227">6</text>
+  <line class="leg" x1="720" y1="1260" x2="698" y2="1260"/>
+  <text class="pnum" x="690" y="1267" text-anchor="end">4</text>
+  <line class="leg" x1="1000" y1="1260" x2="1022" y2="1260"/>
+  <text class="pnum" x="1030" y="1267">5</text>
+  <path class="stub" d="M698 1180 L680 1180" stroke="var(--dat)"/>
+  <circle cx="680" cy="1180" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 1220 L650 1220" stroke="var(--dat)"/>
+  <circle cx="650" cy="1220" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M698 1260 L620 1260" stroke="var(--gnd)"/>
+  <circle cx="620" cy="1260" r="7" fill="var(--gnd)"/>
+  <path class="stub" d="M1022 1140 L1040 1140" stroke="var(--pwr)"/>
+  <circle cx="1040" cy="1140" r="7" fill="var(--pwr)"/>
+  <path class="stub" d="M1022 1180 L1070 1180" stroke="var(--dat)"/>
+  <circle cx="1070" cy="1180" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 1220 L1100 1220" stroke="var(--clk)"/>
+  <circle cx="1100" cy="1220" r="7" fill="var(--clk)"/>
+  <path class="stub" d="M1022 1260 L1130 1260" stroke="var(--dat)"/>
+  <circle cx="1130" cy="1260" r="7" fill="var(--dat)"/>
+  <path class="stub" d="M1022 1140 L1010 1140 L1010 1282 L710 1282 L710 1260" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
+  <rect x="831" y="1269" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text class="sig" x="860" y="1288" text-anchor="middle">104</text>
+  <path class="stub" d="M492 835 L510 835 L510 240 L698 240" stroke="var(--cs)"/>
+  <text class="llbl" x="520" y="226" fill="var(--cs)">Y0 to pin 1</text>
+  <path class="stub" d="M492 880 L540 880 L540 540 L698 540" stroke="var(--cs)"/>
+  <text class="llbl" x="550" y="526" fill="var(--cs)">Y1 to pin 1</text>
+  <path class="stub" d="M492 925 L570 925 L570 840 L698 840" stroke="var(--cs)"/>
+  <text class="llbl" x="580" y="826" fill="var(--cs)">Y2 to pin 1</text>
+  <path class="stub" d="M492 970 L600 970 L600 1140 L698 1140" stroke="var(--cs)"/>
+  <text class="llbl" x="610" y="1126" fill="var(--cs)">Y3 to pin 1</text>
+  <rect class="body" x="300" y="744" width="170" height="407" rx="6"/>
+  <path d="M351 744 a34 34 0 0 0 68 0" fill="var(--panel)" stroke="var(--ink)" stroke-width="3"/>
+  <text class="cname" x="385" y="929" text-anchor="middle">74LVC</text>
+  <text class="cname" x="385" y="974" text-anchor="middle">138A</text>
+  <text class="csub" x="385" y="1015" text-anchor="middle">notch at the top</text>
+  <line class="leg" x1="300" y1="790" x2="278" y2="790"/>
+  <text class="pnum" x="270" y="797" text-anchor="end">1</text>
+  <text class="sig" x="310" y="796">A</text>
+  <line class="leg" x1="470" y1="790" x2="492" y2="790"/>
+  <text class="pnum" x="500" y="797">16</text>
+  <text class="sig" x="460" y="796" text-anchor="end">VCC</text>
+  <line class="leg" x1="300" y1="835" x2="278" y2="835"/>
+  <text class="pnum" x="270" y="842" text-anchor="end">2</text>
+  <text class="sig" x="310" y="841">B</text>
+  <line class="leg" x1="470" y1="835" x2="492" y2="835"/>
+  <text class="pnum" x="500" y="842">15</text>
+  <text class="sig" x="460" y="841" text-anchor="end">Y0</text>
+  <line class="leg" x1="300" y1="880" x2="278" y2="880"/>
+  <text class="pnum" x="270" y="887" text-anchor="end">3</text>
+  <text class="sig" x="310" y="886">C</text>
+  <line class="leg" x1="470" y1="880" x2="492" y2="880"/>
+  <text class="pnum" x="500" y="887">14</text>
+  <text class="sig" x="460" y="886" text-anchor="end">Y1</text>
+  <line class="leg" x1="300" y1="925" x2="278" y2="925"/>
+  <text class="pnum" x="270" y="932" text-anchor="end">4</text>
+  <text class="sig" x="310" y="931">G2A</text>
+  <line class="leg" x1="470" y1="925" x2="492" y2="925"/>
+  <text class="pnum" x="500" y="932">13</text>
+  <text class="sig" x="460" y="931" text-anchor="end">Y2</text>
+  <line class="leg" x1="300" y1="970" x2="278" y2="970"/>
+  <text class="pnum" x="270" y="977" text-anchor="end">5</text>
+  <text class="sig" x="310" y="976">G2B</text>
+  <line class="leg" x1="470" y1="970" x2="492" y2="970"/>
+  <text class="pnum" x="500" y="977">12</text>
+  <text class="sig" x="460" y="976" text-anchor="end">Y3</text>
+  <line class="leg" x1="300" y1="1015" x2="278" y2="1015"/>
+  <text class="pnum" x="270" y="1022" text-anchor="end">6</text>
+  <text class="sig" x="310" y="1021">G1</text>
+  <line class="leg" x1="470" y1="1015" x2="492" y2="1015"/>
+  <text class="pnum" x="500" y="1022">11</text>
+  <text class="sig" x="460" y="1021" text-anchor="end">Y4</text>
+  <line class="leg" x1="300" y1="1060" x2="278" y2="1060"/>
+  <text class="pnum" x="270" y="1067" text-anchor="end">7</text>
+  <text class="sig" x="310" y="1066">Y7</text>
+  <line class="leg" x1="470" y1="1060" x2="492" y2="1060"/>
+  <text class="pnum" x="500" y="1067">10</text>
+  <text class="sig" x="460" y="1066" text-anchor="end">Y5</text>
+  <line class="leg" x1="300" y1="1105" x2="278" y2="1105"/>
+  <text class="pnum" x="270" y="1112" text-anchor="end">8</text>
+  <text class="sig" x="310" y="1111">GND</text>
+  <line class="leg" x1="470" y1="1105" x2="492" y2="1105"/>
+  <text class="pnum" x="500" y="1112">9</text>
+  <text class="sig" x="460" y="1111" text-anchor="end">Y6</text>
+  <path class="stub" d="M492 790 L528 790 L528 720" stroke="var(--pwr)"/>
+  <text class="llbl" x="536" y="720" fill="var(--pwr)">3.3 V</text>
+  <text class="note2" x="536" y="742">100 nF from pin 16 to pin 8</text>
+  <path class="stub" d="M278 1015 L212 1015" stroke="var(--pwr)"/>
+  <text class="llbl" x="204" y="1021" text-anchor="end" fill="var(--pwr)">3.3 V</text>
+  <path class="stub" d="M278 970 L212 970" stroke="var(--gnd)"/>
+  <text class="llbl" x="204" y="976" text-anchor="end" fill="var(--gnd)">GROUND</text>
+  <path class="stub" d="M278 1105 L212 1105" stroke="var(--gnd)"/>
+  <text class="llbl" x="204" y="1111" text-anchor="end" fill="var(--gnd)">GROUND</text>
+  <text class="note2" x="602" y="1149" text-anchor="end">Y7, Y6, Y5, Y4: leave bare</text>
+  <rect class="body" x="30" y="160" width="156" height="1090" rx="6" fill="var(--panel)"/>
+  <text class="cname" x="108" y="200" text-anchor="middle">TEENSY</text>
+  <text class="grp" x="44" y="226">UNDERSIDE PADS</text>
+  <rect x="44" y="221" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="247">52</text>
+  <text class="sig" x="104" y="246">IO0</text>
+  <rect x="44" y="273" width="128" height="38" fill="var(--panel-2)" stroke="var(--clk)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="299">53</text>
+  <text class="sig" x="104" y="298">SCLK</text>
+  <rect x="44" y="325" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="351">54</text>
+  <text class="sig" x="104" y="350">IO3</text>
+  <rect x="44" y="377" width="128" height="38" fill="var(--panel-2)" stroke="var(--pwr)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="403">3V3</text>
+  <rect x="44" y="429" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="455">49</text>
+  <text class="sig" x="104" y="454">IO1</text>
+  <rect x="44" y="481" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="507">50</text>
+  <text class="sig" x="104" y="506">IO2</text>
+  <rect x="44" y="533" width="128" height="38" fill="var(--panel-2)" stroke="var(--gnd)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="559">GND</text>
+  <rect x="44" y="596" width="128" height="38" fill="var(--panel-2)" stroke="var(--ok)" stroke-width="2.5" stroke-dasharray="8 6"/>
+  <text class="pnum" x="58" y="622" fill="var(--ok)">48</text>
+  <text class="sig" x="104" y="621" fill="var(--ok)">SS0</text>
+  <text class="note" x="196" y="616" fill="var(--ok)">LEAVE THIS ONE ALONE</text>
+  <text class="note2" x="196" y="640">the chip already soldered here is what turns the bus on</text>
+  <text class="grp" x="44" y="768">TOP PINS</text>
+  <rect x="44" y="771" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="797">2</text>
+  <path class="stub" d="M172 790 L278 790" stroke="var(--cs)"/>
+  <rect x="44" y="816" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="842">3</text>
+  <path class="stub" d="M172 835 L278 835" stroke="var(--cs)"/>
+  <rect x="44" y="861" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="887">4</text>
+  <path class="stub" d="M172 880 L278 880" stroke="var(--cs)"/>
+  <text class="grp" x="44" y="1148">UNDERSIDE PAD</text>
+  <rect x="44" y="1161" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="pnum" x="58" y="1187">51</text>
+  <text class="sig" x="104" y="1186">SS1</text>
+  <path class="stub" d="M172 1180 L250 1180 L250 925 L278 925" stroke="var(--cs)"/>
+  <text class="note" x="196" y="1220" fill="var(--cs)">to G2A &mdash; the real chip select</text>
+  <rect x="44" y="1300" width="560" height="180" fill="var(--panel)" stroke="var(--cs)" stroke-width="3"/>
+  <text class="note" x="64" y="1334" fill="var(--cs)">THE THREE PULLDOWNS &mdash; not optional</text>
+  <text class="sig" x="64" y="1373">decoder pin 1</text>
+  <path class="stub" d="M194 1368 L254 1368" stroke="var(--cs)" stroke-width="3.5"/>
+  <rect x="254" y="1356" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="sig" x="285" y="1374" text-anchor="middle">10k</text>
+  <path class="stub" d="M316 1368 L374 1368" stroke="var(--gnd)" stroke-width="3.5"/>
+  <text class="llbl" x="382" y="1374" fill="var(--gnd)">GROUND</text>
+  <text class="sig" x="64" y="1407">decoder pin 2</text>
+  <path class="stub" d="M194 1402 L254 1402" stroke="var(--cs)" stroke-width="3.5"/>
+  <rect x="254" y="1390" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="sig" x="285" y="1408" text-anchor="middle">10k</text>
+  <path class="stub" d="M316 1402 L374 1402" stroke="var(--gnd)" stroke-width="3.5"/>
+  <text class="llbl" x="382" y="1408" fill="var(--gnd)">GROUND</text>
+  <text class="sig" x="64" y="1441">decoder pin 3</text>
+  <path class="stub" d="M194 1436 L254 1436" stroke="var(--cs)" stroke-width="3.5"/>
+  <rect x="254" y="1424" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text class="sig" x="285" y="1442" text-anchor="middle">10k</text>
+  <path class="stub" d="M316 1436 L374 1436" stroke="var(--gnd)" stroke-width="3.5"/>
+  <text class="llbl" x="382" y="1442" fill="var(--gnd)">GROUND</text>
+  <text class="note2" x="64" y="1458">They hold bank 0 selected while the Teensy probes the bus,</text>
+  <rect x="660" y="1300" width="640" height="180" fill="var(--panel)" stroke="var(--rule)" stroke-width="3"/>
+  <circle cx="690" cy="1334" r="8" fill="var(--ink)"/>
+  <text class="note" x="708" y="1340">A DOT means the wires are JOINED there.</text>
+  <path class="stub" d="M678 1374 L704 1374" stroke="var(--ink)" stroke-width="4"/>
+  <path class="stub" d="M691 1361 L691 1387" stroke="var(--ink)" stroke-width="4"/>
+  <text class="note" x="722" y="1380">Lines crossing with NO dot are NOT joined.</text>
+  <rect x="678" y="1404" width="26" height="5" fill="var(--clk)"/>
+  <text class="note2" x="714" y="1413">SCLK, the clock</text>
+  <rect x="678" y="1418" width="26" height="5" fill="var(--dat)"/>
+  <text class="note2" x="714" y="1427">SIO0 to SIO3, the four data lines</text>
+  <rect x="678" y="1432" width="26" height="5" fill="var(--pwr)"/>
+  <text class="note2" x="714" y="1441">3.3 V</text>
+  <rect x="678" y="1446" width="26" height="5" fill="var(--gnd)"/>
+  <text class="note2" x="714" y="1455">ground</text>
+  <rect x="678" y="1460" width="26" height="5" fill="var(--cs)"/>
+  <text class="note2" x="714" y="1469">chip select, one per chip</text>
 </svg>
 </div>
 
-<div class="key">
-  <span><i style="background:var(--dat)"></i>shared by every chip</span>
-  <span><i style="background:var(--cs)"></i>one per chip</span>
-</div>
+<p><b>Read it like this.</b> Start at a Teensy pad on the left. Follow its wire up and across to the
+top of a lane. Follow the lane down. Every chip it passes has a dot on it where that chip's pin joins.
+One lane, four chips, one signal. Then do the same for the next pad.</p>
 
+<p>The four violet wires are the odd ones out. Each starts at a different decoder output and ends at
+exactly one chip's pin&nbsp;1. Those four wires are the only thing that differs between the chips.</p>
 
 <!-- ============================================================ PART 1 -->
-<h2><span class="num">1</span>The Teensy</h2>
+<h2><span class="num">1</span>Close up: the Teensy</h2>
 <p class="lede">Six wires come off the <b>underside pads</b> and five off the ordinary top pins.
 Pad&nbsp;48 you do not touch &mdash; it is the chip that has to stay.</p>
 
@@ -350,7 +621,7 @@ Pad&nbsp;48 you do not touch &mdash; it is the chip that has to stay.</p>
 
 
 <!-- ============================================================ PART 2 -->
-<h2><span class="num">2</span>The decoder</h2>
+<h2><span class="num">2</span>Close up: the decoder</h2>
 <p class="lede">A 16-pin chip. <b>Notch or dot marks the pin&nbsp;1 end.</b> Pins run 1 to 8 down one
 side and 9 to 16 back up the other. Every single pin is labelled below &mdash; there are no pins you
 get to ignore except three.</p>
@@ -511,7 +782,7 @@ but the two wires to Y4 and Y5.</p>
 
 
 <!-- ============================================================ PART 3 -->
-<h2><span class="num">3</span>Any one PSRAM</h2>
+<h2><span class="num">3</span>Close up: any one PSRAM</h2>
 <p class="lede">Eight pins. <b>A dot in one corner marks pin&nbsp;1.</b> Numbering runs down that side
 and back up the other. <b>All four chips are wired exactly the same except pin&nbsp;1.</b></p>
 

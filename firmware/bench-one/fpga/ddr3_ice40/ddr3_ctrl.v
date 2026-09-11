@@ -162,11 +162,16 @@ module ddr3_ctrl #(
      * the edge itself, data changes exactly when the device samples, and writes fail -- verified,
      * not assumed: CK_DIV 2 produces 127 protocol errors and 32 corrupt words in simulation.
      *
-     * So 25 MHz is the ceiling for this single-edge design, giving 50 MB/s on eight data lines. The
-     * way past it is NOT a faster clock, it is a wider bus: sixteen data lines at 25 MHz is 100 MB/s,
-     * which clears the Teensy's 66.5 MB/s link with the edge rate still at a hand-wiring-friendly
-     * 25 MHz. Eight more level-shifted wires buy more than doubling the clock would, and are far
-     * kinder to flying leads. */
+     * So 25 MHz is this single-edge design's OWN ceiling, worth 50 MB/s on eight data lines. It is not
+     * the ceiling that binds, and that distinction matters: the iCE40 fabric gives up first. This
+     * design's Fmax on an HX8K is 82 to 97 MHz depending on placer seed, so sys_clk runs off the PLL
+     * at 50 or 62.5 MHz and the memory clock, being sys_clk/CK_DIV with CK_DIV at least 4, tops out at
+     * 15.625 MHz. Raising the DDR3 ceiling would change nothing until the fabric moves.
+     *
+     * The way past THAT is not a faster clock either. It is a wider bus: sixteen data lines at
+     * 15.625 MHz is 62.5 MB/s, which clears the Teensy's 66.5 MB/s link with the edge rate unchanged.
+     * Eight more level-shifted wires buy more than any available clock increase, and are far kinder to
+     * flying leads. */
     localparam integer PH_DQ_A = CK_DIV - (CK_DIV/4);
     localparam integer PH_DQ_B = CK_DIV/4;
 

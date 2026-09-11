@@ -11,14 +11,20 @@
  *  FlexSPI cannot be stalled. Once the dummy cycles end it clocks data out relentlessly, so DRAM has
  *  to supply bytes at least as fast as the Teensy takes them.
  *
- *      eight data lines, 25 MHz memory clock, BL8 every four clocks  ->  50 MB/s
- *      FlexSPI on four lines at 100 MHz                              ->  50 MB/s
- *      FlexSPI on four lines at 133 MHz                              ->  66.5 MB/s
+ *      eight data lines, 15.625 MHz memory clock, BL8 every four clocks  ->  31.25 MB/s
+ *      eight data lines,  6.25  MHz memory clock                          ->  12.5  MB/s
+ *      FlexSPI on four lines at 49.5 MHz                                 ->  24.75 MB/s
+ *      FlexSPI on one  line  at 49.5 MHz                                 ->   6.19 MB/s
  *
- *  Stage one therefore runs the Teensy's bus at 100 MHz, not its 133 MHz maximum: a 133 MHz link
- *  against a 50 MB/s memory reads ahead of the data and returns rubbish. Going to 133 MHz belongs
- *  with a sixteen-line data path, which doubles DRAM throughput while leaving the edge rate at a
- *  hand-wiring-friendly 25 MHz.
+ *  Both shipped configurations therefore run the Teensy's bus at FlexSPI2's SLOWEST setting, 49.5 MHz,
+ *  and differ only in how many data lines they use. 66.5 MB/s is the Teensy's ceiling and is
+ *  unreachable here for a reason that has nothing to do with the Teensy: the iCE40 fabric will not
+ *  clock fast enough to put that much DRAM behind it. See ddr3_top.v.
+ *
+ *  The way past this is NOT a faster clock anywhere. It is a WIDER DRAM bus: sixteen data lines at
+ *  15.625 MHz is 62.5 MB/s, which clears the Teensy's link with the memory edge rate unchanged.
+ *  Eight more level-shifted wires buy more than any clock increase available, and are far kinder to
+ *  flying leads.
  *
  *  THREE THINGS THE END-TO-END SIMULATION FORCED, EACH OF WHICH WAS A REAL BUG
  *  --------------------------------------------------------------------------
@@ -139,13 +145,17 @@ module ddr3_bridge #(
      * catch up afterwards.
      *
      *     one burst = 4 memory clocks,  interval = 7.8 us
-     *     CK_DIV  4 -> 25.00 MHz -> 160 ns/burst -> 195 bursts in 4 intervals -> capped at 128
-     *     CK_DIV  8 -> 12.50 MHz -> 320 ns/burst ->  97 bursts
-     *     CK_DIV 16 ->  6.25 MHz -> 640 ns/burst ->  48 bursts
+     *     sys_clk 62.5 MHz, CK_DIV  4 -> 15.625 MHz -> 256 ns/burst -> 121 bursts in 4 intervals
+     *     sys_clk 50.0 MHz, CK_DIV  8 ->  6.25  MHz -> 640 ns/burst ->  48 bursts
      *
-     * Hard-coding 128 was safe at 25 MHz and silently destroys data at 6.25 MHz, where a full-length
-     * request runs 82 us and owes more than ten refreshes against an allowance of eight. That is the
-     * kind of failure that shows up as one wrong byte an hour.
+     * Both shipped configurations land below the 128-burst buffer, so the cap is what actually bounds
+     * a request in each of them -- which is the point. Hard-coding 128 would be safe only at the
+     * fastest memory clock and silently destroys data at the slowest, where a full-length request
+     * runs 82 us and owes more than ten refreshes against an allowance of eight. That is the kind of
+     * failure that shows up as one wrong byte an hour.
+     *
+     * Note this is computed from SYS_HZ and CK_DIV, not from CK_DIV alone: the same CK_DIV means a
+     * different memory clock on a different fabric frequency, and getting that wrong here is silent.
      */
     localparam integer BURST_PS  = (1_000_000 / (SYS_HZ / 1_000_000)) * CK_DIV * 4;
     localparam integer BUDGET_PS = 4 * 7_800_000;

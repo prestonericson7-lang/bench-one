@@ -100,7 +100,8 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [34 — The control plane, and why it is CAN](34-the-control-plane.md) | |
 | [36 — The shed](36-the-shed.md) | does $300k hold a 2 to 4 trillion parameter model, passively cooled |
 | [37 — Scaling, and what a new chip would have to be](37-scaling-and-new-silicon.md) | |
-| [38 — DDR3 on a microcontroller](38-ddr3-on-a-microcontroller.md) | 256 MB on one Teensy, the three ceilings that decide it, and why the limit turns out not to be the DRAM |
+| [38 — DDR3 on a microcontroller](38-ddr3-on-a-microcontroller.md) | 256 MB on one Teensy, the ceilings that decide it, and why the limit turns out not to be the DRAM. **Corrected by 39** |
+| [39 — Closing timing on the DDR3 bridge](39-closing-timing-on-the-ddr3-bridge.md) | the FPGA fabric is the binding ceiling, not the DRAM or the wiring; four logic cuts, a PLL, and the DM0 contact that was missing from the wiring list |
 
 ## Reference
 

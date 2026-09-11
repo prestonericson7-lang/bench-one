@@ -1,0 +1,358 @@
+<title>BENCH ONE</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ground:#f6f5f3; --panel:#ffffff; --panel-2:#ecebe7; --rule:#d8d5cf;
+    --ink:#15171b; --ink-2:#444a52; --ink-3:#7c838b;
+    --measured:#0f6e7e;     /* cyan-teal: measured on hardware */
+    --limit:#b1541f;        /* amber: a ceiling or a cost */
+    --absent:#8d8a83;       /* grey: not measured */
+    --sans:"Chivo",system-ui,-apple-system,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#101215; --panel:#181b20; --panel-2:#21252b; --rule:#30353c;
+      --ink:#eceae6; --ink-2:#aeb4bb; --ink-3:#7b8189;
+      --measured:#49b6c4; --limit:#e08a4e; --absent:#797e85;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#101215; --panel:#181b20; --panel-2:#21252b; --rule:#30353c;
+    --ink:#eceae6; --ink-2:#aeb4bb; --ink-3:#7b8189;
+    --measured:#49b6c4; --limit:#e08a4e; --absent:#797e85;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+       font-size:15.5px;line-height:1.6;padding:0 22px 90px}
+  .wrap{max-width:900px;margin:0 auto}
+
+  header{padding:52px 0 30px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+           color:var(--limit);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(38px,7vw,66px);line-height:.94;margin:0 0 18px;font-weight:900;
+     letter-spacing:-.025em;text-wrap:balance}
+  .deck{font-size:19px;line-height:1.5;color:var(--ink-2);max-width:60ch;margin:0}
+  .deck b{color:var(--ink);font-weight:700}
+
+  h2{font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--ink-3);
+     margin:56px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+  h3{font-size:17px;font-weight:700;margin:26px 0 8px;letter-spacing:-.01em}
+  p{margin:0 0 14px;max-width:66ch}
+  a{color:var(--measured)}
+  ul{padding-left:20px;max-width:66ch;margin:0 0 14px}
+  li{margin-bottom:7px}
+  .mono{font-family:var(--mono)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;
+         background:var(--rule);border:1px solid var(--rule);border-radius:2px;margin:26px 0 0}
+  .stat{background:var(--panel);padding:16px 18px}
+  .stat .n{font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat .u{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:2px}
+  .stat .l{font-size:13.5px;color:var(--ink-2);margin-top:7px;line-height:1.4}
+  .stat.m .n{color:var(--measured)} .stat.x .n{color:var(--limit)}
+
+  .chart{background:var(--panel);border:1px solid var(--rule);border-radius:2px;
+         padding:22px 22px 16px;margin:18px 0}
+  .chart .cap{font-size:13.5px;color:var(--ink-2);margin:14px 0 0;max-width:66ch}
+  .bars{display:grid;grid-template-columns:auto 1fr auto;gap:7px 12px;align-items:center}
+  .bars .nm{font-size:13.5px;white-space:nowrap;color:var(--ink-2)}
+  .bars .nm b{color:var(--ink);font-weight:700}
+  .bars .tr{background:var(--panel-2);height:20px;border-radius:1px;position:relative;
+            overflow:hidden}
+  .bars .bar{height:100%;border-radius:1px}
+  .bars .vl{font-family:var(--mono);font-size:13px;font-weight:700;
+            font-variant-numeric:tabular-nums;white-space:nowrap}
+  .wall{grid-column:1/-1;border-top:2px dashed var(--limit);margin:8px 0 2px;
+        padding-top:7px;font-size:13px;color:var(--limit);font-weight:500}
+
+  .scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--panel);
+          margin:16px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+     text-align:left;padding:10px 14px;color:var(--ink-3);background:var(--panel-2);
+     border-bottom:1px solid var(--rule);white-space:nowrap}
+  td{padding:9px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.m,th.m{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+       padding:2px 7px;border-radius:2px;font-weight:700;white-space:nowrap}
+  .t-m{background:var(--measured);color:var(--panel)}
+  .t-c{background:var(--limit);color:var(--panel)}
+  .t-n{background:var(--absent);color:var(--panel)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:17px 19px}
+  .card h4{margin:0 0 6px;font-size:15.5px;font-weight:700}
+  .card p{font-size:13.5px;color:var(--ink-2);margin:0;line-height:1.45}
+  .card .path{font-family:var(--mono);font-size:11.5px;color:var(--measured);margin-top:9px;
+              word-break:break-all}
+
+  pre{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:15px 17px;
+      overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:16px 0}
+  pre .c{color:var(--ink-3)}
+
+  .note{background:var(--panel);border-left:3px solid var(--limit);border-radius:0 2px 2px 0;
+        padding:15px 18px;margin:18px 0}
+  .note b{color:var(--limit)}
+  .note p{margin:0;font-size:14.5px}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);
+         font-size:13.5px;color:var(--ink-3)}
+  footer p{max-width:66ch}
+  .chan{margin:22px 0 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+  .chan a{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--limit);
+          text-decoration:none;border-bottom:2px solid var(--limit);padding-bottom:1px}
+  .chan span{font-size:14px;color:var(--ink-3)}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Engineering record · nothing rounded up</div>
+  <h1>BENCH&nbsp;ONE</h1>
+  <p class="deck">Running large language models on a shelf of cheap heterogeneous processors —
+  microcontrollers, small Linux chips and little FPGAs — <b>instead of a GPU.</b> Every number here is
+  either measured on hardware or labelled as a calculation.</p>
+  <p class="chan"><a href="https://www.youtube.com/@littlebrainsbigmess">Little Brains Big Mess</a>
+  <span>the builds, the failures, and the bench footage behind every number here</span></p>
+</header>
+
+<div class="stats">
+  <div class="stat m"><div class="n">18.33</div><div class="u">nanoseconds</div>
+    <div class="l">GPIO edge to interrupt handler. Roughly 8,000× better than Linux on the same bench,
+    and a GPU cannot buy it at any price.</div></div>
+  <div class="stat m"><div class="n">30 B</div><div class="u">parameters, running</div>
+    <div class="l">A mixture-of-experts model, with its expert cache concentrating 3 to 5× better than
+    uniform access.</div></div>
+  <div class="stat m"><div class="n">39.3</div><div class="u">MB/s</div>
+    <div class="l">Nibble unpacking on one microcontroller. This, not memory bandwidth, turns out to
+    be the binding limit.</div></div>
+  <div class="stat x"><div class="n">18.4</div><div class="u">watts per terabyte</div>
+    <div class="l">DRAM refresh power. The constraint nobody set out to find, and the one that decides
+    how large the machine can be.</div></div>
+</div>
+
+<h2>The newest result: DDR3 on a microcontroller</h2>
+
+<p>A Teensy 4.1 is rated for 16 MB of external RAM. A DDR3 stick from a dead laptop holds 4 GB and
+costs nothing. Putting a small FPGA between them — one that <b>pretends to be a PSRAM chip</b>, so the
+memory appears as ordinary pointers with no driver in the read path — gives that microcontroller
+<b>256 MB</b> using 16% of a $30 FPGA.</p>
+
+<p>The FPGA performs no arithmetic, deliberately. It moves bytes and nothing else, so the throughput
+that comes out is the microcontroller's own number rather than a property of the pair.</p>
+
+<p>The interesting part is not the speed. It is what the exercise revealed about where the limit
+actually sits.</p>
+
+<div class="chart">
+  <div class="bars">
+    <div class="nm">PSRAM, <b>16 MB</b></div>
+    <div class="tr"><div class="bar" style="width:46.3%;background:var(--measured)"></div></div>
+    <div class="vl">18.2</div>
+
+    <div class="nm">bridge, one-line link, <b>256 MB</b></div>
+    <div class="tr"><div class="bar" style="width:13.7%;background:var(--limit)"></div></div>
+    <div class="vl">5.4</div>
+
+    <div class="nm">bridge, four-line link, <b>256 MB</b></div>
+    <div class="tr"><div class="bar" style="width:38.7%;background:var(--limit)"></div></div>
+    <div class="vl">15.2</div>
+
+    <div class="nm">the bus ceiling, <b>256 MB</b></div>
+    <div class="tr"><div class="bar" style="width:62.9%;background:var(--limit)"></div></div>
+    <div class="vl">24.7</div>
+
+    <div class="wall">39.3 — the processor's own unpacking. Nothing above this line is reachable by
+    making memory faster.</div>
+  </div>
+  <p class="cap">Effective throughput in MB/s, which is what predicts tokens per second. Reading and
+  unpacking <b>add</b> on a CPU; only fabric overlaps them. That one rule reproduces the measured
+  PSRAM figure exactly, which is why it is trusted for the rest. The one-line link is the configuration
+  buildable with ordinary level translators; the four-line one needs better parts and is still
+  <b>0.84x the PSRAM it replaces</b>. Neither is faster than what it displaces. Both are 32 times the
+  capacity, which is the entire case for building them.</p>
+</div>
+
+<p>There is deliberately no row between those two. A middle configuration looks obvious and cannot be
+built: the peripheral that consumes the data cannot be clocked below 49.5 MHz, which on four lines eats
+24.75 MB/s, and the rate rule then demands 28.75 MB/s of memory behind it. The way out is a
+<b>narrower</b> link rather than a slower one.</p>
+
+<p><b>Four ceilings stack, and the one that binds was the last to be found.</b> The processor's external
+bus tops out at 66.5 MB/s, a property of the package rather than a tuning target: the three faster paths
+that exist on the silicon are each closed by pins that were never bonded out. The unpacking wall sits at
+39.3, well below that. And below <i>both</i> sits the FPGA fabric, which turned out to be the real
+limit.</p>
+
+<p>That one only appeared once place-and-route could actually run. The gateware does not close at the
+board's 100 MHz oscillator: across eight placer seeds its maximum frequency lands between <b>81.5 and
+97.4 MHz</b>, so the luckiest seed very nearly makes it. A design that passes because of a lucky seed has
+not passed. The fabric now runs off its PLL at 50 or 62.5 MHz instead, the memory clock is that divided
+by at least four, and <b>15.625 MHz is the fastest DDR3 clock this board can actually hold.</b> Every
+build now routes on four seeds and fails if any one of them misses.</p>
+
+<p><b>Above roughly 66 MB/s of raw read, more memory bandwidth buys literally nothing anyway.</b> The
+fabric ceiling costs less than it looks like it should, because the link was already the limit long
+before the DRAM was.</p>
+
+<p>This project had treated memory as the scarce resource throughout. For a single microcontroller, it
+is not. That reframes where the remaining effort belongs.</p>
+
+<h2>Why DDR3 at 15 MHz is legal, not a hack</h2>
+
+<p>Everyone assumes DDR3 needs hundreds of megahertz. It has a documented <b>DLL disable mode</b>, and
+the datasheet specifies the clock period from <span class="mono">8 ns to 7800 ns</span> — 125 MHz down
+to 128 kHz. Running at 15.625 MHz, or at 6.25, sits comfortably inside a published window. The DIMM is
+the one part of this design with bandwidth to spare.</p>
+
+<p>Every timing quoted in nanoseconds is a <i>minimum</i>, so a slow clock satisfies them in one or two
+cycles and the numbers that make DDR3 hard stop applying. One does not relax: refresh is a wall-clock
+deadline of 8192 commands every 64 ms, and it is the only thing that bounds how long a single transfer
+may be.</p>
+
+<div class="note">
+  <p><b>The catch that shapes the whole design.</b> With the DLL disabled the datasheet states that the
+  strobe the chip returns "could be larger than tCK" — it can arrive more than a whole clock late — and
+  then declines to bound it. So read data is <b>not latched on the strobe at all.</b> It is sampled at a
+  fixed offset, and that offset is the one number in the design that cannot be calculated, only found
+  on the bench.</p>
+</div>
+
+<p>Which is why it is settable at runtime. As a build-time constant, every wrong guess cost a
+synthesis, a place-and-route and a reflash. As a runtime value, the microcontroller sweeps the whole
+space in about a second and prints which settings return data intact, choosing the middle of the
+widest clean run so there is margin on both sides:</p>
+
+<pre>          sample:  0  1  2  3  4  5  6  7
+    latency  5:    X  X  X  X  X  X  X  X
+    latency  6:    X  .  .  .  .  X  X  X      <span class="c">&lt;- four clean, centre at 2</span>
+    latency  7:    X  X  X  X  X  X  X  X
+
+    widest clean window is 4 wide; using latency 6, sample 2</pre>
+
+<h2>What is measured, and what is not</h2>
+
+<p>Every figure in the repository is one of three things and says which. This distinction is the whole
+point of the project.</p>
+
+<div class="scroll"><table>
+<thead><tr><th></th><th>Finding</th><th class="m">Figure</th></tr></thead>
+<tbody>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>Decode is unpack-bound, not bandwidth-bound. The 31× gap to an FPGA is what justifies having
+    FPGAs at all.</td><td class="m">39.3 MB/s</td></tr>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>Read and unpack costs <i>add</i> on a CPU. Only fabric overlaps them.</td><td class="m">—</td></tr>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>Distributing work across nodes is nearly free, but a batch of one wastes every node but the
+    first.</td><td class="m">0.05%</td></tr>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>Hop cost, against 29 µs budgeted. USB turned out fast enough that ethernet adapters may be
+    unnecessary.</td><td class="m">148 µs</td></tr>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>A 4-bit key-value cache destroys the model; 8-bit is free. Perplexity is the judge, not
+    impressions.</td><td class="m">—</td></tr>
+<tr><td><span class="tag t-m">measured</span></td>
+    <td>Rendering is bit-exact across architectures, so bands computed on different boards stitch with
+    no visible seam.</td><td class="m">—</td></tr>
+<tr><td><span class="tag t-c">calculated</span></td>
+    <td>The microcontroller's external bus ceiling. Three faster paths exist on the die and all are
+    closed by unbonded pins.</td><td class="m">66.5 MB/s</td></tr>
+<tr><td><span class="tag t-c">calculated</span></td>
+    <td>Wiring eight data lines reaches one chip on the module, not the whole stick. It happens to
+    nearly fill the 240 MB memory window exactly.</td><td class="m">256 MB</td></tr>
+<tr><td><span class="tag t-n">not measured</span></td>
+    <td>The DDR3 bridge has never been on hardware. Simulated, synthesised, datasheet-traced.</td>
+    <td class="m">—</td></tr>
+<tr><td><span class="tag t-n">not measured</span></td>
+    <td>FPGA DDR3 bandwidth, and the vector unpack rate on ARM.</td><td class="m">—</td></tr>
+</tbody>
+</table></div>
+
+<p><b>No benchmark is ever run on a desktop PC.</b> A PC has none of the constraints that make this
+hardware interesting, so a PC number is not evidence about the machine. One document was deleted
+outright for containing them, because they were quietly skewing the conclusions drawn from everything
+around them. Host builds exist to check correctness, never speed.</p>
+
+<h2>Using the repository</h2>
+
+<div class="cards">
+  <div class="card">
+    <h4>The DDR3 bridge</h4>
+    <p>Standalone and reusable with none of the rest of this project. Its own README, its own test
+    suite, its own wiring sheet. Give any Teensy 4.1 sixteen times its rated memory.</p>
+    <div class="path">firmware/bench-one/fpga/ddr3_ice40/</div>
+  </div>
+  <div class="card">
+    <h4>The engineering record</h4>
+    <p>Thirty documents numbered in the order things were learned, not by topic — including the places
+    where a later one refutes an earlier one, and the two gaps, one of which has no recorded reason.</p>
+    <div class="path">docs/README.md</div>
+  </div>
+  <div class="card">
+    <h4>Before you power anything</h4>
+    <p>Four mistakes destroy a DDR3 module. One of them, a divider built with both resistors in series,
+    looks correct and reads the full logic level.</p>
+    <div class="path">HARDWARE-SAFETY.md</div>
+  </div>
+  <div class="card">
+    <h4>The refuted claims</h4>
+    <p>An adversarial re-check overturned 29 previously published claims. They are kept in the
+    repository rather than deleted.</p>
+    <div class="path">docs/research/VERIFICATION.md</div>
+  </div>
+</div>
+
+<p>A clean checkout is about 9 MB across 408 files. Toolchains are not committed — install an OSS CAD
+Suite and point one variable at it:</p>
+
+<pre>OSS_CAD=/path/to/oss-cad-suite sh firmware/bench-one/fpga/ddr3_ice40/build.sh</pre>
+
+<p>That runs the controller against a device model that <b>checks its master</b> rather than merely
+responding to it — enforcing mode register order, the disable bit, the latencies, and the refresh debt
+limit — then sweeps the read calibration, confirms the clock limits, and synthesises. It stops at the
+first failure.</p>
+
+<h2>Four faults worth knowing if you build anything like this</h2>
+
+<p>Each was found by building a model that argues back, and each would have been real on silicon.</p>
+
+<ul>
+  <li><b>Read latency is the datasheet figure plus one.</b> The datasheet measures from the edge where
+  the <i>device</i> latches a command. Registering commands on the falling edge to buy setup time means
+  the device sees them a clock later. Using the published number samples one clock early and returns
+  the previous burst's last two bytes in front of every word — a very convincing wrong answer.</li>
+  <li><b>A ready signal must mean "accepting now", not "available".</b> Requests are latched only on a
+  memory clock edge, one fabric cycle in four. An unqualified ready is true for three cycles where
+  nothing can be accepted, and a requester that drops its valid on seeing ready loses three requests in
+  four. The failure is silent and total.</li>
+  <li><b>A flip-flop has one asynchronous reset.</b> Listing both chip select and reset as edge events
+  is legal Verilog and unsynthesisable.</li>
+  <li><b>Cross clock domains with a toggle, not a pulse.</b> A single-cycle pulse between unrelated
+  clocks can be missed or latched metastable. Here the symptom would have been a calibration sweep that
+  occasionally lies — sending someone hunting hardware that is fine.</li>
+</ul>
+
+<h2>The honest headline</h2>
+
+<p>Not "cheap GPU". This hardware loses general compute badly and will keep losing it.</p>
+
+<p>What it has is the <b>time domain</b>, where it wins by roughly four orders of magnitude and cannot
+be bought out of it, and <b>capacity per dollar at the edge of what is physically possible.</b> The
+constraint that turns out to bound the whole machine is neither compute nor bandwidth but <b>DRAM
+refresh power</b> — which makes the enclosure a radiator and sets how large the thing can grow before
+it cooks itself.</p>
+
+<p>That was not what anyone set out to look for, and it is the most interesting thing in the
+repository.</p>
+
+<footer>
+  <p>Every register value, timing and pin number traces to a named datasheet page. Pin tables are read
+  from the manufacturer's own document rather than a summary, after a pin number taken from a search
+  result once nearly put 3.3 V on a DRAM data line. MIT licensed.</p>
+  <p style="margin-top:12px">More of this work, built on camera, at
+  <a href="https://www.youtube.com/@littlebrainsbigmess">Little Brains Big Mess</a>.</p>
+</footer>
+</div>

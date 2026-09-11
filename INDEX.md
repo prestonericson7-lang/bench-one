@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**411 tracked files.** This page exists so you never have to guess which directory something is in.
+**422 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -20,7 +20,8 @@ If you know what you want, use the table. If you do not, start at
 |---|---|
 | Understand the point of the whole project | [docs/20](docs/20-the-actual-thesis.md), then [docs/27](docs/27-the-machine-as-measured.md) |
 | Put 256 MB of DDR3 on a microcontroller | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) |
-| Wire the DDR3 up tonight | the [bench sheet](https://claude.ai/code/artifact/d39d40f3-1e30-4302-9495-690aafe3a355), and [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) first |
+| Wire the DDR3 up tonight | **[WIRING.md](firmware/bench-one/fpga/ddr3_ice40/WIRING.md)** — every wire, both ends, and the part in between. Read [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) first |
+| Flash an FPGA once it arrives | `openFPGALoader -b cu firmware/bench-one/fpga/ddr3_ice40/bitstreams/cfgA.bin` |
 | See the numbers taken off real boards | [docs/19](docs/19-measured-hardware.md), [docs/23](docs/23-real-runtime-measured.md), [tests/results/](firmware/bench-one/tests/results/) |
 | Build and flash something | [firmware/bench-one/tests/](firmware/bench-one/tests/) — one directory per experiment, each self-contained |
 | Wire the whole stack | [docs/10 — build sheet](docs/10-build-sheet.md) |
@@ -34,8 +35,8 @@ If you know what you want, use the table. If you do not, start at
 ## The six compartments
 
 ```
-docs/         35 numbered documents + 11 research files    the engineering record
-firmware/     312 files                                    everything that runs on a board
+docs/         36 numbered documents + 11 research files    the engineering record
+firmware/     319 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -51,7 +52,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **35 numbered documents**, 01 to 38 | the record itself |
+| **36 numbered documents**, 01 to 39 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -80,15 +81,17 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 149 files
+### `bench-one/tests/` — 153 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **13 experiment directories, 34 C programs, 69 result logs.**
+cross-compiled programs. **15 experiment directories, 35 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
 | **`ddr3_bridge_teensy/`** | **the DDR3 bridge, with the self-calibrating read timing sweep** |
 | `ddr3_spd_teensy/` | reads a DIMM's identity EEPROM, unpowered. Step zero of the DDR3 work |
+| **`offload_teensy/`** | **does taking work off a Teensy make its memory faster?** Five cases isolating compute, memory, eDMA overlap and the cost of link handling |
+| **`usblink_bench/`** | **how fast can a Luckfox feed a Teensy?** The unmeasured number that decides whether the Luckfox is a helper or a bottleneck. Both halves, host side cross-compiled |
 | `psram_bank_teensy/` | the banked PSRAM array and its chip-select decode |
 | `psram_teensy/` | one PSRAM chip |
 | `can_bus_teensy/` | the control plane |
@@ -105,7 +108,7 @@ Notable loose programs: `dot_verify.c` (checks the integer dot product against a
 `disk_stream.c`, `machine_view.c` (the renderer), `stage_node.c` and `pipe_model.c` (the distributed
 pipeline), `luckfox_bench.c`.
 
-### `bench-one/fpga/` — 20 files
+### `bench-one/fpga/` — 23 files
 
 | | |
 |---|---|

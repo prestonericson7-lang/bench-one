@@ -275,7 +275,7 @@ module tb_chain #(
 
     /* Single-bit read, command 0x03: one bit per clock out on IO0, one bit per clock back on IO1.
      * This is the path that makes a slow memory clock viable, because FlexSPI2 cannot be clocked
-     * below 49.5 MHz and four lines at that speed outrun anything below a 25 MHz memory. */
+     * below 49.5 MHz and four lines at that speed outrun any memory slower than 14.4 MHz. */
     task single_read;
         input [31:0] addr;
         input integer n;
@@ -374,8 +374,8 @@ module tb_chain #(
 
         enter_quad;
 
-      /* The quad cases below need a 25 MHz memory clock. Four lines at FlexSPI2's slowest setting
-       * consume 24.75 MB/s and nothing slower than a 25 MHz memory can feed that, so at slower clocks
+      /* The quad cases below need a memory clock of 14.4 MHz or better. Four lines at the slowest
+       * consume 24.75 MB/s and the rate rule then wants 28.75 MB/s of DRAM behind them, so below that
        * they are skipped rather than failing for a reason that is a property of the configuration. */
       if (QUAD_OK) begin
         /* 2. write 256 bytes, read them back */

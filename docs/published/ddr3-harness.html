@@ -1,0 +1,583 @@
+<title>DDR3 Harness Build Sheet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#14181c; --ink-2:#3c454e; --ink-3:#6b7780;
+    --bg:#f4f2ee; --panel:#fffefb; --panel-2:#eae7e0; --rule:#d4cfc5;
+    --v33:#1d6fa5;      /* 3.3 V domain */
+    --v15:#b4562a;      /* 1.5 V domain */
+    --vref:#7a5ba6;     /* 0.75 V reference */
+    --gnd:#4a5259;      /* ground */
+    --warn:#a3321f;
+    --ok:#2f6b43;
+    --accent:#b4562a;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"Archivo",system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#e8e4dc; --ink-2:#b4aea3; --ink-3:#858077;
+      --bg:#15171a; --panel:#1d2024; --panel-2:#262a2f; --rule:#343a40;
+      --v33:#5fa8d8; --v15:#e0885a; --vref:#b295d6; --gnd:#8c959d;
+      --warn:#e07a62; --ok:#6fb98a; --accent:#e0885a;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#e8e4dc; --ink-2:#b4aea3; --ink-3:#858077;
+    --bg:#15171a; --panel:#1d2024; --panel-2:#262a2f; --rule:#343a40;
+    --v33:#5fa8d8; --v15:#e0885a; --vref:#b295d6; --gnd:#8c959d;
+    --warn:#e07a62; --ok:#6fb98a; --accent:#e0885a;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.55;padding:0 20px 80px}
+  .wrap{max-width:860px;margin:0 auto}
+  header{padding:34px 0 22px;border-bottom:2px solid var(--ink);margin-bottom:28px}
+  h1{font-size:29px;line-height:1.12;margin:0 0 8px;font-weight:700;letter-spacing:-.01em;
+     text-wrap:balance}
+  .sub{color:var(--ink-2);font-size:15px;margin:0;max-width:62ch}
+  h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+     color:var(--ink-3);margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--rule)}
+  h3{font-size:16px;font-weight:600;margin:22px 0 8px}
+  p{margin:0 0 12px;max-width:68ch}
+  .mono{font-family:var(--mono)}
+  .lead{font-size:16px}
+  ul{margin:0 0 12px;padding-left:20px;max-width:68ch}
+  li{margin-bottom:6px}
+
+  .grid{display:grid;gap:12px;margin:16px 0}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:14px 16px}
+  .card .k{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+           color:var(--ink-3);margin-bottom:4px}
+  .card .v{font-family:var(--mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+  .card .n{font-size:13px;color:var(--ink-2);margin-top:4px;line-height:1.4}
+
+  .rail{border-left:4px solid var(--rule)}
+  .r33{border-left-color:var(--v33)}
+  .r15{border-left-color:var(--v15)}
+  .rref{border-left-color:var(--vref)}
+  .rgnd{border-left-color:var(--gnd)}
+
+  .stop{background:var(--panel);border:1px solid var(--warn);border-left:4px solid var(--warn);
+        border-radius:3px;padding:14px 16px;margin:16px 0}
+  .stop b{color:var(--warn);display:block;margin-bottom:4px;font-size:14px}
+  .stop p{margin:0;font-size:14px}
+
+  .scroll{overflow-x:auto;margin:14px 0;border:1px solid var(--rule);border-radius:3px;
+          background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+     text-align:left;padding:9px 12px;color:var(--ink-3);background:var(--panel-2);
+     border-bottom:1px solid var(--rule);white-space:nowrap;font-weight:600}
+  td{padding:7px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.m,th.m{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .dom{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
+       vertical-align:1px}
+  .d33{background:var(--v33)} .d15{background:var(--v15)}
+  .dref{background:var(--vref)} .dgnd{background:var(--gnd)}
+
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:16px 0;max-width:none}
+  ol.steps>li{counter-increment:s;position:relative;padding:13px 14px 13px 46px;
+              background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+              margin-bottom:8px;max-width:none}
+  ol.steps>li::before{content:counter(s);position:absolute;left:14px;top:13px;
+      font-family:var(--mono);font-size:12px;font-weight:600;color:var(--bg);
+      background:var(--ink);width:20px;height:20px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center}
+  ol.steps .t{font-weight:600;margin-bottom:3px}
+  ol.steps .d{font-size:13.5px;color:var(--ink-2);line-height:1.45}
+  ol.steps .chk{font-family:var(--mono);font-size:12.5px;color:var(--ok);margin-top:5px}
+
+  label.ck{display:flex;gap:10px;align-items:flex-start;background:var(--panel);
+    border:1px solid var(--rule);border-radius:3px;padding:10px 12px;margin-bottom:6px;
+    cursor:pointer;font-size:14px;line-height:1.4}
+  label.ck input{margin:2px 0 0;flex:none;width:16px;height:16px;accent-color:var(--accent)}
+  label.ck.done{opacity:.5}
+  label.ck .lbl b{font-family:var(--mono);font-weight:600}
+  .prog{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin:10px 0 4px}
+
+  .key{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0;font-size:13px;color:var(--ink-2)}
+  .key span b{font-weight:600;color:var(--ink)}
+  footer{margin-top:46px;padding-top:16px;border-top:1px solid var(--rule);
+         font-size:13px;color:var(--ink-3)}
+  @media (max-width:560px){
+    h1{font-size:24px} body{font-size:14.5px;padding:0 14px 60px}
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>DDR3 harness build sheet</h1>
+  <p class="sub">Wiring a DDR3 UDIMM to an Alchitry Cu that bridges it onto a Teensy 4.1's FlexSPI2
+  bus. Eight data lines reach one x8 chip, so the addressable capacity is 256 MB whatever the label on
+  the stick says. Every wire below has a numbered header pin, and both bitstreams are built.</p>
+</header>
+
+<div class="stop">
+  <b>Read this first: VREF</b>
+  <p>A DDR3 module will not respond at all without two reference voltages at half of VDD. Every
+  input comparator on every chip measures against them. They are not optional, they are not
+  generated on the module, and nothing else on this page matters if they are missing or wrong.</p>
+</div>
+
+<h2>Tonight versus when the FPGA lands</h2>
+<div class="grid g3">
+  <div class="card rail r15">
+    <div class="k">Buildable now</div>
+    <div class="v">32 of 38</div>
+    <div class="n">The 1.5 V rail, both VREF dividers, all 26 output-line dividers, every tie-off,
+    decoupling, and the socket's power and ground.</div>
+  </div>
+  <div class="card rail r33">
+    <div class="k">Teensy link</div>
+    <div class="v">6 wires</div>
+    <div class="n">Header A42 and A43, then A45 to A49. 3.3 V both ends, no translation. SCLK sits on
+    A43 because that ball is a dedicated global clock pad.</div>
+  </div>
+  <div class="card rail rref">
+    <div class="k">Bitstreams</div>
+    <div class="v">both built</div>
+    <div class="n">cfgA at a 6.25 MHz memory clock runs on the TXB0108s you already own. cfgB at
+    15.625 MHz needs direction-controlled translators. Flash with one command.</div>
+  </div>
+</div>
+
+<h2>Power, and the one ordering rule</h2>
+<div class="grid g3">
+  <div class="card rail r15">
+    <div class="k">VDD and VDDQ</div>
+    <div class="v">1.50 V</div>
+    <div class="n">Spec window 1.425 to 1.575 V. Size the supply for 1.5 A; expect about 0.5 A
+    drawn. Standby is 32 to 55 mA per chip and there are eight live ones.</div>
+  </div>
+  <div class="card rail rref">
+    <div class="k">VREFDQ and VREFCA</div>
+    <div class="v">0.750 V</div>
+    <div class="n">Half of VDD, within 1 percent. That is 7.5 mV of total error budget, so
+    1 percent resistors, not 5 percent.</div>
+  </div>
+  <div class="card rail r33">
+    <div class="k">Logic side</div>
+    <div class="v">3.30 V</div>
+    <div class="n">From the FPGA board. Its banks are fixed at 3.3 V, which is why every one of the
+    38 lines needs translating.</div>
+  </div>
+</div>
+
+<div class="stop">
+  <b>Bring 1.5 V up first, or at the same instant as 3.3 V</b>
+  <p>The output lines are resistor dividers fed from 3.3 V logic. If the logic side is live while
+  the module is not, those dividers inject current into unpowered inputs. Wire both regulators to
+  one switch. While you are at it: hold the module's RESET# line low until 1.5 V is settled, which
+  the gateware already does for 200 microseconds, but only once it is itself powered.</p>
+</div>
+
+<h2>VREF: two dividers, built the same way</h2>
+<p>Two independent dividers, one per reference, each decoupled at the contact it feeds. Do not
+share one divider between them and do not tap them off a long wire.</p>
+
+<div class="scroll"><table>
+<thead><tr><th>Part</th><th class="m">Value</th><th>Why this value</th></tr></thead>
+<tbody>
+<tr><td>Upper resistor, 1.5 V to the tap</td><td class="m">100 &#8486; 1%</td>
+    <td>A 1 k divider sags by 16 mV under the input leakage of sixteen chips, which is 2 percent and
+    out of spec on its own. At 100 &#8486; the same leakage costs 1.6 mV.</td></tr>
+<tr><td>Lower resistor, tap to ground</td><td class="m">100 &#8486; 1%</td>
+    <td>Equal values give exactly half. Two 1 percent parts worst-case to about 1 percent of the
+    tap, which is the whole budget, so measure the tap before trusting it.</td></tr>
+<tr><td>Bulk cap at the tap</td><td class="m">1 &micro;F</td>
+    <td>Holds the reference through a burst of switching.</td></tr>
+<tr><td>High frequency cap at the tap</td><td class="m">100 nF</td>
+    <td>The spec also limits AC noise on the reference, not just its DC value. This is the one that
+    does that job. Mount it at the contact, not at the divider.</td></tr>
+<tr><td>Current drawn, each divider</td><td class="m">7.5 mA</td>
+    <td>15 mA for the pair. Add it to the rail budget.</td></tr>
+</tbody>
+</table></div>
+
+<p>Feed <span class="mono">VREFDQ</span> at contact 1 from one divider and
+<span class="mono">VREFCA</span> at contact 67 from the other. Measure both with a meter before the
+module is ever clocked: anything outside 0.743 to 0.758 V is a fault, not a tolerance.</p>
+
+<h2>The 26 output-only lines</h2>
+<p>Clock, address, bank, command and control only ever travel from the FPGA to the module, so a
+plain two-resistor divider is the right answer and is better than an active translator here: it is
+stronger, it has no direction logic to get confused, and it cannot oscillate.</p>
+
+<p>Pick the column that matches the memory clock you are running. The divider's source impedance
+has to charge roughly 20 pF of module capacitance well inside half a clock period.</p>
+
+<div class="scroll"><table>
+<thead><tr><th></th><th class="m">cfgA, first light<br>6.25 MHz</th><th class="m">cfgB, full speed<br>15.625 MHz</th></tr></thead>
+<tbody>
+<tr><td>Series resistor, from the FPGA pin</td><td class="m">1.2 k&#8486;</td><td class="m">330 &#8486;</td></tr>
+<tr><td>Shunt resistor, to ground</td><td class="m">1.0 k&#8486;</td><td class="m">270 &#8486;</td></tr>
+<tr><td>Resulting level</td><td class="m">1.500 V</td><td class="m">1.485 V</td></tr>
+<tr><td>Source impedance</td><td class="m">545 &#8486;</td><td class="m">148 &#8486;</td></tr>
+<tr><td>Settling into 20 pF</td><td class="m">11 ns</td><td class="m">3 ns</td></tr>
+<tr><td>Half a clock period</td><td class="m">80 ns</td><td class="m">32 ns</td></tr>
+<tr><td>Current per line, when high</td><td class="m">1.5 mA</td><td class="m">5.5 mA</td></tr>
+<tr><td>Current for all 27 lines</td><td class="m">41 mA</td><td class="m">148 mA</td></tr>
+</tbody>
+</table></div>
+
+<p>Build the first-light column tonight. It is 52 resistors and it gets the module answering. The
+full-speed column is a drop-in swap later, and the only thing that changes in the gateware is one
+number.</p>
+
+<h2>The 10 bidirectional lines, and your TXB0108s</h2>
+<p>The data group turns around: the FPGA drives it on writes and the module drives it on reads. A
+divider cannot do that, and a 3.3 V input cannot read a 1.5 V high, since it wants 2.0 V to call
+something a one. These lines need a real translator.</p>
+
+<div class="grid g3">
+  <div class="card">
+    <div class="k">What cfgB needs</div>
+    <div class="v">31.25 Mb/s</div>
+    <div class="n">At a 15.625 MHz memory clock. Data moves on both clock edges, so the bit rate is
+    double the clock.</div>
+  </div>
+  <div class="card">
+    <div class="k">TXB0108 rating</div>
+    <div class="v">20 Mb/s</div>
+    <div class="n">At the low end of its supply range, rising to 100 Mb/s at higher rails. Its
+    datasheet also insists any pull resistor exceed 50 k&#8486;, which tells you the drive is
+    deliberately weak.</div>
+  </div>
+  <div class="card">
+    <div class="k">At 6.25 MHz instead</div>
+    <div class="v">12.5 Mb/s</div>
+    <div class="n">Inside the TXB's rating with margin. This is cfgA, using only modules you already
+    own.</div>
+  </div>
+</div>
+
+<p>So there are two honest routes, and they are not in conflict:</p>
+<ul>
+  <li><b>Tonight, with TXB0108s.</b> Flash <span class="mono">cfgA.bin</span> and set
+  <span class="mono">MEM_KHZ 6250</span> in the sketch. That is a 6.25 MHz memory clock <b>and the
+  Teensy link on a single data line</b>, and both halves matter: FlexSPI2 cannot be clocked below
+  49.5 MHz, four lines at that speed consume 24.75 MB/s, and a 6.25 MHz memory supplies only 12.5, so
+  a four-line link here returns rubbish however well the wiring is done. One line takes 6.19 MB/s and
+  leaves a factor of two in hand. Expect it to work and to be slow, about a third of the onboard
+  PSRAM. It proves the wiring, the rails, the references and the initialisation sequence, which is
+  where nearly all the risk lives.</li>
+  <li><b>For speed, order SN74AVC8T245s.</b> Two of them, direction driven from the FPGA, which
+  already produces the signal. A 74LVC8T245 will <b>not</b> do: its VCCB floor is 1.65 V and the DIMM
+  is 1.5 V. Then flash <span class="mono">cfgB.bin</span> and set
+  <span class="mono">MEM_KHZ 15625</span>.</li>
+</ul>
+
+<div class="stop">
+  <b>The SN74LS245 in your parts bin will not work here</b>
+  <p>It is a 5 V TTL buffer, not a translator. It has one supply, it cannot output 1.5 V, and its
+  input threshold is 2.0 V so it cannot read 1.5 V either. Keep it for something else.</p>
+</div>
+
+
+<h2>Every wire, with the header pin you actually solder to</h2>
+<p>An FPGA ball designator is not a solderable thing. These three columns are what a person holding an
+iron needs: the numbered header position, the part the wire passes through, and the DIMM contact at the
+far end. Generated from the pin file the bitstream was built with, so the table and the gateware cannot
+disagree.</p>
+
+<div class="stop">
+  <b>Find pin 1 with a meter before you cut anything</b>
+  <p>Each Cu bank is 50 positions in two rows of 25, and every third position counting from the end of
+  a row is power or ground: 1, 4, 7 up to 25, then 26, 29, 32 up to 50. That is exactly why the signal
+  numbers below skip. Probe for continuity to board ground and confirm that the positions you believe
+  are 4, 7 and 10 are also power or ground. Getting the row orientation backwards mirrors all 32
+  signals on that bank, and it is the one mistake on this page that costs a module rather than an
+  afternoon.</p>
+</div>
+
+<h3>Header A, pins 2 to 18 &mdash; the data group, bidirectional, through translators</h3>
+<div class="scroll"><table>
+<thead><tr><th>FPGA signal</th><th class="m">Header pin</th><th class="m">Ball</th><th>Through</th><th class="m">Contact</th><th class="m">DIMM</th></tr></thead>
+<tbody>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[0]</span></td><td class="m"><b>A2</b></td><td class="m">M1</td><td>U1 A1&#8596;B1</td><td class="m"><b>3</b></td><td class="m">DQ0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[1]</span></td><td class="m"><b>A3</b></td><td class="m">L1</td><td>U1 A2&#8596;B2</td><td class="m"><b>4</b></td><td class="m">DQ1</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[2]</span></td><td class="m"><b>A5</b></td><td class="m">J1</td><td>U1 A3&#8596;B3</td><td class="m"><b>9</b></td><td class="m">DQ2</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[3]</span></td><td class="m"><b>A6</b></td><td class="m">J3</td><td>U1 A4&#8596;B4</td><td class="m"><b>10</b></td><td class="m">DQ3</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[4]</span></td><td class="m"><b>A8</b></td><td class="m">G1</td><td>U1 A5&#8596;B5</td><td class="m"><b>122</b></td><td class="m">DQ4</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[5]</span></td><td class="m"><b>A9</b></td><td class="m">G3</td><td>U1 A6&#8596;B6</td><td class="m"><b>123</b></td><td class="m">DQ5</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[6]</span></td><td class="m"><b>A11</b></td><td class="m">E1</td><td>U1 A7&#8596;B7</td><td class="m"><b>128</b></td><td class="m">DQ6</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dq[7]</span></td><td class="m"><b>A12</b></td><td class="m">D1</td><td>U1 A8&#8596;B8</td><td class="m"><b>129</b></td><td class="m">DQ7</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dqs</span></td><td class="m"><b>A14</b></td><td class="m">C1</td><td>U2 A1&#8596;B1</td><td class="m"><b>7</b></td><td class="m">DQS0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_dqs_n</span></td><td class="m"><b>A15</b></td><td class="m">B1</td><td>U2 A2&#8596;B2</td><td class="m"><b>6</b></td><td class="m">DQS0#</td></tr>
+</tbody></table></div>
+
+<h3>Header A, pins 20 to 40 &mdash; deliberately empty</h3>
+<p>Twelve unused positions, on purpose. They put about an inch and a quarter between the translated
+1.5 V data lines and the Teensy's 3.3 V link. Do not wire anything here.</p>
+
+<h3>Header A, pins 42 to 49 &mdash; the Teensy, 3.3 V both ends, no translation</h3>
+<div class="scroll"><table>
+<thead><tr><th>FPGA signal</th><th class="m">Header pin</th><th class="m">Ball</th><th>Through</th><th class="m">Goes to</th><th></th></tr></thead>
+<tbody>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_cs_n</span></td><td class="m"><b>A42</b></td><td class="m">H1</td><td>bare wire</td><td class="m"><b>Teensy 51</b></td><td class="m">&mdash;</td></tr>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_sck</span></td><td class="m"><b>A43</b></td><td class="m">H3</td><td>bare wire</td><td class="m"><b>Teensy 53</b></td><td class="m">&mdash;</td></tr>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_io[0]</span></td><td class="m"><b>A45</b></td><td class="m">K3</td><td>bare wire</td><td class="m"><b>Teensy 52</b></td><td class="m">&mdash;</td></tr>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_io[1]</span></td><td class="m"><b>A46</b></td><td class="m">K4</td><td>bare wire</td><td class="m"><b>Teensy 49</b></td><td class="m">&mdash;</td></tr>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_io[2]</span></td><td class="m"><b>A48</b></td><td class="m">N1</td><td>bare wire</td><td class="m"><b>Teensy 50</b></td><td class="m">&mdash;</td></tr>
+<tr><td><span class="dom d33"></span><span class="mono">qspi_io[3]</span></td><td class="m"><b>A49</b></td><td class="m">P1</td><td>bare wire</td><td class="m"><b>Teensy 54</b></td><td class="m">&mdash;</td></tr>
+</tbody></table></div>
+<p>SCLK is on A43 because ball H3 is a dedicated global clock pad. From any other header position the
+clock would reach the FPGA's global network through ordinary routing and arrive after the data pins it
+samples, which shows up as occasional wrong bytes and reads exactly like a bad solder joint. Only four
+of the eight global pads reach a header on this package.</p>
+
+<h3>Header B, pins 2 to 37 &mdash; address, bank, command, control, through dividers</h3>
+<p>Twenty-four signals on twenty-four consecutive positions, in order, so the ribbon leaves the board
+already sorted. None is timing critical: they are updated half a memory period before the edge that
+latches them, which is 80 ns of setup at 6.25 MHz against a required 170 ps.</p>
+<div class="scroll"><table>
+<thead><tr><th>FPGA signal</th><th class="m">Header pin</th><th class="m">Ball</th><th>Through</th><th class="m">Contact</th><th class="m">DIMM</th></tr></thead>
+<tbody>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ck_p</span></td><td class="m"><b>A17</b></td><td class="m">D3</td><td>divider</td><td class="m"><b>184</b></td><td class="m">CK0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ck_n</span></td><td class="m"><b>A18</b></td><td class="m">C3</td><td>divider</td><td class="m"><b>185</b></td><td class="m">CK0#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[0]</span></td><td class="m"><b>B2</b></td><td class="m">A6</td><td>divider</td><td class="m"><b>188</b></td><td class="m">A0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[1]</span></td><td class="m"><b>B3</b></td><td class="m">A7</td><td>divider</td><td class="m"><b>181</b></td><td class="m">A1</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[2]</span></td><td class="m"><b>B5</b></td><td class="m">A10</td><td>divider</td><td class="m"><b>61</b></td><td class="m">A2</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[3]</span></td><td class="m"><b>B6</b></td><td class="m">A11</td><td>divider</td><td class="m"><b>180</b></td><td class="m">A3</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[4]</span></td><td class="m"><b>B8</b></td><td class="m">C9</td><td>divider</td><td class="m"><b>59</b></td><td class="m">A4</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[5]</span></td><td class="m"><b>B9</b></td><td class="m">C10</td><td>divider</td><td class="m"><b>58</b></td><td class="m">A5</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[6]</span></td><td class="m"><b>B11</b></td><td class="m">A12</td><td>divider</td><td class="m"><b>178</b></td><td class="m">A6</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[7]</span></td><td class="m"><b>B12</b></td><td class="m">B14</td><td>divider</td><td class="m"><b>56</b></td><td class="m">A7</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[8]</span></td><td class="m"><b>B14</b></td><td class="m">C14</td><td>divider</td><td class="m"><b>177</b></td><td class="m">A8</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[9]</span></td><td class="m"><b>B15</b></td><td class="m">D14</td><td>divider</td><td class="m"><b>175</b></td><td class="m">A9</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[10]</span></td><td class="m"><b>B17</b></td><td class="m">E14</td><td>divider</td><td class="m"><b>70</b></td><td class="m">A10/AP</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[11]</span></td><td class="m"><b>B18</b></td><td class="m">E12</td><td>divider</td><td class="m"><b>55</b></td><td class="m">A11</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[12]</span></td><td class="m"><b>B20</b></td><td class="m">F14</td><td>divider</td><td class="m"><b>174</b></td><td class="m">A12/BC</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[13]</span></td><td class="m"><b>B21</b></td><td class="m">G14</td><td>divider</td><td class="m"><b>196</b></td><td class="m">A13</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_a[14]</span></td><td class="m"><b>B23</b></td><td class="m">H12</td><td>divider</td><td class="m"><b>172</b></td><td class="m">A14</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ba[0]</span></td><td class="m"><b>B24</b></td><td class="m">J12</td><td>divider</td><td class="m"><b>71</b></td><td class="m">BA0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ba[1]</span></td><td class="m"><b>B27</b></td><td class="m">H11</td><td>divider</td><td class="m"><b>190</b></td><td class="m">BA1</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ba[2]</span></td><td class="m"><b>B28</b></td><td class="m">G11</td><td>divider</td><td class="m"><b>52</b></td><td class="m">BA2</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_cs_n</span></td><td class="m"><b>B30</b></td><td class="m">G12</td><td>divider</td><td class="m"><b>193</b></td><td class="m">S0#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_ras_n</span></td><td class="m"><b>B31</b></td><td class="m">F12</td><td>divider</td><td class="m"><b>192</b></td><td class="m">RAS#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_cas_n</span></td><td class="m"><b>B33</b></td><td class="m">F11</td><td>divider</td><td class="m"><b>74</b></td><td class="m">CAS#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_we_n</span></td><td class="m"><b>B34</b></td><td class="m">E11</td><td>divider</td><td class="m"><b>73</b></td><td class="m">WE#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_cke</span></td><td class="m"><b>B36</b></td><td class="m">D12</td><td>divider</td><td class="m"><b>50</b></td><td class="m">CKE0</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_reset_n</span></td><td class="m"><b>B37</b></td><td class="m">D11</td><td>divider</td><td class="m"><b>168</b></td><td class="m">RESET#</td></tr>
+<tr><td><span class="dom d15"></span><span class="mono">ddr_odt</span></td><td class="m"><b>C2</b></td><td class="m">M3</td><td>divider</td><td class="m"><b>195</b></td><td class="m">ODT0</td></tr>
+</tbody></table></div>
+
+<h2>Flashing, once the board arrives</h2>
+<p>The Cu has a USB-C programmer on it. Nothing else to buy, and the board profile does the rest.</p>
+<div class="scroll"><table>
+<thead><tr><th>step</th><th>command</th></tr></thead>
+<tbody>
+<tr><td>Build both bitstreams</td><td class="m">OSS_CAD=/path/to/oss-cad-suite sh build.sh</td></tr>
+<tr><td>Flash the first-light build</td><td class="m">openFPGALoader -b cu build/cfgA.bin</td></tr>
+<tr><td>Make it survive power-off</td><td class="m">openFPGALoader -b cu -f build/cfgA.bin</td></tr>
+</tbody></table></div>
+<p>Configuration is volatile without <span class="mono">-f</span>, which is what you want while the
+timing is still being tuned.</p>
+
+<h2>Tie-offs: six contacts that must not float</h2>
+<div class="scroll"><table>
+<thead><tr><th class="m">Contact</th><th>Signal</th><th>Tie to</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td class="m">195</td><td>ODT0</td><td><span class="dom dgnd"></span>Ground</td>
+    <td>On-die termination is unsupported with the DLL disabled, and the datasheet requires the ball
+    held low.</td></tr>
+<tr><td class="m">77</td><td>ODT1</td><td><span class="dom dgnd"></span>Ground</td>
+    <td>Same, for the rank you are not using.</td></tr>
+<tr><td class="m">169</td><td>CKE1</td><td><span class="dom dgnd"></span>Ground</td>
+    <td>Holds the second rank disabled. This is also what keeps its current draw out of your
+    rail budget.</td></tr>
+<tr><td class="m">76</td><td>S1#</td><td><span class="dom d15"></span>1.5 V</td>
+    <td>Chip select is active low, so high deselects the second rank. The only contact on this list
+    that goes to the rail rather than ground.</td></tr>
+<tr><td class="m">125</td><td>DM0</td><td><span class="dom dgnd"></span>Ground</td>
+    <td>The data mask is active high. Low means every write lands, which is what you want.</td></tr>
+<tr><td class="m">6</td><td>DQS0#</td><td><span class="dom d15"></span>Driven</td>
+    <td>Not a tie-off. The strobe is a differential pair and the module's write receiver is a
+    comparator; leaving the complement floating gives it no reference and writes land at random.
+    The gateware drives it, so route it through a translator channel alongside DQS0.</td></tr>
+</tbody>
+</table></div>
+
+<h2>The same contacts grouped by function</h2>
+<p>The table above is what you wire. This one is the same information grouped by what each signal does, which is the view you want when something is wrong rather than when you are building.</p>
+<div class="key">
+  <span><span class="dom d33"></span><b>3.3 V</b> direct to FPGA</span>
+  <span><span class="dom d15"></span><b>1.5 V</b> through a divider</span>
+  <span><span class="dom dref"></span><b>0.75 V</b> reference</span>
+  <span><span class="dom dgnd"></span><b>Ground</b> or rail tie</span>
+</div>
+
+<div class="scroll"><table>
+<thead><tr><th>Group</th><th class="m">Contacts</th><th>Handling</th></tr></thead>
+<tbody>
+<tr><td><span class="dom dref"></span>References</td>
+    <td class="m">1 = VREFDQ, 67 = VREFCA</td><td>Own divider each, decoupled at the contact.</td></tr>
+<tr><td><span class="dom d15"></span>Clock pair</td>
+    <td class="m">184 = CK0, 185 = CK0#</td>
+    <td>Two dividers, matched values and equal wire lengths. Run the pair together.</td></tr>
+<tr><td><span class="dom d15"></span>Control</td>
+    <td class="m">50 = CKE0, 168 = RESET#</td><td>Divider each.</td></tr>
+<tr><td><span class="dom d15"></span>Command</td>
+    <td class="m">193 = S0#, 192 = RAS#, 74 = CAS#, 73 = WE#</td><td>Divider each.</td></tr>
+<tr><td><span class="dom d15"></span>Bank</td>
+    <td class="m">71 = BA0, 190 = BA1, 52 = BA2</td><td>Divider each.</td></tr>
+<tr><td><span class="dom d15"></span>Address, low</td>
+    <td class="m">188 = A0, 181 = A1, 61 = A2, 180 = A3, 59 = A4, 58 = A5, 178 = A6, 56 = A7</td>
+    <td>Divider each.</td></tr>
+<tr><td><span class="dom d15"></span>Address, high</td>
+    <td class="m">177 = A8, 175 = A9, 70 = A10, 55 = A11, 174 = A12, 196 = A13, 172 = A14</td>
+    <td>Divider each. A10 doubles as the precharge-all flag, so it is not optional.</td></tr>
+<tr><td><span class="dom d15"></span>Data, front</td>
+    <td class="m">3 = DQ0, 4 = DQ1, 9 = DQ2, 10 = DQ3</td><td>Translator. Bidirectional.</td></tr>
+<tr><td><span class="dom d15"></span>Data, back</td>
+    <td class="m">122 = DQ4, 123 = DQ5, 128 = DQ6, 129 = DQ7</td><td>Translator. Bidirectional.</td></tr>
+<tr><td><span class="dom d15"></span>Strobe pair</td>
+    <td class="m">7 = DQS0, 6 = DQS0#</td><td>Translator, same direction control as the data.</td></tr>
+<tr><td><span class="dom dgnd"></span>Identity EEPROM</td>
+    <td class="m">236 = VDDSPD, 238 = SDA, 118 = SCL, 117 = SA0, 119 = SA2</td>
+    <td>Step zero, four wires, and the module stays unpowered for it. Reading this tells you the
+    real geometry instead of assuming it.</td></tr>
+</tbody>
+</table></div>
+
+<div class="stop">
+  <b>Do not wire power and ground from a table</b>
+  <p>A 240-contact module has roughly thirty VDD and sixty VSS contacts and they must be connected
+  in quantity, not singly. Find them on your own socket with a continuity meter instead of trusting
+  any list: every VSS contact is shorted to every other one on the module, and the same is true of
+  VDD, so two probes and a beeper will map them in a couple of minutes and cannot be out of date.</p>
+</div>
+
+<h2>Decoupling</h2>
+<p>Sparse decoupling is the most common reason a hand-wired DRAM almost works. Budget for it.</p>
+<ul>
+  <li><b>100 nF per VDD contact group</b>, as close to the socket as the leads allow. Aim for at
+  least eight of them spread along the socket rather than one large one at the end.</li>
+  <li><b>A 10 to 100 &micro;F bulk capacitor</b> at the point the 1.5 V rail arrives at the socket.</li>
+  <li><b>100 nF on each translator's 1.5 V pin and 3.3 V pin.</b> These switch hardest and are
+  usually forgotten because the modules look self-contained.</li>
+  <li><b>100 nF and 1 &micro;F on each VREF tap</b>, already counted above.</li>
+</ul>
+
+<h2>Bring-up, in an order that cannot destroy anything</h2>
+<ol class="steps">
+  <li><div class="t">Read the identity EEPROM with the module unpowered</div>
+     <div class="d">Four wires at 3.3 V, nothing else connected. It reports density, row and column
+     counts and the part number. The gateware assumes 8 banks, 15 row bits and 10 column bits; if
+     the EEPROM disagrees, stop and change the gateware rather than the wiring.</div>
+     <div class="chk">Pass: a plausible part number prints, and the geometry matches.</div></li>
+  <li><div class="t">Build and measure the rails with the module out of the socket</div>
+     <div class="d">1.5 V and both 0.75 V references, loaded only by their dividers.</div>
+     <div class="chk">Pass: 1.425 to 1.575 V, and both references 0.743 to 0.758 V.</div></li>
+  <li><div class="t">Check every divider output with the FPGA pin held high, still with no module</div>
+     <div class="d">Tedious and worth it. A divider built with two series resistors instead of a
+     series and a shunt reads 3.3 V and will damage the module the moment it is inserted.</div>
+     <div class="chk">Pass: all 26 read between 1.4 and 1.6 V when driven high, near 0 V when low.</div></li>
+  <li><div class="t">Confirm the tie-offs with a meter</div>
+     <div class="d">Five to ground, one to the rail. Getting S1# and CKE1 the wrong way round leaves
+     the module permanently deselected and looks exactly like a dead part.</div>
+     <div class="chk">Pass: contacts 195, 77, 169, 125 read 0 V; contact 76 reads 1.5 V.</div></li>
+  <li><div class="t">Insert the module and check current before anything is clocked</div>
+     <div class="d">With RESET# low and no clock, the module should be drawing standby current only.</div>
+     <div class="chk">Pass: roughly 0.1 to 0.5 A. Several amps means a reversed rail; cut power.</div></li>
+  <li><div class="t">Load the gateware at the slow clock and watch the initialisation indicator</div>
+     <div class="d">It lights only after the full sequence completes: 200 microseconds of reset,
+     500 microseconds with the clock enable held low, then the four mode registers in the order the
+     datasheet demands.</div>
+     <div class="chk">Pass: the indicator lights within about a second of power-up.</div></li>
+  <li><div class="t">Run the memory test from the Teensy</div>
+     <div class="d">It writes a walking pattern, flushes the cache, reads it back, then holds for
+     five seconds and reads again so that only refresh can be keeping the data alive.</div>
+     <div class="chk">Pass: no mismatches, and still none after the hold.</div></li>
+  <li><div class="t">Only then chase speed</div>
+     <div class="d">Swap the dividers to the full-speed column, move the memory clock up, and retune
+     the one read-sampling number. Everything before this step stays untouched.</div>
+     <div class="chk">Pass: the same memory test, at four times the clock.</div></li>
+</ol>
+
+<h2>Build checklist</h2>
+<p class="prog" id="prog">0 of 0 done</p>
+<div id="list"></div>
+
+<footer>
+  <p style="margin:0 0 12px;font-size:14px;color:var(--ink-2)">
+    This build, and the rest of the machine it belongs to, on
+    <a href="https://www.youtube.com/@littlebrainsbigmess"
+       style="color:var(--accent);font-weight:600;font-family:var(--mono)">Little Brains Big Mess</a>.
+  </p>
+  Contact numbers are for a 240-pin DDR3 UDIMM and were taken from the module pin table, not from a
+  search summary. Supply currents, the reference tolerance and the reference noise limit come from
+  the Micron 2 Gb DDR3 datasheet. The translator rating comes from the TXB0108 datasheet. Resistor
+  values and settling times are calculated here and are the numbers most worth checking against your
+  own module's capacitance.
+</footer>
+</div>
+
+<script>
+  var items = [
+    ["1.5 V regulator wired and measured, loaded only by dividers","rail"],
+    ["Bulk capacitor at the socket's 1.5 V entry","rail"],
+    ["VREFDQ divider built, 100 &#8486; pair, 1% parts","vref"],
+    ["VREFCA divider built, separate from the first","vref"],
+    ["100 nF and 1 &micro;F at each VREF tap, mounted at the contact","vref"],
+    ["Both references measure 0.743 to 0.758 V","vref"],
+    ["All VSS contacts mapped with a continuity meter and wired","gnd"],
+    ["All VDD contacts mapped and wired","gnd"],
+    ["At least eight 100 nF capacitors spread along the socket","gnd"],
+    ["Clock pair dividers built with matched values and equal lengths","out"],
+    ["CKE0 and RESET# dividers built","out"],
+    ["Four command dividers built: S0#, RAS#, CAS#, WE#","out"],
+    ["Three bank dividers built: BA0, BA1, BA2","out"],
+    ["Fifteen address dividers built, A0 through A14","out"],
+    ["Every divider output measured high and low with no module fitted","out"],
+    ["Tie-offs to ground: 195, 77, 169, 125","tie"],
+    ["Tie-off to 1.5 V: contact 76, S1#","tie"],
+    ["Translator module one wired for DQ0 to DQ7","bidi"],
+    ["Translator module two wired for DQS0 and DQS0#","bidi"],
+    ["100 nF on each translator's 1.5 V and 3.3 V pins","bidi"],
+    ["Teensy link brought to a header: pins 53, 51, 52, 49, 50, 54","link"],
+    ["Common ground between the Teensy and the FPGA board","link"],
+    ["Identity EEPROM read with the module unpowered","test"],
+    ["Geometry from the EEPROM matches 8 banks, 15 rows, 10 columns","test"]
+  ];
+  var KEY = "ddr3harness.v1";
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+
+  var list = document.getElementById("list");
+  var prog = document.getElementById("prog");
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function count() {
+    var n = 0;
+    for (var i = 0; i < items.length; i++) if (state[i]) n++;
+    prog.textContent = n + " of " + items.length + " done";
+  }
+  for (var i = 0; i < items.length; i++) {
+    var lab = document.createElement("label");
+    lab.className = "ck" + (state[i] ? " done" : "");
+    var box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !!state[i];
+    var span = document.createElement("span");
+    span.className = "lbl";
+    span.innerHTML = items[i][0];
+    lab.appendChild(box);
+    lab.appendChild(span);
+    list.appendChild(lab);
+    (function (idx, l, b) {
+      b.addEventListener("change", function () {
+        state[idx] = b.checked;
+        l.className = "ck" + (b.checked ? " done" : "");
+        save();
+        count();
+      });
+    })(i, lab, box);
+  }
+  count();
+</script>

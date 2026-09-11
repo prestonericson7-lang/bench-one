@@ -1,8 +1,17 @@
 # 38 — DDR3 on a microcontroller, and the three ceilings that decide it
 
-Date: 2026-09-10. Status: **simulated and synthesised, never on hardware.** Every figure below is
-either traced to a datasheet page or calculated from one, and says which. The one measured number
-quoted, 39.3 MB/s of nibble unpacking, comes from [23](23-real-runtime-measured.md).
+Date: 2026-09-10, **corrected 2026-09-11.** Status: **simulated, placed and routed, never on
+hardware.** Every figure below is either traced to a datasheet page or calculated from one, and says
+which. The one measured number quoted, 39.3 MB/s of nibble unpacking, comes from
+[23](23-real-runtime-measured.md).
+
+> **Correction, 2026-09-11.** This document originally gave the fast configuration as a 25 MHz memory
+> clock behind a 79.2 MHz four-line link, worth 19.5 MB/s effective. **That configuration cannot be
+> built.** It needs the iCE40 fabric at 100 MHz and the fabric will not do it: once place-and-route
+> could actually run, Fmax measured 81.5 to 97.4 MHz depending only on the placer seed. The shipped
+> configurations are slower and the conclusion is stronger, not weaker. Every number has been
+> corrected in place; the reasoning that was right is unchanged.
+> Details in [39](39-closing-timing-on-the-ddr3-bridge.md).
 
 The goal was narrow: give one Teensy 4.1 a great deal more memory than the 16 MB of PSRAM it is rated
 for, using a dead desktop DIMM and a small FPGA, **without the FPGA doing any of the work.** The
@@ -14,20 +23,28 @@ moves bytes and nothing else, and the number that comes out is the microcontroll
 
 ## The answer, first
 
-**256 MB at 19.5 MB/s effective, which is 1.07× the PSRAM it replaces and sixteen times its
-capacity** — and 5.4 MB/s, about a fifth of the PSRAM, in the configuration that can be built with
-ordinary level translators. Not the dramatic speed win the idea suggests. The interesting results are
-elsewhere: in finding exactly why it cannot be faster, and in discovering that the limit is neither
-the DRAM nor the wiring.
+**256 MB at 15.2 MB/s effective, which is 0.84× the PSRAM it replaces and thirty-two times its
+capacity** — and 5.4 MB/s, about a third of the PSRAM, in the configuration that can be built with
+ordinary level translators.
 
-Three ceilings stack. The lowest wins, and which one is lowest changes with configuration.
+So it is **slower** than the memory it replaces, in both configurations. That is the honest headline
+and it should not be softened: the DDR3 bank is worth building for capacity alone. The interesting
+results are in finding exactly why it cannot be faster, and in discovering that the limit is neither
+the DRAM, nor the wiring, nor the microcontroller.
+
+Four ceilings stack. The lowest wins, and which one is lowest changes with configuration.
 
 | ceiling | rate | source |
 |---|---|---|
-| The Teensy's external bus | **66.5 MB/s** | RT1060 datasheet table 38 |
-| DDR3 at 25 MHz on 8 data lines | **50.0 MB/s** | calculated from BL8 and tCCD |
+| The Teensy's external bus | 66.5 MB/s | RT1060 datasheet table 38 |
+| DDR3 at 25 MHz on 8 data lines | 50.0 MB/s | calculated from BL8 and tCCD |
 | The Teensy's own nibble unpacking | **39.3 MB/s** | measured, doc 23 |
 | The PSRAM this replaces | 33.9 MB/s | measured |
+| **The iCE40 fabric** | **15.625 MHz memory, so 24.75 MB/s of link** | **measured by place-and-route, doc 39** |
+
+The last row is the one nobody expected and it is the one that binds. An HX8K will not clock this
+design at the Alchitry Cu's 100 MHz, so the fabric runs off the PLL at 50 or 62.5 MHz and the memory
+clock, being fabric over at least four, tops out at 15.625 MHz.
 
 Because read and unpack **add** on a CPU, effective throughput is `1/(1/read + 1/unpack)`. That rule
 predicts the measured PSRAM result of 18.2 MB/s exactly, which is why it is trusted to forecast the
@@ -36,9 +53,9 @@ rest:
 | configuration | raw read | effective | vs PSRAM |
 |---|---|---|---|
 | PSRAM, 16 MB | 33.9 | 18.2 | 1.00× |
-| bridge, single-bit link, 6.25 MHz memory | 6.2 | 5.4 | 0.29× |
-| bridge, four-line link, 25 MHz memory | 39.6 | 19.5 | 1.07× |
-| four lines at the bus ceiling | 66.5 | 24.7 | 1.36× |
+| `cfgA`, single-bit link, 6.25 MHz memory | 6.19 | 5.4 | 0.30× |
+| `cfgB`, four-line link, 15.625 MHz memory | 24.75 | 15.2 | 0.84× |
+| four lines at the bus ceiling, if a fabric allowed it | 66.5 | 24.7 | 1.36× |
 | infinitely fast link | — | 39.3 | 2.16× |
 
 There is no row between the first two, and that is a finding rather than an omission: see the section
@@ -82,7 +99,8 @@ nobody goes looking again.
 
 The assumption that DDR3 needs hundreds of megahertz is simply wrong. It has a documented **DLL
 disable mode**, and Micron's 2 Gb datasheet specifies `tCK(DLL_DIS)` from **8 ns to 7800 ns** — 125 MHz
-down to 128 kHz. Running at 25 MHz sits in the middle of a published window.
+down to 128 kHz. Running at 15.625 MHz, or at 6.25 MHz, sits comfortably inside a published window.
+The DIMM is the one part of this design with bandwidth to spare.
 
 Every timing quoted in nanoseconds is a **minimum**, so a slow clock satisfies tRCD, tRP, tRAS and
 tRFC in one or two cycles and the numbers that make DDR3 hard stop mattering. One does not relax:
@@ -103,14 +121,16 @@ That is a near-perfect match to the hardware by coincidence: FlexSPI2's memory-m
 **240 MB**, so one chip very nearly fills the aperture exactly. Going wider needs translators, not
 address lines.
 
-### 25 MHz is the ceiling for a single-edge design
+### 25 MHz is this design's own ceiling, but it is not the one that binds
 
 Write data must sit a quarter period either side of the strobe edge that captures it. At a divider of
 2 against a 100 MHz fabric clock, the quarter point collapses onto the edge itself — data changes
 exactly when the device samples — and writes fail. Verified, not assumed: that configuration produces
 127 protocol violations and 32 corrupt words in simulation.
 
-The way past it is **a wider bus, not a faster clock.** Sixteen data lines at 25 MHz gives 100 MB/s
+Note this ceiling never actually gets reached, because the fabric gives up first at 15.625 MHz. Both
+limits point the same way, though: the way past either is **a wider bus, not a faster clock.** Sixteen
+data lines at 25 MHz gives 100 MB/s
 with the edge rate unchanged, which is far kinder to hand wiring than doubling the clock would be.
 Eight more level-shifted wires buy more than twice the clock, and that is a generalisable lesson for
 the rest of this project.
@@ -163,9 +183,10 @@ relying on the fill staying ahead of the reader.
 
 | memory clock | DDR3 supplies | link | consumes | data lines | verified |
 |---|---|---|---|---|---|
-| 6.25 MHz | 12.5 MB/s | **one** pin at 49.5 MHz | 6.2 MB/s | 12.5 Mb/s | yes |
+| 6.25 MHz | 12.5 MB/s | **one** pin at 49.5 MHz | 6.19 MB/s | 12.5 Mb/s | yes, `cfgA` |
 | 12.5 MHz | 25.0 MB/s | four pins at 49.5 MHz | 24.75 MB/s | 25 Mb/s | **fails** |
-| 25 MHz | 50.0 MB/s | four pins at 79.2 MHz | 39.6 MB/s | 50 Mb/s | yes |
+| 15.625 MHz | 31.25 MB/s | four pins at 49.5 MHz | 24.75 MB/s | 31.25 Mb/s | yes, `cfgB` |
+| 25 MHz | 50.0 MB/s | four pins at 79.2 MHz | 39.6 MB/s | 50 Mb/s | **no: needs a 100 MHz fabric** |
 
 **The middle row is unreachable, and the reason is worth stating plainly because it looks workable.**
 FlexSPI2's slowest possible clock is 49.5 MHz, its slowest source divided by eight. On four lines that
@@ -211,7 +232,7 @@ divider per reference, each decoupled at the contact it feeds.
 
 Two part findings that change what to order:
 
-- **A TXB0108 cannot carry DDR3 data at 25 MHz.** Its datasheet gives 20 to 100 Mbps depending on
+- **A TXB0108 cannot carry DDR3 data at 15.625 MHz, let alone 25.** Its datasheet gives 20 to 100 Mbps depending on
   rails and instructs that any pull resistor exceed 50 kΩ — which is how it tells you the output drive
   is deliberately weak. DDR3 data is double-rate, so 25 MHz means 50 Mbps. At 6.25 MHz it is 12.5 Mbps
   and comfortably inside, so a TXB0108 is a legitimate **first-light** part and not a full-speed one.
@@ -279,7 +300,7 @@ and nobody built; the comment now says so explicitly.
 ## Where this leaves the machine
 
 For the nine-Teensy array, the honest read is that this is a **capacity** tool, not a speed tool. It
-trades 16 MB at 18.2 MB/s for 256 MB at 19.5 MB/s: a 16× capacity gain for a 1.07× throughput gain,
+trades 8 MB at 18.2 MB/s for 256 MB at 15.2 MB/s: a 32× capacity gain for a 0.84× throughput change,
 and only 0.29× until the level translators are upgraded.
 Whether that is worth the wiring depends entirely on whether the models being run are capacity-bound
 or throughput-bound, and by [33](33-a-30b-runs.md) the answer for mixture-of-experts models is

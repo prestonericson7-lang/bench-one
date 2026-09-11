@@ -44,6 +44,7 @@ want "numbered docs"     "**$n_docs numbered documents**"
 want "result logs"       "**$n_tl logs.**"
 
 echo "  --- relative links ---"
+links=0
 for f in INDEX.md README.md docs/README.md HARDWARE-SAFETY.md \
          firmware/bench-one/fpga/ddr3_ice40/README.md docs/38-ddr3-on-a-microcontroller.md; do
   d=$(dirname "$f")

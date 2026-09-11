@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**409 tracked files.** This page exists so you never have to guess which directory something is in.
+**411 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within

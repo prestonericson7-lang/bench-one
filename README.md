@@ -22,6 +22,7 @@ Pick the part you actually want:
 | See a 30B model actually run | [docs/33-a-30b-runs.md](docs/33-a-30b-runs.md) |
 | Wire the stack up | [docs/10-build-sheet.md](docs/10-build-sheet.md) |
 | Read every document in order | [docs/README.md](docs/README.md) |
+| **Find anything at all** | **[INDEX.md](INDEX.md)** — every file and directory, catalogued |
 | Build and flash the phase-one sketches | [firmware/README.md](firmware/README.md) |
 
 **Read [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) before powering any of the DDR3 work.** Four specific

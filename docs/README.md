@@ -5,15 +5,18 @@ record of what was believed when, including the places where a later document re
 Where that happens it is said plainly rather than edited out, because a repository that quietly
 rewrites its own history teaches nobody anything.
 
-There are **30** numbered documents. Two gaps, and they are not the same kind of gap.
+There are **35** numbered documents. Two gaps remain and they are different in kind.
 
 **35 was deleted on purpose.** It contained desktop-PC benchmarks, which measure none of the
 constraints that make this machine interesting and were actively skewing the conclusions drawn from
 everything around it.
 
-**15 to 21 are simply absent, and the reason is not recorded anywhere.** No surviving document
-references them. Rather than invent a tidy explanation, this says so: if you need to know, the answer
-is not in this repository.
+**15 and 16 are genuinely absent** and nothing in the repository records why.
+
+A third gap used to exist and does not any more: **17 to 21 had been filed under
+`firmware/bench-one/docs/`**, five directories down, where nobody looking for the engineering record
+would have found them. Among them were "Measured hardware" and "The actual thesis, with arithmetic" —
+not marginal notes. They are in this directory now.
 
 ---
 
@@ -55,6 +58,19 @@ every link speaking one frame.
 | [12 — The NPU question, settled](12-npu-and-limits.md) | |
 | [13 — The dog test](13-vision-result.md) | what happened, honestly |
 | [14 — Optimisation: bytes, not instructions](14-optimization.md) | |
+
+## Phase two and a half — the thesis gets stated, and first silicon measured
+
+These five were misfiled under `firmware/bench-one/docs/` until 2026-09-10. If you read one
+document in this repository other than 27, read 20.
+
+| | |
+|---|---|
+| [17 — The FPGA scan core](17-fpga-scan-core.md) | |
+| [18 — Running the stack at real speeds](18-stack-simulation.md) | |
+| [19 — Measured hardware](19-measured-hardware.md) | the first numbers taken off real boards rather than predicted |
+| **[20 — The actual thesis, with arithmetic](20-the-actual-thesis.md)** | **what this machine is actually for, and the arithmetic that justifies it** |
+| [21 — The scale model, with the measurements folded in](21-scale-model-plan.md) | |
 
 ## Phase three — measuring it instead of predicting it
 

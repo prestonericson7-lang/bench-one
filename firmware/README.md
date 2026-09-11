@@ -1,5 +1,10 @@
 # Firmware
 
+> **Scope: this covers the four phase-one node sketches and the shared protocol header.** It predates
+> the neural work and does not describe anything under `bench-one/tests/`, which is where every
+> experiment since lives. Each test directory is self-contained and compiles on its own; see the
+> top-level README. Nothing below is wrong, but it is not the whole firmware any more.
+
 **No longer blocked.** Your tested source is in `original/`, the BENCH ONE build is in
 `bench-one/`, and all four sketches compile.
 

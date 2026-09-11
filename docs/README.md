@@ -5,9 +5,15 @@ record of what was believed when, including the places where a later document re
 Where that happens it is said plainly rather than edited out, because a repository that quietly
 rewrites its own history teaches nobody anything.
 
-Gaps in the numbering are real. **15 to 21** were consolidated into 22 and later. **35** was deleted
-on purpose: it contained desktop-PC benchmarks, which measure none of the constraints that make this
-machine interesting and were actively skewing the conclusions drawn from the rest.
+There are **30** numbered documents. Two gaps, and they are not the same kind of gap.
+
+**35 was deleted on purpose.** It contained desktop-PC benchmarks, which measure none of the
+constraints that make this machine interesting and were actively skewing the conclusions drawn from
+everything around it.
+
+**15 to 21 are simply absent, and the reason is not recorded anywhere.** No surviving document
+references them. Rather than invent a tidy explanation, this says so: if you need to know, the answer
+is not in this repository.
 
 ---
 
@@ -87,6 +93,16 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [The discrete-logic thread](ic-experiments.md) | assessed against the actual box of chips |
 | [research/FINDINGS.md](research/FINDINGS.md) | 573 datasheet facts with sources |
 | [research/VERIFICATION.md](research/VERIFICATION.md) | the adversarial re-check, **and 29 refuted claims** |
+
+## Phase-one records, kept for provenance
+
+Both are out of date and neither is a guide to anything current. They are here because deleting the
+record of what was believed at the start would make the rest of this directory less honest, not more.
+
+| | |
+|---|---|
+| [../README-QUESTIONS.md](../README-QUESTIONS.md) | the running list of specs needed and concerns raised during the first build. Most are long since answered, in the documents above |
+| [../HANDOFF.md](../HANDOFF.md) | the original project handoff. **Its protocol summary is wrong** — it describes v1 where the firmware is v2, and a decoder built from it fails on every frame while looking like a wiring fault. The correction is in the top-level README |
 
 ---
 

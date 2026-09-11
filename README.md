@@ -22,7 +22,7 @@ Pick the part you actually want:
 | See a 30B model actually run | [docs/33-a-30b-runs.md](docs/33-a-30b-runs.md) |
 | Wire the stack up | [docs/10-build-sheet.md](docs/10-build-sheet.md) |
 | Read every document in order | [docs/README.md](docs/README.md) |
-| Build and flash the firmware | [firmware/README.md](firmware/README.md) |
+| Build and flash the phase-one sketches | [firmware/README.md](firmware/README.md) |
 
 **Read [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) before powering any of the DDR3 work.** Four specific
 mistakes there will destroy a module, and one of them — a divider built with both resistors in series —
@@ -112,8 +112,15 @@ ignored. Install your own and point `OSS_CAD` at it:
 OSS_CAD=/path/to/oss-cad-suite sh firmware/bench-one/fpga/ddr3_ice40/build.sh
 ```
 
-For the microcontroller sketches you need `arduino-cli` with the Teensy and ESP32 cores installed.
-See [firmware/README.md](firmware/README.md).
+For the microcontroller sketches you need `arduino-cli` with the Teensy and ESP32 cores installed:
+
+```bash
+arduino-cli compile --fqbn teensy:avr:teensy41 firmware/bench-one/tests/ddr3_bridge_teensy
+```
+
+Each directory under `firmware/bench-one/tests/` is one self-contained experiment and compiles on its
+own. [firmware/README.md](firmware/README.md) covers the four phase-one node sketches and the shared
+protocol header; it predates the neural work and does not describe the tests.
 
 A clean checkout is about 9 MB. If yours is 50 MB, the ignore rules are not being applied and you
 have compiled output in the tree.

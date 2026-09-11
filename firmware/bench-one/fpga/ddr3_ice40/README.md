@@ -206,11 +206,22 @@ to get this right by memory — the gateware reports its own divider in the top 
 word and the sketch refuses to run on a mismatch, because disagreeing changes the dummy-cycle count
 and produces fast, confident, wrong data that reads exactly like a wiring fault.
 
-| `MEM_MHZ` | gateware `CK_DIV` | memory clock | data line rate | use |
-|---|---|---|---|---|
-| 6 | 16 | 6.25 MHz | 12.5 Mb/s | first light with weak translators |
-| 12 | 8 | 12.5 MHz | 25 Mb/s | matched to the link's 49.5 MHz floor |
-| 25 | 4 | 25 MHz | 50 Mb/s | full speed, needs proper translators |
+| `MEM_MHZ` | `CK_DIV` | memory clock | data lines | link | use |
+|---|---|---|---|---|---|
+| 6 | 16 | 6.25 MHz | **12.5 Mb/s** | one pin, 6.2 MB/s | works with TXB0108-class parts |
+| 25 | 4 | 25 MHz | 50 Mb/s | four pins, 39.6 MB/s | full speed, needs real translators |
+
+**There is no middle setting, and the reason is arithmetic.** FlexSPI2's slowest possible clock is
+49.5 MHz, which on four lines consumes 24.75 MB/s. A 12.5 MHz memory delivers 25 MB/s, a 1% margin,
+and 1% is not a margin: every DRAM request carries fixed overhead, so the reader catches up and
+returns bytes that have not arrived. Three of seven end-to-end cases fail at exactly that pairing.
+6.25 MHz on four lines is worse still.
+
+The way out is not a slower link but a **narrower** one. One pin at the same 49.5 MHz consumes
+6.2 MB/s, which leaves a factor of two in hand against a 12.5 MB/s memory — and 6.25 MHz means
+12.5 Mb/s on the data lines, inside a TXB0108's rating where 50 Mb/s is not. That configuration is
+slow, roughly a fifth of the onboard PSRAM, and it proves 256 MB of DDR3 works using translators most
+people already own. Both are verified end to end; `build.sh` runs both.
 
 The sketch then **calibrates itself.** It writes a pattern, sweeps every read latency and sample
 offset, and prints a grid of which ones read back clean:

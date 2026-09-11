@@ -80,7 +80,7 @@ module ddr3_bridge #(
      * The fetch then continues chunk by chunk for as long as the Teensy keeps clocking and stops when
      * chip select rises, so the amount fetched matches the length of the actual transaction without
      * anyone having to know it in advance. */
-    parameter integer RD_CHUNK = 16,
+    /* RD_CHUNK is DERIVED, not given: see below. */
 
     /* How far ahead a read fetches, in bursts. This is what decides whether the bridge is free when
      * the NEXT transaction arrives, and it was the root cause of nearly every deferral.
@@ -152,6 +152,16 @@ module ddr3_bridge #(
     localparam integer CAP       = BUDGET_PS / BURST_PS;
     localparam integer REQ_MAX   = (CAP > 128) ? 128 : CAP;
 
+    /* Bursts per DRAM request during a read, derived from the memory clock.
+     *
+     * The dummy window has to cover the first chunk reaching the buffer, and the LUT's dummy field
+     * stops at 255 cycles. A chunk of sixteen bursts is 2.56 us at 25 MHz and fits; the same sixteen
+     * at 6.25 MHz is 10.2 us, which is 506 cycles at 49.5 MHz and cannot be expressed. Scaling with
+     * the clock keeps the chunk near 2.5 us whatever the memory is doing, so this cannot be set to a
+     * value the link is unable to wait for. */
+    localparam integer CHUNK_RAW = 64 / CK_DIV;
+    localparam integer RD_CHUNK  = (CHUNK_RAW < 4) ? 4 : CHUNK_RAW;
+
     /* ---- cross the two control signals in -----------------------------------------------------
      * Three flops, then an edge detector. q_addr is not synchronised and does not need to be: it is
      * written on the same sck edge that raises q_start and held for the whole transaction, so by the
@@ -186,6 +196,14 @@ module ddr3_bridge #(
     reg                pend_write;
     reg [31:0]         pend_addr;
     reg [BUF_BITS-1:0] pend_count;   /* bytes the deferred write delivered, latched at chip select */
+    /* Has the deferred request's transaction actually ENDED?
+     *
+     * A pending write can become acceptable while its own transaction is still running, if the bridge
+     * happens to fall idle mid-transaction. Taking the shortcut then uses a byte count that has not
+     * been captured yet -- zero -- so the write issues no bursts at all and the data is silently never
+     * stored. A read of that address afterwards returns an undefined buffer, which looks like a read
+     * fault and is a write that never happened. */
+    reg                pend_done;
 
     /* Sticky: the read transaction this fetch belongs to has ended.
      *
@@ -288,6 +306,7 @@ module ddr3_bridge #(
             req_bank <= 0; req_row <= 0; req_col <= 0; req_len <= 0;
             wd_data <= 64'd0; err_overrun <= 1'b0; err_deferred <= 1'b0; err_align <= 1'b0;
             pend <= 1'b0; pend_write <= 1'b0; pend_addr <= 32'd0; pend_count <= 0;
+            pend_done <= 1'b0;
             rd_ended <= 1'b0;
         end else begin
 
@@ -328,6 +347,7 @@ module ddr3_bridge #(
                     pend         <= 1'b1;
                     pend_write   <= q_is_write;
                     pend_addr    <= q_addr + q_win_base;
+                    pend_done    <= 1'b0;
                     err_deferred <= 1'b1;
                 end
             end
@@ -336,7 +356,10 @@ module ddr3_bridge #(
              * captured here rather than at defer time. Without this the write is later accepted and
              * then waits for a chip-select rise belonging to some LATER transaction, which poisons
              * every request after it. */
-            if (cs_rise && pend && pend_write) pend_count <= q_wr_count;
+            if (cs_rise && pend) begin
+                pend_count <= q_wr_count;
+                pend_done  <= 1'b1;
+            end
 
             /* Latch the end of the transaction a read fetch belongs to. */
             if (cs_rise && (bst == B_RD_REQ || bst == B_RD_WAIT)) rd_ended <= 1'b1;
@@ -353,6 +376,7 @@ module ddr3_bridge #(
                         pend       <= 1'b1;
                         pend_write <= q_is_write;
                         pend_addr  <= q_addr + q_win_base;
+                        pend_done  <= 1'b0;
                     end else begin
                         pend <= 1'b0;
                     end
@@ -360,7 +384,7 @@ module ddr3_bridge #(
                         /* Writes must land on a burst boundary; see the note on `skip`. */
                         if (sel_addr & 32'd7) err_align <= 1'b1;
                         skip <= 3'd0;
-                        if (sel_pend) begin
+                        if (sel_pend && pend_done) begin
                             /* Deferred: the transaction has already ended and its count was latched
                              * at chip select, so there is nothing to wait for. Waiting here is what
                              * made a deferred write hang until an unrelated transaction ended. */

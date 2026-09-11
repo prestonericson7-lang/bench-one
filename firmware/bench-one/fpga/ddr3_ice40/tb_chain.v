@@ -40,7 +40,13 @@ module tb_chain #(
      *
      * 6 ns is 83 MHz and 41.7 MB/s against roughly 43 MB/s delivered, which is the margin a real
      * configuration needs. The Teensy sketch uses 88 MHz for the same reason. */
-    parameter integer SCK_HALF   = 6
+    parameter integer SCK_HALF   = 6,
+
+    /* The quad cases need a 25 MHz memory clock: four lines at FlexSPI2's slowest setting consume
+     * 24.75 MB/s and anything below 25 MHz memory cannot keep up. At slower memory clocks only the
+     * single-bit path is valid, so set this to 0 and the quad cases are skipped rather than failing
+     * for a reason that is a property of the configuration and not a bug. */
+    parameter integer QUAD_OK    = 1
 ) ();
 
     /* ---- board clock ---- */
@@ -219,6 +225,17 @@ module tb_chain #(
         end
     endtask
 
+    /* Leaving quad mode is sent AS two nibbles, because the device is still in quad mode when it
+     * arrives. A single-bit command cannot be decoded while quad mode is active, which is correct: a
+     * driver picks one width and stays there. */
+    task exit_quad;
+        begin
+            cs_assert;
+            send_byte_quad(8'hF5);
+            cs_release;
+        end
+    endtask
+
     task quad_write;
         input [31:0] addr;
         input integer n;
@@ -235,6 +252,30 @@ module tb_chain #(
     endtask
 
     reg [7:0] rdbuf [0:2047];
+
+    /* Single-bit read, command 0x03: one bit per clock out on IO0, one bit per clock back on IO1.
+     * This is the path that makes a slow memory clock viable, because FlexSPI2 cannot be clocked
+     * below 49.5 MHz and four lines at that speed outrun anything below a 25 MHz memory. */
+    task single_read;
+        input [31:0] addr;
+        input integer n;
+        integer i, b;
+        begin
+            cs_assert;
+            send_byte_single(8'h03);
+            for (i = 31; i >= 0; i = i - 1) send_bit(addr[i]);
+            idle_cycles(LAT_CYCLES);
+            for (i = 0; i < n; i = i + 1) begin
+                got_byte = 8'h00;
+                for (b = 0; b < 8; b = b + 1) begin
+                    recv_bit_single;
+                    got_byte = {got_byte[6:0], got_nib[0]};   /* most significant bit first */
+                end
+                rdbuf[i] = got_byte;
+            end
+            cs_release;
+        end
+    endtask
     task quad_read;
         input [31:0] addr;
         input integer n;
@@ -307,6 +348,10 @@ module tb_chain #(
 
         enter_quad;
 
+      /* The quad cases below need a 25 MHz memory clock. Four lines at FlexSPI2's slowest setting
+       * consume 24.75 MB/s and nothing slower than a 25 MHz memory can feed that, so at slower clocks
+       * they are skipped rather than failing for a reason that is a property of the configuration. */
+      if (QUAD_OK) begin
         /* 2. write 256 bytes, read them back */
         quad_write(32'h0000_0000, 256, 1);
         #30_000;   /* let the write finish draining to DRAM before asking anything else */
@@ -392,6 +437,30 @@ module tb_chain #(
             fails = fails + 1;
         end else $display("  32-byte write then immediate read, no gap: all bytes match");
 
+      end
+        /* 5c. the single-bit read path. At a slow memory clock this is the ONLY valid path, and the
+         *     quad cases above are skipped; at 25 MHz both work and must agree byte for byte. The two must
+         *     return identical bytes: the shifting differs, nothing else does. */
+        quad_write(32'h000A_0000, 64, 9);
+        #30_000;
+        exit_quad;
+        single_read(32'h000A_0000, 32);
+        bad = 0;
+        for (i = 0; i < 32; i = i + 1)
+            if (rdbuf[i] !== pattern(9, i)) bad = bad + 1;
+        if (bad) begin
+            $display("  *** single-bit read: %0d of 32 bytes wrong", bad);
+            show(9, 0);
+            fails = fails + 1;
+        end else $display("  single-bit read at 0x0A0000: all bytes match");
+        $write("      model row 80 col 0..7: ");
+        for (i = 0; i < 8; i = i + 1) $write("%02h ", mem.mem[mem.cidx(3'd0, 15'd80, i[9:0])]);
+        $display("");
+        enter_quad;
+
+      /* The checks below re-read the block the quad cases wrote, so they only mean anything when
+       * those ran. With a slow memory clock the single-bit case above is the whole test. */
+      if (QUAD_OK) begin
         /* 6. hold long enough that only refresh can be keeping the data alive */
         $display("  holding 40 us so the refresh timer has to carry the data...");
         #40_000;
@@ -426,6 +495,7 @@ module tb_chain #(
         $write("  what the read path returned, bytes 0..15:   ");
         for (i = 0; i < 16; i = i + 1) $write("%02h ", rdbuf[i]);
         $display("");
+      end
         mem.report;
         if (fails == 0 && mem.errors == 0) $display("=== CHAIN PASSED ===");
         else $display("=== CHAIN FAILED: %0d checks, %0d protocol errors ===", fails, mem.errors);

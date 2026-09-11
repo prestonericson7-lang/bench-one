@@ -87,7 +87,7 @@
  * ========================================================================================= */
 
 /* The gateware's CK_DIV as a memory clock in MHz: 6 means CK_DIV 16, 12 means 8, 25 means 4. */
-#define MEM_MHZ          25
+#define MEM_MHZ          6
 
 #if   MEM_MHZ == 25
   /* 79.2 MHz is 39.6 MB/s against 50 MB/s of memory, a 21% margin, and it is the fastest setting
@@ -111,14 +111,23 @@
   #error "MEM_MHZ 12 is unreachable: the FlexSPI2 clock floor of 49.5 MHz outruns a 12.5 MHz memory"
 
 #elif MEM_MHZ == 6
-  /* ALSO UNREACHABLE, for the same reason and worse: 6.25 MHz delivers 12.5 MB/s against a link that
-   * cannot go below 24.75. Shortening the transaction does not help, because the problem is the
-   * sustained rate and not the startup latency; the simulation still fails.
+  /* THE SLOW PATH, AND THE ONLY ONE THAT WORKS WITH WEAK LEVEL TRANSLATORS.
    *
-   * If the translators on hand cannot do 50 Mb/s, the honest options are a SIXTEEN-bit DDR3 data path,
-   * which doubles throughput at the same edge rate, or a single-bit SPI read path on the Teensy side,
-   * which drops the link to 6.2 MB/s and makes a slow memory clock viable. Neither exists yet. */
-  #error "MEM_MHZ 6 is unreachable: the link cannot be slowed below twice what the memory delivers"
+   * Four data lines cannot be used here. FlexSPI2's slowest clock is 49.5 MHz, which on four lines
+   * consumes 24.75 MB/s, and a 6.25 MHz memory delivers 12.5 -- the link outruns it two to one and no
+   * dummy count fixes a sustained rate. ONE line at the same clock consumes 6.2 MB/s, which leaves a
+   * factor of two in hand.
+   *
+   * The payoff is the data lines: 6.25 MHz means 12.5 Mb/s, inside a TXB0108's rating, where 25 MHz
+   * means 50 Mb/s and is not. So this configuration is slow -- about a fifth of the onboard PSRAM --
+   * and it proves 256 MB of DDR3 works using only translators most people already own.
+   *
+   * SINGLE_BIT switches the read LUT to one pin. Writes stay in quad mode: they are rare, they are not
+   * rate-critical, and the write path has the whole transaction to drain. */
+  #define FLEXSPI_MHZ    50
+  #define FPGA_DUMMY     200
+  #define AHB_BUFSZ      32
+  #define SINGLE_BIT     1
 
 #else
   #error "MEM_MHZ must be 25, and must match the gateware's CK_DIV of 4"
@@ -127,8 +136,21 @@
 /* A belt-and-braces check on the rule above, in case someone edits the numbers rather than the mode.
  * Memory delivers 8 bytes per 4 memory clocks, so 2 * MEM_MHZ megabytes per second. The link carries
  * half a byte per clock, so FLEXSPI_MHZ / 2. Demand at least 15% of headroom. */
+#ifndef SINGLE_BIT
+  #define SINGLE_BIT 0
+#endif
+
+/* A belt-and-braces check on the rate rule, in case someone edits the numbers rather than the mode.
+ * Memory delivers 8 bytes per 4 memory clocks, so 2 * MEM_MHZ MB/s. A four-line link carries half a
+ * byte per clock; a one-line link carries an eighth. Demand 15% of headroom either way. */
+#if SINGLE_BIT
+  #if (FLEXSPI_MHZ * 100) > (2 * MEM_MHZ * 8 * 85)
+    #error "single-bit link too fast for the memory: FLEXSPI_MHZ/8 must be under 85% of 2*MEM_MHZ"
+  #endif
+#else
 #if (FLEXSPI_MHZ * 100) > (2 * MEM_MHZ * 2 * 85)
   #error "the link is too fast for the memory: FLEXSPI_MHZ/2 must be under 85% of 2*MEM_MHZ"
+#endif
 #endif
 
 #define FPGA_MB          224    /* 240 MB aperture minus the PSRAM's 16 */
@@ -261,13 +283,27 @@ static bool fpga_init()
 
     /* Quad read. A 32-bit address because 24 bits reaches only 16 MB, and a long dummy window
      * because that window is the only place a DRAM access can hide: FlexSPI cannot be stalled. */
+#if SINGLE_BIT
+    /* One pin: command 0x03, a 32-bit address, the dummy window, then data on IO1. The gateware
+     * decodes this only while NOT in quad mode, which is why the sketch never sends 0x35 below. */
+    lut[4*SEQ_FPGA_RD + 0] = LUT0(CMD_SDR,   PINS1, 0x03) | LUT1(ADDR_SDR, PINS1, 32);
+    lut[4*SEQ_FPGA_RD + 1] = LUT0(DUMMY_SDR, PINS1, FPGA_DUMMY) | LUT1(READ_SDR, PINS1, 1);
+#else
     lut[4*SEQ_FPGA_RD + 0] = LUT0(CMD_SDR,   PINS4, 0xEB) | LUT1(ADDR_SDR, PINS4, 32);
     lut[4*SEQ_FPGA_RD + 1] = LUT0(DUMMY_SDR, PINS4, FPGA_DUMMY) | LUT1(READ_SDR, PINS4, 1);
+#endif
     lut[4*SEQ_FPGA_RD + 2] = 0;
     lut[4*SEQ_FPGA_RD + 3] = 0;
 
+#if SINGLE_BIT
+    /* Writes stay single-bit too, so no mode switching is needed mid-stream. They are rare and not
+     * rate-critical: the whole transaction is available to drain them. */
+    lut[4*SEQ_FPGA_WR + 0] = LUT0(CMD_SDR, PINS1, 0x38) | LUT1(ADDR_SDR, PINS1, 32);
+    lut[4*SEQ_FPGA_WR + 1] = LUT0(WRITE_SDR, PINS1, 1);
+#else
     lut[4*SEQ_FPGA_WR + 0] = LUT0(CMD_SDR, PINS4, 0x38) | LUT1(ADDR_SDR, PINS4, 32);
     lut[4*SEQ_FPGA_WR + 1] = LUT0(WRITE_SDR, PINS4, 1);
+#endif
     lut[4*SEQ_FPGA_WR + 2] = 0;
     lut[4*SEQ_FPGA_WR + 3] = 0;
 
@@ -316,7 +352,13 @@ static bool fpga_init()
     Serial.printf("    gateware confirms CK_DIV %lu, a %lu MHz memory clock\n",
                   (unsigned long)ck_div, (unsigned long)(100 / ck_div));
 
+#if SINGLE_BIT
+    /* Deliberately NOT entering quad mode: the single-bit read command is only decoded outside it.
+     * Writes below enter quad mode briefly and leave it again. */
+    Serial.println("    single-bit read path: slow, and it works with weak level translators");
+#else
     ip_cmd(4, a2_offset);
+#endif
     return true;
 }
 

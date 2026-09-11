@@ -130,10 +130,17 @@ module qspi_slave #(
                      C_RESET   = 8'h99,
                      C_RDID    = 8'h9F,
                      C_WINSET  = 8'hC0,
-                     C_CFG     = 8'hC1;
+                     C_CFG     = 8'hC1,
+                     /* Single-bit read. Exists because the link is otherwise TOO FAST for a slow
+                      * memory clock: FlexSPI2 cannot be clocked below 49.5 MHz, which on four lines
+                      * consumes 24.75 MB/s, and a 6.25 MHz memory delivers only 12.5. One line at the
+                      * same clock consumes 6.2 MB/s, which leaves a factor of two in hand. Slow, and
+                      * it works with weak translators that cannot carry 50 Mb/s. */
+                     C_RD1     = 8'h03;
 
     localparam [3:0] P_CMD = 0, P_ADDR = 1, P_DUMMY = 2, P_RDATA = 3, P_WDATA = 4,
-                     P_IDD = 5, P_ID = 6, P_WIN = 7, P_CFGB = 8, P_DEAD = 9;
+                     P_IDD = 5, P_ID = 6, P_WIN = 7, P_CFGB = 8, P_DEAD = 9,
+                     P_ADDR1 = 10, P_DUMMY1 = 11, P_RDATA1 = 12;
 
     reg [3:0]  ph;
     reg [7:0]  cmd;
@@ -247,7 +254,8 @@ module qspi_slave #(
                         cmd <= {sh[6:0], io_i[0]};
                         nib <= 0;
                         case ({sh[6:0], io_i[0]})
-                            C_RDID:  ph <= P_IDD;
+                            C_RDID: ph <= P_IDD;
+                            C_RD1:  begin ph <= P_ADDR1; req_is_write <= 1'b0; end
                             default: ph <= P_DEAD;
                         endcase
                     end
@@ -314,6 +322,44 @@ module qspi_slave #(
                 if (nib == 3) ph <= P_DEAD;      /* four nibbles; values latched above */
             end
 
+            /* ---- the single-bit read path ----
+             * Same bridge request, same buffer, same dummy window. Only the shifting differs: one bit
+             * per clock on IO0 in, one bit per clock on IO1 out. */
+            P_ADDR1: begin
+                sh  <= {sh[30:0], io_i[0]};
+                nib <= nib + 1'b1;
+                if (nib == 31) begin
+                    req_addr  <= {sh[30:0], io_i[0]};
+                    req_start <= 1'b1;
+                    nib       <= 0;
+                    lat       <= LAT_CYCLES - 1;
+                    ph        <= P_DUMMY1;
+                end
+            end
+
+            P_DUMMY1:
+                if (lat != 0) begin
+                    lat <= lat - 1'b1;
+                    /* Prime the buffer read exactly as the quad path does: the byte for an address
+                     * appears one clock after it is presented. */
+                    if (lat == 2) rptr <= {BUF_BITS{1'b0}};
+                    if (lat == 1) rptr <= {{(BUF_BITS-1){1'b0}}, 1'b1};
+                end else begin
+                    byte_reg <= buf_rdata;
+                    nib      <= 0;
+                    ph       <= P_RDATA1;
+                end
+
+            P_RDATA1: begin
+                nib <= nib + 1'b1;
+                /* Eight bits per byte. Fetch the next one as the last bit of this one goes out, which
+                 * keeps the block RAM a full clock ahead of the shifter. */
+                if (nib[2:0] == 3'd7) begin
+                    byte_reg <= buf_rdata;
+                    rptr     <= rptr + 1'b1;
+                end
+            end
+
             P_IDD: begin                    /* 0x9F leaves 24 dummy bits before the identity */
                 nib <= nib + 1'b1;
                 if (nib == 23) begin nib <= 0; ph <= P_ID; end
@@ -355,6 +401,11 @@ module qspi_slave #(
                 io_oe <= 4'hF;
                 /* High nibble first, the same order the address phase uses. */
                 io_o  <= nib[0] ? byte_reg[3:0] : byte_reg[7:4];
+            end
+            P_RDATA1: begin
+                io_oe <= 4'b0010;           /* one line out, IO1, the MISO line */
+                /* Most significant bit first, which is what every SPI master expects. */
+                io_o  <= {2'b00, byte_reg[3'd7 - nib[2:0]], 1'b0};
             end
             P_ID: begin
                 io_oe <= 4'b0010;           /* single-bit reply rides IO1, the MISO line */

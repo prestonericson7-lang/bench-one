@@ -1,0 +1,216 @@
+{
+ "topic": "E32R40T (4.0in ESP32-WROOM-32E / ST7796 / XPT2046) back-side JST connector complement, exact pinout, and the legal 921600 8N1 UART path to Teensy 4.1",
+ "summary": "The board exposes SEVEN back-side connectors, all 1.25 mm pitch (NOT JST-PH 2.0 mm): P2 \"UART\" 4P, P3 \"SPI\" 4P, P4 \"I2C\" 4P, JP3 (expand-input) 2P, JP1 \"SPEAKER\" 2P, JP2 \"BAT\" 2P, plus USB1 Type-C. I recovered every pin from the vendor's own schematic figures 3.12 and 3.13 inside the LCDWIKI user manual, and cross-checked each against the silkscreen in the vendor's Figure 4.1 interface photo — the two agree exactly. The decisive answer: do NOT use the P2 \"UART\" connector. It is UART0 (GPIO1/GPIO3) wired in hard parallel with the onboard CH340C through only 100R series resistors (R29/R30), so the USB console and a Teensy fight on the same net, and P2 pin 1 is a bidirectional +5V node through a P-channel MOSFET body diode. Instead use P4, the \"I2C\" connector: it is a single 4-pin 1.25 mm cable carrying 3.3V / GPIO32 / GPIO25 / GND, and both GPIO25 and GPIO32 are full bidirectional I/O touched by nothing on the board except two 10k pull-ups. ESP32 classic can matrix-route UART1/UART2 RX and TX to any GPIO (datasheet §4.8.3: \"The pins for UART can be chosen from any GPIOs via the GPIO Matrix\"), so bind UART2 to TX=GPIO25, RX=GPIO32 and the Type-C console, LCD, touch, SD, RGB LED and audio are all untouched. No level shifter is needed or wanted — both ends are 3.3 V push-pull. Note the builder's own free-pin list was incomplete: he listed 35, 39, 25 but missed GPIO32 and GPIO21, which are also brought out and unused by any onboard peripheral.",
+ "facts": [
+  {
+   "claim": "The board has NO 0.1in headers. All external I/O is on 1.25 mm pitch connectors. The vendor never says 'JST' — it says '1.25mm 4P connector' / '1.25mm 2P connector'. It is definitively NOT JST-PH (2.0 mm).",
+   "value": "1.25 mm pitch; 4P and 2P housings",
+   "source": "LCDWIKI E32R40T&E32N40T Specification V1.0 (CR2025-MI3273), §4.1 Interface Function Description, p.8-9 — https://www.lcdwiki.com/res/E32R40T/E32R40T_E32N40T_Specification_V1.0.pdf",
+   "confidence": "certain",
+   "why_it_matters": "He must buy 1.25 mm 4-pin cables. A JST-PH 2.0 mm cable will not mate and will damage the housing."
+  },
+  {
+   "claim": "P2 = the 'UART' connector. 4P 1.25 mm. Pin order taken from schematic Figure 3.12 'Serial port module interface circuit' and confirmed by the silkscreen '5V / GND / TXD / RXD' with a triangle pin-1 marker.",
+   "value": "P2.1 = +5V (bidirectional, via Q5) | P2.2 = GND | P2.3 = TXD0 = ESP32 GPIO1, via R30 100R | P2.4 = RXD0 = ESP32 GPIO3, via R29 100R. Housing shell tabs 5,6 = GND.",
+   "source": "LCDWIKI 4.0inch ESP32-32E E32R40T&E32N40T User Manual (CR2025-MI3275), §3.2 item 8, Figure 3.12, p.15 — https://www.lcdwiki.com/res/E32R40T/4.0inch_ESP32-32E_E32R40T_E32N40T_User_Manual.pdf ; silkscreen from Specification Figure 4.1, p.8",
+   "confidence": "certain",
+   "why_it_matters": "This is the ONLY connector carrying a native UART, and it is the one he must NOT use for the Teensy link."
+  },
+  {
+   "claim": "P2 is electrically in parallel with the onboard CH340C USB-serial converter. The manual states it explicitly.",
+   "value": "R29 = 100 R (in series with RXD0), R30 = 100 R (in series with TXD0). Manual: 'This port is connected to the same serial port as the onboard USB-to-serial port module.'",
+   "source": "LCDWIKI User Manual §3.2 item 8, p.15-16; resistor values read from Figure 3.12 schematic",
+   "confidence": "certain",
+   "why_it_matters": "With USB plugged in, the CH340C drives the RXD0 net directly (low impedance) while a Teensy can only reach it through 100R. A Teensy pulling low would be divided up to roughly 2.2 V at the ESP32 RX pin — above VIH, so the ESP32 never sees the low. UART0 + USB console are mutually exclusive."
+  },
+  {
+   "claim": "P2 pin 1 (+5V) is a bidirectional 5 V node, not a simple output or a simple input.",
+   "value": "Q5 = SL2305 P-channel MOSFET. Gate (pin 1) to GND via R31 = 10 K. Source (pin 2) = board +5V rail. Drain (pin 3) = P2 pin 1. Vgs = -5 V so the FET is always ON; the body diode also conducts from P2.1 into the +5V rail.",
+   "source": "LCDWIKI User Manual Figure 3.12, p.15 (component designators and values read directly off the schematic)",
+   "confidence": "certain",
+   "why_it_matters": "If the display is USB-powered AND he wires P2.1 to a Teensy 5V rail, he has two 5 V sources hard-connected. Never bond P2.1 to Teensy VIN/VUSB."
+  },
+  {
+   "claim": "P3 = the 'SPI' connector. 4P 1.25 mm. It has NO ground pin in the housing.",
+   "value": "P3.1 = SPI_MOSI = GPIO23 | P3.2 = SPI_MISO = GPIO19 | P3.3 = SPI_CLK = GPIO18 | P3.4 = SPI_CS = GPIO21. Shell tabs 5,6 = GND only. Silkscreen reads 'IO23(MOSI) / IO19(MISO) / IO18(SCK) / IO21(CS)' with pin-1 triangle at the IO23 end.",
+   "source": "LCDWIKI User Manual §3.2 item 9, Figure 3.13 'Expanded IO and peripheral interface circuits', p.16; silkscreen from Specification Figure 4.1",
+   "confidence": "certain",
+   "why_it_matters": "GPIO18/19/23 are SHARED with the MicroSD card. GPIO21 is the only pin here not used by any onboard device. And there is no GND wire — any signal taken from P3 needs a ground return borrowed from P4 or JP2, which is bad practice at 921600."
+  },
+  {
+   "claim": "P4 = the 'I2C' connector. 4P 1.25 mm. This is the correct connector for the Teensy UART link.",
+   "value": "P4.1 = VCC3V3 | P4.2 = IIC_SDA = GPIO32 | P4.3 = IIC_SCL = GPIO25 | P4.4 = GND. Silkscreen reads '3.3V / IO32(SDA) / IO25(SCL) / GND' with pin-1 triangle at the 3.3V end. Shell tabs 5,6 = GND.",
+   "source": "LCDWIKI User Manual §3.2 item 9, Figure 3.13, p.16; silkscreen from Specification Figure 4.1, p.8",
+   "confidence": "certain",
+   "why_it_matters": "One 4-pin cable gives 3.3V, two full bidirectional GPIO, and a real GND pin. This is the whole answer."
+  },
+  {
+   "claim": "GPIO25 and GPIO32 are used by NOTHING on this board except two pull-up resistors. The vendor states they are free for ordinary IO.",
+   "value": "R33 = 10 K from VCC3V3 to IIC_SCL (GPIO25). R34 = 10 K from VCC3V3 to IIC_SDA (GPIO32). Manual: 'Pins SPI_CS, IIC_SCL, IIC_SDA, IO35, IO39 are not used by on-board devices, so they are led out ... and can also be used for ordinary IO.'",
+   "source": "LCDWIKI User Manual §3.2 item 9, p.16, and Figure 3.13",
+   "confidence": "certain",
+   "why_it_matters": "For a UART the 10k pull-ups are BENEFICIAL, not a problem — they hold both lines at the UART idle state (high) before begin() and while the cable is unplugged, so no spurious start bit. Do NOT remove R33/R34. The vendor's advice to remove them applies only to generic IO use."
+  },
+  {
+   "claim": "JP3 = the 'expand input pin' connector. 2P 1.25 mm.",
+   "value": "JP3.1 = GPIO35 | JP3.2 = GPIO39. Silkscreen reads 'IO35 / IO39', pin-1 dot at the IO35 end.",
+   "source": "LCDWIKI User Manual Figure 3.13, p.16; Specification §4.1, p.9 ('1.25mm 2P connector. IO35 and IO39 are two input-only IOs'); silkscreen Figure 4.1",
+   "confidence": "certain",
+   "why_it_matters": "Both are input-only. Legal as a UART RX, illegal as a UART TX."
+  },
+  {
+   "claim": "JP2 = the 'BAT' battery connector. 2P 1.25 mm.",
+   "value": "JP2.1 = BAT+ | JP2.2 = GND. Feeds TP4054 charger (U6) with R27 = 3.3 K PROG, and Q3 = SL2305 with R28 = 100 K gating VCC5V to BAT+.",
+   "source": "LCDWIKI User Manual §3.2 item 10, Figure 3.13 'Battery charge and discharge management circuit', p.16",
+   "confidence": "certain",
+   "why_it_matters": "Carries no GPIO. Only useful as an alternative ground bond, and only for a 3.7 V Li-po otherwise."
+  },
+  {
+   "claim": "JP1 = the 'SPEAKER' connector. 2P 1.25 mm.",
+   "value": "JP1 = VO1 / VO2, the bridge-tied outputs of U5 = FM8002E audio power amplifier. No ESP32 GPIO on this connector. 1.5 W into 8 ohm or 2 W into 4 ohm at 5 V.",
+   "source": "LCDWIKI User Manual §3.2 item 5, Figure 3.9, p.13; Specification §3.6, p.7",
+   "confidence": "certain",
+   "why_it_matters": "Useless for signalling, and its pins are a floating BTL output — do not probe it to ground."
+  },
+  {
+   "claim": "ESP32 classic CAN matrix-route UART1 and UART2 RX/TX to any GPIO. This is the load-bearing fact for the recommendation.",
+   "value": "Datasheet §4.8.3, Pin Assignment: 'The pins for UART can be chosen from any GPIOs via the GPIO Matrix.' GPIO matrix signal indices: U1RXD_in / U1TXD_out = 17, U2RXD_in / U2TXD_out = 198.",
+   "source": "ESP32 Series Datasheet v5.3, §4.8.3 UART, p.36-37, and Appendix GPIO matrix signal table — https://documentation.espressif.com/esp32_datasheet_en.pdf",
+   "confidence": "certain",
+   "why_it_matters": "Means he is not stuck with UART0. He can put a second UART on the I2C connector."
+  },
+  {
+   "claim": "ESP32 has three UARTs and 921600 baud is far inside spec.",
+   "value": "'ESP32 has three UART interfaces'. Feature list: 'Programmable baud rates up to 5 MBaud'. 921600 is 18.4% of maximum.",
+   "source": "ESP32 Series Datasheet v5.3, §4.8.3, p.36-37",
+   "confidence": "certain",
+   "why_it_matters": "No IO_MUX requirement at this speed; the GPIO matrix path is fine."
+  },
+  {
+   "claim": "The IO_MUX default pins for UART1 and UART2 are unusable on this board — both must be remapped.",
+   "value": "U0RXD = GPIO3 (chip pin 40), U0TXD = GPIO1 (pin 41). U1RXD = GPIO9, U1TXD = GPIO10 (chip pins 28/29, SD_DATA_2 / SD_DATA_3 — the SPI flash pins inside ESP32-WROOM-32E). U2RXD = GPIO16, U2TXD = GPIO17 (chip pins 25/27).",
+   "source": "ESP32 Series Datasheet v5.3, Table 2-1 Pin Definitions, p.12-13, and Appendix A pin list",
+   "confidence": "certain",
+   "why_it_matters": "UART1's default pins are the module's internal SPI flash — touching them bricks the boot. UART2's default pins GPIO16/GPIO17 are this board's GREEN and BLUE RGB LEDs. Calling Serial2.begin(921600) with no pin arguments will silently steal the LEDs."
+  },
+  {
+   "claim": "GPIO34-39 are input-only and have no internal pull-up or pull-down at all.",
+   "value": "Table 2-1 lists GPIO36/37/38/39/34/35 with direction 'I'. §2.3.1: 'GPIO - Input only pins, output is not supported due to lack of pull-up/pull-down resistors.'",
+   "source": "ESP32 Series Datasheet v5.3, §2.3.1 Restrictions for GPIOs and RTC_GPIOs, p.15, and Table 2-1",
+   "confidence": "certain",
+   "why_it_matters": "GPIO35/39 on JP3 are legal as UART RX but can never be a UART TX, and they will float (no internal pull-up is even possible) if the cable is disconnected."
+  },
+  {
+   "claim": "Neither GPIO25 nor GPIO32 is a strapping pin, so using them as a UART cannot affect boot mode.",
+   "value": "The complete ESP32 strapping-pin set is GPIO0 (pull-up, 1), GPIO2 (pull-down, 0), MTDI = GPIO12 (pull-down, 0), MTDO = GPIO15 (pull-up, 1), GPIO5 (pull-up, 1).",
+   "source": "ESP32 Series Datasheet v5.3, §3 Boot Configurations, Table 3-1 Default Configuration of Strapping Pins, p.22",
+   "confidence": "certain",
+   "why_it_matters": "A Teensy holding the link low at power-up cannot force the display into download mode or change flash voltage. This is the safety proof for the recommendation."
+  },
+  {
+   "claim": "GPIO32 and GPIO33 are the optional 32.768 kHz crystal pins, but this board does not fit that crystal.",
+   "value": "Datasheet Table 2-1: chip pin 12 '32K_XP ... GPIO32, ADC1_CH4, RTC_GPIO9, TOUCH9, 32K_XP (32.768 kHz crystal oscillator input)'; pin 13 '32K_XN ... GPIO33 ... 32K_XN'. This board assigns GPIO33 to XPT2046 touch CS and GPIO32 to the I2C header, proving no 32k crystal is populated.",
+   "source": "ESP32 Series Datasheet v5.3 Table 2-1, p.12; cross-checked against LCDWIKI Specification §4.2 ESP32 pin allocation, p.9-11",
+   "confidence": "certain",
+   "why_it_matters": "Confirms GPIO32 is genuinely free and there is no RTC crystal to break."
+  },
+  {
+   "claim": "GPIO25 is DAC_1 and ADC2_CH8; GPIO26 (the board's audio DAC) is DAC_2. They are different pins.",
+   "value": "Table 2-1 pin 14: 'GPIO25, ADC2_CH8, RTC_GPIO6, DAC_1, EMAC_RXD0'. Pin 15: 'GPIO26, ADC2_CH9, RTC_GPIO7, DAC_2, EMAC_RXD1'.",
+   "source": "ESP32 Series Datasheet v5.3, Table 2-1, p.12",
+   "confidence": "certain",
+   "why_it_matters": "Reassures that repurposing GPIO25 does not disturb the FM8002E audio path, which is on GPIO26."
+  },
+  {
+   "claim": "The builder's onboard pin list is correct but INCOMPLETE. Every pin he listed matches the vendor table; he missed two exposed free pins.",
+   "value": "Confirmed by vendor: LCD CS=IO15 DC=IO2 SCK=IO14 MOSI=IO13 MISO=IO12 BL=IO27, LCD reset = EN (shared with ESP32 reset, NOT a GPIO); SD CS=IO5 MOSI=IO23 SCK=IO18 MISO=IO19; RGB R=IO22 G=IO16 B=IO17 (common anode, active LOW); BOOT=IO0; AUDIO_EN=IO4 (active LOW); AUDIO_DAC=IO26; BAT_ADC=IO34; TOUCH_CS=IO33; TOUCH_IRQ=IO36. MISSED FREE PINS: GPIO32 (on P4) and GPIO21 (on P3).",
+   "source": "LCDWIKI Specification V1.0 §4.2 ESP32 pin allocation, p.9-11",
+   "confidence": "certain",
+   "why_it_matters": "He believed only 35/39/25 were free, which would have forced him toward the bad UART0 answer. GPIO32 is the missing half of the full-duplex pair."
+  },
+  {
+   "claim": "The LCD reset is NOT on a GPIO — it is tied to the ESP32 EN/CHIP_PU line.",
+   "value": "Vendor table: LCD reset control signal = 'EN', described as 'share reset pin with ESP32-32E master'. Same for the RESET key.",
+   "source": "LCDWIKI Specification V1.0 §4.2, p.9-10",
+   "confidence": "certain",
+   "why_it_matters": "Firmware cannot reset the ST7796 independently. Any ST7796 driver config must declare RST as -1 / unused, or it will drive a pin that is not there."
+  },
+  {
+   "claim": "Teensy 4.1 has 8 hardware serial ports; several are free after Serial1 is taken by the ESP32-S3 link.",
+   "value": "Serial1 RX=0 TX=1; Serial2 RX=7 TX=8; Serial3 RX=15 TX=14; Serial4 RX=16 TX=17; Serial5 RX=21 TX=20; Serial6 RX=25 TX=24; Serial7 RX=28 TX=29; Serial8 RX=34 TX=35. Normal limit 6 Mbit/s.",
+   "source": "PJRC Teensy Serial documentation — https://www.pjrc.com/teensy/td_uart.html",
+   "confidence": "certain",
+   "why_it_matters": "921600 is 15% of the Teensy's 6 Mbit/s ceiling. Serial2 (RX 7 / TX 8) is the natural free port for the display link."
+  },
+  {
+   "claim": "The board's own USB-serial chip and its auto-download circuit.",
+   "value": "U3 = CH340C (no external crystal needed). Q1, Q2 = NPN transistors forming the DTR/RTS one-click download circuit driving EN and GPIO0.",
+   "source": "LCDWIKI User Manual §3.2 item 4, Figure 3.8, p.12-13",
+   "confidence": "certain",
+   "why_it_matters": "Explains why UART0 is entangled: the same two nets carry flashing, the boot log, and the auto-reset handshake."
+  },
+  {
+   "claim": "Board power and current draw.",
+   "value": "Working voltage 5.0 V. Total current: ESP32 reset 40 mA; display only 230 mA; display + speaker + battery charging 580 mA. Backlight current 142 mA. U1 = 5V-to-3.3V LDO, 2 V to 6.5 V input range.",
+   "source": "LCDWIKI Specification V1.0 §3.6 Electrical Parameters, p.7; User Manual §3.2 item 2, p.11",
+   "confidence": "certain",
+   "why_it_matters": "580 mA peak is too much to pull from a Teensy 4.1's VUSB. Power the display separately and bond only ground."
+  },
+  {
+   "claim": "No 'P1' designator exists on any connector I could find. The full observed designator set is USB1, P2, P3, P4, JP1, JP2, JP3.",
+   "value": "USB1 = Type-C. P2/P3/P4 = 4P 1.25 mm. JP1/JP2/JP3 = 2P 1.25 mm.",
+   "source": "Exhaustive scan of the LCDWIKI User Manual text and all schematic figures 3.8-3.13",
+   "confidence": "likely",
+   "why_it_matters": "If he sees a 'P1' silk on the board it is most likely the LCD FPC connector, which is not documented in the public manual. Do not assume P1 is an expansion port."
+  }
+ ],
+ "code_guidance": [
+  "DECISION: use P4, the connector silkscreened 'I2C'. Wire a 4-pin 1.25 mm cable: P4.1 (3.3V) = LEAVE UNCONNECTED, P4.2 (GPIO32) = Teensy TX, P4.3 (GPIO25) = Teensy RX, P4.4 (GND) = Teensy GND. Pin 1 is the end marked with the silkscreen triangle, next to the '3.3V' label and the board's mounting hole.",
+  "On the display, bind UART2 explicitly. Arduino-ESP32: Serial2.begin(921600, SERIAL_8N1, /*rx=*/32, /*tx=*/25); — the two pin arguments are MANDATORY. ESP-IDF: uart_set_pin(UART_NUM_2, /*tx=*/25, /*rx=*/32, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE); then uart_driver_install(UART_NUM_2, 2048, 2048, ...) with a config of .baud_rate=921600, .data_bits=UART_DATA_8_BITS, .parity=UART_PARITY_DISABLE, .stop_bits=UART_STOP_BITS_1, .flow_ctrl=UART_HW_FLOWCTRL_DISABLE, .source_clk=UART_SCLK_APB.",
+  "Leave the Type-C console alone: keep Serial.begin(115200) on UART0/GPIO1/GPIO3. It stays fully functional for flashing, the ROM boot log, and printf debugging. This is the entire point of choosing P4 over P2 — he loses nothing.",
+  "On the Teensy 4.1, use Serial2 (RX = pin 7, TX = pin 8) since Serial1 (pins 0/1) is already committed to the ESP32-S3 radio link. Serial2.begin(921600); then Serial2.addMemoryForRead(buf, 1024); and Serial2.addMemoryForWrite(buf2, 1024); — the default Teensy serial buffer is smaller than one 1024-byte max frame of the existing protocol, so a full-size frame will overrun without the extra buffer.",
+  "Do NOT insert a TXB0108 or TXS0108 on this link. Both ends are 3.3 V CMOS push-pull; the shifters are reserved for genuine 5 V modules. A TXB0108 in a 3.3V-to-3.3V UART path would actively degrade it — its one-shot accelerated outputs sit behind roughly 4 kohm static drive and fight the 10k board pull-ups.",
+  "Do NOT remove R33 and R34 (the 10k pull-ups on GPIO25/GPIO32). The vendor tells you to remove them when using these as generic IO, but for a UART they are exactly what you want: they hold both lines at the idle-high UART state during reset, during boot before begin(), and whenever the cable is unplugged. Removing them creates a floating RX and phantom break/framing errors.",
+  "Extend the existing protocol, do not reimplement it: keep START 0xAA, LEN_H/LEN_L, SEQ, FLAGS, CHAN, CMD, payload, CRC_H/CRC_L; CRC-16/MCRF4XX reflected poly 0x8408, init 0xFFFF, check value 0x6F91. Allocate a NEW channel for the display node — 0x03 is currently marked reserved, so take 0x05 rather than 0x03 to avoid colliding with whatever the reserved slot was held for. Confirm the channel choice with the builder before writing the command namespace.",
+  "Do NOT bond P4.1 (3.3V) to the Teensy 3.3V rail. The display has its own LDO (U1) and its own 5 V source; tying two regulator outputs together is a reverse-current path. Bond GROUND ONLY, on P4.4. Power the display from its own Type-C.",
+  "If he later wants to keep real I2C peripherals on GPIO25/GPIO32, the fallback link is: TX = GPIO21 (P3 pin 4, silk 'IO21(CS)'), RX = GPIO35 (JP3 pin 1) or GPIO39 (JP3 pin 2), GND borrowed from P4.4. This costs the SPI chip-select line and requires an EXTERNAL 10k pull-up from the RX pin to 3.3V, because GPIO35/39 have no internal pull-up. It also needs two cables instead of one and has a poor ground return. Prefer the P4 solution.",
+  "Never call Serial2.begin(921600) without the pin arguments in Arduino-ESP32 — the core's default RX2/TX2 macros are GPIO16 and GPIO17, which are this board's GREEN and BLUE RGB LEDs. Doing so silently kills two of the three LED channels and puts UART traffic onto the LED nets.",
+  "Never touch GPIO9 or GPIO10 (UART1's IO_MUX defaults). On ESP32-WROOM-32E these are SD_DATA_2 / SD_DATA_3, the module's internal SPI flash lines. Use UART2, or if UART1 is needed, remap it and never let it land on its defaults.",
+  "Declare the ST7796 reset pin as unused (-1) in whatever display driver is used. The LCD reset is hard-wired to the ESP32 EN/CHIP_PU net, not to a GPIO — there is no independent panel reset available."
+ ],
+ "pitfalls": [
+  "THE BIG ONE: the P2 'UART' connector looks like the obvious answer and is a trap. It is UART0 in hard parallel with the CH340C through only 100R (R29/R30). With the Type-C plugged in, the CH340C drives the RXD0 net at low impedance while the Teensy reaches it through 100R — a Teensy pulling low lands the ESP32 RX pin around 2.2 V, above VIH. The link appears wired correctly, the logic analyser on the CABLE shows clean 921600 data, and the ESP32 receives nothing. Silent and extremely plausible-looking.",
+  "Even with USB unplugged, UART0 still carries the ESP32 ROM bootloader banner on GPIO1 at every reset. That garbage is injected into the Teensy's frame parser. The 0xAA start byte and CRC will resync eventually, but a frame in flight is corrupted at every display reset. Choosing P4 removes this entirely.",
+  "P2 pin 1 is a bidirectional +5V node, not an input or an output. Q5 (SL2305 P-FET, gate to GND via R31 10k) is always ON, and its body diode conducts from P2.1 into the board's 5V rail. Wire it to a Teensy 5V rail and you have hard-paralleled two 5 V sources; wire it while both are live and current flows through whichever is lower. This is not visible on a logic analyser at all.",
+  "Serial2.begin(921600) with no pin arguments in Arduino-ESP32 grabs GPIO16/GPIO17 — the green and blue RGB LEDs on this board. Symptom is 'my UART works but two LED colours died' or 'my LEDs flicker when data flows'. Nothing errors.",
+  "GPIO35 and GPIO39 have no internal pull-up hardware at all. ESP-IDF's uart_set_pin() sets GPIO_PULLUP_ONLY on the RX pin; on 34-39 that request does nothing and returns no useful error. The line then floats when the cable is unplugged and you get continuous framing/break errors that look like a baud mismatch.",
+  "P3 (the SPI connector) has NO ground pin in the housing — only the metal shell tabs, which the mating cable does not connect. Any signal taken from P3 has no defined return path in its own cable. At 921600 with a long cable this shows up as edge jitter and intermittent framing errors that come and go when you move the wires.",
+  "GPIO18, GPIO19 and GPIO23 on P3 are SHARED with the MicroSD card. Repurposing them will corrupt SD access, and SD access will corrupt them. Only GPIO21 on that connector is genuinely free.",
+  "The board's RGB LED is COMMON ANODE and active LOW (vendor: 'common anode, low level on, high level off'), and AUDIO_EN on GPIO4 is also active LOW. Firmware written for active-high will leave the LEDs on at boot and the amplifier enabled, adding hiss and current draw that looks like a power problem.",
+  "The LCD reset shares the ESP32 EN/CHIP_PU pin. A driver library configured with a real reset GPIO will drive some unrelated pin; if that pin happens to be GPIO25 or GPIO32 the display init will stomp on the UART link. Set RST = -1.",
+  "On ESP32 the UART source clock at 921600 must be APB (80 MHz), not REF_TICK. If dynamic frequency scaling / automatic light sleep is enabled and the APB frequency drops, the baud rate scales with it and the link silently corrupts. ESP-IDF's UART driver normally takes an ESP_PM_APB_FREQ_MAX lock, but under Arduino there is no such protection if PM is enabled manually.",
+  "Do not confuse this with an ESP32-S3. It is an ESP32-D0WD-V3 inside an ESP32-WROOM-32E. There is no native USB peripheral, so the Type-C console is the CH340C and nothing else — you cannot fall back to USB-CDC to free up UART0.",
+  "The vendor's advice 'when the IIC pin is used for ordinary IO, it is best to remove R33 and R34' is correct for generic IO and WRONG for this use case. Following it removes the idle-high bias and makes the link unreliable when unplugged. Leave them fitted."
+ ],
+ "open_questions": [
+  "Which 1.25 mm connector family is actually fitted — JST-GH (locking latch), MX1.25, or a ZH/SH clone? The vendor documents only the 1.25 mm pitch and never names a series. Look at the housing: does the mating plug latch, and is the wire crimp top-entry or side-entry? Get one cable in hand and confirm it seats in P4 before designing the harness.",
+  "Does the board ship with any 1.25 mm cables? The Specification accessory list names only a resistive stylus and a 1 m Type-C cable — no connector leads. Do you already have 4-pin 1.25 mm cables, or do they need ordering?",
+  "On YOUR board, measure resistance from P4 pin 3 (GPIO25) to P4 pin 1 (3.3V) with the board unpowered. Expect roughly 10 kohm for R33. Same from P4 pin 2 (GPIO32). If either reads open, the pull-ups are depopulated on your revision and you must add external ones.",
+  "Is the CH340C's VCC taken from the USB 5 V or from the board's common +5V rail? This decides whether the CH340C stays powered (and therefore keeps fighting) when the Type-C is unplugged but 5 V is fed in via P2 pin 1. I could not resolve this from Figure 3.8. It only matters if you ever reconsider P2 — the P4 recommendation is unaffected.",
+  "The 2.4 inch display on Teensy1 is still unresolved: the BOM says SPI TFT ST7789 but you once called it a 2.4 inch OLED. These need completely different drivers and different SPI clock limits. Read the controller marking on the panel flex or run an ID readback before that firmware is written.",
+  "Which protocol channel number should the display node own? 0x00-0x02 and 0x04 are taken and 0x03 is marked reserved. I would take 0x05, but that is your namespace to allocate — confirm before the command set is frozen.",
+  "How long will the Teensy-to-display cable be? At 921600 the bit period is 1.085 us, so length is not a timing problem, but P4's single ground wire and the 10k pull-ups mean anything beyond about 30 cm should be twisted pair (each signal paired with its own ground) or the link should drop to 460800."
+ ],
+ "la_verification": [
+  "Probe points, all on the P4 connector: CH0 = P4.3 (GPIO25, ESP32 TX), CH1 = P4.2 (GPIO32, ESP32 RX), LA ground clip = P4.4. At 24 MS/s and 921600 baud you get 24e6/921600 = 26.0 samples per bit — well above the 4x minimum, so the decode is trustworthy.",
+  "Prove the idle state BEFORE any firmware runs: power the board with the ESP32 held in reset (hold the RESET key) and confirm both P4.2 and P4.3 sit at 3.3 V, not floating. That proves R33/R34 are fitted. A DMM works; on the LA it is a flat logic 1 with no noise.",
+  "Prove the pins are genuinely free of onboard traffic: run the vendor's stock LCD + touch + SD demo with NO UART code at all, exercise the display and read the SD card, and capture P4.2/P4.3 for 10 seconds. They must stay a flat logic high the entire time. Any activity means the pin map is wrong.",
+  "Measure the actual bit width, do not trust the configured number. ESP32 UART from APB 80 MHz: 80e6/921600 = 86.805, and the fractional divider (1/16 steps) gives 86 + 13/16 = 86.8125, so the real rate is 80e6/86.8125 = 921,469 baud, an error of -0.014%. Expected bit width = 1.0852 us. On the LA, measure a single start bit edge-to-edge and confirm 1.085 us +/- 0.01 us. Teensy 4.1 error at 921600 is similarly small; combined error must stay under about 2% for 8N1 to survive 10 bit times.",
+  "Prove UART0 is untouched: with the LA still on P4, plug in the Type-C and open the serial monitor at 115200. You should see the boot log on USB AND clean framing on P4 simultaneously. If P4 traffic corrupts when USB is connected, you have accidentally routed to GPIO1/GPIO3.",
+  "Prove the RGB LEDs were not stolen: probe GPIO16 and GPIO17 (they are not on any connector — probe the LED cathode pads or the resistor pads next to the RGB LED) while the UART is running at full rate. They must be static. Activity there means Serial2.begin() was called without explicit pins.",
+  "Frame-level check against the existing protocol: send a known frame and verify byte-for-byte on the decode — START must be 0xAA, LEN must equal FLAGS+CHAN+CMD+payload count, and recompute CRC-16/MCRF4XX (poly 0x8408 reflected, init 0xFFFF) over the captured bytes; a self-test on the string '123456789' must yield 0x6F91. Do this on the CAPTURED bytes, not on what firmware thinks it sent.",
+  "Current check with an INA219 in series with the display's 5 V feed: idle (backlight on, no UART) should sit near 230 mA per the vendor's 'display only works' figure. If enabling the UART changes current by more than a few mA, something is contending — most likely you are driving into the CH340C.",
+  "Contention proof, if you ever do try P2: put the LA on P2.4 AND on the ESP32 side of R29 simultaneously. With USB plugged in you will see a clean low on the connector side and a stuck ~2.2 V mid-level on the chip side. That mid-level is the whole reason P2 is rejected, and it is worth capturing once so the failure is understood rather than remembered as a rule."
+ ],
+ "injection_seen": "None. I fetched the LCDWIKI product wiki page, the LCDWIKI E32R40T&E32N40T Specification V1.0 PDF, the LCDWIKI 4.0inch ESP32-32E User Manual PDF (including extracting and reading its embedded schematic images), the Espressif ESP32 Series Datasheet v5.3 PDF, the ESP-IDF UART API page, and the PJRC Teensy serial page. No instruction-shaped text, no fake system-reminder, no attribution-changing directive, and no prompt-injection of any kind appeared in any of them. One incidental note: device.report, which surfaced in search results as a mirror of the schematic, returned HTTP 403 and was never read — so nothing from that host influenced this report. All connector pinouts here come from the manufacturer's own schematic figures and are cross-checked against the manufacturer's own board silkscreen photo; the two agree on every pin."
+}

@@ -1,0 +1,12 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/shared/stage_link.h, firmware/bench-one/shared/stage_link.c
+---
+Output exactly 15 lines, each naming ONE concrete input or sequence that a test should feed
+stage_hdr_unpack or stage_recv, and what byte values it uses.
+
+Format, one per line, nothing else:
+
+case: <what is fed, with actual byte values or field values>
+
+Cover at minimum: wrong magic, wrong version, len at 0, len at the maximum, len one over the
+maximum, a truncated header, a truncated payload, and a connection closed mid-message.

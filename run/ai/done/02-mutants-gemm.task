@@ -1,0 +1,12 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/fpga/rtl/gemm_int4.v
+---
+Produce exactly 20 MUTATIONS of this Verilog: single small edits that change behaviour.
+
+Each line must be:
+OLD<TAB>NEW
+
+OLD must be text copied EXACTLY from the file and appear exactly once. Concentrate on the row
+counter, the done and valid pulses, the ready passthrough, and the beat and clock counters.
+
+Output only the 20 lines.

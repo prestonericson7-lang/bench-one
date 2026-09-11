@@ -1,0 +1,11 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/shared/bench_gemv.h
+---
+gemv_nib takes a 4-bit value and returns a signed integer.
+
+Output exactly 16 lines, one per input, in this format and nothing else:
+
+n=0 -> 0
+n=1 -> 1
+
+Continue for every n from 0 to 15, giving the value gemv_nib returns for each. Numbers only.

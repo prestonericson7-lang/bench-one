@@ -1,0 +1,16 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/fpga/rtl/gemv_int4.v
+---
+This Verilog computes INT4 weights times INT8 activations. It has already survived four mutation
+tests. Hunt for what those missed.
+
+Look specifically for:
+1. Sign handling. Nibbles are two-s complement -8..7, low nibble first. Any place a value is
+   zero-extended where it should be sign-extended, or vice versa.
+2. Width. Does any intermediate overflow before reaching the 32-bit accumulator?
+3. The ragged last beat. cols may not be a multiple of LANES. Does anything count or accumulate
+   padding?
+4. Reset. Is any register used before it is written after reset?
+5. The col/LANES division used as a memory index. Is it correct when cols is not a multiple of LANES?
+
+For each finding give the line, the expression, and an input that would expose it.

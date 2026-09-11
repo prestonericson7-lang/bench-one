@@ -1,0 +1,12 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/fpga/tb/tb_gemv_int4.v, firmware/bench-one/fpga/rtl/gemv_int4.v
+---
+The testbench calls run_case(name, cols, extra_beats). Existing cases use cols of 256, 250, 8, 3,
+128 and 512.
+
+Output exactly 12 more run_case lines that would exercise behaviour the existing ones do not.
+Format, one per line, nothing else:
+
+        run_case("what it tests", COLS, EXTRA);
+
+COLS must be between 1 and 512. EXTRA is beats offered past the end of the row, 0 or more.

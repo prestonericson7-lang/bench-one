@@ -1,0 +1,638 @@
+<title>Wiring the Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#EDF1F0; --surface:#F8FBFA; --surface-alt:#E3E9E8;
+  --ink:#16201E; --ink-2:#4A5B57; --ink-3:#6E807B;
+  --rule:#CBD5D2; --rule-strong:#A9B8B4;
+  --brain:#B0700A; --brain-soft:#F0E0C4;
+  --radio:#1B6F65; --radio-soft:#CFE4E0;
+  --luck:#6A45C0; --luck-soft:#E6DCF6;
+  --fabric:#4C6076; --fabric-soft:#DCE4EC;
+  --danger:#A8382F; --danger-soft:#F2DAD7;
+  --ok:#2F6B45;
+  --shadow:0 1px 2px rgba(20,40,36,.07), 0 6px 18px rgba(20,40,36,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1413; --surface:#151D1B; --surface-alt:#1D2725;
+    --ink:#E4EBE9; --ink-2:#A5B5B1; --ink-3:#7C8D89;
+    --rule:#2A3634; --rule-strong:#3C4A47;
+    --brain:#E9A63E; --brain-soft:#3A2E17;
+    --radio:#45BFAE; --radio-soft:#123330;
+    --luck:#B49BF0; --luck-soft:#241A3D;
+    --fabric:#93A9C1; --fabric-soft:#18242E;
+    --danger:#E0736A; --danger-soft:#37201E;
+    --ok:#63B983;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1413; --surface:#151D1B; --surface-alt:#1D2725;
+  --ink:#E4EBE9; --ink-2:#A5B5B1; --ink-3:#7C8D89;
+  --rule:#2A3634; --rule-strong:#3C4A47;
+  --brain:#E9A63E; --brain-soft:#3A2E17;
+  --radio:#45BFAE; --radio-soft:#123330;
+  --luck:#B49BF0; --luck-soft:#241A3D;
+  --fabric:#93A9C1; --fabric-soft:#18242E;
+  --danger:#E0736A; --danger-soft:#37201E;
+  --ok:#63B983;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.28);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.62; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px 96px}
+.col{max-width:68ch}
+
+h1,h2,h3,.eyebrow{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif}
+h1{font-size:clamp(2.4rem,5.5vw,3.9rem); line-height:1.03; font-weight:700; margin:0 0 .5rem; letter-spacing:-.015em; text-wrap:balance}
+h2{font-size:clamp(1.5rem,3vw,2.05rem); font-weight:700; line-height:1.14; margin:0 0 .2rem; letter-spacing:-.01em; text-wrap:balance}
+h3{font-size:1.1rem; font-weight:600; margin:2.2rem 0 .5rem; letter-spacing:.005em}
+p{margin:0 0 1.05rem}
+a{color:var(--radio)}
+
+.eyebrow{
+  font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 .35rem; display:block;
+}
+
+header.top{ border-bottom:1px solid var(--rule); padding:64px 0 40px; margin-bottom:14px; }
+.kicker{
+  display:inline-flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  font-family:"IBM Plex Mono",monospace; font-size:.74rem; letter-spacing:.06em;
+  color:var(--ink-3); margin-bottom:1.5rem;
+}
+.kicker b{color:var(--ink-2); font-weight:500}
+.dot{width:4px;height:4px;border-radius:50%;background:var(--rule-strong)}
+.lede{font-size:1.16rem; color:var(--ink-2); max-width:62ch; margin:.9rem 0 0}
+.lede strong{color:var(--ink); font-weight:600}
+
+.pair{display:flex; gap:8px; flex-wrap:wrap; margin-top:1.8rem}
+.party{
+  display:flex; align-items:baseline; gap:.5rem; padding:.5rem .8rem;
+  border:1px solid var(--rule); border-radius:2px; background:var(--surface);
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem;
+}
+.party i{width:9px;height:9px;border-radius:50%;display:inline-block;font-style:normal;flex:none}
+.party.brain i{background:var(--brain)} .party.radio i{background:var(--radio)}
+.party.luck i{background:var(--luck)} .party.fabric i{background:var(--fabric)}
+.party b{font-weight:600}
+.party span{color:var(--ink-3)}
+
+section{padding-top:58px}
+.shead{display:flex; align-items:baseline; gap:.9rem; margin-bottom:1.1rem}
+.snum{
+  font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--ink-3);
+  border:1px solid var(--rule); border-radius:2px; padding:.12rem .42rem; flex:none;
+}
+
+figure{margin:1.8rem 0 2rem}
+figure svg{display:block; width:100%; height:auto; max-width:100%}
+.figbox > svg{min-width:640px}
+.figbox{
+  background:var(--surface); border:1px solid var(--rule); border-radius:3px;
+  padding:22px 20px 8px; overflow-x:auto;
+}
+figcaption{
+  font-size:.85rem; color:var(--ink-2); margin-top:.85rem; max-width:64ch;
+  border-left:2px solid var(--rule-strong); padding-left:.8rem;
+}
+
+svg text{font-family:"IBM Plex Mono",monospace; fill:var(--ink)}
+svg .lbl{font-size:12px; fill:var(--ink)}
+svg .sub{font-size:10.5px; fill:var(--ink-3)}
+svg .tiny{font-size:10px; fill:var(--ink-3)}
+svg .stroke{stroke:var(--rule-strong); fill:none}
+svg .fillbox{fill:var(--surface-alt); stroke:var(--rule-strong)}
+svg .brainf{fill:var(--brain-soft); stroke:var(--brain)}
+svg .radiof{fill:var(--radio-soft); stroke:var(--radio)}
+svg .luckf{fill:var(--luck-soft); stroke:var(--luck)}
+svg .fabf{fill:var(--fabric-soft); stroke:var(--fabric)}
+svg .brtxt{fill:var(--brain)} svg .rdtxt{fill:var(--radio)}
+svg .lktxt{fill:var(--luck)} svg .fbtxt{fill:var(--fabric)}
+
+.tw{overflow-x:auto; margin:1.4rem 0 1.8rem}
+table{border-collapse:collapse; width:100%; font-size:.87rem}
+th,td{text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--rule); vertical-align:top}
+th{
+  font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:600; font-size:.76rem;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
+  border-bottom:1px solid var(--rule-strong); white-space:nowrap;
+}
+td code,td .m{font-family:"IBM Plex Mono",monospace; font-size:.84em}
+.m{font-family:"IBM Plex Mono",monospace}
+tbody tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+.wire{white-space:nowrap}
+
+code{font-family:"IBM Plex Mono",monospace; font-size:.88em; background:var(--surface-alt); padding:.08em .32em; border-radius:2px}
+.tag{
+  display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.72rem;
+  padding:.06rem .4rem; border-radius:2px; border:1px solid currentColor; white-space:nowrap;
+}
+.tag.b{color:var(--brain)} .tag.r{color:var(--radio)}
+.tag.l{color:var(--luck)} .tag.f{color:var(--fabric)}
+.tag.d{color:var(--danger)} .tag.ok{color:var(--ok)}
+.tag.v{color:var(--ink-3)}
+
+.note{
+  border-left:3px solid var(--brain); background:var(--surface);
+  padding:1rem 1.1rem; margin:1.5rem 0; font-size:.94rem;
+}
+.note.warn{border-left-color:var(--danger)}
+.note.keep{border-left-color:var(--luck)}
+.note p:last-child{margin-bottom:0}
+.note .h{
+  font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700;
+  font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+  display:block; margin-bottom:.3rem;
+}
+
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.2rem}
+ul.tight{margin:.2rem 0 1.2rem; padding-left:1.1rem}
+ul.tight li{margin-bottom:.42rem}
+footer{border-top:1px solid var(--rule); margin-top:70px; padding-top:22px; font-size:.82rem; color:var(--ink-3)}
+footer code{font-size:.84em}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">
+    <b>LUCKFOX &#183; 2&#215; TEENSY 4.1 &#183; ESP32-S3</b><span class="dot"></span>
+    <span>WIRING v2</span><span class="dot"></span>
+    <span>ALL LINKS 921600 8N1</span><span class="dot"></span>
+    <span>ONE CRC-8 0xA2</span>
+  </div>
+  <h1>Wiring the Stack</h1>
+  <p class="lede">Four processors on one deck, and the exact pin-to-pin map that ties them together
+  &mdash; without touching the <a href="#linkB">Teensy&#8596;ESP link you already built</a>.
+  <strong>The Luckfox conducts. Two Teensys do the work. The ESP is still the radio.</strong>
+  Every wire below is here so you can build from it at the bench and miss nothing.</p>
+  <div class="pair">
+    <span class="party luck"><i></i><b>LUCKFOX PICO MINI B</b>&nbsp;<span>orchestrator &#183; Linux</span></span>
+    <span class="party brain"><i></i><b>TEENSY 4.1 &#215;2</b>&nbsp;<span>master + worker &#183; real-time</span></span>
+    <span class="party radio"><i></i><b>ESP32-S3</b>&nbsp;<span>radio</span></span>
+    <span class="party fabric"><i></i><b>74HC / MCP FABRIC</b>&nbsp;<span>IO &amp; bus &#183; not compute</span></span>
+  </div>
+</header>
+
+<!-- ============================================================ 01 -->
+<section>
+  <div class="shead"><span class="snum">01</span><h2>Who does what, and who talks to whom</h2></div>
+  <div class="col">
+    <p>&ldquo;Brain and Radio&rdquo; settled one rule: mechanism lives on the radio, policy lives on
+    the brain. Adding two nodes doesn&rsquo;t break that rule &mdash; it stacks it. Intent flows
+    <em>down</em>; raw facts flow <em>up</em>. Each node only ever knows enough to do its own job.</p>
+  </div>
+
+  <div class="note keep">
+    <span class="h">The rule, extended</span>
+    <p><strong>The Luckfox decides <em>what</em>. Teensy&nbsp;1 decides <em>when</em> and <em>how</em>.
+    Teensy&nbsp;2 does the math. The ESP moves the air.</strong> Nothing above reaches down past the
+    node below it &mdash; the Luckfox never touches the 802.11 MAC, it asks Teensy&nbsp;1, which asks
+    the radio. That is what keeps each firmware small and each node replaceable.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Node</th><th>Chip</th><th>Its job</th><th>Talks directly to</th><th>Never does</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="tag l">LUCKFOX</span></td>
+          <td class="m">RV1103 &#183; 1&#215; Cortex-A7 1.2 GHz &#183; 64 MB &#183; Linux</td>
+          <td>Orchestrator. Wordlists, pcaps, logs, web UI, Python glue, job scheduling, wired
+          Ethernet off-load.</td>
+          <td class="wire m">Teensy 1 (UART)</td>
+          <td>Real-time timing; touching the radio or the fabric directly.</td>
+        </tr>
+        <tr>
+          <td><span class="tag b">TEENSY 1</span> <span class="tag v">master</span></td>
+          <td class="m">i.MX RT1062 &#183; 600 MHz M7</td>
+          <td>The hub. Real-time policy, owns the SPI + I2C fabric and the screen, routes between
+          Luckfox, radio, and worker.</td>
+          <td class="wire m">Luckfox, ESP32, Teensy 2, fabric</td>
+          <td>Heavy batch math (hands it down); WiFi mechanism (hands it out).</td>
+        </tr>
+        <tr>
+          <td><span class="tag b">TEENSY 2</span> <span class="tag v">worker</span></td>
+          <td class="m">i.MX RT1062 &#183; 600 MHz M7</td>
+          <td>Compute muscle. DSP, capture crunching, parallel deterministic loops, HID timing.</td>
+          <td class="wire m">Teensy 1 (UART)</td>
+          <td>Talk to the radio or Luckfox on its own &mdash; jobs arrive through the master.</td>
+        </tr>
+        <tr>
+          <td><span class="tag r">ESP32-S3</span></td>
+          <td class="m">Xtensa LX7 &#183; 2.4 GHz WiFi + BLE</td>
+          <td>Radio. Scan, join, capture, later BLE. Reports what happened; decides nothing next.</td>
+          <td class="wire m">Teensy 1 (UART, existing)</td>
+          <td>Interpret failures; that&rsquo;s the brain&rsquo;s context.</td>
+        </tr>
+        <tr>
+          <td><span class="tag f">FABRIC</span></td>
+          <td class="m">MCP23017 &#183; 74HC595/165/138/4051/373/04</td>
+          <td>IO expansion, chip-select decode, analog mux, latching. The nervous system.</td>
+          <td class="wire m">Teensy 1 (SPI / I2C)</td>
+          <td><strong>Compute.</strong> No ALU, no program, no cores &mdash; it routes, it doesn&rsquo;t think.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 02 -->
+<section>
+  <div class="shead"><span class="snum">02</span><h2>The topology</h2></div>
+  <div class="col">
+    <p>Three UART links, each one point-to-point, plus one shared bus hanging off the master. The
+    pin pairs on every arrow are exactly what you land on the breadboard.</p>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 880 500" role="img" aria-label="Topology: the Luckfox connects by UART to Teensy 1 the master; Teensy 1 connects by UART to the ESP32 radio on the right and to Teensy 2 the worker on the left; Teensy 1 also drives a shared SPI and I2C fabric bus below it that carries the 74HC138 chip-select decoder, MCP23017 expanders, and the 2.4 inch display.">
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- Luckfox -->
+        <rect class="luckf" x="330" y="24" width="220" height="80" rx="3" stroke-width="1.5"/>
+        <text class="lbl lktxt" x="440" y="52" text-anchor="middle" font-weight="600">LUCKFOX PICO MINI B</text>
+        <text class="sub" x="440" y="70" text-anchor="middle">orchestrator &#183; Linux</text>
+        <text class="tiny" x="440" y="90" text-anchor="middle">UART3 &#183; p12 TX / p13 RX</text>
+
+        <!-- Teensy 1 -->
+        <rect class="brainf" x="330" y="196" width="220" height="86" rx="3" stroke-width="1.5"/>
+        <text class="lbl brtxt" x="440" y="224" text-anchor="middle" font-weight="600">TEENSY 4.1 &#183; #1 MASTER</text>
+        <text class="sub" x="440" y="242" text-anchor="middle">real-time hub</text>
+        <text class="tiny" x="440" y="262" text-anchor="middle">S1 p0/p1 &#183; S2 p7/p8 &#183; S3 p14/p15</text>
+        <text class="tiny" x="440" y="276" text-anchor="middle">SPI p11/12/13 &#183; I2C p18/19</text>
+
+        <!-- ESP32 -->
+        <rect class="radiof" x="642" y="196" width="196" height="86" rx="3" stroke-width="1.5"/>
+        <text class="lbl rdtxt" x="740" y="224" text-anchor="middle" font-weight="600">ESP32-S3</text>
+        <text class="sub" x="740" y="242" text-anchor="middle">radio</text>
+        <text class="tiny" x="740" y="264" text-anchor="middle">GPIO17 TX</text>
+        <text class="tiny" x="740" y="278" text-anchor="middle">GPIO18 RX</text>
+
+        <!-- Teensy 2 -->
+        <rect class="brainf" x="42" y="196" width="196" height="86" rx="3" stroke-width="1.5"/>
+        <text class="lbl brtxt" x="140" y="224" text-anchor="middle" font-weight="600">TEENSY 4.1 &#183; #2</text>
+        <text class="sub" x="140" y="242" text-anchor="middle">worker &#183; compute</text>
+        <text class="tiny" x="140" y="264" text-anchor="middle">Serial1</text>
+        <text class="tiny" x="140" y="278" text-anchor="middle">p0 RX / p1 TX</text>
+
+        <!-- Bus -->
+        <rect class="fabf" x="250" y="376" width="380" height="98" rx="3" stroke-width="1.5"/>
+        <text class="lbl fbtxt" x="440" y="402" text-anchor="middle" font-weight="600">SHARED FABRIC &#183; off Teensy 1</text>
+        <text class="tiny" x="440" y="424" text-anchor="middle">SPI0 + 74HC138 &#8594; 8 chip-selects</text>
+        <text class="tiny" x="440" y="440" text-anchor="middle">I2C + MCP23017 &#8594; up to 128 IO</text>
+        <text class="tiny" x="440" y="456" text-anchor="middle">2.4&#8243; TFT + EC11 encoder + KEY0</text>
+
+        <!-- Luckfox <-> Teensy1 -->
+        <g class="lktxt" color="var(--luck)">
+          <line class="luckf" x1="428" y1="104" x2="428" y2="192" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+          <line class="luckf" x1="452" y1="192" x2="452" y2="104" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        </g>
+        <text class="tiny lktxt" x="590" y="140" text-anchor="middle">UART &#183; 921600</text>
+        <text class="tiny" x="590" y="154" text-anchor="middle">Lk p12/p13 &#8596; T1 S2 p7/p8</text>
+        <text class="tiny lktxt" x="590" y="168" text-anchor="middle">command range 0x40&#8211;0x4F</text>
+
+        <!-- Teensy1 <-> ESP32 -->
+        <g color="var(--radio)">
+          <line class="radiof" x1="550" y1="228" x2="638" y2="228" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+          <line class="radiof" x1="638" y1="250" x2="550" y2="250" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        </g>
+        <text class="tiny rdtxt" x="595" y="190" text-anchor="middle">EXISTING</text>
+        <text class="tiny" x="595" y="306" text-anchor="middle">T1 S1 p0/p1 &#8596; ESP 17/18</text>
+
+        <!-- Teensy1 <-> Teensy2 -->
+        <g color="var(--brain)">
+          <line class="brainf" x1="330" y1="228" x2="242" y2="228" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+          <line class="brainf" x1="242" y1="250" x2="330" y2="250" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        </g>
+        <text class="tiny brtxt" x="286" y="190" text-anchor="middle">worker jobs</text>
+        <text class="tiny" x="286" y="306" text-anchor="middle">T1 S3 p14/p15 &#8596; T2 p0/p1</text>
+        <text class="tiny brtxt" x="286" y="320" text-anchor="middle">0x30&#8211;0x3F</text>
+
+        <!-- Teensy1 -> bus -->
+        <g color="var(--fabric)">
+          <line class="fabf" x1="440" y1="282" x2="440" y2="372" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        </g>
+        <text class="tiny fbtxt" x="512" y="332" text-anchor="middle">SPI0 + I2C</text>
+
+        <text class="tiny" x="42" y="470">every link shares one GND</text>
+      </svg>
+    </div>
+    <figcaption>Point-to-point everywhere. Because no wire is a bus with more than two talkers, your
+    <code>interop_protocol.h</code> framing works on all three UART links unchanged &mdash; no node
+    addressing to add. The <span class="fbtxt">steel</span> bus is the only shared line, and Teensy&nbsp;1
+    is its single master.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================================================ 03 -->
+<section>
+  <div class="shead"><span class="snum">03</span><h2>The three UART links, pin for pin</h2></div>
+  <div class="col">
+    <p>All three run at <strong>921600 8N1</strong> and all three are 3.3&nbsp;V on both ends, so
+    every one is a direct wire &mdash; no level shifter in any inter-processor link. TX always crosses
+    to RX. Ground is shared across the whole stack, not per-link.</p>
+  </div>
+
+  <h3 id="linkA"><span class="tag l">LINK A</span> &nbsp;Luckfox &#8596; Teensy 1 &nbsp;&mdash;&nbsp; the orchestrator link <span class="tag ok">new</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Signal</th><th>Luckfox Pico Mini B</th><th>&#8594;</th><th>Teensy 4.1 #1</th><th>V</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="m">Luckfox TX &#8594; Teensy RX</td><td class="m">pin 12 &#183; GPIO1_D0 &#183; UART3_TX_M1</td><td class="m">&#8594;</td><td class="m">pin 7 &#183; RX2 (Serial2)</td><td class="m">3.3</td><td>Jobs down to the master.</td></tr>
+        <tr><td class="m">Teensy TX &#8594; Luckfox RX</td><td class="m">pin 13 &#183; GPIO1_D1 &#183; UART3_RX_M1</td><td class="m">&#8592;</td><td class="m">pin 8 &#183; TX2 (Serial2)</td><td class="m">3.3</td><td>Telemetry + results up.</td></tr>
+        <tr><td class="m">GND</td><td class="m">pin 2 or pin 21</td><td class="m">&#8212;</td><td class="m">any GND</td><td class="m">0</td><td>Shared reference.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="h">Enable UART3 on the Luckfox</span>
+    <p>On the Pico Mini B, <code>UART3_M1</code> maps to those two pads but has to be turned on in the
+    device tree / <code>luckfox-config</code> &mdash; it is not a console by default. The console is
+    <code>UART2</code> (pins 4/5); leave that one alone so you keep a serial login while bringing the
+    link up. The port shows up as <code>/dev/ttyS3</code>.</p>
+  </div>
+
+  <h3 id="linkB"><span class="tag r">LINK B</span> &nbsp;Teensy 1 &#8596; ESP32-S3 &nbsp;&mdash;&nbsp; the radio link <span class="tag v">unchanged</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Signal</th><th>Teensy 4.1 #1</th><th>&#8594;</th><th>ESP32-S3</th><th>V</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="m">Teensy TX &#8594; ESP RX</td><td class="m">pin 1 &#183; TX1 (Serial1)</td><td class="m">&#8594;</td><td class="m">GPIO18 (RX)</td><td class="m">3.3</td><td>Exactly as in &ldquo;Brain and Radio.&rdquo;</td></tr>
+        <tr><td class="m">ESP TX &#8594; Teensy RX</td><td class="m">pin 0 &#183; RX1 (Serial1)</td><td class="m">&#8592;</td><td class="m">GPIO17 (TX)</td><td class="m">3.3</td><td>Do not rewire this &mdash; it&rsquo;s the tested link.</td></tr>
+        <tr><td class="m">GND</td><td class="m">any GND</td><td class="m">&#8212;</td><td class="m">any GND</td><td class="m">0</td><td>Shared &mdash; required, as your doc stresses.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="linkC"><span class="tag b">LINK C</span> &nbsp;Teensy 1 &#8596; Teensy 2 &nbsp;&mdash;&nbsp; the worker link <span class="tag ok">new</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Signal</th><th>Teensy 4.1 #1 (master)</th><th>&#8594;</th><th>Teensy 4.1 #2 (worker)</th><th>V</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="m">Master TX &#8594; Worker RX</td><td class="m">pin 14 &#183; TX3 (Serial3)</td><td class="m">&#8594;</td><td class="m">pin 0 &#183; RX1 (Serial1)</td><td class="m">3.3</td><td>Job submit.</td></tr>
+        <tr><td class="m">Worker TX &#8594; Master RX</td><td class="m">pin 15 &#183; RX3 (Serial3)</td><td class="m">&#8592;</td><td class="m">pin 1 &#183; TX1 (Serial1)</td><td class="m">3.3</td><td>Job result.</td></tr>
+        <tr><td class="m">GND</td><td class="m">any GND</td><td class="m">&#8212;</td><td class="m">any GND</td><td class="m">0</td><td>Shared.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="h">Why the worker hangs off the master, not the Luckfox</span>
+    <p>It keeps the worker&rsquo;s job stream on a hard-real-time 600&nbsp;MHz peer instead of behind
+    Linux scheduling jitter, and it leaves the master as the one place that knows the whole
+    system&rsquo;s state. Worker pins <code>p2</code>&ndash;<code>p41</code> stay completely free for
+    whatever the job needs. If you&rsquo;d rather the Luckfox drive the worker directly, that&rsquo;s
+    one of the switches in &sect;08.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 04 -->
+<section>
+  <div class="shead"><span class="snum">04</span><h2>The shared fabric, off Teensy 1</h2></div>
+  <div class="col">
+    <p>One SPI bus and one I2C bus, both mastered by Teensy&nbsp;1. This is where the 74HC chips and
+    the MCP23017s earn their place &mdash; not as compute, but as a nervous system big enough that the
+    master reaches everything without running out of pins.</p>
+  </div>
+
+  <h3>2.4&#8243; SPI TFT + EC11 encoder + KEY0 <span class="tag f">SPI0</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Display pin</th><th>&#8594; Teensy 4.1 #1</th><th>V</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="m">VCC</td><td class="m">3V3</td><td class="m">3.3</td><td>Panel logic + logic-side of backlight.</td></tr>
+        <tr><td class="m">GND</td><td class="m">GND</td><td class="m">0</td><td></td></tr>
+        <tr><td class="m">SCL (SCK)</td><td class="m">pin 13 &#183; SCK0</td><td class="m">3.3</td><td>Shared SPI clock. Pin 13 is also the onboard LED &mdash; it will blink on traffic; harmless.</td></tr>
+        <tr><td class="m">SDA (MOSI)</td><td class="m">pin 11 &#183; MOSI0</td><td class="m">3.3</td><td>Display is write-only; MISO (pin 12) stays free for the fabric.</td></tr>
+        <tr><td class="m">DC</td><td class="m">pin 9</td><td class="m">3.3</td><td>Data/command select.</td></tr>
+        <tr><td class="m">RES</td><td class="m">pin 6</td><td class="m">3.3</td><td>Reset.</td></tr>
+        <tr><td class="m">CS</td><td class="m">pin 10 &#183; CS0</td><td class="m">3.3</td><td>Dedicated &mdash; not behind the 138, so decoder switching never glitches a display transfer.</td></tr>
+        <tr><td class="m">BLK</td><td class="m">pin 5 &#183; PWM</td><td class="m">3.3</td><td>Backlight; PWM for brightness.</td></tr>
+        <tr><td class="m">K0 (KEY0)</td><td class="m">pin 20</td><td class="m">3.3</td><td>Back/confirm button, active low, use <code>INPUT_PULLUP</code>.</td></tr>
+        <tr><td class="m">Encoder A</td><td class="m">pin 22 &#183; IRQ</td><td class="m">3.3</td><td rowspan="2">Quadrature; both interrupt-capable (every Teensy pin is).</td></tr>
+        <tr><td class="m">Encoder B</td><td class="m">pin 23 &#183; IRQ</td><td class="m">3.3</td></tr>
+        <tr><td class="m">Encoder PUSH</td><td class="m">pin 21</td><td class="m">3.3</td><td>Encoder button, active low, pull-up.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>74HC138 &#8594; eight chip-selects from three pins <span class="tag f">SPI0</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>138 pin</th><th>&#8594; Teensy / rail</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td class="m">A0 / A1 / A2</td><td class="m">pin 2 / pin 3 / pin 4</td><td>Address &mdash; picks which of Y0&ndash;Y7 goes low.</td></tr>
+        <tr><td class="m">/E1 /E2 (G2A G2B)</td><td class="m">pin 33</td><td>Tie both to this one gate line; drive HIGH to deselect <em>every</em> device at once.</td></tr>
+        <tr><td class="m">E3 (G1)</td><td class="m">3V3</td><td>Hard-enabled.</td></tr>
+        <tr><td class="m">Y0&#8230;Y7</td><td class="m">to each SPI device&rsquo;s CS</td><td>Active-low selects for 595 latches, 165 loads, and any SPI peripheral. Share SCK/MOSI/MISO across all.</td></tr>
+        <tr><td class="m">VCC / GND</td><td class="m">3V3 / GND</td><td>100 nF across the pins.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="h">The one 138 gotcha</span>
+    <p>Exactly one output is low at all times while the decoder is enabled &mdash; there is no
+    &ldquo;none selected&rdquo; address. That is what pin&nbsp;33 is for: hold the gate high, set the
+    address, then drop the gate to assert one CS, and raise it again before changing the address. It
+    turns a decoder into a clean chip-select mux.</p>
+  </div>
+
+  <h3>MCP23017 &#8594; up to 128 IO on two wires <span class="tag f">I2C</span></h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Signal</th><th>&#8594; Teensy 4.1 #1</th><th>V</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="m">SDA</td><td class="m">pin 18 &#183; SDA0 (Wire)</td><td class="m">3.3</td><td>4.7k pull-up to 3V3.</td></tr>
+        <tr><td class="m">SCL</td><td class="m">pin 19 &#183; SCL0 (Wire)</td><td class="m">3.3</td><td>4.7k pull-up to 3V3.</td></tr>
+        <tr><td class="m">A2 A1 A0</td><td class="m">strap to 3V3 / GND</td><td class="m">3.3</td><td>Sets address <code>0x20</code>&ndash;<code>0x27</code>: eight chips &#215; 16 = 128 IO.</td></tr>
+        <tr><td class="m">/RESET</td><td class="m">3V3 (or a spare GPIO)</td><td class="m">3.3</td><td>Tie high, or drive for a hard reset.</td></tr>
+        <tr><td class="m">INTA / INTB</td><td class="m">a spare Teensy IRQ pin</td><td class="m">3.3</td><td>Optional &mdash; lets inputs interrupt instead of poll.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="h">Shift registers if you&rsquo;d rather chain than address</span>
+    <p>The <code>74HC595</code> (serial&#8594;parallel out) and <code>74HC165</code> (parallel&#8594;serial in)
+    ride the same SPI0: <code>SCK</code>=13, <code>MOSI</code>=11 into the 595 chain, <code>MISO</code>=12
+    out of the 165 chain, with the 595 latch and 165 load taken from two of the 138&rsquo;s Y lines.
+    The <code>74HC4051</code> gives you 8 analog inputs through one ADC pin, and the <code>74HC373</code>
+    latches a parallel bus. Which of these get populated depends on what you&rsquo;re driving &mdash; see &sect;08.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 05 -->
+<section>
+  <div class="shead"><span class="snum">05</span><h2>Level shifting &mdash; where your 3 TXB and 3 TXS go</h2></div>
+  <div class="col">
+    <p>Here is the short version: <strong>at 3.3&nbsp;V across the whole stack, you need zero shifters
+    between processors.</strong> All three MCUs are 3.3&nbsp;V logic, and 74HC parts run happily at
+    3.3&nbsp;V too. The six shifters are for the day a <em>5&nbsp;V</em> part joins the bus &mdash; and
+    then which one you grab matters.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="h">The Teensy is not 5 V tolerant</span>
+    <p>An i.MX RT1062 pin takes <strong>3.3&nbsp;V, full stop.</strong> Put 5&nbsp;V on a Teensy GPIO and
+    you damage it. So any 5&nbsp;V sensor, 5&nbsp;V display, or 5&nbsp;V-only logic chip goes through a
+    shifter before it ever reaches a Teensy pin &mdash; this is the whole reason the parts are in the kit.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Part</th><th>You have</th><th>Use it for</th><th>Never use it for</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="m">TXS0108</td><td class="num m">3</td>
+          <td><strong>I2C and any open-drain bus</strong> crossing voltages &mdash; a 5&nbsp;V I2C sensor,
+          or a 5&nbsp;V MCP bank. It has the weak pull-ups and auto-direction that I2C needs.</td>
+          <td>High-speed push-pull SPI &mdash; its pull-ups round off fast edges.</td>
+        </tr>
+        <tr>
+          <td class="m">TXB0108</td><td class="num m">3</td>
+          <td><strong>Push-pull signals</strong> crossing voltages &mdash; SPI, UART, clocks, a 5&nbsp;V
+          shift-register chain. Faster, cleaner edges.</td>
+          <td><strong>I2C.</strong> It fights the bus pull-ups and the direction never settles.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col" style="font-size:.92rem;color:var(--ink-2)">Rule of thumb: <strong>two wires that pull
+  each other up</strong> (I2C) &#8594; TXS. <strong>Everything with a real driver on each end</strong>
+  (SPI, UART) &#8594; TXB. Both want <code>VCCA</code> on the low side, <code>VCCB</code> on the high side,
+  and <code>/OE</code> tied high through 10k.</p>
+</section>
+
+<!-- ============================================================ 06 -->
+<section>
+  <div class="shead"><span class="snum">06</span><h2>Power and ground</h2></div>
+  <div class="col">
+    <p>One 5&nbsp;V rail from the battery bank feeds every board&rsquo;s own regulator; the fabric runs on
+    3.3&nbsp;V. Everything shares one ground &mdash; a floating ground is what your &ldquo;Brain and
+    Radio&rdquo; doc caught as a whole class of link failure.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Rail</th><th>From</th><th>To</th><th>Watch</th></tr></thead>
+      <tbody>
+        <tr><td class="m">5V</td><td class="m">battery bank / USB</td><td class="m">Teensy1 VIN, Teensy2 VIN, ESP32 5V, Luckfox VBUS (pin 1)</td><td>Each board makes its own 3.3&nbsp;V from this.</td></tr>
+        <tr><td class="m">3V3 fabric</td><td class="m">Teensy1 3V3 out</td><td class="m">74HC + MCP VCC, display VCC, pull-ups</td><td>Teensy1&rsquo;s 3V3 sources ~250&nbsp;mA. Past that, add a small dedicated 3.3&nbsp;V regulator off 5&nbsp;V.</td></tr>
+        <tr><td class="m">GND</td><td class="m">common star</td><td class="m">every board + every IC</td><td>One ground island, joined once. Required.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="h">Cut the VUSB&#8211;VIN pad on both Teensys</span>
+    <p>You want USB plugged in to flash while the stack is also on external 5&nbsp;V. If you don&rsquo;t
+    cut the <code>VUSB&#8211;VIN</code> jumper on the back of each Teensy 4.1, those two 5&nbsp;V sources
+    fight and you back-power your laptop&rsquo;s USB through the rail. Cut it, and each Teensy takes 5&nbsp;V
+    from VIN while USB still handles data. Standard Teensy step; easy to forget with two of them.</p>
+  </div>
+
+  <div class="note">
+    <span class="h">Feed the radio or it browns out</span>
+    <p>The ESP32 pulls ~500&nbsp;mA spikes on WiFi TX &mdash; that is the <code>BROWNOUT</code> reset reason
+    your radio already reports. Give the 5&nbsp;V rail real current, put a <strong>10&ndash;100&nbsp;&micro;F</strong>
+    bulk cap right at the ESP, and a <strong>100&nbsp;nF</strong> across every IC&rsquo;s VCC&ndash;GND next
+    to the pin. You have the caps; use them generously here.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 07 -->
+<section>
+  <div class="shead"><span class="snum">07</span><h2>One protocol, four nodes</h2></div>
+  <div class="col">
+    <p>The cleanest part of the whole design costs nothing: every link is point-to-point, so
+    <code>interop_protocol.h</code> &mdash; same frame, same <code>0xAA</code> start, same CRC-8, same
+    <code>SEQ&nbsp;0x00</code> for unsolicited &mdash; is reused byte-for-byte on all three. No addresses,
+    no rewrite. All that&rsquo;s new is which command numbers live on which wire.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Range</th><th>Meaning</th><th>Lives on</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="m">0x01&#8211;0x0F</td><td>System &mdash; PING/PONG, READY, NACK</td><td>every link</td><td><span class="tag v">shared, as-is</span></td></tr>
+        <tr><td class="m">0x10&#8211;0x1F</td><td>WiFi</td><td class="wire">Link B (radio)</td><td><span class="tag r">existing</span></td></tr>
+        <tr><td class="m">0x20&#8211;0x2F</td><td>BLE</td><td class="wire">Link B (radio)</td><td><span class="tag v">your milestone 4</span></td></tr>
+        <tr><td class="m">0x30&#8211;0x3F</td><td>Worker jobs &mdash; submit, result, status</td><td class="wire">Link C (worker)</td><td><span class="tag ok">new</span></td></tr>
+        <tr><td class="m">0x40&#8211;0x4F</td><td>Orchestrator &mdash; task, telemetry, log</td><td class="wire">Link A (Luckfox)</td><td><span class="tag ok">new</span></td></tr>
+        <tr><td class="m">0x50&#8211;0x5F</td><td>Fabric / IO &mdash; expander + display ops</td><td class="wire">on-chip</td><td><span class="tag ok">new</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <p>This keeps your load-bearing walls intact: WiFi still owns <code>0x1x</code>, BLE still owns the
+    reserved <code>0x2x</code>. The new ranges slot above them without renumbering a single existing
+    command.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 08 -->
+<section>
+  <div class="shead"><span class="snum">08</span><h2>Calls I made &mdash; flip any of them</h2></div>
+  <div class="col">
+    <p>You told me to design the connections, not to invent the mission. So here is every decision I
+    made that you might want made differently, in one place. Say the word on any row and I&rsquo;ll
+    redraw the affected wires and the code before you cut anything.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Decision</th><th>What I chose</th><th>Why</th><th>Flip it if&#8230;</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Topology</td>
+          <td>Luckfox &#8594; Teensy1 &#8594; {ESP32, Teensy2}</td>
+          <td>Keeps Link B byte-for-byte; one clean chain; every hop point-to-point so the protocol needs no addressing.</td>
+          <td>you want the Luckfox to own the ESP directly, or the worker to hang off the Luckfox.</td>
+        </tr>
+        <tr>
+          <td>Fabric voltage</td>
+          <td>3.3&nbsp;V everywhere</td>
+          <td>Teensy isn&rsquo;t 5&nbsp;V tolerant; all three MCUs are 3.3&nbsp;V, so nothing needs shifting and nothing can fry a Teensy.</td>
+          <td>you specifically want a 5&nbsp;V fabric &mdash; then the TXB/TXS go inline where I show them.</td>
+        </tr>
+        <tr>
+          <td>Bus ownership</td>
+          <td>Teensy1 masters I2C + SPI; Luckfox requests IO over Link A</td>
+          <td>One I2C master is robust; multi-master I2C is a debugging tax.</td>
+          <td>you want the Luckfox sitting directly on the I2C bus (its I2C3 is pins 14/15).</td>
+        </tr>
+        <tr>
+          <td>Fabric leaf devices</td>
+          <td>Buses broken out, chips <em>not</em> yet assigned to specific inputs/outputs</td>
+          <td>You haven&rsquo;t said what the 595/165/MCP/4051 drive &mdash; I&rsquo;m not inventing buttons or LEDs you didn&rsquo;t ask for.</td>
+          <td>tell me the peripheral list and I assign every expander pin.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>Wiring v2 &#183; extends <b>Brain and Radio</b> (Link B unchanged) &#183; all links 921600 8N1 &#183;
+  one CRC-8 poly 0x31 MSB-first, check 0xA2 &#183; 3.3&nbsp;V logic throughout.</p>
+  <p>Firmware to follow, one per node: <code>interop_protocol.h</code> (extended ranges),
+  <code>esp32_radio.ino</code>, <code>teensy1_master.ino</code>, <code>teensy2_worker.ino</code>,
+  <code>luckfox_orchestrator.py</code>. Pin maps above are the source of truth for all five.</p>
+</footer>
+
+</div>

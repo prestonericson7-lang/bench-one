@@ -1,0 +1,13 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/fpga/rtl/gemv_int4.v
+---
+Produce exactly 20 MUTATIONS of this Verilog: single small edits that change behaviour.
+
+Each mutation must be a line of the form:
+OLD<TAB>NEW
+
+where OLD is text copied EXACTLY from the file, appearing exactly once, and NEW is the replacement.
+Favour: comparison operators flipped, off-by-one on indices and bounds, signed changed to unsigned,
+bit ranges shifted by one, a condition inverted, an assignment dropped, a width narrowed.
+
+Output only the 20 lines. No numbering, no commentary.

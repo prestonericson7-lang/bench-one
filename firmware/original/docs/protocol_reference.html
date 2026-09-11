@@ -1,0 +1,1047 @@
+<title>Brain and Radio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#EDF1F0; --surface:#F8FBFA; --surface-alt:#E3E9E8;
+  --ink:#16201E; --ink-2:#4A5B57; --ink-3:#6E807B;
+  --rule:#CBD5D2; --rule-strong:#A9B8B4;
+  --brain:#B0700A; --brain-soft:#F0E0C4;
+  --radio:#1B6F65; --radio-soft:#CFE4E0;
+  --danger:#A8382F; --danger-soft:#F2DAD7;
+  --ok:#2F6B45;
+  --shadow:0 1px 2px rgba(20,40,36,.07), 0 6px 18px rgba(20,40,36,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1413; --surface:#151D1B; --surface-alt:#1D2725;
+    --ink:#E4EBE9; --ink-2:#A5B5B1; --ink-3:#7C8D89;
+    --rule:#2A3634; --rule-strong:#3C4A47;
+    --brain:#E9A63E; --brain-soft:#3A2E17;
+    --radio:#45BFAE; --radio-soft:#123330;
+    --danger:#E0736A; --danger-soft:#37201E;
+    --ok:#63B983;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1413; --surface:#151D1B; --surface-alt:#1D2725;
+  --ink:#E4EBE9; --ink-2:#A5B5B1; --ink-3:#7C8D89;
+  --rule:#2A3634; --rule-strong:#3C4A47;
+  --brain:#E9A63E; --brain-soft:#3A2E17;
+  --radio:#45BFAE; --radio-soft:#123330;
+  --danger:#E0736A; --danger-soft:#37201E;
+  --ok:#63B983;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.28);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.62; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px 96px}
+.col{max-width:68ch}
+
+h1,h2,h3,.eyebrow{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif}
+h1{font-size:clamp(2.4rem,5.5vw,3.9rem); line-height:1.03; font-weight:700; margin:0 0 .5rem; letter-spacing:-.015em; text-wrap:balance}
+h2{font-size:clamp(1.5rem,3vw,2.05rem); font-weight:700; line-height:1.14; margin:0 0 .2rem; letter-spacing:-.01em; text-wrap:balance}
+h3{font-size:1.1rem; font-weight:600; margin:2.2rem 0 .5rem; letter-spacing:.005em}
+p{margin:0 0 1.05rem}
+a{color:var(--radio)}
+
+.eyebrow{
+  font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 .35rem; display:block;
+}
+
+/* ---------- masthead ---------- */
+header.top{
+  border-bottom:1px solid var(--rule);
+  padding:64px 0 40px; margin-bottom:14px;
+}
+.kicker{
+  display:inline-flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  font-family:"IBM Plex Mono",monospace; font-size:.74rem; letter-spacing:.06em;
+  color:var(--ink-3); margin-bottom:1.5rem;
+}
+.kicker b{color:var(--ink-2); font-weight:500}
+.dot{width:4px;height:4px;border-radius:50%;background:var(--rule-strong)}
+.lede{font-size:1.16rem; color:var(--ink-2); max-width:60ch; margin:.9rem 0 0}
+.lede strong{color:var(--ink); font-weight:600}
+
+.pair{display:flex; gap:10px; flex-wrap:wrap; margin-top:1.8rem}
+.party{
+  display:flex; align-items:baseline; gap:.55rem; padding:.5rem .85rem;
+  border:1px solid var(--rule); border-radius:2px; background:var(--surface);
+  font-family:"IBM Plex Mono",monospace; font-size:.78rem;
+}
+.party i{width:9px;height:9px;border-radius:50%;display:inline-block;font-style:normal;flex:none}
+.party.brain i{background:var(--brain)} .party.radio i{background:var(--radio)}
+.party span{color:var(--ink-3)}
+
+/* ---------- sections ---------- */
+section{padding-top:58px}
+.shead{display:flex; align-items:baseline; gap:.9rem; margin-bottom:1.1rem}
+.snum{
+  font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--ink-3);
+  border:1px solid var(--rule); border-radius:2px; padding:.12rem .42rem; flex:none;
+}
+
+/* ---------- figures ---------- */
+figure{margin:1.8rem 0 2rem; }
+figure svg{display:block; width:100%; height:auto; max-width:100%}
+/* Below this width the 11px labels inside a diagram stop being readable, so the figure box
+   scrolls sideways instead of scaling the drawing into illegibility. The page body never
+   scrolls horizontally; only the figure does. */
+.figbox > svg{min-width:620px}
+.grid2 .figbox > svg{min-width:330px}
+.figbox{
+  background:var(--surface); border:1px solid var(--rule); border-radius:3px;
+  padding:22px 20px 8px; overflow-x:auto;
+}
+figcaption{
+  font-size:.85rem; color:var(--ink-2); margin-top:.85rem; max-width:62ch;
+  border-left:2px solid var(--rule-strong); padding-left:.8rem;
+}
+
+/* SVG theming: structure inherits currentColor, roles get tokens */
+svg text{font-family:"IBM Plex Mono",monospace; fill:var(--ink)}
+svg .lbl{font-size:12px; fill:var(--ink)}
+svg .sub{font-size:10.5px; fill:var(--ink-3)}
+svg .tiny{font-size:10px; fill:var(--ink-3)}
+svg .stroke{stroke:var(--rule-strong); fill:none}
+svg .fillbox{fill:var(--surface-alt); stroke:var(--rule-strong)}
+svg .brainf{fill:var(--brain-soft); stroke:var(--brain)}
+svg .radiof{fill:var(--radio-soft); stroke:var(--radio)}
+svg .dangerf{fill:var(--danger-soft); stroke:var(--danger)}
+svg .brains{stroke:var(--brain); fill:none}
+svg .radios{stroke:var(--radio); fill:none}
+svg .dangers{stroke:var(--danger); fill:none}
+svg .brtxt{fill:var(--brain)} svg .rdtxt{fill:var(--radio)} svg .dgtxt{fill:var(--danger)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto; margin:1.4rem 0 1.8rem}
+table{border-collapse:collapse; width:100%; font-size:.87rem}
+th,td{text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--rule); vertical-align:top}
+th{
+  font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:600; font-size:.76rem;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
+  border-bottom:1px solid var(--rule-strong); white-space:nowrap;
+}
+td code,td .m{font-family:"IBM Plex Mono",monospace; font-size:.84em}
+tbody tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+
+code{font-family:"IBM Plex Mono",monospace; font-size:.88em; background:var(--surface-alt); padding:.08em .32em; border-radius:2px}
+.tag{
+  display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.72rem;
+  padding:.06rem .4rem; border-radius:2px; border:1px solid currentColor; white-space:nowrap;
+}
+.tag.b{color:var(--brain)} .tag.r{color:var(--radio)} .tag.d{color:var(--danger)}
+
+/* ---------- callout ---------- */
+.note{
+  border-left:3px solid var(--brain); background:var(--surface);
+  padding:1rem 1.1rem; margin:1.5rem 0; font-size:.94rem;
+}
+.note.warn{border-left-color:var(--danger)}
+.note p:last-child{margin-bottom:0}
+.note .h{
+  font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700;
+  font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+  display:block; margin-bottom:.3rem;
+}
+
+/* ---------- decoder ---------- */
+.tool{border:1px solid var(--rule-strong); border-radius:3px; background:var(--surface); overflow:hidden}
+.toolhead{
+  display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;
+  padding:.7rem 1rem; border-bottom:1px solid var(--rule); background:var(--surface-alt);
+}
+.toolhead .t{font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700; font-size:.85rem; letter-spacing:.06em; text-transform:uppercase}
+.presets{display:flex; gap:.35rem; flex-wrap:wrap}
+button{
+  font-family:"IBM Plex Mono",monospace; font-size:.73rem; cursor:pointer;
+  background:var(--surface); color:var(--ink-2); border:1px solid var(--rule-strong);
+  border-radius:2px; padding:.24rem .55rem;
+}
+button:hover{color:var(--ink); border-color:var(--ink-3)}
+button:focus-visible{outline:2px solid var(--radio); outline-offset:1px}
+.toolbody{padding:1rem}
+#hexin{
+  width:100%; font-family:"IBM Plex Mono",monospace; font-size:.95rem; line-height:1.7;
+  background:var(--bg); color:var(--ink); border:1px solid var(--rule-strong);
+  border-radius:2px; padding:.65rem .75rem; resize:vertical; min-height:64px;
+}
+#hexin:focus-visible{outline:2px solid var(--radio); outline-offset:1px; border-color:var(--radio)}
+.verdict{
+  display:flex; align-items:center; gap:.55rem; margin:.9rem 0 .2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.85rem;
+}
+.verdict .pip{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ink-3)}
+.verdict.ok .pip{background:var(--ok)} .verdict.ok{color:var(--ok)}
+.verdict.bad .pip{background:var(--danger)} .verdict.bad{color:var(--danger)}
+.fields{margin-top:.9rem; font-size:.85rem}
+.frow{display:grid; grid-template-columns:96px 92px 1fr; gap:.5rem 1rem; padding:.38rem 0; border-bottom:1px solid var(--rule)}
+.frow:last-child{border-bottom:none}
+.frow .k{font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:600; letter-spacing:.05em; text-transform:uppercase; font-size:.72rem; color:var(--ink-3); padding-top:.15rem}
+.frow .v{font-family:"IBM Plex Mono",monospace; color:var(--ink)}
+.frow .d{color:var(--ink-2)}
+.bytes{display:flex; flex-wrap:wrap; gap:3px; margin-top:.15rem}
+.by{
+  font-family:"IBM Plex Mono",monospace; font-size:.78rem; padding:.14rem .3rem;
+  border-radius:2px; border:1px solid var(--rule-strong); background:var(--surface-alt);
+}
+.by.s{border-color:var(--ink-3)}
+.by.l{border-color:var(--radio); color:var(--radio)}
+.by.q{border-color:var(--brain); color:var(--brain)}
+.by.c{border-color:var(--ink); font-weight:600}
+.by.p{border-color:var(--rule)}
+.by.k{border-color:var(--ok); color:var(--ok)}
+.by.bad{border-color:var(--danger); color:var(--danger)}
+
+.legend{display:flex; gap:.9rem; flex-wrap:wrap; font-size:.74rem; color:var(--ink-3); margin-top:.7rem; font-family:"IBM Plex Mono",monospace}
+
+/* ---------- misc ---------- */
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.2rem}
+ul.tight{margin:.2rem 0 1.2rem; padding-left:1.1rem}
+ul.tight li{margin-bottom:.42rem}
+footer{border-top:1px solid var(--rule); margin-top:70px; padding-top:22px; font-size:.82rem; color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">
+    <b>ESP32-S3 &#8596; TEENSY 4.1</b><span class="dot"></span>
+    <span>PROTOCOL v1</span><span class="dot"></span>
+    <span>921600 8N1</span><span class="dot"></span>
+    <span>CRC-8 CHECK 0xA2</span>
+  </div>
+  <h1>Brain and Radio</h1>
+  <p class="lede">A binary framing protocol built from scratch for a direct UART between two
+  microcontrollers &mdash; no COBS, no Protobuf, no SLIP. <strong>The Teensy is the brain. The
+  ESP32 is a radio.</strong> Every decision below follows from that one sentence.</p>
+  <div class="pair">
+    <span class="party brain"><i></i><b>TEENSY 4.1</b>&nbsp;<span>brain &mdash; policy</span></span>
+    <span class="party radio"><i></i><b>ESP32-S3</b>&nbsp;<span>radio &mdash; mechanism</span></span>
+  </div>
+</header>
+
+<!-- ============================================================ 01 -->
+<section>
+  <div class="shead"><span class="snum">01</span><h2>The division of labour</h2></div>
+  <div class="col">
+    <p>The ESP32 is a capable computer, and the temptation to let it think is constant. Resist it.
+    The rule that settles every design argument in this project:</p>
+  </div>
+
+  <div class="note">
+    <span class="h">The rule</span>
+    <p><strong>Mechanism lives on the radio. Policy lives on the brain.</strong> The radio knows how
+    to drive an 802.11 MAC &mdash; start a scan, attempt a join, read a reason code. It reports what
+    happened. It does not decide what happens <em>next</em>.</p>
+  </div>
+
+  <div class="col">
+    <p>Three consequences you can point at in the code:</p>
+    <ul class="tight">
+      <li><strong>The radio reports raw facts beside its summary.</strong> A connect response
+      carries a friendly status byte <em>and</em> the raw 802.11 reason code. Reason 15 and reason
+      202 both mean &ldquo;wrong password&rdquo; to the radio &mdash; but 202 is an outright
+      rejection, while 15 is a handshake timeout, which is also what a <em>correct</em> password
+      produces at the edge of range. Only the brain has the context to tell those apart.</li>
+      <li><strong>The radio can speak without being asked.</strong> Links drop and chips brown out
+      on the radio&rsquo;s schedule, never the brain&rsquo;s.</li>
+      <li><strong>The radio is replaceable.</strong> Nothing in the frame format mentions Espressif.
+      Auth modes and status codes are translated to our own enums at the radio&rsquo;s edge.</li>
+    </ul>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 880 250" role="img" aria-label="The Teensy sends commands to the ESP32 over a crossed UART pair; the ESP32 returns responses and also sends unsolicited events, while the WiFi radio itself talks to access points.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect class="brainf" x="40" y="52" width="240" height="120" rx="3" stroke-width="1.5"/>
+        <text class="lbl brtxt" x="160" y="80" text-anchor="middle" font-weight="600">TEENSY 4.1</text>
+        <text class="sub" x="160" y="99" text-anchor="middle">the brain</text>
+        <text class="tiny" x="160" y="122" text-anchor="middle">decides retries, priorities,</text>
+        <text class="tiny" x="160" y="137" text-anchor="middle">what a failure means</text>
+        <text class="tiny" x="160" y="158" text-anchor="middle">600 MHz &#183; 1 MB RAM</text>
+
+        <rect class="radiof" x="600" y="52" width="240" height="120" rx="3" stroke-width="1.5"/>
+        <text class="lbl rdtxt" x="720" y="80" text-anchor="middle" font-weight="600">ESP32-S3</text>
+        <text class="sub" x="720" y="99" text-anchor="middle">the radio</text>
+        <text class="tiny" x="720" y="122" text-anchor="middle">drives the 802.11 MAC,</text>
+        <text class="tiny" x="720" y="137" text-anchor="middle">reports what happened</text>
+        <text class="tiny" x="720" y="158" text-anchor="middle">2.4 GHz &#183; WiFi, later BLE</text>
+
+        <g class="brains" stroke-width="1.5" color="var(--brain)">
+          <line x1="280" y1="86" x2="592" y2="86" marker-end="url(#ar)"/>
+        </g>
+        <text class="tiny brtxt" x="436" y="78" text-anchor="middle">commands &#183; SEQ 0x01&#8211;0xFF</text>
+        <text class="tiny" x="436" y="101" text-anchor="middle">pin 1 TX &#8594; GPIO18 RX</text>
+
+        <g class="radios" stroke-width="1.5" color="var(--radio)">
+          <line x1="600" y1="138" x2="288" y2="138" marker-end="url(#ar)"/>
+        </g>
+        <text class="tiny rdtxt" x="444" y="130" text-anchor="middle">responses &#183; echo the SEQ</text>
+        <text class="tiny" x="444" y="153" text-anchor="middle">GPIO17 TX &#8594; pin 0 RX</text>
+
+        <g class="radios" stroke-width="1.5" stroke-dasharray="5 4" color="var(--radio)">
+          <path d="M600 196 L288 196" marker-end="url(#ar)"/>
+        </g>
+        <text class="tiny rdtxt" x="444" y="188" text-anchor="middle">unsolicited events &#183; SEQ 0x00</text>
+        <text class="tiny" x="444" y="212" text-anchor="middle">&ldquo;I rebooted&rdquo; &#183; &ldquo;the link dropped&rdquo;</text>
+
+        <line class="stroke" x1="40" y1="196" x2="280" y2="196" stroke-width="1"/>
+        <text class="tiny" x="160" y="212" text-anchor="middle">GND &#8212; shared, required</text>
+
+        <path class="radios" d="M840 112 q34 0 34 -30 M840 112 q46 0 46 -46" stroke-width="1.2" opacity=".55"/>
+        <text class="tiny rdtxt" x="838" y="36" text-anchor="end">to access points</text>
+      </svg>
+    </div>
+    <figcaption>Two wires and a ground. The dashed return path is what makes this a radio rather
+    than a sensor: the ESP32 may transmit without having been asked, tagged with the reserved
+    sequence number <code>0x00</code>.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================================================ 02 -->
+<section>
+  <div class="shead"><span class="snum">02</span><h2>The frame</h2></div>
+  <div class="col">
+    <p>Seven fields, five of them fixed. Everything the protocol guarantees is enforced by two of
+    them working together: the length field bounds the frame, and the CRC validates it.</p>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 880 264" role="img" aria-label="Byte layout of a frame: START at offset zero, then LEN high and low, SEQ, CMD, payload, and CRC8. The CRC covers LEN through the end of payload; LEN counts CMD plus payload.">
+        <g class="tiny">
+          <text x="105" y="34" text-anchor="middle">0</text>
+          <text x="195" y="34" text-anchor="middle">1</text>
+          <text x="285" y="34" text-anchor="middle">2</text>
+          <text x="375" y="34" text-anchor="middle">3</text>
+          <text x="465" y="34" text-anchor="middle">4</text>
+          <text x="620" y="34" text-anchor="middle">5 &#8230; 5+n-1</text>
+          <text x="775" y="34" text-anchor="middle">last</text>
+        </g>
+
+        <rect class="fillbox" x="60" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl" x="105" y="70" text-anchor="middle" font-weight="600">START</text>
+        <text class="sub" x="105" y="90" text-anchor="middle">0xAA</text>
+
+        <rect class="radiof" x="150" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl rdtxt" x="195" y="70" text-anchor="middle" font-weight="600">LEN_H</text>
+        <text class="sub" x="195" y="90" text-anchor="middle">0x00</text>
+
+        <rect class="radiof" x="240" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl rdtxt" x="285" y="70" text-anchor="middle" font-weight="600">LEN_L</text>
+        <text class="sub" x="285" y="90" text-anchor="middle">0x01</text>
+
+        <rect class="brainf" x="330" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl brtxt" x="375" y="70" text-anchor="middle" font-weight="600">SEQ</text>
+        <text class="sub" x="375" y="90" text-anchor="middle">0x01</text>
+
+        <rect class="fillbox" x="420" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl" x="465" y="70" text-anchor="middle" font-weight="600">CMD</text>
+        <text class="sub" x="465" y="90" text-anchor="middle">0x01</text>
+
+        <rect class="fillbox" x="510" y="44" width="220" height="66" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text class="lbl" x="620" y="70" text-anchor="middle" font-weight="600">PAYLOAD</text>
+        <text class="sub" x="620" y="90" text-anchor="middle">0 &#8211; 1018 bytes</text>
+
+        <rect class="fillbox" x="730" y="44" width="90" height="66" stroke-width="1.5"/>
+        <text class="lbl" x="775" y="70" text-anchor="middle" font-weight="600">CRC8</text>
+        <text class="sub" x="775" y="90" text-anchor="middle">0x83</text>
+
+        <path class="stroke" d="M150 128 L150 140 L730 140 L730 128" stroke-width="1.3"/>
+        <text class="lbl" x="440" y="160" text-anchor="middle">CRC8 is computed over exactly this span</text>
+
+        <path class="radios" d="M420 176 L420 188 L730 188 L730 176" stroke-width="1.3"/>
+        <text class="lbl rdtxt" x="575" y="208" text-anchor="middle">LEN counts these bytes &#8212; so LEN is never 0</text>
+
+        <line class="stroke" x1="60" y1="230" x2="820" y2="230" stroke-width="1" stroke-dasharray="3 4"/>
+        <text class="tiny" x="60" y="250">max frame 1024 B</text>
+        <text class="tiny" x="440" y="250" text-anchor="middle">max body 1019 B</text>
+        <text class="tiny" x="820" y="250" text-anchor="end">inter-byte timeout 50 ms</text>
+      </svg>
+    </div>
+    <figcaption>The bytes shown spell a real <code>PING</code> with sequence 1:
+    <code>AA 00 01 01 01 83</code>. START is excluded from the CRC deliberately &mdash; it is a
+    marker, not data; if it were corrupted there would be no frame to verify.</figcaption>
+  </figure>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Field</th><th>Size</th><th>Why it exists</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m">START</span></td><td class="num">1 B</td>
+          <td>A serial link has no packet boundaries. When the receiver loses its place it scans
+          for <code>0xAA</code> &mdash; binary 10101010, rare in structured data and unmistakable on
+          a logic analyser. Not escaped; see &sect;04.</td></tr>
+        <tr><td><span class="m">LEN</span></td><td class="num">2 B</td>
+          <td>Big-endian count of <code>CMD</code>&nbsp;+&nbsp;payload. One byte would cap a frame
+          at 255 and a scan of 20 networks already exceeds that. Two bytes cost one byte and buy
+          headroom to 65535.</td></tr>
+        <tr><td><span class="m">SEQ</span></td><td class="num">1 B</td>
+          <td>Ties a response to its request. <code>0x00</code> is reserved to mean
+          <em>unsolicited</em>. Without SEQ, one timeout shifts every later response by one
+          &mdash; a desync that looks like random nonsense.</td></tr>
+        <tr><td><span class="m">CMD</span></td><td class="num">1 B</td>
+          <td>Requests and responses use distinct values rather than a shared reply flag, so a hex
+          dump is self-describing.</td></tr>
+        <tr><td><span class="m">PAYLOAD</span></td><td class="num">0&ndash;1018 B</td>
+          <td>Command-specific. May be empty.</td></tr>
+        <tr><td><span class="m">CRC8</span></td><td class="num">1 B</td>
+          <td>A frame that fails its CRC is dropped, never partially acted on. That is the central
+          rule of the protocol.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>The CRC, and a naming trap worth knowing about</h3>
+  <div class="col">
+    <p>The specification this was built from asked for &ldquo;CRC-8/MAXIM (Dallas/iButton)&rdquo;
+    <em>and</em> for &ldquo;poly 0x31, init 0x00, no reflect, no XOR out&rdquo;. Those describe
+    <strong>different algorithms</strong>, and the difference is invisible until someone else tries
+    to interoperate.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Variant</th><th>Parameters</th><th class="num">check("123456789")</th></tr></thead>
+      <tbody>
+        <tr><td>CRC-8/MAXIM-DOW <span class="tag">the real one</span></td>
+          <td><span class="m">poly 0x31, <strong>reflected</strong>, init 0x00</span></td>
+          <td class="num m">0xA1</td></tr>
+        <tr><td><strong>Implemented here</strong> <span class="tag r">this protocol</span></td>
+          <td><span class="m">poly 0x31, MSB-first, init 0x00</span></td>
+          <td class="num m"><strong>0xA2</strong></td></tr>
+        <tr><td>CRC-8/NRSC-5</td>
+          <td><span class="m">poly 0x31, MSB-first, init 0xFF</span></td>
+          <td class="num m">0xF7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p>The explicit parameters were followed rather than the label, because parameters are
+    unambiguous and labels are not. Both boards share one implementation, so they interoperate
+    either way &mdash; the name only matters the day a Python harness or a logic-analyser decoder
+    has to speak this protocol. On that day, hand them the middle row, not the word
+    &ldquo;MAXIM&rdquo;.</p>
+    <p>The 256-byte lookup table was generated and then checked against an independent bitwise
+    implementation across every one-byte input, all 65,536 two-byte inputs, and 5,000 random
+    strings: 70,793 cases, zero mismatches. It was never typed by hand.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 03 -->
+<section>
+  <div class="shead"><span class="snum">03</span><h2>Decode a frame</h2></div>
+  <div class="col">
+    <p>Paste bytes from a logic analyser or a hex dump. This runs the same CRC and the same field
+    layout the firmware does &mdash; if your own implementation disagrees with it, one of you has
+    the polynomial wrong.</p>
+  </div>
+
+  <div class="tool">
+    <div class="toolhead">
+      <span class="t">Frame decoder</span>
+      <div class="presets">
+        <button data-hex="AA 00 01 01 01 83">PING</button>
+        <button data-hex="AA 00 01 01 02 D0">PONG</button>
+        <button data-hex="AA 00 01 07 10 AB">SCAN_REQ</button>
+        <button data-hex="AA 00 03 05 FE 99 01 63">NACK</button>
+        <button data-hex="AA 00 06 09 13 00 C0 A8 01 2C 00 7B">CONNECT_RESP</button>
+        <button data-hex="AA 00 05 00 04 01 A2 09 01 41">RADIO_READY</button>
+        <button data-hex="AA 00 01 01 01 82">corrupted</button>
+      </div>
+    </div>
+    <div class="toolbody">
+      <label for="hexin" class="eyebrow">Hex bytes</label>
+      <textarea id="hexin" spellcheck="false" rows="2">AA 00 01 01 01 83</textarea>
+      <div id="verdict" class="verdict"><span class="pip"></span><span id="vtext">&mdash;</span></div>
+      <div class="bytes" id="bytemap"></div>
+      <div class="legend">
+        <span>&#9632; START</span><span style="color:var(--radio)">&#9632; LEN</span>
+        <span style="color:var(--brain)">&#9632; SEQ</span><span>&#9632; CMD</span>
+        <span>&#9632; PAYLOAD</span><span style="color:var(--ok)">&#9632; CRC</span>
+      </div>
+      <div class="fields" id="fields"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 04 -->
+<section>
+  <div class="shead"><span class="snum">04</span><h2>The parser</h2></div>
+  <div class="col">
+    <p>A byte-at-a-time state machine. It never blocks, never allocates, and has a defined answer
+    for every byte in every state &mdash; which is the only structure that survives arbitrary
+    garbage on the line.</p>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 880 300" role="img" aria-label="Parser state machine. WAIT_START advances through LEN_H, LEN_L, SEQ, BODY and CRC back to WAIT_START. An impossible length diverts through SEQ into a SKIP state that discards exactly the declared bytes before returning.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <g stroke-width="1.4">
+          <rect class="fillbox" x="24" y="86" width="118" height="42" rx="2"/>
+          <rect class="radiof" x="172" y="86" width="104" height="42" rx="2"/>
+          <rect class="radiof" x="306" y="86" width="104" height="42" rx="2"/>
+          <rect class="brainf" x="440" y="86" width="104" height="42" rx="2"/>
+          <rect class="fillbox" x="574" y="86" width="104" height="42" rx="2"/>
+          <rect class="fillbox" x="708" y="86" width="104" height="42" rx="2"/>
+          <rect class="dangerf" x="440" y="212" width="238" height="42" rx="2"/>
+        </g>
+        <g class="lbl" text-anchor="middle" font-weight="600">
+          <text x="83" y="112">WAIT_START</text>
+          <text class="rdtxt" x="224" y="112">LEN_H</text>
+          <text class="rdtxt" x="358" y="112">LEN_L</text>
+          <text class="brtxt" x="492" y="112">SEQ</text>
+          <text x="626" y="112">BODY</text>
+          <text x="760" y="112">CRC</text>
+          <text class="dgtxt" x="559" y="238">SKIP</text>
+        </g>
+
+        <g class="stroke" stroke-width="1.4" color="var(--ink-3)">
+          <line x1="142" y1="107" x2="164" y2="107" marker-end="url(#ar2)"/>
+          <line x1="276" y1="107" x2="298" y2="107" marker-end="url(#ar2)"/>
+          <line x1="410" y1="107" x2="432" y2="107" marker-end="url(#ar2)"/>
+          <line x1="544" y1="107" x2="566" y2="107" marker-end="url(#ar2)"/>
+          <line x1="678" y1="107" x2="700" y2="107" marker-end="url(#ar2)"/>
+        </g>
+        <text class="tiny" x="153" y="98" text-anchor="middle">0xAA</text>
+        <text class="tiny" x="611" y="98" text-anchor="middle">LEN ok</text>
+
+        <path class="stroke" d="M760 86 L760 52 L83 52 L83 82" stroke-width="1.4" color="var(--ink-3)" marker-end="url(#ar2)"/>
+        <text class="lbl" x="420" y="44" text-anchor="middle">CRC matches &#8594; deliver the frame, then hunt again</text>
+
+        <path class="dangers" d="M492 128 L492 208" stroke-width="1.5" marker-end="url(#ar2)" color="var(--danger)"/>
+        <text class="tiny dgtxt" x="502" y="153">LEN = 0, or</text>
+        <text class="tiny dgtxt" x="502" y="167">LEN &gt; 1019</text>
+        <text class="tiny" x="502" y="188">&#8212; but read SEQ first</text>
+
+        <path class="dangers" d="M440 233 L83 233 L83 132" stroke-width="1.5" marker-end="url(#ar2)" color="var(--danger)"/>
+        <text class="tiny dgtxt" x="255" y="226" text-anchor="middle">discard exactly LEN+1 bytes, then resume</text>
+
+        <path class="stroke" d="M626 128 L626 172 L120 172 L120 132" stroke-width="1.2" stroke-dasharray="4 4" color="var(--ink-3)" marker-end="url(#ar2)"/>
+        <text class="tiny" x="380" y="166" text-anchor="middle">50 ms with no byte, and nothing queued &#8594; give up on the frame</text>
+
+        <path class="stroke" d="M40 86 q-16 -22 6 -30 q22 -8 26 22" stroke-width="1.2" color="var(--ink-3)" marker-end="url(#ar2)"/>
+        <text class="tiny" x="26" y="286">any byte that is not 0xAA is discarded and counted</text>
+      </svg>
+    </div>
+    <figcaption>The <span class="tag d">SKIP</span> state is the subtle part. Naively NACK-ing an
+    impossible length and jumping straight back to hunting leaves the rest of that oversized frame
+    still arriving &mdash; and scanning it for <code>0xAA</code> spawns a cascade of bogus frames.
+    Consuming exactly the declared bytes costs one error instead of a storm.</figcaption>
+  </figure>
+
+  <h3>What happens when 0xAA appears inside a payload</h3>
+  <div class="col">
+    <p>It does, constantly. &minus;86&nbsp;dBm as a signed RSSI byte <em>is</em> <code>0xAA</code>,
+    and that is an ordinary signal strength in a block of flats. Two filters reject the impostor,
+    and the arithmetic is worth knowing because it is what justifies not byte-stuffing at all.</p>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 880 190" role="img" aria-label="A funnel: 65536 possible length values, of which 1019 pass the length sanity check, and of those one in 256 also passes the CRC, leaving roughly one false frame in sixteen thousand.">
+        <rect class="fillbox" x="30" y="46" width="200" height="72" rx="2" stroke-width="1.4"/>
+        <text class="lbl" x="130" y="76" text-anchor="middle" font-weight="600">65,536</text>
+        <text class="sub" x="130" y="96" text-anchor="middle">possible LEN values</text>
+        <text class="tiny" x="130" y="136" text-anchor="middle">a false 0xAA is read as a length</text>
+
+        <path class="radios" d="M238 82 L296 82" stroke-width="1.6" marker-end="url(#ar2)" color="var(--radio)"/>
+        <text class="tiny rdtxt" x="267" y="70" text-anchor="middle">filter 1</text>
+
+        <rect class="radiof" x="304" y="46" width="200" height="72" rx="2" stroke-width="1.4"/>
+        <text class="lbl rdtxt" x="404" y="76" text-anchor="middle" font-weight="600">1,019 survive</text>
+        <text class="sub" x="404" y="96" text-anchor="middle">1.6% &#183; LEN in 1&#8230;1019</text>
+        <text class="tiny" x="404" y="136" text-anchor="middle">costs nothing, rejects 98.4%</text>
+        <text class="tiny" x="404" y="152" text-anchor="middle">before a buffer is touched</text>
+
+        <path class="radios" d="M512 82 L570 82" stroke-width="1.6" marker-end="url(#ar2)" color="var(--radio)"/>
+        <text class="tiny rdtxt" x="541" y="70" text-anchor="middle">filter 2</text>
+
+        <rect class="fillbox" x="578" y="46" width="200" height="72" rx="2" stroke-width="1.4"/>
+        <text class="lbl" x="678" y="76" text-anchor="middle" font-weight="600">&#215; 1 in 256</text>
+        <text class="sub" x="678" y="96" text-anchor="middle">CRC must also match</text>
+        <text class="tiny" x="678" y="136" text-anchor="middle">and the CMD byte must still be</text>
+        <text class="tiny" x="678" y="152" text-anchor="middle">a command we implement</text>
+
+        <text class="lbl" x="850" y="76" text-anchor="end" font-weight="600">&#8776; 1 in 16,000</text>
+        <text class="tiny" x="850" y="96" text-anchor="end">measured on 4 MB of noise:</text>
+        <text class="tiny" x="850" y="111" text-anchor="end">3 of 52,843 = 1 in 17,614</text>
+      </svg>
+    </div>
+    <figcaption>Predicted 1 in 16,000; measured 1 in 17,614 across 4&nbsp;MB of pseudo-random
+    noise. Each of the three survivors was re-checked and its CRC did verify &mdash; the parser
+    never lied, noise simply hit the lottery three times.</figcaption>
+  </figure>
+
+  <div class="note warn">
+    <span class="h">A claim this page used to make, which hardware disproved</span>
+    <p>This section previously said a rejected false start costs &ldquo;at most one lost
+    frame&rdquo;. <strong>That was wrong.</strong> A false sync declaring an enormous length sent
+    the parser into its drain state waiting for bytes that were never coming, swallowing every
+    real frame until the 50&nbsp;ms timeout &mdash; up to ~4,600 bytes at this baud. It ate a live
+    PING during bring-up.</p>
+    <p>The parser now separates &ldquo;a real frame, too big for us&rdquo; from &ldquo;not a frame
+    at all&rdquo;. A declared length within 2&times; the frame size is drained precisely (that is
+    a peer built with a bigger buffer); anything larger is judged a false start and resyncs
+    immediately, because our own builder refuses to emit more than 1019 bytes. The real bound is
+    2048 bytes, about 22&nbsp;ms &mdash; comfortably inside the inter-byte timeout.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="h">The timeout bug this design had, and how it was fixed</span>
+    <p>The inter-byte timeout must be evaluated <strong>only when the receive queue is empty</strong>.
+    Checking it before draining lets a slow reader impersonate a dead sender: bytes that arrived on
+    time and are sitting in the UART buffer get discarded because <em>we</em> were late. It presents
+    as &ldquo;long responses randomly fail&rdquo; &mdash; and the harder you debug it with print
+    statements, the more reliably it reproduces, because printing is what made the loop slow.
+    Data still queued is proof the peer is alive. Only silence justifies a timeout.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 05 -->
+<section>
+  <div class="shead"><span class="snum">05</span><h2>Four exchanges</h2></div>
+  <div class="col">
+    <p>Everything the two boards say to each other is one of these shapes. The sequence number is
+    what distinguishes them.</p>
+  </div>
+
+  <div class="grid2">
+    <figure style="margin-top:.6rem">
+      <div class="figbox">
+        <svg viewBox="0 0 400 200" role="img" aria-label="Normal request and response: the brain sends PING with sequence 7 and the radio replies PONG echoing sequence 7.">
+          <text class="tiny brtxt" x="70" y="20" text-anchor="middle" font-weight="600">BRAIN</text>
+          <text class="tiny rdtxt" x="330" y="20" text-anchor="middle" font-weight="600">RADIO</text>
+          <line class="brains" x1="70" y1="30" x2="70" y2="180" stroke-width="1.2" opacity=".5" color="var(--brain)"/>
+          <line class="radios" x1="330" y1="30" x2="330" y2="180" stroke-width="1.2" opacity=".5" color="var(--radio)"/>
+          <line class="brains" x1="70" y1="62" x2="322" y2="62" stroke-width="1.5" marker-end="url(#ar2)" color="var(--brain)"/>
+          <text class="tiny" x="196" y="54" text-anchor="middle">PING &#183; seq 07</text>
+          <line class="radios" x1="330" y1="112" x2="78" y2="112" stroke-width="1.5" marker-end="url(#ar2)" color="var(--radio)"/>
+          <text class="tiny" x="204" y="104" text-anchor="middle">PONG &#183; seq 07</text>
+          <text class="tiny" x="200" y="150" text-anchor="middle">the sequence matches, so</text>
+          <text class="tiny" x="200" y="165" text-anchor="middle">this answers that request</text>
+        </svg>
+      </div>
+      <figcaption>The ordinary case. One request in flight at a time.</figcaption>
+    </figure>
+
+    <figure style="margin-top:.6rem">
+      <div class="figbox">
+        <svg viewBox="0 0 400 200" role="img" aria-label="Unsolicited event: the radio sends a WiFi disconnect event with sequence zero, which the brain accepts as an announcement rather than a reply.">
+          <text class="tiny brtxt" x="70" y="20" text-anchor="middle" font-weight="600">BRAIN</text>
+          <text class="tiny rdtxt" x="330" y="20" text-anchor="middle" font-weight="600">RADIO</text>
+          <line class="brains" x1="70" y1="30" x2="70" y2="180" stroke-width="1.2" opacity=".5" color="var(--brain)"/>
+          <line class="radios" x1="330" y1="30" x2="330" y2="180" stroke-width="1.2" opacity=".5" color="var(--radio)"/>
+          <text class="tiny rdtxt" x="330" y="56" text-anchor="middle">the AP vanishes</text>
+          <line class="radios" x1="330" y1="86" x2="78" y2="86" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar2)" color="var(--radio)"/>
+          <text class="tiny" x="204" y="78" text-anchor="middle">WIFI_EVENT &#183; seq 00</text>
+          <text class="tiny" x="200" y="124" text-anchor="middle">nobody asked. seq 00 is reserved,</text>
+          <text class="tiny" x="200" y="139" text-anchor="middle">so this cannot be mistaken</text>
+          <text class="tiny" x="200" y="154" text-anchor="middle">for a reply to anything</text>
+        </svg>
+      </div>
+      <figcaption>What makes it a radio: news arrives when it happens, not when asked.</figcaption>
+    </figure>
+
+    <figure style="margin-top:.6rem">
+      <div class="figbox">
+        <svg viewBox="0 0 400 200" role="img" aria-label="Stale response: a scan request times out, the brain moves on, and the late reply carrying the old sequence number is discarded rather than mistaken for the answer to the next command.">
+          <text class="tiny brtxt" x="70" y="20" text-anchor="middle" font-weight="600">BRAIN</text>
+          <text class="tiny rdtxt" x="330" y="20" text-anchor="middle" font-weight="600">RADIO</text>
+          <line class="brains" x1="70" y1="30" x2="70" y2="180" stroke-width="1.2" opacity=".5" color="var(--brain)"/>
+          <line class="radios" x1="330" y1="30" x2="330" y2="180" stroke-width="1.2" opacity=".5" color="var(--radio)"/>
+          <line class="brains" x1="70" y1="54" x2="322" y2="54" stroke-width="1.5" marker-end="url(#ar2)" color="var(--brain)"/>
+          <text class="tiny" x="196" y="46" text-anchor="middle">SCAN &#183; seq 22</text>
+          <text class="tiny dgtxt" x="70" y="88" text-anchor="middle">timeout &#183; moves on</text>
+          <line class="radios" x1="330" y1="118" x2="78" y2="118" stroke-width="1.5" marker-end="url(#ar2)" color="var(--radio)"/>
+          <text class="tiny" x="204" y="110" text-anchor="middle">RESP &#183; seq 22 (late)</text>
+          <text class="tiny dgtxt" x="200" y="152" text-anchor="middle">seq 22 is no longer pending</text>
+          <text class="tiny" x="200" y="167" text-anchor="middle">&#8594; dropped, counted, never</text>
+        </svg>
+      </div>
+      <figcaption>Without SEQ, one timeout shifts every later response by one, permanently.</figcaption>
+    </figure>
+
+    <figure style="margin-top:.6rem">
+      <div class="figbox">
+        <svg viewBox="0 0 400 200" role="img" aria-label="Busy: while a scan is running a second WiFi request is refused with a NACK carrying the busy error code, but a PING is still answered immediately.">
+          <text class="tiny brtxt" x="70" y="20" text-anchor="middle" font-weight="600">BRAIN</text>
+          <text class="tiny rdtxt" x="330" y="20" text-anchor="middle" font-weight="600">RADIO</text>
+          <line class="brains" x1="70" y1="30" x2="70" y2="180" stroke-width="1.2" opacity=".5" color="var(--brain)"/>
+          <line class="radios" x1="330" y1="30" x2="330" y2="180" stroke-width="1.2" opacity=".5" color="var(--radio)"/>
+          <text class="tiny rdtxt" x="330" y="50" text-anchor="middle">scanning &#8230;</text>
+          <line class="brains" x1="70" y1="74" x2="322" y2="74" stroke-width="1.5" marker-end="url(#ar2)" color="var(--brain)"/>
+          <text class="tiny" x="196" y="66" text-anchor="middle">CONNECT &#183; seq 31</text>
+          <line class="dangers" x1="330" y1="102" x2="78" y2="102" stroke-width="1.5" marker-end="url(#ar2)" color="var(--danger)"/>
+          <text class="tiny dgtxt" x="204" y="94" text-anchor="middle">NACK &#183; 0x04 BUSY</text>
+          <line class="brains" x1="70" y1="134" x2="322" y2="134" stroke-width="1.5" marker-end="url(#ar2)" color="var(--brain)"/>
+          <text class="tiny" x="196" y="126" text-anchor="middle">PING &#183; seq 32</text>
+          <line class="radios" x1="330" y1="162" x2="78" y2="162" stroke-width="1.5" marker-end="url(#ar2)" color="var(--radio)"/>
+          <text class="tiny" x="204" y="154" text-anchor="middle">PONG &#8212; still answered</text>
+        </svg>
+      </div>
+      <figcaption>An honest refusal beats a queue that changes what &ldquo;completed&rdquo; means.
+      PING is answered even while busy: a health check that fails whenever the device is working
+      would report &ldquo;dead&rdquo; for the length of every scan.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================ 06 -->
+<section>
+  <div class="shead"><span class="snum">06</span><h2>Command reference</h2></div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>CMD</th><th>Name</th><th>Direction</th><th>Payload</th></tr></thead>
+      <tbody>
+        <tr><td class="m">0x01</td><td class="m">PING</td><td><span class="tag b">brain &#8594; radio</span></td><td>none</td></tr>
+        <tr><td class="m">0x02</td><td class="m">PONG</td><td><span class="tag r">radio &#8594; brain</span></td><td>none</td></tr>
+        <tr><td class="m">0x04</td><td class="m">RADIO_READY</td><td><span class="tag r">radio &#8594; brain</span> <span class="tag">unsolicited</span></td><td>version, CRC check, reset reason, capabilities</td></tr>
+        <tr><td class="m">0x10</td><td class="m">WIFI_SCAN_REQ</td><td><span class="tag b">brain &#8594; radio</span></td><td>none</td></tr>
+        <tr><td class="m">0x11</td><td class="m">WIFI_SCAN_RESP</td><td><span class="tag r">radio &#8594; brain</span></td><td>count, then per network: rssi, channel, enc, ssid_len, ssid</td></tr>
+        <tr><td class="m">0x12</td><td class="m">WIFI_CONNECT_REQ</td><td><span class="tag b">brain &#8594; radio</span></td><td>ssid_len, ssid, pass_len, pass</td></tr>
+        <tr><td class="m">0x13</td><td class="m">WIFI_CONNECT_RESP</td><td><span class="tag r">radio &#8594; brain</span></td><td>status, IP&#215;4, raw 802.11 reason</td></tr>
+        <tr><td class="m">0x14</td><td class="m">WIFI_EVENT</td><td><span class="tag r">radio &#8594; brain</span> <span class="tag">unsolicited</span></td><td>event type, raw reason, IP&#215;4</td></tr>
+        <tr><td class="m">0x15</td><td class="m">WIFI_STATUS_REQ</td><td><span class="tag b">brain &#8594; radio</span></td><td>none <span class="tag">v1.1</span></td></tr>
+        <tr><td class="m">0x16</td><td class="m">WIFI_STATUS_RESP</td><td><span class="tag r">radio &#8594; brain</span></td><td>state, reason, RSSI, IP&#215;4, events-dropped, caps, flags <span class="tag">v1.1</span></td></tr>
+        <tr><td class="m">0x2x</td><td class="m">&mdash; reserved for BLE &mdash;</td><td>&mdash;</td><td>milestone 4; capability bit already defined</td></tr>
+        <tr><td class="m">0xFE</td><td class="m">NACK</td><td>either direction</td><td>original cmd, error code</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Error codes</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Code</th><th>Meaning</th><th>What it tells you</th></tr></thead>
+      <tbody>
+        <tr><td class="m">0x01</td><td>Unknown command</td><td>The CMD byte is not implemented here.</td></tr>
+        <tr><td class="m">0x02</td><td>Bad CRC</td><td>The frame arrived intact-looking but failed its check. Rate-limited &mdash; see below.</td></tr>
+        <tr><td class="m">0x03</td><td>Timeout</td><td>The command took longer to execute than its deadline.</td></tr>
+        <tr><td class="m">0x04</td><td>Busy</td><td>A long-running radio operation is still in flight.</td></tr>
+        <tr><td class="m">0x05</td><td>Payload too large</td><td>Declared length exceeds the 1019-byte body limit.</td></tr>
+        <tr><td class="m">0x06</td><td>Malformed payload <span class="tag">extension</span></td><td>Known command, but its internal lengths do not add up. Distinct from 0x01 on purpose: a typo and a length bug deserve different messages.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="h">Why error NACKs are rate limited</span>
+    <p>On a badly broken link &mdash; baud mismatch, floating ground, a board rebooting in a loop
+    &mdash; both ends see continuous nonsense and both dutifully emit an error frame per malformed
+    frame. Those cross the broken link, arrive corrupted, and provoke more of the same. At 921600
+    baud that feedback loop saturates the wire in both directions with complaints, and the actual
+    fault is buried under the noise its own reporting created. A persistent error is worth
+    reporting <em>once</em>. Suppressed NACKs are counted and printed, never silently dropped.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 07 -->
+<section>
+  <div class="shead"><span class="snum">07</span><h2>What was actually verified</h2></div>
+  <div class="col">
+    <p>The protocol core has no Arduino dependencies and takes the clock as a function argument, so
+    it compiles and runs on a desktop. That single design choice is what makes the numbers below
+    possible: a PC runs millions of frames in seconds, where two boards would take days.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Property</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>Round trip, 200,000 random frames &mdash; including all-<code>0xAA</code> payloads, hostile timing, and the <code>millis()</code> rollover</td><td class="num m" style="color:var(--ok)">200000 / 200000</td></tr>
+        <tr><td>Every single-bit error in the CRC-covered span is detected (exhaustive)</td><td class="num m" style="color:var(--ok)">0 undetected</td></tr>
+        <tr><td>No silent lies under multi-byte burst corruption</td><td class="num m" style="color:var(--ok)">0 of 199,987</td></tr>
+        <tr><td>Resynchronisation after arbitrary garbage</td><td class="num m" style="color:var(--ok)">20000 / 20000</td></tr>
+        <tr><td>4 MB of pure noise: no crash, no wedge, no frame delivered whose CRC does not verify</td><td class="num m" style="color:var(--ok)">0 accidental</td></tr>
+        <tr><td>One absurd length field costs exactly one error, not a cascade</td><td class="num m" style="color:var(--ok)">1 event</td></tr>
+        <tr><td>A false start with an absurd length does not swallow the frames after it <span class="tag d">found on hardware</span></td><td class="num m" style="color:var(--ok)">regression pinned</td></tr>
+        <tr><td>A slow reader never destroys a frame already queued</td><td class="num m" style="color:var(--ok)">held</td></tr>
+        <tr><td>NACK storm throttled, every suppression counted</td><td class="num m" style="color:var(--ok)">3 sent / 9,997 counted</td></tr>
+        <tr><td>SEQ allocation never emits the reserved <code>0x00</code></td><td class="num m" style="color:var(--ok)">255 usable</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <p style="color:var(--ink-2);font-size:.92rem">1,420,034 assertions, zero failures, at
+    <code>/W4 /WX</code>. Two of these tests exist because hardware found bugs the suite had
+    missed, and one earlier assertion had to be rewritten after it turned out to be passing for
+    the wrong reason — it was measuring the bug it was meant to catch. Both sketches additionally run the same self-test at power-on and print
+    the result &mdash; so a corrupt lookup table or a stale header copy is reported in one line
+    instead of presenting as &ldquo;the link does not work&rdquo;.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 07b -->
+<section>
+  <div class="shead"><span class="snum">7b</span><h2>What this is, and is not</h2></div>
+  <div class="col">
+    <p>This architecture is <strong>not novel</strong>, and saying so plainly is more useful than
+    the alternative. Espressif ship <a href="https://github.com/espressif/esp-hosted-mcu">ESP-Hosted-MCU</a>
+    &mdash; any host MCU plus an ESP as radio, with a 12-byte binary header carrying both a
+    checksum and a sequence number. Arduino ship <a href="https://github.com/khoih-prog/WiFiNINA_Generic">nina-fw</a>,
+    which is what Teensy users actually run today.
+    <a href="https://github.com/tonton81/Teensquitto">Teensquitto</a> did Teensy&nbsp;+&nbsp;ESP8266
+    with custom binary framing in 2017. And <a href="https://www.klipper3d.org/Protocol.html">Klipper</a>
+    &mdash; length, sequence, CRC-16, sync byte, running on Teensy, in 3D printing &mdash; is on
+    hundreds of thousands of machines.</p>
+    <p>So the pattern is a product category and the framing is well-trodden. What is honestly
+    distinctive here is narrower: there is no public Teensy binding of the vendor&rsquo;s own
+    design, and the closest Teensy-specific work uses an XOR checksum with no sequence numbers,
+    no written spec and no tests. Against <em>that</em> baseline, a resynchronising parser, a
+    verified CRC, 1.4&nbsp;million assertions and a documented failure log are a real step up
+    &mdash; better-built than the existing option, not first.</p>
+  </div>
+
+  <div class="note">
+    <span class="h">One claim that is specific and checkable</span>
+    <p>This framing is more robust than Espressif&rsquo;s own UART transport. ESP-Hosted has no
+    start marker, no byte stuffing and no resync: both ends read a fixed 12 bytes and continue on
+    error from the same misaligned offset, so a single stray byte desynchronises it permanently
+    (their issues <a href="https://github.com/espressif/esp-hosted-mcu/issues/51">#51</a> and
+    <a href="https://github.com/espressif/esp-hosted-mcu/issues/142">#142</a>). Their fix was to
+    flush the receive FIFO after reset rather than add a sync marker.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 08 -->
+<section>
+  <div class="shead"><span class="snum">08</span><h2>Which walls are load-bearing</h2></div>
+  <div class="col">
+    <p>Written down so the next person knows what they may move.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Not done</th><th>Because</th><th>Do it when</th></tr></thead>
+      <tbody>
+        <tr><td>Byte stuffing / COBS</td><td>LEN + CRC bound a false start to one lost frame at ~1 in 16,000. Denser on the wire.</td><td>You need provably unambiguous framing. Changes the wire format &mdash; both sides together.</td></tr>
+        <tr><td>ACKs and automatic retry</td><td>Silent retries hide faults during bring-up, exactly when you need to see them. Policy belongs to the brain.</td><td>The brain decides. The protocol already carries everything needed.</td></tr>
+        <tr><td>Flow control</td><td>Request/response never saturates the link, and the buffer holds eight max-size frames. <em>Both boards have the hardware.</em></td><td>You add streaming. One <code>#define</code> on each side.</td></tr>
+        <tr><td>CRC-16</td><td>CRC-8 catches all 1- and 2-bit errors and every burst up to 8 bits; beyond that, 1 in 256 slips through.</td><td>Frames get long, the link gets noisy, or one undetected command could do something irreversible &mdash; motion, heating, firmware writes.</td></tr>
+        <tr><td>Pipelined requests</td><td>The radio does one long operation at a time and says so with BUSY.</td><td>Anytime &mdash; SEQ is already on the wire. It is an endpoint change, not a format change.</td></tr>
+        <tr><td>BLE</td><td>Milestone 4. WiFi first.</td><td>Range <code>0x2x</code> is reserved and the capability bit is defined.</td></tr>
+        <tr><td>More than 28 networks per scan</td><td>36 bytes worst case per record against a 1024-byte frame. Truncation is announced, never silent.</td><td>Raise the frame size on both boards, or chunk across frames using SEQ.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>Protocol v1 &#183; CRC-8 poly 0x31 MSB-first, init 0x00, check 0xA2 &#183; frames to 1024 bytes
+  &#183; 921600 8N1. Reference implementation: <code>interop_protocol.h</code>,
+  <code>esp32_wireless_bridge.ino</code>, <code>teensy_master_controller.ino</code>.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* The same CRC the firmware uses, generated the same way: poly 0x31, MSB-first, init 0x00.
+     Built at load time rather than pasted, so the algorithm is visible and cannot drift from
+     a hand-copied table. */
+  var POLY = 0x31, TABLE = new Uint8Array(256);
+  (function build() {
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var b = 0; b < 8; b++) c = (c & 0x80) ? ((c << 1) ^ POLY) & 0xFF : (c << 1) & 0xFF;
+      TABLE[i] = c;
+    }
+  })();
+  function crc8(bytes, from, to) {
+    var c = 0x00;
+    for (var i = from; i < to; i++) c = TABLE[(c ^ bytes[i]) & 0xFF];
+    return c;
+  }
+
+  var CMDS = {
+    0x01: "PING", 0x02: "PONG", 0x04: "RADIO_READY",
+    0x10: "WIFI_SCAN_REQ", 0x11: "WIFI_SCAN_RESP",
+    0x12: "WIFI_CONNECT_REQ", 0x13: "WIFI_CONNECT_RESP",
+    0x14: "WIFI_EVENT", 0xFE: "NACK"
+  };
+  var ERRS = {
+    0x01: "unknown command", 0x02: "bad CRC", 0x03: "timeout",
+    0x04: "busy", 0x05: "payload too large", 0x06: "malformed payload"
+  };
+  var STATUS = {
+    0x00: "connected", 0x01: "wrong password", 0x02: "no such network",
+    0x03: "timed out joining", 0xFF: "unknown error"
+  };
+  var EVT = { 0x01: "CONNECTED", 0x02: "GOT_IP", 0x03: "DISCONNECTED", 0x04: "SCAN_DONE" };
+  var RESET = {
+    0: "unknown", 1: "power-on", 2: "external pin", 3: "software restart",
+    4: "PANIC — firmware crashed", 5: "interrupt watchdog", 6: "task watchdog",
+    7: "watchdog", 8: "woke from deep sleep",
+    9: "BROWNOUT — the 3.3 V rail sagged", 10: "SDIO", 11: "USB", 12: "JTAG", 13: "eFuse"
+  };
+  var REASON = {
+    0: "none", 2: "authentication expired", 15: "4-way handshake timeout (usually a wrong passphrase)",
+    200: "beacon timeout", 201: "no AP with that SSID found",
+    202: "authentication failed (AP rejected the credentials)", 203: "association failed",
+    204: "handshake timeout", 205: "connection failed"
+  };
+
+  var hexin = document.getElementById("hexin"),
+      verdict = document.getElementById("verdict"),
+      vtext = document.getElementById("vtext"),
+      bytemap = document.getElementById("bytemap"),
+      fields = document.getElementById("fields");
+
+  function hx(n) { return "0x" + n.toString(16).toUpperCase().padStart(2, "0"); }
+  function el(tag, cls, txt) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  }
+  function row(k, v, d) {
+    var r = el("div", "frow");
+    r.appendChild(el("div", "k", k));
+    r.appendChild(el("div", "v", v));
+    r.appendChild(el("div", "d", d || ""));
+    fields.appendChild(r);
+  }
+
+  function parse() {
+    var raw = hexin.value.replace(/0x/gi, " ").replace(/[^0-9a-fA-F]+/g, " ").trim();
+    var toks = raw.length ? raw.split(/\s+/) : [];
+    var bytes = [], i;
+    for (i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      /* Accept "AA00010101 83" as well as spaced pairs -- people paste both. */
+      if (t.length > 2) {
+        for (var j = 0; j + 1 < t.length; j += 2) bytes.push(parseInt(t.substr(j, 2), 16));
+      } else if (t.length) {
+        bytes.push(parseInt(t, 16));
+      }
+    }
+
+    bytemap.textContent = "";
+    fields.textContent = "";
+
+    if (!bytes.length) {
+      verdict.className = "verdict";
+      vtext.textContent = "— paste some bytes";
+      return;
+    }
+
+    var ok = true, msg = "";
+    if (bytes[0] !== 0xAA) { ok = false; msg = "no START byte: first byte is " + hx(bytes[0]) + ", expected 0xAA"; }
+
+    var len = bytes.length >= 3 ? (bytes[1] << 8) | bytes[2] : -1;
+    var total = len >= 0 ? len + 5 : -1;
+
+    if (ok && bytes.length < 6) { ok = false; msg = "too short: a frame is at least 6 bytes"; }
+    else if (ok && len < 1) { ok = false; msg = "LEN is 0 — impossible, every frame carries a CMD byte"; }
+    else if (ok && len > 1019) { ok = false; msg = "LEN " + len + " exceeds the 1019-byte body limit → NACK 0x05"; }
+    else if (ok && bytes.length !== total) {
+      ok = false;
+      msg = "LEN says " + len + ", so the frame should be " + total + " bytes; got " + bytes.length;
+    }
+
+    var computed = null, received = null;
+    if (ok) {
+      received = bytes[total - 1];
+      computed = crc8(bytes, 1, total - 1);
+      if (computed !== received) {
+        ok = false;
+        msg = "CRC mismatch: received " + hx(received) + ", computed " + hx(computed) + " → frame DROPPED";
+      }
+    }
+
+    /* byte map */
+    for (i = 0; i < bytes.length; i++) {
+      var cls = "by p";
+      if (i === 0) cls = "by s";
+      else if (i === 1 || i === 2) cls = "by l";
+      else if (i === 3) cls = "by q";
+      else if (i === 4) cls = "by c";
+      if (total > 0 && i === total - 1) cls = (computed !== null && computed === received) ? "by k" : "by bad";
+      bytemap.appendChild(el("span", cls, bytes[i].toString(16).toUpperCase().padStart(2, "0")));
+    }
+
+    if (!ok) {
+      verdict.className = "verdict bad";
+      vtext.textContent = msg;
+      if (bytes.length >= 4) {
+        row("SEQ", hx(bytes[3]), bytes[3] === 0 ? "reserved — unsolicited" : "request tag");
+      }
+      return;
+    }
+
+    verdict.className = "verdict ok";
+    vtext.textContent = "valid frame · CRC " + hx(received) + " matches";
+
+    var cmd = bytes[4], seq = bytes[3], plen = len - 1;
+    row("LEN", len + " byte" + (len === 1 ? "" : "s"),
+        "CMD + payload · frame is " + total + " bytes on the wire");
+    row("SEQ", hx(seq), seq === 0x00 ? "reserved — an unsolicited announcement, not a reply"
+                                     : "echoed by the responder to match this request");
+    row("CMD", hx(cmd) + "  " + (CMDS[cmd] || "unknown"),
+        CMDS[cmd] ? "" : "not a command this protocol implements → NACK 0x01");
+    row("PAYLOAD", plen + " byte" + (plen === 1 ? "" : "s"), plen ? "" : "none");
+
+    var p = bytes.slice(5, 5 + plen);
+    if (cmd === 0xFE && plen === 2) {
+      row("↳ refused", hx(p[0]) + " " + (CMDS[p[0]] || "?"), "the command being rejected");
+      row("↳ error", hx(p[1]), ERRS[p[1]] || "unrecognised error code");
+    } else if (cmd === 0x13 && plen >= 5) {
+      row("↳ status", hx(p[0]), STATUS[p[0]] || "unrecognised");
+      row("↳ address", p[1] + "." + p[2] + "." + p[3] + "." + p[4],
+          p[0] === 0 ? "valid" : "zeroed — only meaningful when connected");
+      if (plen >= 6) row("↳ 802.11", String(p[5]), REASON[p[5]] || "see the reason code table");
+    } else if (cmd === 0x14 && plen >= 6) {
+      row("↳ event", hx(p[0]), EVT[p[0]] || "unknown event");
+      row("↳ reason", String(p[1]), REASON[p[1]] || "see the reason code table");
+      if (p[0] === 0x02) row("↳ address", p[2] + "." + p[3] + "." + p[4] + "." + p[5], "");
+    } else if (cmd === 0x04 && plen >= 4) {
+      row("↳ protocol", "v" + p[0], p[0] === 1 ? "matches this reference" : "MISMATCH — re-sync the header");
+      row("↳ CRC check", hx(p[1]), p[1] === 0xA2 ? "matches this reference" : "MISMATCH — different CRC parameters");
+      row("↳ reset", String(p[2]), RESET[p[2]] || "unrecognised");
+      row("↳ capable", hx(p[3]),
+          ((p[3] & 1) ? "WiFi " : "") + ((p[3] & 2) ? "BLE" : "") || "nothing declared");
+    } else if (cmd === 0x11 && plen >= 1) {
+      row("↳ networks", String(p[0]), "records follow: rssi, channel, encryption, ssid_len, ssid");
+    }
+  }
+
+  hexin.addEventListener("input", parse);
+  var btns = document.querySelectorAll(".presets button");
+  for (var b = 0; b < btns.length; b++) {
+    btns[b].addEventListener("click", function () {
+      hexin.value = this.getAttribute("data-hex");
+      parse();
+    });
+  }
+  parse();
+})();
+</script>

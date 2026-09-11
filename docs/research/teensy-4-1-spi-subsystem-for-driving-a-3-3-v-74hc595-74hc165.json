@@ -1,0 +1,339 @@
+{
+ "topic": "Teensy 4.1 SPI subsystem for driving a 3.3 V 74HC595/74HC165 fabric (ports, pins, core semantics, timing, LED-on-SCK, SD bus)",
+ "summary": "Teensy 4.1 exposes three LPSPI ports, but only two are usable on a breadboard: SPI (LPSPI4) on MOSI 11 / MISO 12 / SCK 13 and SPI1 (LPSPI3) on MOSI 26 / SCK 27 / MISO 1 or 39. SPI2 (LPSPI1) is entirely on bottom-side pads (42/43/44/45 = the microSD socket, 49/50/54 = the QSPI memory pads) and is unreachable without soldering to the underside. The built-in microSD socket is native 4-bit SDIO on pins 42-47, not SPI, so the fabric can own SPI0's MISO exclusively - the only thing that can steal MISO 12 is the 2.4\" TFT if it is wired to SPI0. Teensy's SPI.begin() reprograms the LPSPI functional clock to 240 MHz (PLL3 PFD0 720 MHz ÷ 3), so SCK = 240 MHz / d with integer d = 2..257: 4 / 8 / 10 / 20 / 30 MHz are all exact, and the slowest SCK the library can produce is 933.85 kHz - requesting 100 kHz silently gives you ~934 kHz. NXP's own spec caps LPSPI SCK at an absolute 30 MHz. transfer(buf,len) is a blocking polled-FIFO loop, never DMA; only the four-argument EventResponder overload uses DMA. For the 74HC fabric, the only 3.3 V-valid guaranteed numbers are TI's 2 V column (3.3 V is not specified), which caps a daisy-chained 595 write at ~3.1 MHz and a 165 read at ~2.6 MHz worst-case-guaranteed; typical silicon will do far better, but his 24 MSa/s logic analyser cannot honestly verify anything above ~6 MHz, so bring the fabric up at 4 MHz. Pin 13 carries SCK and a 470 Ω + LED to ground; the LED itself is a harmless ~2.8 mA DC load, but any pinMode(13, OUTPUT) re-muxes the pad to GPIO and kills SCK dead.",
+ "facts": [
+  {
+   "claim": "Teensy 4.1 SPI (LPSPI4) pin assignment",
+   "value": "MISO = pin 12, MOSI = pin 11, SCK = pin 13, hardware CS candidates = pins 10, 37, 36. No alternate MISO/MOSI/SCK exist for this port on T4.1 (alt slots are 255 = none).",
+   "source": "PaulStoffregen/SPI SPI.cpp, spiclass_lpspi4_hardware under #if defined(ARDUINO_TEENSY41); cross-checked against PJRC pinout card card11a_rev4_web.pdf (\"PWM MQSL MISO 12\", \"PWM CTX1 MOSI 11\", \"13 (LED) SCK\", \"10 CS\", \"37 CS\", \"36 CS\")",
+   "confidence": "certain",
+   "why_it_matters": "These are the only three SPI0 signal pins; there is no escaping pin 13 for SCK on this port."
+  },
+  {
+   "claim": "Teensy 4.1 SPI1 (LPSPI3) pin assignment, including alternates",
+   "value": "MISO = pin 1 (default) or pin 39; MOSI = pin 26 only; SCK = pin 27 only; CS = pin 0 (default) or pin 38. Select alternates with SPI1.setMISO(39) before SPI1.begin().",
+   "source": "SPI.cpp spiclass_lpspi3_hardware (miso_pin {1,39}, mosi_pin {26,255}, sck_pin {27,255}, cs_pin {0,38,255}); PJRC card11a_rev4_web.pdf (\"MOSI1 A12 26\", \"SCK1 A13 27\", \"39 A15 MISO1\", \"38 A14 CS1\")",
+   "confidence": "certain",
+   "why_it_matters": "SPI1 is the clean, LED-free port for the fabric - but its default MISO is pin 1, which is also Serial1 TX. Use setMISO(39)."
+  },
+  {
+   "claim": "Teensy 4.1 SPI2 (LPSPI1) pin assignment",
+   "value": "MISO = pin 42 or 54; MOSI = pin 43 or 50; SCK = pin 45 or 49; CS = pin 44.",
+   "source": "SPI.cpp spiclass_lpspi1_hardware; PJRC card11b_rev4_web.pdf (\"45 CMD SCK2\", \"44 CLK CS2\", \"43 DAT0 MOSI2\", \"42 DAT1 MISO2\", \"49* SCK2 D1\", \"50* MOSI2 D2\", \"54* D3 MISO2\")",
+   "confidence": "certain",
+   "why_it_matters": "Every one of those pins is on the underside; SPI2 is unusable on a breadboard."
+  },
+  {
+   "claim": "Which Teensy 4.1 pins are top through-holes vs bottom-only pads",
+   "value": "Top through-hole rows (breadboard-usable): pins 0-41, i.e. 42 signals. Bottom only: pins 42-47 (the 6 microSD socket signals) and pins 48-54 (7 QSPI memory SMT pads).",
+   "source": "pjrc.com/store/teensy41.html spec table: \"Breadboard I/O: 42\", \"Bottom SMT Pads: 7\", \"SD Card Signals: 6\", plus \"Teensy 4.1 has a total of 55 input/output signal pins. 42 are easily accessible when used with a solderless breadboard.\"; pin numbering per card11a (front, 0-41) and card11b (back, 42-54)",
+   "confidence": "certain",
+   "why_it_matters": "Confirms SPI and SPI1 (all pins <= 39) are breadboard-legal and SPI2 is not."
+  },
+  {
+   "claim": "The built-in microSD socket is native 4-bit SDIO, not SPI",
+   "value": "SD socket signals: 42 = DAT1, 43 = DAT0, 44 = CLK, 45 = CMD, 46 = DAT3, 47 = DAT2 (USDHC1). Accessed with SD.begin(BUILTIN_SDCARD).",
+   "source": "pjrc.com/store/teensy41.html: \"This built in SD socket uses fast 4 bit native SDIO to access the card.\"; PJRC card11b_rev4_web.pdf SD Card block",
+   "confidence": "certain",
+   "why_it_matters": "The SD card does NOT touch pins 11/12/13, so the 74HC165 chain can own SPI0 MISO (pin 12) exclusively. The trade is that using BUILTIN_SDCARD permanently consumes all of SPI2's pins."
+  },
+  {
+   "claim": "Teensy 4 LPSPI functional (peripheral) clock as programmed by SPI.begin()",
+   "value": "CCM_CBCMR LPSPI_CLK_SEL = 1 (PLL3 PFD0 = 720 MHz) and LPSPI_PODF = 2 (divide by 3) -> f_periph = 240.0 MHz. The in-source comment claiming \"PLL2 = 528 MHz / div4 = 132 MHz\" is stale and does not match the code.",
+   "source": "SPI.cpp SPIClass::begin(): CCM_CBCMR_LPSPI_PODF(2) | CCM_CBCMR_LPSPI_CLK_SEL(1); clk_sel[] table in beginTransaction {664615384, 720000000, 528000000, 396000000}; cores/teensy4/startup.c: usb_pfd = 0x13110D0C // PFD3:454,PFD2:508,PFD1:664,PFD0:720 MHz; imxrt.h field positions CLK_SEL<<4, PODF<<26",
+   "confidence": "likely",
+   "why_it_matters": "Every achievable SCK is 240 MHz / integer. Verify the actual SCK on the LA before trusting any timing budget."
+  },
+  {
+   "claim": "SCK divider law and achievable frequencies",
+   "value": "SCK = 240 MHz / d where d = clamp(ceil-ish(240e6 / requested), 2, 257) and CCR[SCKDIV] = d-2. Exact hits: 4.000 MHz (d=60), 5.000 (48), 6.000 (40), 8.000 (30), 10.000 (24), 12.000 (20), 15.000 (16), 20.000 (12), 24.000 (10), 30.000 (8).",
+   "source": "SPI.cpp SPIClass::beginTransaction() divider arithmetic (d = clkhz/_clock; if (d && clkhz/d > _clock) d++; if (d > 257) d = 257; div = d-2)",
+   "confidence": "likely",
+   "why_it_matters": "Pick a request that lands exactly, so the LA capture matches the arithmetic."
+  },
+  {
+   "claim": "Minimum SCK the Teensy 4 SPI library can produce",
+   "value": "933.85 kHz (240 MHz / 257). Any SPISettings request below ~934 kHz is silently clamped to 933.85 kHz.",
+   "source": "SPI.cpp beginTransaction: if (d > 257) d = 257;  // max div",
+   "confidence": "likely",
+   "why_it_matters": "A 'safe slow' bring-up at SPISettings(100000) does NOT give 100 kHz. If you need genuinely slow clocking for first power-on of the fabric, you must bit-bang it."
+  },
+  {
+   "claim": "NXP absolute maximum LPSPI SCK frequency",
+   "value": "fSCK max = f_periph / 2, with a hard note: \"Absolute maximum frequency of operation (fop) is 30 MHz.\"",
+   "source": "NXP i.MX RT1060 Crossover Processors for Consumer Products datasheet, Rev. 4, 04/2024, Sec. 4.9.1, Table 57 \"LPSPI Master mode timing\", row 1 and footnote 1",
+   "confidence": "certain",
+   "why_it_matters": "Even ignoring the 74HC parts, never program SCK above 30 MHz on a Teensy 4."
+  },
+  {
+   "claim": "LPSPI master-mode input timing (affects MISO capture from 74HC165)",
+   "value": "tSU data setup (inputs) = 10 ns min with CFGR1[SAMPLE]=0, 2.7 ns min with SAMPLE=1. tHI data hold (inputs) = 2 ns. tV data valid after SCK edge (outputs) = 8 ns max. tHO output hold = 0 ns. Spec assumes 30 pF max load and 3 ns input transitions.",
+   "source": "NXP IMXRT1060CEC Rev. 4 04/2024, Table 57",
+   "confidence": "certain",
+   "why_it_matters": "Teensy sets CFGR1 = MASTER | SAMPLE, so SAMPLE=1 and the MISO setup requirement is only 2.7 ns - the 165's tpd, not the Teensy, is the read-speed limit. Also note the 30 pF spec load: a breadboard fabric will exceed it."
+  },
+  {
+   "claim": "Teensy 4 beginTransaction() register writes",
+   "value": "port().CR = 0; CFGR1 = LPSPI_CFGR1_MASTER | LPSPI_CFGR1_SAMPLE; CCR = SCKDIV(div) | DBT(div/2) | PCSSCK(div/2); TCR = settings.tcr; CR = LPSPI_CR_MEN. TCR carries FRAMESZ(7), plus LSBF / CPOL / CPHA bits.",
+   "source": "SPI.cpp SPIClass::beginTransaction()",
+   "confidence": "certain",
+   "why_it_matters": "DBT = SCKDIV/2 means the hardware inserts a delay between frames - you will see a gap of roughly half an SCK period between bytes on the LA. That gap relaxes the 595 cascade timing at byte boundaries but not within a byte."
+  },
+  {
+   "claim": "beginTransaction()/endTransaction() interrupt behaviour on Teensy 4",
+   "value": "beginTransaction() briefly __disable_irq(), then clears (masks) only the NVIC bits previously registered via usingInterrupt(), saving them in interruptSave[]; endTransaction() writes them back to NVIC_ISERn. Global interrupts are NOT left disabled for the transaction. SPI_ATOMIC_VERSION 1 and SPI_HAS_NOTUSINGINTERRUPT 1 are defined.",
+   "source": "SPI.h Teensy 4 section, beginTransaction()/endTransaction() bodies",
+   "confidence": "certain",
+   "why_it_matters": "There is no mutex. The library only protects you from ISRs you explicitly registered."
+  },
+  {
+   "claim": "usingInterrupt(pin) on Teensy 4 masks ALL GPIO interrupts, not just that pin",
+   "value": "void usingInterrupt(uint8_t n) { if (n >= CORE_NUM_DIGITAL) return; usingInterrupt(IRQ_GPIO6789); }",
+   "source": "SPI.h Teensy 4 section",
+   "confidence": "certain",
+   "why_it_matters": "Registering one attachInterrupt pin blocks every attachInterrupt pin for the whole transaction. A 1024-byte transfer at 4 MHz = ~2.05 ms with all pin interrupts masked - including the MCP23017 MIRROR/ODR INT line. Nothing is lost (the MCP INT is level-latched open-drain) but latency spikes to milliseconds."
+  },
+  {
+   "claim": "transfer(buf, count) and transfer(buf, retbuf, count) are BLOCKING, not DMA",
+   "value": "They are a polled FIFO loop: write port().TDR, spin on (port().SR & LPSPI_SR_TDF) and drain port().RDR while !(RSR & RXEMPTY). transfer(void*,size_t) simply calls transfer(buf, buf, count).",
+   "source": "SPI.cpp SPIClass::transfer(const void*, void*, size_t) in the __IMXRT1062__ block (line ~1691) and the inline transfer(void*,size_t) in SPI.h",
+   "confidence": "certain",
+   "why_it_matters": "Do not budget CPU time as if buffer transfers are free. At 4 MHz, 1024 bytes = 2.05 ms of blocking spin."
+  },
+  {
+   "claim": "The only DMA path is the four-argument EventResponder overload",
+   "value": "bool SPI.transfer(const void *txBuffer, void *rxBuffer, size_t count, EventResponderRef event_responder), guarded by SPI_HAS_TRANSFER_ASYNC. Returns false if channels cannot be allocated or a transfer is already active. count < 2 falls through to the blocking version and fires the event immediately. MAX_DMA_COUNT = 32767; larger counts are split automatically via _dma_count_remaining.",
+   "source": "SPI.h (SPI_HAS_TRANSFER_ASYNC block, enum {MAX_DMA_COUNT=32767}) and SPI.cpp SPIClass::transfer(...EventResponderRef...)",
+   "confidence": "certain",
+   "why_it_matters": "If you want the CPU back during a long fabric refresh, this is the only option - and you must handle CS yourself around it."
+  },
+  {
+   "claim": "DMA cache-coherency rule in the async path",
+   "value": "if ((uint32_t)buf >= 0x20200000u) arm_dcache_flush((uint8_t*)buf, count); if ((uint32_t)retbuf >= 0x20200000u) arm_dcache_delete(retbuf, count);",
+   "source": "SPI.cpp async transfer implementation",
+   "confidence": "certain",
+   "why_it_matters": "Buffers in DTCM (below 0x20200000, i.e. ordinary stack/globals) need no maintenance. Buffers in DMAMEM/OCRAM/PSRAM are cache-managed - and arm_dcache_delete works on 32-byte lines, so a non-32-byte-aligned DMAMEM buffer will corrupt whatever shares its cache lines."
+  },
+  {
+   "claim": "transfer16() / transfer32() mechanism",
+   "value": "transfer16(data) saves TCR, sets FRAMESZ(15), writes TDR, spins on RSR RXEMPTY, restores TCR. transfer32 does the same with FRAMESZ(31). transfer32 byte-swaps the two halfwords on the way out ((*p_write << 16) | (*p_write >> 16)).",
+   "source": "SPI.h transfer16()/transfer32(); SPI.cpp transfer32(const void*,void*,size_t)",
+   "confidence": "certain",
+   "why_it_matters": "transfer16 is one 16-bit LPSPI frame, not two 8-bit frames - no inter-byte DBT gap inside it, so a 2-chip 595 cascade sees a continuous 16-clock burst. That is the tightest case for the QH'->SER cascade path."
+  },
+  {
+   "claim": "SPISettings on Teensy 4 stores only a clock and a TCR word",
+   "value": "tcr = FRAMESZ(7) | (LSBFIRST ? LPSPI_TCR_LSBF) | (dataMode&0x08 ? CPOL) | (dataMode&0x04 ? CPHA). Default constructor = 4 MHz, MSBFIRST, SPI_MODE0.",
+   "source": "SPI.h Teensy 4 SPISettings::init_AlwaysInline()",
+   "confidence": "certain",
+   "why_it_matters": "Mode and bit order cost nothing at runtime; only a clock CHANGE triggers the divider recomputation in beginTransaction."
+  },
+  {
+   "claim": "digitalWriteFast() with a compile-time-constant pin is a single store",
+   "value": "Expands to CORE_PINn_PORTSET = CORE_PINn_BITMASK (or PORTCLEAR), i.e. one 32-bit write to the fast GPIO6-9 DR_SET/DR_CLEAR register. With a non-constant pin it degrades to the digitalWrite() table lookup.",
+   "source": "cores/teensy4/core_pins.h, static inline digitalWriteFast() guarded by __builtin_constant_p(pin); cores/teensy4/startup.c sets IOMUXC_GPR_GPR26..GPR29 = 0xFFFFFFFF (all pads routed to the fast GPIO6-9 aliases)",
+   "confidence": "certain",
+   "why_it_matters": "Always pass a literal or constexpr pin number to digitalWriteFast, or you lose the whole benefit."
+  },
+  {
+   "claim": "Measured back-to-back GPIO toggle rate on Teensy 4 at 600 MHz",
+   "value": "~150 MHz square wave from back-to-back CORE_PIN13_PORTSET / CORE_PIN13_PORTCLEAR, i.e. ~2 core cycles (~3.33 ns) per store, 4 cycles (~6.67 ns) per full period. F_BUS_ACTUAL is 150 MHz when the core is at 600 MHz.",
+   "source": "PJRC forum thread 58394 \"Is it possible to toggle a gpio @300MHz in a teensy 4 @600MHz\" (user measurement, plus luni's \"you need two cycles to read/write a register\" and defragster's F_BUS_ACTUAL note)",
+   "confidence": "likely",
+   "why_it_matters": "A bare CS assert/deassert pair is ~3.3 ns wide - far too short for a 74HC138 to settle and far too short for your logic analyser to see. You MUST insert delayNanoseconds() around CS."
+  },
+  {
+   "claim": "Teensy 4 output pad drive strength set by pinMode(OUTPUT)",
+   "value": "IOMUXC_PAD_DSE(7) only - DSE=7 means R0/7. R0 = 260 ohm at 3.3 V, so the pad source impedance is ~37 ohm. SPEED field is left at 0 and SRE (slew rate enable) is left at 0 (slow slew).",
+   "source": "cores/teensy4/digital.c pinMode(); imxrt.h IOMUXC_PAD_DSE(n) = (n&7)<<3, IOMUXC_PAD_SPEED(n) = (n&3)<<6, IOMUXC_PAD_SRE = 1<<0; NXP i.MX RT1060 Reference Manual IMXRT1060RM Rev. 3 07/2021 IOMUXC SW_PAD_CTL DSE field (DSE_1 = R0 = 260 ohm @ 3.3 V, DSE_7 = R0/7)",
+   "confidence": "likely",
+   "why_it_matters": "~37 ohm source into a breadboard net of ~100-150 ohm characteristic impedance is a badly mismatched driver - this is the direct cause of ringing and double-clocking. It is also why a 47-100 ohm series resistor at the driver fixes it."
+  },
+  {
+   "claim": "SPI.begin() uses a different, faster pad setting on the SPI signal pins",
+   "value": "uint32_t fastio = IOMUXC_PAD_DSE(7) | IOMUXC_PAD_SPEED(2); written to the pad control register of MISO, MOSI and SCK.",
+   "source": "SPI.cpp SPIClass::begin() and setMOSI/setMISO/setSCK",
+   "confidence": "certain",
+   "why_it_matters": "SPI pins are driven harder/faster than ordinary pinMode(OUTPUT) pins, so SCK and MOSI ring MORE than a hand-toggled RCLK line on the same breadboard. Series-terminate SCK and MOSI first."
+  },
+  {
+   "claim": "delayNanoseconds() implementation and resolution",
+   "value": "cycles = ((F_CPU_ACTUAL>>16) * nsec) / (1000000000UL>>16); busy-wait on ARM_DWT_CYCCNT. At F_CPU_ACTUAL = 600000000 this is (9155 * nsec) / 15258 = 0.599948 * nsec cycles. Quantum = 1 core cycle = 1.6667 ns. Scale error = -0.0087% (negligible). delayNanoseconds(100) -> exactly 60 cycles = 100.0 ns of counter time.",
+   "source": "cores/teensy4/core_pins.h delayNanoseconds(); ARM_DWT_CYCCNT enabled in startup.c (ARM_DEMCR |= ARM_DEMCR_TRCENA; ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA)",
+   "confidence": "certain",
+   "why_it_matters": "Resolution is 1.67 ns and the scaling is accurate. What is NOT guaranteed is the floor and the ceiling - see the two facts below."
+  },
+  {
+   "claim": "delayNanoseconds() floor and jitter",
+   "value": "The delay is a MINIMUM, not an exact value. Interrupts stay enabled for the whole wait (the comment says so explicitly), so any ISR - systick every 1 ms, USB, IntervalTimer, your MCP23017 INT handler - extends it arbitrarily. The floor is set by the cost of reading ARM_DWT_CYCCNT twice over the Cortex-M7 private peripheral bus, which is more than 1 cycle. Exact floor: UNVERIFIED - measure it.",
+   "source": "core_pins.h comment \"During this time, interrupts remain active\"; DWT is on the PPB, not TCM",
+   "confidence": "likely",
+   "why_it_matters": "Never use delayNanoseconds() to create a MAXIMUM (e.g. 'CS must go high within X ns'). Only ever use it as a settle guarantee."
+  },
+  {
+   "claim": "Pin 13 carries both LPSPI4 SCK and the onboard LED",
+   "value": "The schematic shows the pin labelled \"13 (LED)\" (RT1062 ball B0_03) and an LED in series with a 470 ohm resistor to GND. Both LED branches on the Teensy 4.1 schematic (D3/R1 and D4/R2) use 470 ohm. With an assumed orange LED Vf ~ 2.0 V, current when SCK is high = (3.3 - 2.0) / 470 = 2.8 mA.",
+   "source": "pjrc.com/teensy/schematic41.png (D3 + R1 = 470, D4 + R2 = 470); pjrc.com/store/teensy41.html: \"Pin 13 has an orange LED connected.\"; PJRC card11a_rev4_web.pdf shows \"13 (LED) SCK\"",
+   "confidence": "likely",
+   "why_it_matters": "The DC load itself is benign: 2.8 mA through a ~37 ohm pad drops ~0.10 V, so VOH stays ~3.2 V - well above 74HC VIH (0.7*VCC = 2.31 V at 3.3 V). The LED is a nuisance (it glows on SPI traffic), not an electrical problem. UNVERIFIED: the exact LED Vf, and which of D3/D4 is the pin-13 one - I could not trace the net at the schematic PNG's raster resolution, but both branches are 470 ohm so the resistor value holds either way."
+  },
+  {
+   "claim": "pinMode(13, OUTPUT) destroys SCK; digitalWrite(13, ...) silently clobbers the pad settings",
+   "value": "pinMode() ends with *(p->mux) = 5 | 0x10, forcing the pad back to GPIO ALT5 and disconnecting LPSPI4 SCK. digitalWrite() on a pin whose GPIO direction bit is clear (which is the case for pin 13 after SPI.begin(), because SPI.begin never sets GDIR) takes the 'input mode' branch and overwrites the pad register with DSE(7)|PKE|PUE|PUS(3)|HYS - replacing SPI.begin()'s DSE(7)|SPEED(2) with a 22k pull-up, hysteresis and the slow SPEED setting, while leaving the mux on LPSPI.",
+   "source": "cores/teensy4/digital.c pinMode() and digitalWrite(); SPI.cpp begin()",
+   "confidence": "certain",
+   "why_it_matters": "This is the real hazard of pin 13, not the LED. A leftover pinMode(LED_BUILTIN, OUTPUT) in setup() after SPI.begin() will kill the fabric clock outright. A stray digitalWrite(13,...) will degrade SCK edges without any error."
+  },
+  {
+   "claim": "SPI_TRANSACTION_MISMATCH_LED is not enabled by default",
+   "value": "//#define SPI_TRANSACTION_MISMATCH_LED 5  (commented out, and it names pin 5, not 13)",
+   "source": "PaulStoffregen/SPI SPI.h line 36",
+   "confidence": "certain",
+   "why_it_matters": "Rules out one commonly-cited theory that mismatched transactions drive the LED/SCK pin. They do not, unless you define it yourself."
+  },
+  {
+   "claim": "Teensy 4 INPUT_PULLUP resistor value",
+   "value": "PUS(3) = 22 kohm pull-up (PUS field: 0=100k pull-down, 1=47k pull-up, 2=100k pull-up, 3=22k pull-up). INPUT_PULLDOWN uses PUS(0) = 100 kohm pull-down. Both also set HYS (hysteresis).",
+   "source": "cores/teensy4/digital.c pinMode(); NXP IMXRT1060RM IOMUXC SW_PAD_CTL PUS field",
+   "confidence": "likely",
+   "why_it_matters": "22k is enough to define an idle level on a short CS/RCLK line, but not enough to hold a 74HC138 enable safely at power-up - keep the external 10k pull-down you already specified."
+  },
+  {
+   "claim": "TI SN74HC595 has no 3.3 V specification at all",
+   "value": "Recommended Operating Conditions and every timing table are given only at VCC = 2 V, 4.5 V and 6 V. VIH/VIL: 1.5/0.5 V at 2 V, 3.15/1.35 V at 4.5 V, 4.2/1.8 V at 6 V. VCC range 2-6 V, abs max 7 V. Continuous IO per pin +/-35 mA; continuous current through VCC or GND +/-70 mA. Ci = 10 pF max. Cpd = 400 pF typ.",
+   "source": "TI SN54HC595/SN74HC595 datasheet, literature number SCLS041J, DECEMBER 1982 - REVISED OCTOBER 2021, Sections 6.1, 6.3, 6.5, 6.8",
+   "confidence": "certain",
+   "why_it_matters": "Any 3.3 V speed number for a 595 is an interpolation, not a spec. The only rigorous statement is that behaviour at 3.3 V is bounded by the 2 V column (higher VCC is monotonically faster for HC)."
+  },
+  {
+   "claim": "SN74HC595 guaranteed clock frequency",
+   "value": "fclock: 6 MHz at VCC=2 V / TA=25 C, 5 MHz at 2 V over -40 to 85 C. 31 MHz at 4.5 V / 25 C, 25 MHz at 4.5 V over -40 to 85 C. 36 / 29 MHz at 6 V. Switching-characteristics fmax at CL=50 pF matches: 2 V = 6 MHz min (26 MHz typ), 4.5 V = 31 min (38 typ), 6 V = 36 min (42 typ).",
+   "source": "TI SCLS041J Table 6.6 Timing Requirements and Table 6.7 Switching Characteristics",
+   "confidence": "certain",
+   "why_it_matters": "At 3.3 V you are guaranteed AT LEAST 5 MHz (the 2 V, full-temp figure). Anything above that is probable but unspecified."
+  },
+  {
+   "claim": "SN74HC595 setup/hold and propagation delays that set the daisy-chain limit",
+   "value": "tsu SER before SRCLK: 100 ns @2V/25C, 125 ns @2V full temp; 20/25 ns @4.5V; 17/21 ns @6V. th SER after SRCLK: 0 ns at all VCC. tsu SRCLK before RCLK: 75 ns @2V/25C, 94 ns @2V full temp; 15/19 ns @4.5V. tw SRCLK or RCLK high or low: 80 ns @2V/25C, 100 ns @2V full temp; 16/20 ns @4.5V. tpd SRCLK->QH' at CL=50 pF: 2V typ 50 / max 160 (25C) / 200 (full temp); 4.5V typ 17 / max 32 / 40; 6V typ 14 / max 27 / 34. tpd RCLK->QA..QH: 2V 50/150/187; 4.5V 17/30/37. tpd RCLK->QA..QH at CL=150 pF: 2V 60/200/250; 4.5V 22/40/50.",
+   "source": "TI SCLS041J Sections 6.6 and 6.7",
+   "confidence": "certain",
+   "why_it_matters": "Daisy-chain constraint is tpd(SRCLK->QH') + tsu(SER before SRCLK) <= one SCK period. Guaranteed at 2 V full temp: 200 + 125 = 325 ns -> 3.08 MHz. At 4.5 V: 40 + 25 = 65 ns -> 15.4 MHz. 3.3 V lies between and is unspecified."
+  },
+  {
+   "claim": "SN74HC595 tsu SRCLK-before-RCLK validates the existing delayNanoseconds(100) convention",
+   "value": "94 ns max at VCC=2 V over -40 to 85 C; 19 ns at 4.5 V.",
+   "source": "TI SCLS041J Table 6.6, footnote (1): \"This set-up time allows the storage register to receive stable data from the shift register.\"",
+   "confidence": "certain",
+   "why_it_matters": "delayNanoseconds(100) between the last SCK edge and the RCLK rising edge is exactly right - it covers even the worst-case 2 V number."
+  },
+  {
+   "claim": "SN74HC165 guaranteed clock frequency and propagation delays",
+   "value": "fclock: 6 MHz @2V/25C, 5 MHz @2V/-40..85C, 4.2 MHz @2V/-40..125C; 31 / 25 / 21 MHz @4.5V; 36 / 29 / 25 MHz @6V. tpd CLK->QH (CL=50 pF): 2V 75 typ / 150 max @25C, 190 max @-40..85C, 225 @-40..125C; 4.5V 15/30 @25C, 38 @-40..85C, 45 @-40..125C; 6V 13/26, 32, 38. tpd SH/LD->QH has the identical numbers. tt (transition) 2V 38/75 @25C, 95 @85C; 4.5V 8/15, 19.",
+   "source": "TI SN54HC165/SN74HC165 datasheet, literature number SCLS116H, DECEMBER 1982 - REVISED DECEMBER 2015, Sections 6.8 and 6.10",
+   "confidence": "certain",
+   "why_it_matters": "tpd CLK->QH is what limits read speed: the byte you clock out must be valid before the Teensy samples MISO."
+  },
+  {
+   "claim": "SN74HC165 setup/hold and pulse-width requirements",
+   "value": "tw: SH/LD low = 80 ns @2V/25C, 16 ns @4.5V, 14 ns @6V; CLK high or low = same. tsu: SH/LD high before CLK = 80 ns @2V/25C, 100 ns @2V/-40..85C, 16/20 ns @4.5V; SER before CLK = 40 ns @2V/25C, 50 ns @2V/85C, 8/10 ns @4.5V; CLK INH low before CLK = 100 ns @2V/25C, 125 ns @2V/85C, 20/25 @4.5V; parallel Data before SH/LD = 100 ns @2V/25C, 20 ns @4.5V, 17 ns @6V. th: SER data after CLK = 5 ns and PAR data after SH/LD = 5 ns, at every VCC.",
+   "source": "TI SCLS116H Sections 6.11 and the SN74HC165 full-temperature timing-requirements table",
+   "confidence": "certain",
+   "why_it_matters": "The /PL (SH/LD) low pulse needs at least 80 ns guaranteed at 3.3 V, and parallel inputs must be stable 100 ns before /PL falls. delayNanoseconds(100) on both sides of the /PL pulse covers it."
+  },
+  {
+   "claim": "74HC absolute-maximum and package limits that constrain the fabric",
+   "value": "HC595: VCC -0.5 to 7 V, IIK/IOK clamp +/-20 mA, IO continuous +/-35 mA, continuous current through VCC or GND +/-70 mA. HC165: same clamps, IO continuous +/-25 mA, continuous current through VCC or GND +/-50 mA. HC165 ESD HBM only +/-1500 V (HC595 is 2000 V HBM / 1000 V CDM).",
+   "source": "TI SCLS041J Sec. 6.1/6.2 and TI SCLS116H Sec. 6.1/6.2",
+   "confidence": "certain",
+   "why_it_matters": "Confirms the existing +/-70 mA package rule for the 595. Note the 165 is a weaker part (50 mA / 25 mA) - do not source LEDs from it, and its 1500 V HBM rating means handle it more carefully."
+  },
+  {
+   "claim": "74HC input transition-time limits are generous - slow edges are allowed",
+   "value": "HC595 recommended max input rise/fall t/v: 1000 ns at 2 V, 500 ns at 4.5 V, 400 ns at 6 V. HC165 lists the same figures with units ns/V.",
+   "source": "TI SCLS041J Sec. 6.3 and TI SCLS116H Sec. 6.3",
+   "confidence": "certain",
+   "why_it_matters": "On breadboard, the enemy is NOT slow edges - HC tolerates hundreds of ns. The enemy is a non-monotonic edge (ringing) that crosses the switching threshold more than once, which double-clocks the shift register."
+  },
+  {
+   "claim": "Ringing analysis for a breadboard 74HC fabric driven by a ~37 ohm pad",
+   "value": "Assume a 5 cm jumper at ~1 nH/mm = ~50 nH, and a load of one HC input (10 pF max) plus breadboard strip/contact capacitance, total ~30 pF. Undamped ring frequency f = 1/(2*pi*sqrt(LC)) = 1/(2*pi*sqrt(50 nH * 30 pF)) = ~130 MHz. Driver rise time into that load = 2.2*R*C = 2.2*37*30p = 2.4 ns, whose knee frequency 1/(pi*tr) = ~130 MHz - i.e. the edge excites the resonance directly. Series resistance for critical damping: Rs >= 2*sqrt(L/C) - Rdrv = 2*sqrt(50n/30p) - 37 = 81.6 - 37 = ~45 ohm.",
+   "source": "Derived. L per unit length and the critical-damping/knee-frequency relations are standard (Johnson & Graham, High-Speed Digital Design). Component values: TI SCLS041J Ci = 10 pF max; pad impedance from IMXRT1060RM DSE.",
+   "confidence": "unverified",
+   "why_it_matters": "This is the numeric justification for putting 47-100 ohm series resistors at the Teensy end of SCK, MOSI, RCLK and /PL. It is a derivation from assumed parasitics, not a measurement - the assumed 50 nH and 30 pF must be checked against his actual wiring."
+  },
+  {
+   "claim": "Shared-SCK loading with N chips",
+   "value": "Each 74HC input is 10 pF max (3 pF typ). 8 chips on one SCK net = 80 pF max of device load, plus breadboard strips and jumpers, realistically 100-150 pF total. Rise time from a 37 ohm pad into 150 pF = 2.2*37*150p = 12.2 ns. The HC595's own RCLK->Q tpd degrades from 187 ns to 250 ns (2 V, full temp) going from CL=50 pF to CL=150 pF.",
+   "source": "TI SCLS041J Sec. 6.5 (Ci) and Sec. 6.7 (150 pF load rows); derivation",
+   "confidence": "likely",
+   "why_it_matters": "Beyond ~8 chips the shared clock net is the limit, exactly as your existing doc says. The datasheet's 150 pF rows quantify the penalty: about +33% on tpd."
+  },
+  {
+   "claim": "Logic-analyser sampling ceiling for verification",
+   "value": "8 channels at 24 MSa/s = 41.67 ns per sample. Reliable digital decode needs >= 4 samples per bit -> maximum honestly-decodable SCK is 6 MHz. Nyquist absolute limit is 12 MHz, but edge placement at that rate is meaningless. A 3.3 ns digitalWriteFast CS pulse is ~1/12th of one sample period and is completely invisible.",
+   "source": "Derived from the stated instrument capability (Lonely Binary 8-channel 24 MHz)",
+   "confidence": "certain",
+   "why_it_matters": "Sets the whole bring-up strategy: run the fabric at 4 MHz (about 10 samples per bit) while you are proving it on the LA, and only raise the clock after the protocol is proven."
+  }
+ ],
+ "code_guidance": [
+  "Port choice: put the 74HC fabric on SPI1 (LPSPI3), not SPI. Call SPI1.setMISO(39); SPI1.setSCK(27); SPI1.setMOSI(26); BEFORE SPI1.begin(). Using pin 39 for MISO and pin 38 (or any plain GPIO) for chip selects keeps pins 0 and 1 free for Serial1, and keeps pin 13/LED out of the fabric entirely. If the fabric must live on SPI (LPSPI4), it is MOSI 11 / MISO 12 / SCK 13 and you accept the LED on SCK.",
+  "Never call pinMode(13, ...) or pinMode(LED_BUILTIN, ...) anywhere in a sketch that uses SPI (LPSPI4). pinMode() ends with *(mux) = 5|0x10 and hard-disconnects LPSPI4 SCK from the pad. Delete any Blink leftovers. Also avoid digitalWrite(13,...): because SPI.begin() leaves pin 13's GPIO direction bit clear, digitalWrite takes the input branch and overwrites the pad register with a 22k pull-up + hysteresis + slow SPEED, silently degrading SCK edges.",
+  "Do not call SPI.begin() at all if you are not using LPSPI4 - it reprograms CCM_CBCMR (LPSPI clock select and PODF) globally for all three LPSPI ports, and it takes over pins 11/12/13's pad settings.",
+  "Order of operations in setup(): SPI1.begin(); then pinMode() every CS/RCLK//PL/enable pin OUTPUT and drive it to its inactive level, then power or release the fabric. On reset all Teensy pins are inputs, so the fabric's RCLK, /PL, /SRCLR, /OE and 138 enable must be held inactive by external resistors (10k), not by firmware - firmware runs too late.",
+  "Standard 595 write: SPI1.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0)); SPI1.transfer(buf, len) with the buffer already reversed so buf[0] reaches the FARTHEST chip; then delayNanoseconds(100); digitalWriteFast(RCLK_PIN, HIGH); delayNanoseconds(100); digitalWriteFast(RCLK_PIN, LOW); SPI1.endTransaction();  The first delayNanoseconds(100) covers the 595's tsu SRCLK-before-RCLK (94 ns worst case at the 2 V bound); the second guarantees the RCLK high pulse exceeds tw (100 ns at the 2 V bound).",
+  "Standard 165 read: digitalWriteFast(PL_PIN, LOW); delayNanoseconds(100); digitalWriteFast(PL_PIN, HIGH); delayNanoseconds(100); SPI1.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0)); SPI1.transfer(nullptr_or_dummy_buf, rxbuf, len); SPI1.endTransaction();  The /PL low pulse must exceed tw = 80 ns and the parallel data must be stable 100 ns before /PL falls. Remember bit order: H exits first, so rxbuf byte bit7 = input H and bit0 = input A.",
+  "Use literal pin numbers with digitalWriteFast, e.g. digitalWriteFast(30, HIGH). A runtime variable pin silently falls back to the slow digitalWrite() table lookup. If you need runtime-selectable pins, cache portSetRegister(pin)/portClearRegister(pin) and the bitmask once at init and write them directly.",
+  "Never rely on a bare digitalWriteFast pair to produce a visible pulse: two back-to-back stores give ~3.3 ns, which no 74HC138 will decode cleanly and which your 24 MSa/s analyser cannot see. Every CS/RCLK//PL/enable pulse must be bracketed by delayNanoseconds(100) minimum. For 74HC138 break-before-make, deassert the E3 global enable, delayNanoseconds(100), change A0-A2, delayNanoseconds(100), reassert E3.",
+  "Pick SCK values that divide 240 MHz exactly so the LA capture matches the arithmetic: 4 MHz (d=60), 8 MHz (d=30), 10 MHz (d=24), 20 MHz (d=12). Bring up at SPISettings(4000000, ...). Do not request anything below ~934 kHz - the library clamps at 240 MHz/257 = 933.85 kHz and you will get a clock 9x faster than you asked for.",
+  "Never request more than 30000000 in SPISettings on any Teensy 4 port - that is NXP's absolute maximum LPSPI operating frequency, independent of what the 74HC parts can do.",
+  "If any ISR (MCP23017 INT handler, IntervalTimer, encoder) will ever touch the fabric bus, register it: SPI1.usingInterrupt(digitalPinToInterrupt(MCP_INT_PIN)) - but understand that on Teensy 4 this masks IRQ_GPIO6789, i.e. ALL attachInterrupt pins, for the duration of every transaction. Keep transactions short (<= 64 bytes) or accept the latency. Better design: never touch SPI from an ISR at all; have the ISR set a volatile flag and do the transfer from loop().",
+  "Do not assume SPI1.transfer(buf, len) is DMA - it is a blocking polled-FIFO loop. Budget CPU time as len * 8 / SCK. At 4 MHz, 64 bytes = 128 us of blocking spin. If you need the CPU back, use the four-argument form: SPI1.transfer(txbuf, rxbuf, count, eventResponder), check its bool return (false = channels unavailable or a transfer already active), and assert/deassert CS in the completion callback, not around the call.",
+  "If you use the async DMA form with buffers in DMAMEM, declare them DMAMEM and 32-byte aligned: DMAMEM __attribute__((aligned(32))) uint8_t rxbuf[64]; The library calls arm_dcache_delete() on any address >= 0x20200000, which operates on whole 32-byte cache lines and will corrupt anything sharing a line with an unaligned buffer. Ordinary stack/global buffers (DTCM, below 0x20200000) need no alignment and get no cache maintenance.",
+  "Use SPI1.transfer16() when you want two 595s clocked as one uninterrupted 16-bit frame - the byte-at-a-time path inserts a hardware DBT gap of roughly half an SCK period between frames (beginTransaction programs CCR DBT = SCKDIV/2), which you will see on the analyser as a gap between bytes.",
+  "Put 47-100 ohm series resistors at the Teensy end of SCK, MOSI, RCLK and /PL. The RT1062 pad is ~37 ohm (DSE=7 = R0/7 with R0 = 260 ohm at 3.3 V) and SPI.begin() additionally sets SPEED(2) on the SPI pins, making them the fastest-slewing, most reflective drivers on the board. 68 ohm is a good single value: it lands near the ~45 ohm critical-damping estimate with margin.",
+  "If the built-in microSD is used (SD.begin(BUILTIN_SDCARD)), it is native SDIO on pins 42-47 and shares nothing with SPI or SPI1 - MISO 12 stays exclusively yours. But it does consume every SPI2 pin, so treat SPI2 as permanently unavailable rather than 'reserved for later'."
+ ],
+ "pitfalls": [
+  "The stale comment trap: SPI.cpp's begin() says '// CBCMR[LPSPI_CLK_SEL] - PLL2 = 528 MHz // CBCMR[LPSPI_PODF] - div4 = 132 MHz' but the code immediately below selects CLK_SEL(1) = PLL3 PFD0 = 720 MHz and PODF(2) = /3 = 240 MHz. Every blog post and forum answer that quotes '132 MHz' is quoting the comment, not the code. If you size dividers from 132 MHz, every SCK you compute will be off by a factor of 1.82 and you will not notice until the analyser disagrees.",
+  "SPISettings clamps low frequencies silently. SPISettings(100000) or SPISettings(400000) produce 933.85 kHz, not what you asked for. There is no error, no warning. A 'let's start slow and safe' bring-up at 100 kHz is actually a 934 kHz bring-up.",
+  "A leftover pinMode(LED_BUILTIN, OUTPUT) after SPI.begin() kills LPSPI4 SCK completely, and the failure looks like a dead fabric rather than a pin conflict, because MOSI and CS still toggle perfectly on the analyser. Only SCK is missing.",
+  "digitalWrite(13, ...) after SPI.begin() does not break SPI outright - it quietly rewrites the pad control register, replacing DSE(7)|SPEED(2) with DSE(7)|PKE|PUE|PUS(3)|HYS. SCK keeps working but with a 22k pull-up, hysteresis and the slow SPEED setting. The symptom is marginal timing that appears only at higher clock rates and only after a particular code path runs.",
+  "Every 74HC speed number you will find quoted for 3.3 V is an interpolation. TI specifies HC only at 2 V, 4.5 V and 6 V. The rigorous position is that 3.3 V behaviour is bounded above by 4.5 V figures and guaranteed no worse than 2 V figures. Designing to the 4.5 V column (15 MHz cascade limit) is a guess; designing to the 2 V column (3.1 MHz cascade limit) is a guarantee. Anything between must be measured.",
+  "The 595 daisy-chain limit is NOT fclock. fclock (5 MHz guaranteed at 3.3 V via the 2 V column) applies to a single device. In a chain the binding constraint is tpd(SRCLK->QH') + tsu(SER before SRCLK) <= one SCK period = 200 + 125 = 325 ns worst case, i.e. 3.08 MHz. The failure mode is that only the FIRST chip in the chain gets correct data and the rest are shifted by one bit - which reads as a wiring error, not a timing error.",
+  "A 24 MSa/s logic analyser cannot verify anything you care about above ~6 MHz SCK, and cannot see a bare digitalWriteFast CS pulse at all (3.3 ns vs a 41.7 ns sample period). Worse, an FX2-based 8-channel analyser at 24 MSa/s on all 8 channels is at the USB 2.0 bulk-transfer limit and can drop samples on long captures - a dropped sample looks exactly like a missing clock edge. Capture 4 channels at 24 MHz, or 8 channels at 12 MHz, for anything longer than a few ms.",
+  "usingInterrupt() on Teensy 4 is far blunter than on Teensy 3: it masks IRQ_GPIO6789, which is every attachInterrupt pin on the board. Register it for one pin and you have registered it for all of them. A 1024-byte transfer at 4 MHz masks all pin interrupts for 2.05 ms.",
+  "beginTransaction() gives you no mutual exclusion against code that did not call usingInterrupt(). If a timer ISR or a library (display driver, SD, audio) touches the same SPI object without registering, the two transfers interleave inside the FIFO and you get plausible-looking but wrong bytes - not a crash.",
+  "transfer(buf, len) transfers IN PLACE: it calls transfer(buf, buf, count), so your transmit buffer is overwritten with the received bytes. If you re-send the same buffer expecting the original contents, you will send back whatever the 165 chain returned.",
+  "delayNanoseconds() is a minimum, not an exact delay, because interrupts stay enabled throughout. Never use it to bound a maximum interval (e.g. 'RCLK must rise within 200 ns of the last SCK edge'). A systick or USB interrupt landing in the middle will stretch it by microseconds and you will only see it on a rare capture.",
+  "SPI2 looks available in the API and compiles cleanly, but every one of its pins is on the underside of the board. Code that references SPI2 will build, run, and do nothing observable on a breadboard.",
+  "The i.MX RT1062 LPSPI timing spec assumes a 30 pF maximum load on the SPI pins. A breadboard fabric with 8 shift registers on a shared clock is at 100-150 pF - 3 to 5x over spec. The NXP-guaranteed tV = 8 ns output valid time does not apply at that load; the real edge rate is set by the pad's ~37 ohm impedance driving your actual capacitance.",
+  "Teensy programs CCR DBT = SCKDIV/2, so consecutive bytes in a multi-byte transfer are separated by a gap of roughly half an SCK period. When you count edges on the analyser this looks like a stutter in the clock and can be mistaken for a dropped bit. It also means the 595 cascade path gets extra slack at byte boundaries but not inside a byte, so a chain that fails will fail on specific bit positions, not uniformly.",
+  "74HC595 fmax is specified at CL = 50 pF. TI's own 150 pF rows show tpd(RCLK->Q) degrading from 187 ns to 250 ns at 2 V and 37 ns to 50 ns at 4.5 V - about +33%. Your derated clock ceiling scales the same way once the shared net exceeds ~8 loads."
+ ],
+ "open_questions": [
+  "Which Teensy 4.1 hardware serial port carries the already-built, already-tested ESP32-S3 UART link? If it is Serial1 (pins 0 and 1), then SPI1's default MISO (pin 1) and default hardware CS (pin 0) both collide with it, and you must call SPI1.setMISO(39) and use pin 38 or another free GPIO for chip select. I need the port number to finalise the SPI1 pin map.",
+  "Is the 2.4 inch display on Teensy1 wired to SPI (pins 11/12/13) or to SPI1 (26/27/39)? This decides whether the 74HC165 chain can own a MISO line exclusively, and whether the fabric and the display can ever run at different SCK frequencies without a beginTransaction fight.",
+  "Is the 2.4 inch display an ST7789 SPI TFT (as the BOM says) or something else? An ST7789 is write-only on SPI (no MISO), which would mean it can share MOSI/SCK with the fabric and never contend for MISO. If it is a module with a MISO pin, that changes the answer.",
+  "Will BUILTIN_SDCARD be used on Teensy1? It costs nothing in SPI pins (it is SDIO on 42-47) but permanently rules out SPI2 and means pins 42-47 must never be repurposed.",
+  "Do you want the fabric on SPI (11/12/13, includes the LED on SCK) or SPI1 (26/27/39, LED-free)? My recommendation is SPI1 for the fabric and SPI for the display, but that depends on the two questions above.",
+  "How many 74HC595s and 74HC165s will sit on one shared SCK net in stack 1, and what is the total jumper length of that net? Chip count sets the capacitive load (10 pF max each) and length sets the inductance - together they set the real ringing frequency and the series resistor value.",
+  "What is the worst-case ambient temperature inside the BENCH-TOWER enclosure? Every TI number above has a 25 C column and a -40 to +85 C column that is roughly 20-25% slower. If the enclosure runs warm, use the full-temperature figures.",
+  "Will the fabric be powered from the same 3.3 V rail as the Teensy, and will it be powered before or after the Teensy comes out of reset? Teensy pins are inputs at reset, so any 74HC control input that is not externally pulled to its inactive level will float during the power-up window."
+ ],
+ "la_verification": [
+  "Prove the LPSPI root clock is 240 MHz, not 132 MHz: run SPI1.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0)) and clock out 0x55 repeatedly. Measure the SCK period on the analyser. 240 MHz/60 = 4.000 MHz (250.0 ns period). If the root were 132 MHz you would get 132/33 = 4.000 MHz too - so use a discriminating request instead: ask for 7000000. With a 240 MHz root, d = 240/7 = 34 (check 240/34 = 7.06 > 7, so d=35) -> 6.857 MHz. With a 132 MHz root you would get 132/19 = 6.947 MHz. Those differ by 90 kHz, resolvable by averaging over 100 periods at 24 MSa/s.",
+  "Measure the minimum SCK: SPISettings(100000), clock 16 bytes, measure the period. Expect 240/257 = 933.85 kHz (1.0708 us period), NOT 100 kHz. This single capture confirms both the clamp and the 240 MHz root simultaneously.",
+  "Measure the inter-byte gap: SPI1.transfer(buf, 8) at 4 MHz. Look for a gap between byte boundaries of roughly half an SCK period (~125 ns, 3 samples at 24 MSa/s). Compare it against SPI1.transfer16() of the same data, which should show 16 continuous clocks with no gap. This proves the DBT = SCKDIV/2 behaviour and tells you which path to use for the 595 cascade.",
+  "Verify RCLK ordering on the 595 chain: capture SCK, MOSI and RCLK simultaneously. Assert that (a) RCLK's rising edge occurs strictly after the last SCK edge, (b) the gap is >= 94 ns (>= 3 samples at 24 MSa/s), and (c) there are exactly 8*N SCK edges between consecutive RCLK rising edges for an N-chip chain. Any RCLK edge inside the SCK burst is the classic 'outputs are one clock ahead' bug.",
+  "Verify /PL on the 165 chain: capture /PL, SCK and MISO. Assert (a) the /PL low pulse is >= 80 ns (>= 3 samples), (b) /PL returns high >= 100 ns before the first SCK edge, and (c) exactly 8*N SCK edges occur between /PL rising and the next /PL falling.",
+  "Walking-1 bit-map test: drive a single 1 through the 595 chain, one position per frame, and photograph which output goes high each time. Do the same on the 165 by grounding one input at a time. This is the only reliable way to prove the byte order (first byte -> farthest 595) and the 165's H-first bit order without guessing.",
+  "Find the real 3.3 V speed ceiling empirically: run the walking-1 test at 4, 6, 8, 10, 12, 15 and 20 MHz and record the first frequency at which any bit lands in the wrong position. Note that above 6 MHz the analyser can no longer confirm the SCK waveform (fewer than 4 samples per bit), so at those rates trust the OUTPUT test (which is a static DC read of the 595 pins) rather than the clock capture. Derate the first failing frequency by 2x for temperature and part-to-part spread.",
+  "Measure the actual digitalWriteFast CS pulse width - you cannot do it directly (3.3 ns vs a 41.7 ns sample period). Instead, loop N = 100000 toggle pairs, capture the total burst duration on the analyser or read ARM_DWT_CYCCNT before and after, and divide. Expect ~4 core cycles (6.67 ns) per full period at 600 MHz. Do the same to measure delayNanoseconds()'s real floor: time a loop of 100000 delayNanoseconds(0) calls with ARM_DWT_CYCCNT.",
+  "Verify the ringing hypothesis before adding series resistors: probe SCK at the FARTHEST 74HC input (not at the Teensy). A 24 MSa/s digital analyser cannot see a 130 MHz ring directly, but it CAN see its consequence - clock an all-zeros pattern into a long chain and look for extra bits appearing. If a chain that works at 2 MHz fails at 8 MHz with extra shifted bits, that is double-clocking from ringing, and 68 ohm series resistors at the driver are the fix. Re-run the same test to confirm the fix.",
+  "Capture with 4 channels at 24 MSa/s rather than 8, for any capture longer than a few milliseconds. An FX2-based 8-channel analyser at 24 MSa/s across all 8 channels is at the USB 2.0 bulk limit; dropped samples masquerade as missing clock edges and will send you chasing a hardware fault that does not exist.",
+  "Channel budget for a full fabric capture (4 channels, safe): SCK, MOSI, RCLK, and one 595 output pin. Second capture (4 channels): SCK, MISO, /PL, and one 165 input pin. Do not try to capture everything at once.",
+  "INA219 check, not LA: measure the fabric rail current with the outputs all-high vs all-low at 1 Hz toggle. Confirm you are under the 74HC595's +/-70 mA per-package VCC/GND limit and the 74HC165's tighter +/-50 mA limit. Also measure the delta when the fabric clock goes from 1 MHz to 8 MHz - dynamic current scales with Cpd (400 pF typ per 595) times VCC^2 times f, so 20 chips at 8 MHz and 3.3 V is roughly 20 * 400p * 3.3^2 * 8M = 700 mA-equivalent of switching current at peak. If your measurement is far from that estimate, one of the assumptions is wrong."
+ ],
+ "injection_seen": "No prompt injection was found in any fetched page or PDF. All content I read was ordinary technical material: PJRC store/pinout pages, the Teensy 4.1 pinout card PDFs (card11a_rev4_web.pdf, card11b_rev4_web.pdf), schematic41.png, raw source files from github.com/PaulStoffregen (SPI.h, SPI.cpp, core_pins.h, digital.c, startup.c, imxrt.h), TI datasheets SCLS041J and SCLS116H, the NXP IMXRT1060CEC datasheet, and two PJRC forum threads. Nothing in any of it contained instruction-shaped text, fake system-reminders, or attempts to alter commit attribution or my behaviour. Two things worth naming so you can discount them: (1) the WebSearch tool appends its own boilerplate line (\"REMINDER: You MUST include the sources above...\") to its results - that is the search tool's own output format, not content from any fetched page, and I treated it as such; (2) the previous research pass left several downloaded PDFs in this session's tool-results directory, which I reused rather than re-downloading - I verified their content matched the expected TI datasheets (correct literature numbers SCLS041J and SCLS116H and correct part numbers) before citing them."
+}

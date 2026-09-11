@@ -1,0 +1,28 @@
+=== header sync check ===
+all header copies match shared/.
+
+=== protocol codec self-test (host) ===
+iop.py self-test passed.
+  protocol v2.0
+  CRC-16/MCRF4XX check("123456789") = 0x6F91
+  max payload 1015 bytes, frame overhead 6 bytes
+  PING frame: AA 00 03 01 00 00 01 18 8E
+
+=== firmware ===
+building teensy1_master   ... OK    FLASH: code:115776
+building teensy2_worker   ... OK    FLASH: code:18480
+building esp32_radio      ... OK    Sketch uses 905593 bytes
+building hmi_e32r40t      ... OK    Sketch uses 311825 bytes
+
+The HMI panel is driven by TFT_eSPI, configured by hmi_e32r40t/build_opt.h -- a
+sketch-local file, so no installed library was edited and no other project is affected.
+Arduino_GFX was the first choice and does not build against the installed core; see
+hmi_e32r40t/README.md for why, and why bumping the core is the risky fix.
+
+==========================================================
+4 passed, 0 failed, 0 skipped
+  PASS  teensy1_master  FLASH: code:115776
+  PASS  teensy2_worker  FLASH: code:18480
+  PASS  esp32_radio  Sketch uses 905593 bytes
+  PASS  hmi_e32r40t  Sketch uses 311825 bytes
+==========================================================

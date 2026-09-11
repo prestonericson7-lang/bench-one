@@ -1,0 +1,425 @@
+{
+ "topic": "74HC138 addressable chip-select decode, 74HC373 transparent latch, 74HC04 polarity inversion, bus-contention interlock, and why the 74LS245 cannot be used at 3.3 V",
+ "summary": "The 74HC138 has eight select codes and all eight assert an output, so there is no \"nothing selected\" address — deselection must come from an enable pin, and E3 (G1, pin 6) is the right one to wire to a Teensy GPIO. Neither TI (SCLS107G) nor Nexperia (Rev 10, 26 Feb 2024) tabulates any AC parameter at 3.3 V: the columns are 2.0 V, 4.5 V and 6.0 V only, so the only *guaranteed* bound at 3.3 V is the 2 V column (225 ns address→Y, 195 ns enable→Y over −40 to +85 °C, CL = 50 pF), and the realistic value sits near the 4.5 V column (45 ns / 39 ns). Budget 500 ns of settle per step until measured, then tighten. The 74HC373 is a level-sensitive transparent latch that captures on the LE falling edge, which means the '04 inverter sitting between the '138's active-low Y and the '373's active-high LE delays the capture instant — so firmware must hold the data bus valid for tpd(138 enable→Y) + tpd(04) + th(373) *after* the deselect write, not before it. Shoot-through is made impossible in hardware by deriving every /OE from one '138 (or one '138 tree), because the function table guarantees mutual exclusivity by construction; add 100–220 Ω series resistors to survive the unavoidable ns-scale overlap. The 74LS245 is unusable: it is only specified from 4.75 V to 5.25 V, and at 3.3 V its Darlington totem-pole output cannot reach the 2.31 V (0.7 × 3.3 V) VIH that both 74HC and the i.MX RT1062 require, while at 5 V its output high (typ 3.4 V, no maximum specified) sits at or above the Teensy's 3.6 V absolute maximum. Buy SN74HC245N, or SN74LVC245AN if any 5 V signal will ever touch the bus.",
+ "facts": [
+  {
+   "claim": "74HC138 DIP-16 pinout (D, DB, J, N, NS, PW, W packages) — TI names G2A/G2B/G1, Nexperia names the same pins E1/E2/E3",
+   "value": "pin 1 = A (select LSB); pin 2 = B; pin 3 = C (select MSB); pin 4 = G2A / E1 (active-LOW enable); pin 5 = G2B / E2 (active-LOW enable); pin 6 = G1 / E3 (active-HIGH enable); pin 7 = Y7; pin 8 = GND; pin 9 = Y6; pin 10 = Y5; pin 11 = Y4; pin 12 = Y3; pin 13 = Y2; pin 14 = Y1; pin 15 = Y0; pin 16 = VCC",
+   "source": "TI SN54HC138/SN74HC138, SCLS107G (Oct 2021), §5 Pin Functions, p.3; cross-checked against Nexperia 74HC/HCT138 Rev 10 (26 Feb 2024) §5.1 Pinning, p.3",
+   "confidence": "certain",
+   "why_it_matters": "Nexperia's E1/E2/E3 labels and TI's G2A/G2B/G1 labels are the SAME physical pins. Do not assume 'E1' means the active-high one — pin 6 is the active-high enable in both datasheets."
+  },
+  {
+   "claim": "74HC138 complete enable truth table — all three enables must be simultaneously active or every output is HIGH",
+   "value": "G1(E3)=X, G2A(E1)=H, G2B(E2)=X → all Y HIGH. G1=X, G2A=X, G2B=H → all Y HIGH. G1=L, G2A=X, G2B=X → all Y HIGH. Only G1=H AND G2A=L AND G2B=L enables decoding.",
+   "source": "TI SCLS107G Table 8-1 Function Table, p.10; Nexperia Rev 10 Table 3 Function table, p.4",
+   "confidence": "certain",
+   "why_it_matters": "Any ONE enable in its inactive state is a complete global deselect. You only need one GPIO for it."
+  },
+  {
+   "claim": "There is no 'all deselected' select code on a 74HC138",
+   "value": "3 select inputs = 8 codes (CBA = 000..111), and the function table shows all 8 codes driving exactly one output LOW when enabled. No code is reserved for 'none'.",
+   "source": "TI SCLS107G Table 8-1, p.10 — the last 8 rows each contain exactly one 'L' in the output columns",
+   "confidence": "certain",
+   "why_it_matters": "This is the structural reason you must wire an enable pin to a GPIO. Wasting Y7 as a 'null channel' does not work, because changing the address to reach Y7 still glitches other outputs on the way."
+  },
+  {
+   "claim": "74HC138 outputs are actively driven HIGH when deselected — they are not high-impedance",
+   "value": "Deselected state = VOH, min 3.84 V at VCC = 4.5 V, IOH = −4 mA (SN74HC138 over −40 to +85 °C); min 4.4 V at IOH = −20 µA",
+   "source": "TI SCLS107G §6.7 Electrical Characteristics: SN74HC138, p.6",
+   "confidence": "certain",
+   "why_it_matters": "Downstream /CS lines never float while the '138 is enabled and powered — but they ARE indeterminate before the '138's own enables are defined, which is the boot hazard below."
+  },
+  {
+   "claim": "NEITHER TI NOR NEXPERIA PUBLISHES ANY 3.3 V AC COLUMN FOR THE 74HC138",
+   "value": "TI switching-characteristics tables have exactly three VCC columns: 2 V, 4.5 V, 6 V. Nexperia adds one extra typical-only entry at VCC = 5 V, CL = 15 pF. There is no 3.3 V row anywhere in either document.",
+   "source": "TI SCLS107G §6.9/§6.10, pp.6–7; Nexperia 74HC/HCT138 Rev 10 Table 7 Dynamic characteristics, p.7",
+   "confidence": "certain",
+   "why_it_matters": "Any '3.3 V propagation delay for a 74HC138' you find on a blog is interpolated or invented. There is no primary number to cite."
+  },
+  {
+   "claim": "74HC138 guaranteed tpd, address (A/B/C) → any Y, SN74HC138 over −40 to +85 °C, CL = 50 pF",
+   "value": "VCC = 2 V: 225 ns max. VCC = 4.5 V: 45 ns max. VCC = 6 V: 38 ns max. (25 °C typicals: 67 / 18 / 15 ns)",
+   "source": "TI SCLS107G §6.10 Switching Characteristics: SN74HC138, p.7 (over-temperature) and §6.9, p.6 (25 °C typ)",
+   "confidence": "certain",
+   "why_it_matters": "This is the number that sets the settle wait after an address change."
+  },
+  {
+   "claim": "74HC138 guaranteed tpd, enable → any Y, SN74HC138 over −40 to +85 °C, CL = 50 pF",
+   "value": "VCC = 2 V: 195 ns max. VCC = 4.5 V: 39 ns max. VCC = 6 V: 33 ns max. (25 °C typicals: 66 / 18 / 15 ns)",
+   "source": "TI SCLS107G §6.10, p.7; §6.9, p.6",
+   "confidence": "certain",
+   "why_it_matters": "This is the number that sets the settle wait after a global deselect/reselect — it is the fastest of the two paths, which is why enable-based deselect is preferred over address-based."
+  },
+  {
+   "claim": "What to budget for the 74HC138 at 3.3 V, given no 3.3 V column exists",
+   "value": "GUARANTEED bound (defensible in a design review): 225 ns address→Y, 195 ns enable→Y — i.e. use the 2.0 V column, because 3.3 V lies between 2.0 V and 4.5 V and HC delay is monotonically decreasing in VCC. ENGINEERING estimate: TI's Figure 6-1 (typical tpd vs VCC) reads approximately 25–30 ns typical at 3.3 V, CL = 50 pF, 25 °C. RECOMMENDED firmware settle wait: 500 ns per step until measured.",
+   "source": "Bound derived from TI SCLS107G §6.10 columns; estimate read off TI SCLS107G Figure 6-1 'Typical Propagation Delay vs Supply Voltage', p.7",
+   "confidence": "likely",
+   "why_it_matters": "The 25–30 ns figure is READ OFF A GRAPH, is typical-only, and is NOT a guaranteed number — treat it as unverified for anything safety-relevant. The 225/195 ns figures are guaranteed."
+  },
+  {
+   "claim": "74HC138 input transition rate limit — slow edges on the address or enable lines are a spec violation",
+   "value": "Δt/Δv max: 1000 ns at VCC = 2 V, 500 ns at 4.5 V, 400 ns at 6 V (TI). Nexperia expresses the same limit as 625 ns/V at 2.0 V, 139 ns/V at 4.5 V, 83 ns/V at 6.0 V. No 3.3 V value published.",
+   "source": "TI SCLS107G §6.3 Recommended Operating Conditions, p.4; Nexperia Rev 10 Table 5, p.5",
+   "confidence": "certain",
+   "why_it_matters": "If you RC-filter a chip-select line or drive it through a long ribbon, you can violate this and get oscillation and excess ICC on the '138 input stage."
+  },
+  {
+   "claim": "74HC138 quiescent supply current — the floating-input detector",
+   "value": "ICC max 80 µA at VCC = 6 V, VI = VCC or 0, IO = 0, over −40 to +85 °C (SN74HC138). Typ 8 µA at 25 °C.",
+   "source": "TI SCLS107G §6.7, p.6",
+   "confidence": "certain",
+   "why_it_matters": "A single floating CMOS input biases the input stage into its linear region and drives ICC into the milliamp range. An INA219 on the fabric rail turns 'is anything floating?' into a measurement."
+  },
+  {
+   "claim": "74HC138 absolute maximum output current",
+   "value": "IO continuous output current ±25 mA (VO = 0 to VCC); continuous current through VCC or GND ±50 mA; output clamp current ±20 mA",
+   "source": "TI SCLS107G §6.1 Absolute Maximum Ratings, p.4",
+   "confidence": "certain",
+   "why_it_matters": "Sets the hard ceiling on any contention or LED-drive misuse of a '138 output."
+  },
+  {
+   "claim": "74HC373 DIP-20 pinout",
+   "value": "pin 1 = /OE; pin 2 = 1Q; pin 3 = 1D; pin 4 = 2D; pin 5 = 2Q; pin 6 = 3Q; pin 7 = 3D; pin 8 = 4D; pin 9 = 4Q; pin 10 = GND; pin 11 = LE; pin 12 = 5Q; pin 13 = 5D; pin 14 = 6D; pin 15 = 6Q; pin 16 = 7Q; pin 17 = 7D; pin 18 = 8D; pin 19 = 8Q; pin 20 = VCC",
+   "source": "TI SN54HC373/SN74HC373, SCLS140G (Feb 2025), Table 3-1 Pin Functions, p.3",
+   "confidence": "certain",
+   "why_it_matters": "D and Q are INTERLEAVED on the '373 — this is the pinout that makes single-sided breadboard routing painful. The '573 fixes exactly this."
+  },
+  {
+   "claim": "74HC373 function table — transparent latch, level sensitive, captures on LE falling edge",
+   "value": "/OE=L, LE=H, D=L → Q=L. /OE=L, LE=H, D=H → Q=H (transparent). /OE=L, LE=L, D=X → Q = Q0 (previous state, held). /OE=H, LE=X, D=X → Q = Z (high impedance). Note: at startup Q0 is unknown.",
+   "source": "TI SCLS140G Table 6-1 Function Table, p.9, incl. footnote (3) 'At startup, Q0 is unknown'",
+   "confidence": "certain",
+   "why_it_matters": "LE HIGH = transparent (Q follows D live). The capture happens on the LE HIGH→LOW transition. /OE does not affect the stored state — you can tri-state the outputs without losing the latched value."
+  },
+  {
+   "claim": "74HC373 timing requirements (SN74HC373, over −40 to +85 °C)",
+   "value": "tw (LE high pulse duration) min: 120 ns @ 2 V, 24 ns @ 4.5 V, 20 ns @ 6 V. tsu (data setup before LE↓) min: 75 ns @ 2 V, 15 ns @ 4.5 V, 13 ns @ 6 V. th (data hold after LE↓) min: 26 ns @ 2 V, 13 ns @ 4.5 V, 13 ns @ 6 V.",
+   "source": "TI SCLS140G §4.5 Timing Requirements, p.5",
+   "confidence": "certain",
+   "why_it_matters": "th is the one that bites: the bus must stay valid for th AFTER LE actually falls, and LE falls late because of the '138 + '04 delay chain."
+  },
+  {
+   "claim": "74HC373 switching characteristics, CL = 50 pF (SN74HC373, over −40 to +85 °C)",
+   "value": "tpd D→Q: 225 ns @ 2 V, 45 ns @ 4.5 V, 38 ns @ 6 V. tpd LE→any Q: 265 ns @ 2 V, 53 ns @ 4.5 V, 45 ns @ 6 V. ten /OE→any Q: 225 / 45 / 38 ns. tdis /OE→any Q: 225 / 45 / 38 ns.",
+   "source": "TI SCLS140G §4.6 Switching Characteristics CL = 50 pF, p.6",
+   "confidence": "certain",
+   "why_it_matters": "tdis (45 ns @ 4.5 V) is the number that governs bus turnaround. Two devices must be separated by more than tdis or they overlap."
+  },
+  {
+   "claim": "74HC373 switching characteristics at CL = 150 pF — the heavily loaded bus case",
+   "value": "tpd D→Q: 300 ns @ 2 V, 60 ns @ 4.5 V, 51 ns @ 6 V. tpd LE→any Q: 335 / 67 / 57 ns. ten /OE→any Q: 300 / 60 / 51 ns. tt (transition time): 315 / 63 / 53 ns.",
+   "source": "TI SCLS140G §4.7 Switching Characteristics CL = 150 pF, p.6",
+   "confidence": "certain",
+   "why_it_matters": "A shared 8-bit bus with several '373 inputs plus breadboard capacitance will exceed 50 pF. TI explicitly states 'it is not recommended to exceed 50pF' (§7.2.1.1, p.11) while still tabulating 150 pF."
+  },
+  {
+   "claim": "74HC373 has no 3.3 V column either",
+   "value": "All timing and switching tables list VCC = 2 V, 4.5 V, 6 V only.",
+   "source": "TI SCLS140G §4.5, §4.6, §4.7, pp.5–6",
+   "confidence": "certain",
+   "why_it_matters": "Same interpolation problem as the '138. Use the 2 V column as the guaranteed bound at 3.3 V."
+  },
+  {
+   "claim": "74HC373 absolute maximum current",
+   "value": "IO continuous output current ±35 mA (VO = 0 to VCC); continuous current through VCC or GND ±70 mA",
+   "source": "TI SCLS140G §4.1 Absolute Maximum Ratings, p.4",
+   "confidence": "certain",
+   "why_it_matters": "The ±70 mA VCC/GND limit, not the ±35 mA per-pin limit, is what an 8-bit-wide bus contention actually violates first."
+  },
+  {
+   "claim": "74HC373 vs 74HC374 — the difference is level-sensitive vs edge-triggered, and pin 11",
+   "value": "'374 pin 11 = CP (clock pulse, active RISING edge); '373 pin 11 = LE (level). '374 pin map: pin 1 = /OE, pins 3,4,7,8,13,14,17,18 = D0..D7, pins 2,5,6,9,12,15,16,19 = Q0..Q7, pin 10 = GND, pin 11 = CP, pin 20 = VCC. The '374 never becomes transparent — Q changes only at the CP rising edge.",
+   "source": "Nexperia 74HC/HCT374 §5.1 Pinning and Table 2 Pin description, p.3; TI SN54HC374/SN74HC374 SCLS141G (Apr 2022) §4",
+   "confidence": "certain",
+   "why_it_matters": "With the '138→'04 chain, a '374 would capture at SELECT time (rising LE-equivalent), not at DESELECT time. That inverts the whole setup/hold argument. He owns '373s, so the capture-on-deselect analysis applies."
+  },
+  {
+   "claim": "74HC373 vs 74HC573A — same function, straight-through pinout",
+   "value": "'573A: pin 1 = /OE, pins 2–9 = 1D..8D, pin 10 = GND, pin 11 = LE, pins 12–19 = 8Q..1Q, pin 20 = VCC. All D on one side, all Q on the other. Function table and timing are equivalent to the '373.",
+   "source": "TI SN54HC573A/SN74HC573A, SCLS147G (Apr 2022), §5 Pin Functions, p.3",
+   "confidence": "certain",
+   "why_it_matters": "If he ever lays out a PCB, the '573A is a pin-for-pin functional substitute with vastly easier routing. His 15 '373s work identically; this is a future-layout note only."
+  },
+  {
+   "claim": "74HC04 DIP-14 pinout",
+   "value": "pin 1 = 1A (in); pin 2 = 1Y (out); pin 3 = 2A; pin 4 = 2Y; pin 5 = 3A; pin 6 = 3Y; pin 7 = GND; pin 8 = 4Y; pin 9 = 4A; pin 10 = 5Y; pin 11 = 5A; pin 12 = 6Y; pin 13 = 6A; pin 14 = VCC",
+   "source": "TI SN74HC04/SN54HC04, SCLS078H (Apr 2021), §5 Pin Functions, p.3",
+   "confidence": "certain",
+   "why_it_matters": "Six inverters per package — enough for six '373 LE lines from one chip, or the single inverter the 4-chip 1-of-32 topology needs."
+  },
+  {
+   "claim": "74HC04 propagation delay, SN74HC04 over −40 to +85 °C, CL = 50 pF",
+   "value": "tpd A→Y max: 120 ns @ 2 V, 24 ns @ 4.5 V, 20 ns @ 6 V (25 °C typicals: 45 / 9 / 8 ns). tt max: 95 / 19 / 16 ns.",
+   "source": "TI SCLS078H §6.7 Switching Characteristics - 74, p.6",
+   "confidence": "certain",
+   "why_it_matters": "This is the extra delay inserted into the LE path. At 3.3 V, guaranteed bound = 120 ns (2 V column); engineering estimate ~12–15 ns."
+  },
+  {
+   "claim": "74HC04 tPLH and tPHL are not separately specified — pulse-width distortion through the inverter is unbounded by the datasheet",
+   "value": "TI specifies one parameter, tpd, and states in the load-circuit notes 'tPLH and tPHL are the same as tpd'. There is no separate tPLH/tPHL table and no skew-between-gates specification.",
+   "source": "TI SCLS078H §6.7, p.6; TI SCLS107G Figure 7-1 note D (same convention)",
+   "confidence": "certain",
+   "why_it_matters": "You cannot rely on the '04 preserving the width of the '138's low pulse, and you cannot rely on two gates in one package having matched delay. Guarantee the LE-high width by making the select interval far longer than tw(min), not by arithmetic on tPLH−tPHL."
+  },
+  {
+   "claim": "74HC04 has no input hysteresis and no drive uplift over any other HC gate",
+   "value": "VOH min 3.84 V at IOH = −4 mA, VCC = 4.5 V; VOL max 0.33 V at IOL = 4 mA, VCC = 4.5 V; IO abs max ±25 mA; no VT+/VT− specified anywhere in the datasheet.",
+   "source": "TI SCLS078H §6.5 Electrical Characteristics - 74, p.5; §6.1 Absolute Maximum Ratings, p.4",
+   "confidence": "certain",
+   "why_it_matters": "The '04 is a logic inverter, not a buffer, not a line driver, not a Schmitt trigger. Its drive is identical to a '138's."
+  },
+  {
+   "claim": "74HC14 is the correct part for slow edges — Schmitt-trigger thresholds and hysteresis",
+   "value": "At VCC = 4.5 V: VT+ = 1.55 V min / 2.5 V typ / 3.13 V max; VT− = 0.9 V min / 1.6 V typ / 2.45 V max; hysteresis ΔVT = 0.4 V min / 0.9 V typ / 2.1 V max. At VCC = 2 V: VT+ 0.7–1.5 V, VT− 0.3–1.0 V, ΔVT 0.2–1.2 V. tpd max 31 ns @ 4.5 V, 155 ns @ 2 V. No 3.3 V column.",
+   "source": "TI SN74HC14 datasheet, Electrical Characteristics and Switching Characteristics tables",
+   "confidence": "certain",
+   "why_it_matters": "He owns 2× 74HC14 in the Minidodoca kits. That is the part for debouncing, for RC delays, for any signal arriving over a long wire, and for any input whose edge rate might exceed the 500 ns/139 ns-per-volt limit."
+  },
+  {
+   "claim": "A buffered 74HC04 is the wrong part for a crystal/RC oscillator — the UNBUFFERED 74HCU04 is the intended device",
+   "value": "The 'U' in HCU means unbuffered: a single inverting stage with usable linear gain. The 74HC04 is a three-stage buffered inverter with very high open-loop gain and no defined linear region.",
+   "source": "Part-family naming convention; TI SCLS078H characterizes the HC04 only as a digital inverter and publishes no linear/oscillator parameters",
+   "confidence": "likely",
+   "why_it_matters": "He owns 74HC04 (buffered) x20 plus more in the kits, and zero HCU04. Do not attempt a crystal oscillator with these."
+  },
+  {
+   "claim": "Teensy 4.1 pin absolute maximum voltage is 3.6 V, derived from the i.MX RT1062 pad specification",
+   "value": "Absolute maximum: Input/Output Voltage range Vin/Vout = −0.5 V to OVDD + 0.3 V, where OVDD is the I/O supply voltage. NVCC_GPIO recommended = 3.0 V min / 3.3 V nom / 3.6 V max. With the Teensy's NVCC_GPIO at 3.3 V, the pin absolute maximum is 3.3 + 0.3 = 3.6 V.",
+   "source": "NXP i.MX RT1060 Crossover Processors for Consumer Products, IMXRT1060CEC Rev 4 (04/2024), Absolute Maximum Ratings table (Input/Output Voltage range row, footnote 1: 'OVDD is the I/O supply voltage') and Operating Ranges table (GPIO supplies NVCC_GPIO row)",
+   "confidence": "certain",
+   "why_it_matters": "3.6 V is an ABSOLUTE MAXIMUM, not a recommendation. Exceeding it forwards the ESD clamp diode into the 3.3 V rail."
+  },
+  {
+   "claim": "Teensy 4.1 input thresholds",
+   "value": "VIH min = 0.7 × NVCC_XXXX = 0.7 × 3.3 V = 2.31 V. VIL max = 0.3 × NVCC_XXXX = 0.3 × 3.3 V = 0.99 V. Input hysteresis min 250 mV at NVCC = 3.3 V.",
+   "source": "NXP IMXRT1060CEC Rev 4, GPIO DC characteristics table (High-Level input voltage / Low-Level input voltage / Input Hysteresis rows)",
+   "confidence": "certain",
+   "why_it_matters": "2.31 V is the bar any driver must clear. It is also exactly the 74HC VIH at 3.3 V (0.7 × VCC), so an HC-to-Teensy link has matched thresholds."
+  },
+  {
+   "claim": "PJRC's own statement on Teensy 4.1 pin tolerance",
+   "value": "'Teensy 4.1 pins accept 0 to 3.3V signals. The pins are not 5V tolerant. Do not drive any digital pin higher than 3.3V.' And for analog: 'The analog pins are not 5V tolerant. Do not drive any analog pin higher than 3.3 volts.'",
+   "source": "PJRC Teensy 4.1 product page, https://www.pjrc.com/store/teensy41.html",
+   "confidence": "certain",
+   "why_it_matters": "Confirms your established hard rule from the vendor as well as the silicon datasheet."
+  },
+  {
+   "claim": "SN74LS245 recommended supply voltage — 3.3 V is completely outside it",
+   "value": "SN74LS245: VCC min 4.75 V, nom 5 V, max 5.25 V. (SN54LS245: 4.5 / 5 / 5.5 V.) Operating free-air temperature 0 to 70 °C for the 74 grade.",
+   "source": "TI SN54LS245/SN74LS245, SDLS146B (Sep 2016), §7.3 Recommended Operating Conditions, p.4",
+   "confidence": "certain",
+   "why_it_matters": "At 3.3 V, NOT ONE parameter in the datasheet is guaranteed. Every timing and level number in §7.5/§7.6 is qualified 'over recommended operating free-air temperature range', which presupposes VCC ≥ 4.75 V."
+  },
+  {
+   "claim": "SN74LS245 input thresholds are TTL and do NOT scale with VCC",
+   "value": "VIH min 2.0 V; VIL max 0.8 V (SN74LS245). Bus-input hysteresis VT+ − VT− = 0.2 V min, 0.4 V typ.",
+   "source": "TI SDLS146B §7.5 Electrical Characteristics, p.5",
+   "confidence": "certain",
+   "why_it_matters": "A 3.3 V CMOS driver clears 2.0 V nominally — so the INPUT side looks deceptively fine, which is exactly why people try this and then get bitten by the output side."
+  },
+  {
+   "claim": "SN74LS245 output-high voltage — the arithmetic that kills it, case A: LS245 powered at 3.3 V",
+   "value": "VOH is specified as min 2.4 V / typ 3.4 V at VCC = MIN (4.75 V), VIH = 2 V, IOH = −3 mA. The LS high-side is a Darlington emitter-follower plus pull-up resistor, so VOH tracks roughly VCC − 1.2 V to VCC − 1.6 V. At VCC = 3.3 V that predicts VOH ≈ 1.7 V to 2.1 V. Required: 74HC VIH at 3.3 V = 0.7 × 3.3 = 2.31 V; Teensy 4.1 VIH = 0.7 × 3.3 = 2.31 V. 2.1 V < 2.31 V → the HIGH is not guaranteed to be seen as a HIGH.",
+   "source": "VOH numbers: TI SDLS146B §7.5, p.5. The VCC − 1.2/1.6 V extrapolation is DERIVED from the LS totem-pole topology, NOT a datasheet number.",
+   "confidence": "unverified",
+   "why_it_matters": "The 2.4 V min / 3.4 V typ figures are datasheet-certain; the 1.7–2.1 V at 3.3 V figure is an extrapolation and must be labelled as such. But the conclusion is safe either way, because the datasheet guarantees NOTHING at 3.3 V. This is a circuit that works on one bench and fails on another."
+  },
+  {
+   "claim": "SN74LS245 output-high voltage — the arithmetic that kills it, case B: LS245 powered at 5 V (in spec) driving a Teensy pin",
+   "value": "VOH typ = 3.4 V at VCC = 5 V, IOH = −3 mA. The datasheet specifies NO MAXIMUM for VOH. Teensy 4.1 pin absolute maximum = 3.6 V. With a light CMOS load (IOH near 0 rather than 3 mA) and VCC at the 5.25 V top of the recommended range, VOH rises above the 3.4 V typ — the same VCC − 1.2/1.6 V topology predicts roughly 3.65 V to 4.05 V, which exceeds 3.6 V.",
+   "source": "VOH typ and the absence of a VOH max: TI SDLS146B §7.5, p.5. VCC range: §7.3, p.4. Teensy limit: NXP IMXRT1060CEC Rev 4 abs-max table. The 3.65–4.05 V unloaded figure is DERIVED, not tabulated.",
+   "confidence": "unverified",
+   "why_it_matters": "Even the guaranteed typ (3.4 V) leaves only 0.2 V of margin against an absolute maximum, with no maximum specified to bound it. That alone disqualifies it. The unloaded extrapolation is the reason people report 'it worked, then the Teensy died'."
+  },
+  {
+   "claim": "SN74LS245 input current is 200–400× an HC input's",
+   "value": "IIL = −0.2 mA per A or B input at VCC = MAX, VIL = 0.4 V. II at max input voltage = 0.1 mA. Compare 74HC138 input leakage: ±1000 nA (±1 µA) max over temperature.",
+   "source": "TI SDLS146B §7.5, p.5; TI SCLS107G §6.7, p.6",
+   "confidence": "certain",
+   "why_it_matters": "Eight LS inputs sink up to 1.6 mA when low. On a bus with weak pull-ups or driven by a marginal source, this is a real DC load an HC fabric was not designed for."
+  },
+  {
+   "claim": "SN74HC245 is the correct replacement — identical pinout, full 3.3 V operation",
+   "value": "Pinout: pin 1 = DIR, pins 2–9 = A1..A8, pin 10 = GND, pins 11–18 = B8..B1, pin 19 = /OE, pin 20 = VCC. VCC 2 V to 6 V. VOH min 3.7 V at IOH = −6 mA, VCC = 4.5 V. tpd A↔B max 26 ns @ 4.5 V (SN74HC245, CL = 50 pF, over temp); ten /OE 58 ns; tdis /OE 50 ns. At CL = 150 pF: tpd 34 ns, ten 67 ns.",
+   "source": "TI SN54HC245/SN74HC245 datasheet, §5 Pin Configuration and Functions, §6.3 Recommended Operating Conditions, §6.6/§6.7 Switching Characteristics",
+   "confidence": "certain",
+   "why_it_matters": "Drop-in for the LS245 socket, same CMOS thresholds as the rest of the fabric (0.7/0.3 × VCC), no level-shifting required. Order SN74HC245N for DIP-20."
+  },
+  {
+   "claim": "SN74LVC245A is the alternative if any 5 V signal will ever touch the bus",
+   "value": "VCC 1.65 V to 3.6 V. VI (input voltage) 0 to 5.5 V — 5 V-tolerant inputs while running on 3.3 V VCC. Max tpd 6.3 ns at 3.3 V. IOH −24 mA at VCC = 3 V, VOH min 2.3 V at that current. VIH = 2 V for VCC = 2.7–3.6 V; VIL = 0.8 V.",
+   "source": "TI SN74LVC245A datasheet, Features ('Operates From 1.65 V to 3.6 V', 'Max tpd of 6.3 ns at 3.3 V', 'Supports Mixed-Mode Signal Operation on All Ports (5-V Input/Output Voltage With 3.3-V VCC)'), Recommended Operating Conditions and Electrical Characteristics tables",
+   "confidence": "certain",
+   "why_it_matters": "5 V-tolerant inputs make it a genuine one-way level shifter for 5 V sources. Downside on a breadboard: 6.3 ns edges ring badly and your 24 MHz LA cannot see the ringing. Prefer HC245 for breadboard work."
+  },
+  {
+   "claim": "TXB0108 must NOT be pressed into service as a bus buffer in place of a '245",
+   "value": "The TXB0108 is an auto-direction-sensing translator with a high output impedance driver and an edge-rate accelerator; it has no DIR pin and no defined bus-transceiver behaviour. It is specified for push-pull sources and low capacitive loads only.",
+   "source": "TI TXB0108 datasheet — device description and the explicit application note that it must not be used on open-drain/pulled buses; the TXS0108E is the open-drain part",
+   "confidence": "likely",
+   "why_it_matters": "He owns 3× TXB0108 and 3× TXS0108 and might be tempted to substitute one for the missing '245. They solve a different problem. UNVERIFIED here — I did not re-read the TXB0108 datasheet in this pass, this is stated from your own established rules."
+  },
+  {
+   "claim": "Estimated 74HC output impedance at 3.3 V, used for the contention-current arithmetic",
+   "value": "Derived from the VOL spec: 0.26 V max at IOL = 6 mA, VCC = 4.5 V (74HC373, 25 °C) → ~43 Ω at 4.5 V. HC output impedance rises as VCC falls; a reasonable 3.3 V figure is 70–90 Ω per output.",
+   "source": "VOL/IOL from TI SCLS140G §4.4 Electrical Characteristics, p.5. The impedance figure is DERIVED, not a datasheet parameter, and the 3.3 V scaling is an estimate.",
+   "confidence": "unverified",
+   "why_it_matters": "Every contention-current number below rests on this estimate. Treat the currents as order-of-magnitude, and treat the ±70 mA VCC/GND absolute maximum as the real hard limit."
+  },
+  {
+   "claim": "Bus contention current with two 74HC373 outputs fighting on a shared 8-bit bus at 3.3 V",
+   "value": "Per bit: I ≈ 3.3 V / (2 × 80 Ω) ≈ 21 mA. Across 8 bits: ≈ 165 mA through VCC and GND of each contending package. The 74HC373 absolute maximum continuous current through VCC or GND is ±70 mA.",
+   "source": "Current derived from the impedance estimate above; the ±70 mA limit is TI SCLS140G §4.1 Absolute Maximum Ratings, p.4",
+   "confidence": "unverified",
+   "why_it_matters": "The per-pin ±35 mA rating is NOT the first thing you violate — the ±70 mA rail rating is, at about 3.4× over. This is why a double-/OE bug destroys parts rather than just corrupting data."
+  },
+  {
+   "claim": "Series-resistor arithmetic that makes contention survivable",
+   "value": "With 220 Ω in series with each '373 output: I ≈ 3.3 V / (80 + 220 + 220 + 80) Ω = 3.3 / 600 = 5.5 mA per bit, 44 mA across 8 bits — under the ±70 mA rail limit. With 100 Ω: 3.3 / 360 = 9.2 mA per bit, 73 mA across 8 bits — right at the limit. Cost: 220 Ω into 50 pF gives τ = 11 ns, ~25 ns to reach 90%; 100 Ω gives τ = 5 ns, ~11.5 ns. DC penalty into an HC input (leakage ≤ 1 µA) is 0.22 mV — negligible.",
+   "source": "Arithmetic on the derived impedance and TI SCLS140G §4.1; HC input leakage from TI SCLS107G §6.7",
+   "confidence": "likely",
+   "why_it_matters": "220 Ω is the right value: it brings 8-bit contention inside the rail rating with margin, and 25 ns of added settling is invisible next to a 500 ns firmware settle wait."
+  },
+  {
+   "claim": "TI and Nexperia both explicitly require every unused input to be tied",
+   "value": "TI, footnote to Recommended Operating Conditions: 'All unused inputs of the device must be held at VCC or GND to ensure proper device operation. See TI application report, Implications of Slow or Floating CMOS Inputs (SCBA004).' This footnote appears identically on the HC138, HC373, HC573A and HC04 datasheets.",
+   "source": "TI SCLS107G §6.3 footnote (1), p.4; SCLS140G §4.2 footnote (1), p.4; SCLS147G §6.3 footnote (1), p.4; SCLS078H §6.3",
+   "confidence": "certain",
+   "why_it_matters": "This is the vendor's own wording backing your established 'no floating CMOS inputs, ever' rule — cite SCBA004 in the build notes."
+  },
+  {
+   "claim": "1-of-16 topology: two 74HC138, no inverter",
+   "value": "Chip count 2. A0–A2 → both chips' A/B/C in parallel. A3 → chip0 pin 4 (G2A, active low, so chip0 wins when A3 = 0) AND → chip1 pin 6 (G1, active high, so chip1 wins when A3 = 1). Chip0 pin 6 (G1) tied to VCC. Chip1 pin 4 (G2A) tied to GND. Both chips' pin 5 (G2B) tied together = GLOBAL_EN_L. Accumulated delay = ONE '138 stage: 45 ns max @ 4.5 V (address path), 39 ns max @ 4.5 V (global-deselect path); 225 / 195 ns at the 2 V guaranteed bound.",
+   "source": "Topology follows directly from TI SCLS107G Table 8-1; TI §8.1 states 'A 24-line decoder can be implemented without external inverters'",
+   "confidence": "certain",
+   "why_it_matters": "One stage of delay, one global-deselect pin, two chips, zero inverters. This is the cheapest correct 16-channel decoder."
+  },
+  {
+   "claim": "1-of-32 topology A (flat, 4 '138 + 1 inverter) — documented by both vendors but with an awkward global deselect",
+   "value": "Chip count 4 '138 + 1 gate of a '04. Nexperia: 'allows easy parallel expansion to a 1-of-32 (5 to 32 lines) decoder with just four '138 ICs and one inverter.' TI: 'a 32-line decoder requires only one inverter.' Accumulated delay = tpd('04) + tpd('138 enable→Y) = 24 + 39 = 63 ns max @ 4.5 V; 120 + 195 = 315 ns at the 2 V bound.",
+   "source": "Nexperia 74HC/HCT138 Rev 10 §1 General description, p.1; TI SCLS107G §8.1 Overview, p.9",
+   "confidence": "certain",
+   "why_it_matters": "Fastest 32-way option, but the four chips end up with spare enable pins of MIXED polarity, so a single global-deselect line needs another inverter — and the two polarities then arrive skewed by the inverter delay, opening a window where some chips are enabled and others are not. That is a glitch generator. Prefer topology B."
+  },
+  {
+   "claim": "1-of-32 topology B (master '138 selecting four leaf '138s) — RECOMMENDED",
+   "value": "Chip count 5. Master: A3→A(pin1), A4→B(pin2), C(pin3) tied GND, G1(pin6) = GLOBAL_EN (active high, from a Teensy GPIO, 10 kΩ pulldown), G2A(pin4) and G2B(pin5) tied GND. Master Y0..Y3 → the four leaves' G2A(pin4). Each leaf: G1(pin6) tied to VCC, G2B(pin5) tied to GND, A0–A2 → A/B/C. Accumulated delay = tpd(master A,B→Y) + tpd(leaf enable→Y) = 45 + 39 = 84 ns max @ 4.5 V; 225 + 195 = 420 ns at the 2 V guaranteed bound. Global deselect path = 39 + 39 = 78 ns @ 4.5 V, 390 ns at the 2 V bound.",
+   "source": "Topology derived from TI SCLS107G Table 8-1 enable semantics",
+   "confidence": "certain",
+   "why_it_matters": "Costs one extra chip and one extra propagation stage versus topology A, but gives a single-pin, uniform-polarity, structurally-guaranteed global deselect — and preserves mutual exclusivity across all 32 outputs, which is what makes the shoot-through interlock work."
+  },
+  {
+   "claim": "1-of-64 topology (master '138 + eight leaf '138s)",
+   "value": "Chip count 9. Master uses all three select inputs (A3→A, A4→B, A5→C); master Y0..Y7 → eight leaves' G2A. Accumulated delay is UNCHANGED from the 32-way tree: still exactly two '138 stages = 84 ns max @ 4.5 V, 420 ns at the 2 V bound. Inventory: 9 per stack × 2 stacks = 18 of his 20 '138s.",
+   "source": "Same derivation from TI SCLS107G Table 8-1",
+   "confidence": "certain",
+   "why_it_matters": "Going from 32 to 64 costs four chips and ZERO extra delay. But it consumes 18 of 20 '138s across both stacks, leaving 2 spares. 1-of-32 (5 chips, 10 across both stacks) leaves 10 spares — recommend 32 unless he genuinely needs 64."
+  },
+  {
+   "claim": "Boot hazard: what a floating enable does at power-up",
+   "value": "Before firmware configures GPIO, the Teensy pin driving G1/E3 is an input (high-Z), so the '138's G1 pin is floating. A floating HC input sits near VCC/2 (VIH at 3.3 V = 2.31 V, VIL = 0.99 V — the float lands between them) and is resolved arbitrarily by leakage, coupling and package charge. If it resolves HIGH while G2A/G2B are already low, the decoder ENABLES and asserts whichever output the (also floating or garbage) address selects — a real, driven, milliamp-capable LOW on a random /CS or /OE for the entire duration of the MCU boot.",
+   "source": "Threshold values: TI SCLS107G §6.3 (VIH/VIL scale as 0.7/0.3 × VCC). The 'must be held at VCC or GND' requirement and SCBA004 reference: TI SCLS107G §6.3 footnote (1)",
+   "confidence": "certain",
+   "why_it_matters": "On a Teensy 4.1 the boot-to-setup() window is milliseconds. A random SD-card /CS or a random '373 /OE asserted for milliseconds while another device also drives the bus is how you lose parts before your first line of code runs."
+  },
+  {
+   "claim": "Boot-hazard fix: the pull resistors, with values and justification",
+   "value": "10 kΩ from G1/E3 (pin 6) to GND on every '138 whose enable is MCU-driven. 10 kΩ from G2A/E1 (pin 4) and G2B/E2 (pin 5) to +3.3 V on every '138 whose active-low enables are MCU-driven (tie them hard to GND instead if they are not MCU-driven). On every 74HC373: 10 kΩ from LE (pin 11) to GND, and 10 kΩ from /OE (pin 1) to +3.3 V. Justification: '138 input leakage is ±1 µA max over temperature → 10 kΩ gives a 10 mV worst-case offset, utterly safe against a 0.99 V VIL. When firmware later drives the pin, it fights only 3.3 V / 10 kΩ = 330 µA. RC settling with ~30 pF of input plus stray capacitance = 300 ns.",
+   "source": "Leakage: TI SCLS107G §6.7, p.6 (II ±1000 nA). Thresholds: §6.3, p.4. '373 startup-unknown warning: TI SCLS140G §6.1 Overview, p.8 and Table 6-1 footnote (3), p.9",
+   "confidence": "certain",
+   "why_it_matters": "The '373 pair matters as much as the '138: TI explicitly warns 'If the latch enable (LE) input is held low during startup, the output state of all channels is unknown until LE is driven high with valid input signals'. The 10 kΩ /OE pull-up keeps that unknown state off the bus; the 10 kΩ LE pull-down keeps the latch opaque so it cannot capture garbage."
+  },
+  {
+   "claim": "Why break-before-make is mandatory: address-change glitches are real driven pulses",
+   "value": "The three select inputs do not change simultaneously (GPIO write skew) and the internal decode paths have different delays. Going from address 3 (CBA=011) to address 4 (CBA=100) can transiently produce any of the intermediate codes — 001, 010, 111, 000 — each asserting a real, driven, tens-of-nanoseconds LOW on a wrong output. tt (output transition time) is 19 ns max at 4.5 V, so these are fast, full-amplitude pulses, not slow slivers.",
+   "source": "Derived from TI SCLS107G Table 8-1 (all 8 codes assert an output) and §6.10 tt = 19 ns max @ 4.5 V, p.7. The datasheet does not characterise glitch width — this is a structural consequence.",
+   "confidence": "certain",
+   "why_it_matters": "On a /CS that is a spurious chip select. On an inverted LE it is a spurious latch capture of whatever happens to be on the bus. Both are silent — the system keeps running with corrupted state."
+  },
+  {
+   "claim": "The '04 inverter's timing consequence in the '138 → '04 → '373 LE path",
+   "value": "The '138 Y output is ACTIVE LOW; the '373 LE is ACTIVE HIGH; so LE = NOT(Yn). Selecting a channel drives Yn LOW → LE HIGH → that latch becomes transparent. DESELECTING drives Yn HIGH → LE LOW → THE CAPTURE HAPPENS HERE, delayed from the firmware's deselect write by tpd('138 enable→Y) + tpd('04). Required bus hold after the deselect write = tpd(138) + tpd(04) + th(373) = 39 + 24 + 13 = 76 ns at 4.5 V; = 195 + 120 + 26 = 341 ns at the 2 V guaranteed bound. Required setup before the select write = tsu(373) = 15 ns @ 4.5 V / 75 ns @ 2 V, plus the same '138+'04 chain. Required select-interval duration ≥ tw(LE high) = 24 ns @ 4.5 V / 120 ns @ 2 V.",
+   "source": "'138 enable→Y: TI SCLS107G §6.10, p.7. '04 tpd: TI SCLS078H §6.7, p.6. '373 th/tsu/tw: TI SCLS140G §4.5, p.5",
+   "confidence": "certain",
+   "why_it_matters": "This is the single most likely place for a subtly wrong firmware: releasing the data bus immediately after writing the deselect. The capture has not happened yet. You will latch whatever the bus floats to."
+  },
+  {
+   "claim": "Hardware interlock that makes double-/OE structurally impossible",
+   "value": "The 74HC138 function table contains no input combination that produces two LOW outputs. Drive EVERY /OE on the shared bus from the outputs of ONE '138 (or one master-tree, which preserves the same property: only one leaf is enabled, and within it only one output is low). No firmware bug, no stuck bit, no half-written GPIO register can produce two simultaneous asserted /OE, because the decoder physically cannot emit two.",
+   "source": "TI SCLS107G Table 8-1, p.10 (every enabled row has exactly one 'L'); Nexperia Rev 10 Table 3, p.4, and §1 'Active LOW mutually exclusive outputs'",
+   "confidence": "certain",
+   "why_it_matters": "Nexperia's own feature bullet is literally 'Active LOW mutually exclusive outputs'. This is a datasheet guarantee, not a design convention. Never route /OE lines from independent GPIOs or from an MCP23017 (whose POR state is all-inputs — every /OE would float)."
+  },
+  {
+   "claim": "Why the '138 tree preserves mutual exclusivity across 32 or 64 outputs",
+   "value": "The master asserts exactly one Yn LOW, which enables exactly one leaf via its G2A. Every other leaf has G2A HIGH → all its outputs HIGH. The one enabled leaf asserts exactly one output LOW. Therefore across the whole 32- or 64-wide field, exactly one output is LOW at any instant when the master is enabled, and zero are LOW when it is not.",
+   "source": "Composition of TI SCLS107G Table 8-1 applied twice",
+   "confidence": "certain",
+   "why_it_matters": "The interlock scales. The flat 4-chip topology A also preserves it, but its mixed-polarity global deselect reintroduces a skew window — another reason to prefer the tree."
+  },
+  {
+   "claim": "Cost of the interlock: /OE lines must not pass through any logic",
+   "value": "Any gate inserted between the '138 output and a /OE pin (an '04, an AND with a firmware enable, an MCP23017 output) breaks the guarantee, because the added gate's delay skew reopens the overlap window and because a second control input can now assert independently.",
+   "source": "Structural consequence; '04 tPLH/tPHL skew is unspecified — TI SCLS078H §6.7",
+   "confidence": "certain",
+   "why_it_matters": "This is exactly why the '04 goes in the LE path and NOT the /OE path. LE is a capture-timing signal; /OE is a safety-critical mutual-exclusion signal. Keep them separate."
+  }
+ ],
+ "code_guidance": [
+  "WIRING, 74HC138 as a single-tier 1-of-8 chip-select decoder on Teensy1: pin 1 (A) -> Teensy CS_A; pin 2 (B) -> CS_B; pin 3 (C) -> CS_C; pin 4 (G2A/E1) -> GND directly (hard tie, no resistor); pin 5 (G2B/E2) -> GND directly; pin 6 (G1/E3) -> Teensy CS_EN, WITH a 10 kOhm resistor from pin 6 to GND; pin 8 -> GND; pin 16 -> +3.3 V with a 0.1 uF X7R ceramic within 5 mm of the pin. Outputs Y0..Y7 on pins 15,14,13,12,11,10,9,7 -> the eight /CS destinations. Add a 10 kOhm pull-up to +3.3 V on each downstream /CS at the slave end.",
+  "PIN ALLOCATION RULE: put CS_A, CS_B and CS_C on Teensy 4.1 pins belonging to the SAME fast-GPIO port so all three address bits can be written in one store to the port's DR register. That collapses inter-bit skew from three digitalWriteFast calls to zero. It does NOT remove the need for break-before-make (the '138's internal decode skew remains), but it removes the largest term. Check the Teensy 4.1 pin-to-GPIO6/7/8/9 map before allocating.",
+  "GPIO WRITE ORDERING: the Cortex-M7 store buffer posts GPIO writes. If you time anything from the instant of a pin change, insert a barrier so the write has actually retired before you start counting: __asm__ volatile(\"dsb\" ::: \"memory\"); A read-back of the same GPIO DR register works equally well and is cheaper to reason about.",
+  "THE SETTLE WAIT. Use Teensy's delayNanoseconds(). At 600 MHz one core cycle is 1.667 ns. Start at 500 ns per step -- that comfortably covers the 2 V guaranteed bound of 195-225 ns for a single '138 stage, plus the 100-220 Ohm series-resistor RC, plus slave /CS recovery. Do NOT tighten it below the measured value plus 3x margin. #define CS_SETTLE_NS 500",
+  "BREAK-BEFORE-MAKE, exact sequence:\n\nstatic inline void cs_barrier(void) { __asm__ volatile(\"dsb\" ::: \"memory\"); }\n\nvoid cs_deselect_all(void) {\n    digitalWriteFast(CS_EN, LOW);       // G1/E3 low -> ALL Y0..Y7 driven HIGH\n    cs_barrier();\n    delayNanoseconds(CS_SETTLE_NS);     // >= tpd(enable->Y) + slave /CS recovery\n}\n\nvoid cs_select(uint8_t ch) {            // ch = 0..7\n    // 1. BREAK. Deselect BEFORE touching the address. This is the whole point.\n    digitalWriteFast(CS_EN, LOW);\n    cs_barrier();\n    delayNanoseconds(CS_SETTLE_NS);     // >= tpd(enable->Y): 195 ns bound / 39 ns @4.5V\n\n    // 2. Change the address only while globally deselected.\n    //    Decode glitches here are invisible: all outputs are held HIGH by the enable.\n    digitalWriteFast(CS_A, (ch >> 0) & 1u);\n    digitalWriteFast(CS_B, (ch >> 1) & 1u);\n    digitalWriteFast(CS_C, (ch >> 2) & 1u);\n    cs_barrier();\n    delayNanoseconds(CS_SETTLE_NS);     // >= tpd(A,B,C->Y): 225 ns bound / 45 ns @4.5V\n\n    // 3. MAKE.\n    digitalWriteFast(CS_EN, HIGH);\n    cs_barrier();\n    delayNanoseconds(CS_SETTLE_NS);     // >= tpd(enable->Y) before the first SCK edge\n}\n\nNEVER write the address while CS_EN is HIGH. There is no legal ordering that avoids glitches other than this one.",
+  "LATCH WRITE through '138 -> '04 -> '373 LE. The capture happens on the DESELECT, delayed by the '138 and the '04. Hold the bus across it:\n\nvoid latch_write(uint8_t slot, uint8_t data) {\n    cs_deselect_all();                  // every LE is LOW: all latches opaque\n    bus_drive(data);                    // Teensy or '595 drives the shared 8-bit bus\n    delayNanoseconds(CS_SETTLE_NS);     // >= tsu(373) + tpd(138) + tpd(04)\n\n    cs_select(slot);                    // Yn LOW -> '04 -> LE HIGH: this latch transparent\n    delayNanoseconds(CS_SETTLE_NS);     // >= tw(LE high): 120 ns bound / 24 ns @4.5V\n\n    cs_deselect_all();                  // Yn HIGH -> '04 -> LE FALLS: CAPTURE HAPPENS HERE\n    delayNanoseconds(CS_SETTLE_NS);     // MUST hold the bus: >= tpd(138)+tpd(04)+th(373)\n                                        //   = 195+120+26 = 341 ns bound, 76 ns @4.5V\n    bus_release();                      // ONLY NOW may the bus change\n}\n\nThe single most common bug is calling bus_release() before that last delay. The capture has not occurred yet at that point.",
+  "1-of-32 MASTER TREE WIRING (recommended over the flat 4-chip version). Master '138: pin 1 (A) <- ADDR3, pin 2 (B) <- ADDR4, pin 3 (C) -> GND, pin 4 -> GND, pin 5 -> GND, pin 6 (G1) <- CS_EN GPIO with 10 kOhm to GND, pin 8 -> GND, pin 16 -> 3V3. Master Y0..Y3 (pins 15,14,13,12) -> leaf0..leaf3 pin 4 (G2A). Each leaf: pin 1/2/3 <- ADDR0/1/2 (bussed to all leaves), pin 5 -> GND, pin 6 -> +3.3 V (hard tie, this is a fixed enable and must not float), pin 8 -> GND, pin 16 -> 3V3 + 0.1 uF. Master Y4..Y7 unused: leave them open (they are outputs, not inputs -- they may float safely) but do NOT leave any leaf input open.",
+  "SOFTWARE FOR THE TREE: the settle wait doubles because there are two '138 stages in series. Use CS_SETTLE_NS = 1000 for a two-tier tree until measured. Otherwise cs_select() is identical, with ch = 0..31 and the address split ADDR0..2 = ch & 7, ADDR3..4 = (ch >> 3) & 3.",
+  "BUS-CONTENTION INTERLOCK, hardware: every /OE on the shared 8-bit bus comes from a Y output of ONE '138 (or one tree). Nothing between the '138 pin and the '373 /OE pin except a 0 Ohm trace. No AND gate, no '04, no MCP23017, no second GPIO. Add 220 Ohm 1% in series with each '373 Q output on the shared bus: this bounds an 8-bit contention transient to about 44 mA through VCC/GND, inside the ±70 mA absolute maximum, at a cost of ~25 ns of extra settling into 50 pF.",
+  "BUS-CONTENTION INTERLOCK, firmware: there is nothing to do, and that is the point. Do not write a software mutex for /OE. If you find yourself writing one, the hardware is wrong -- go back and route the /OE lines from a single decoder.",
+  "'04 POLARITY: use ONE '04 gate per '373 LE line. Do not chain two gates to 'restore' polarity somewhere else, and do not use two different gates of the same package for two edges that must align -- TI publishes no gate-to-gate skew for the '04 and no separate tPLH/tPHL.",
+  "WHAT THE '04 MUST NOT DO: (1) Do not parallel '04 gates to increase drive. IOH is only -4 mA at 4.5 V and the parts are not characterised in parallel; unequal delays cause cross-conduction between the paralleled outputs. (2) Do not drive LEDs, relays, MOSFET gates, or long cables from an '04. (3) Do not build an RC or crystal oscillator with it -- the 74HC04 is BUFFERED (three stages) and has no usable linear region; a crystal oscillator wants the unbuffered 74HCU04, which he does not own. (4) Do not feed an '04 any signal with an edge slower than the Delta-t/Delta-v limit (500 ns at 4.5 V; no 3.3 V spec) -- it has no hysteresis and will oscillate. For every one of cases 3 and 4, use the 74HC14 from the Minidodoca kit: min hysteresis 0.4 V at 4.5 V, typ 0.9 V.",
+  "74LS245: do not fit it. There is no configuration in which it belongs in a 3.3 V fabric. Order SN74HC245N (DIP-20) as the direct replacement -- same pinout, VCC 2-6 V, tpd 26 ns max at 4.5 V. Order SN74LVC245AN instead only if a 5 V module will physically touch that bus (VI up to 5.5 V with 3.3 V VCC, tpd 6.3 ns max at 3.3 V, IOH -24 mA) -- and be aware its ~2 ns edges will ring on breadboard and your 24 MHz analyser cannot see the ringing. Do NOT substitute a TXB0108 or TXS0108 for a '245; they are translators, not bus transceivers, and have no DIR pin."
+ ],
+ "pitfalls": [
+  "THE 3.3 V TIMING GAP IS THE BIGGEST SILENT RISK. There is no 3.3 V AC column in the TI or Nexperia datasheet for the '138, '373, '04 or '14. Anyone who hands you a '3.3 V propagation delay' for these parts is interpolating. If firmware is tuned to a delay that came from a blog, it will pass on your bench and fail at 0 degC or on a different manufacturer's die.",
+  "UNBRANDED HC PARTS. The 74HC parts in a Minidodoca-style kit, and cheap marketplace tubes generally, are frequently unmarked re-badges that do not meet the TI/Nexperia 3.3 V corner even though the datasheet you are citing says they should. Test with the part you will actually fit, in the socket it will actually sit in.",
+  "RELEASING THE DATA BUS TOO EARLY. The '373 captures on the LE FALLING edge, which is delayed from your deselect write by tpd('138 enable->Y) + tpd('04). Releasing the bus immediately after the deselect write latches whatever the bus decays to. This fails silently and intermittently -- it will look like a flaky wire.",
+  "CHANGING THE '138 ADDRESS WHILE ENABLED. The three select bits do not change simultaneously and the internal decode paths differ, so an address change from 011 to 100 can transiently assert Y0, Y1, Y2 or Y7 as a real, driven, sub-100 ns LOW. On a /CS that is a phantom chip select; on an inverted LE it is a phantom latch capture. This is the entire reason for break-before-make and it is invisible without a fast analyser.",
+  "USING Y7 AS A 'NULL CHANNEL'. It does not work: reaching Y7 requires an address change, which glitches. Only an enable pin gives a glitch-free deselect, because it is a single input with a single decode path.",
+  "FLOATING ENABLE AT POWER-UP. Before setup() runs, the Teensy pin driving G1/E3 is high-Z, the '138 input sits between VIL (0.99 V) and VIH (2.31 V), and its resolution is arbitrary. If it resolves high, a random /CS or /OE is asserted, hard, for the whole boot window. A 10 kOhm pull-down on G1/E3 and 10 kOhm pull-ups on any MCU-driven G2A/G2B fix this for the cost of 330 uA.",
+  "FORGETTING THE '373's OWN BOOT STATE. TI states outright that at startup Q0 is unknown, and that if LE is held low during startup the outputs stay unknown until LE is driven high with valid data. Without a 10 kOhm pull-up on /OE (pin 1) that unknown state is driven onto the shared bus at power-up, against whatever else is there.",
+  "PUTTING ANY GATE BETWEEN THE '138 AND A /OE. The mutual-exclusion guarantee comes from the decoder's function table. Inserting an '04, an AND gate, or an MCP23017 output between the decoder and /OE destroys it -- gate skew reopens the overlap window, and a second control input can now assert independently. The '04 belongs in the LE path only.",
+  "DRIVING /OE FROM AN MCP23017. Its POR state is all pins configured as inputs, so every /OE it drives would float at power-up. Even with pull-ups this puts a slow, I2C-latency-limited path in the safety-critical position. Keep /OE on the decoder.",
+  "THE ±70 mA VCC/GND RATING IS WHAT YOU VIOLATE FIRST, NOT THE ±35 mA PIN RATING. Eight bits of contention on a '373 is roughly 165 mA through the package rails, about 3.4x over. This is why a double-/OE bug kills parts rather than merely corrupting data.",
+  "A 24 MHz LOGIC ANALYSER CANNOT MEASURE THESE DELAYS DIRECTLY. One sample is 41.67 ns; you need two samples to see an edge separation, so the practical floor is ~83 ns. A 25-45 ns '138 delay is below the noise floor of the instrument. Do not conclude 'the delay is zero' from a capture that shows both edges in the same sample -- see the ring-oscillator method below.",
+  "SERIES RESISTORS ON /CS OR ENABLE LINES CAN VIOLATE THE INPUT SLEW SPEC. Delta-t/Delta-v is 500 ns max at 4.5 V (139 ns/V, Nexperia) with no 3.3 V figure. Series resistance belongs on the DATA bus outputs for contention limiting, not on control inputs.",
+  "74HC04 USED AS A CRYSTAL OSCILLATOR. It is buffered (three internal stages); the part intended for that job is the unbuffered 74HCU04, which he does not own. A buffered '04 in a Pierce topology either will not start or will run on an overtone.",
+  "MIXING THE FLAT 4-CHIP 1-of-32 WITH A GLOBAL DESELECT. The four chips end up with spare enables of mixed polarity, so one global line needs an inverter for half of them -- and the two polarities then arrive skewed by tpd('04), opening a window where half the chips are enabled and half are not. Use the master tree instead.",
+  "ASSUMING 'IT WORKED ON THE BENCH' MEANS THE LS245 IS FINE AT 3.3 V. Its input side (VIH 2.0 V) genuinely does accept a 3.3 V CMOS high, which is why the mistake survives a first test. The failure is on the output side, is temperature- and lot-dependent, and in the 5 V-powered variant is a slow-kill of the Teensy through its ESD clamp rather than an immediate fault."
+ ],
+ "la_verification": [
+  "EXCLUSIVITY CHECK (the important one, and fully within the instrument's ability). Put all 8 channels of the analyser on Y0..Y7 of one '138. Run a firmware loop that walks all 8 channels plus deselect, thousands of times, at the slowest rate you will ever use and then at the fastest. Trigger the analyser on 'any two channels low simultaneously'. If your capture software cannot express that, capture and post-process: assert that the popcount of the inverted 8-bit sample is <= 1 for every sample in the file. Any sample with two lows means either your wiring bypasses the decoder or a channel is shorted. This test proves the hardware interlock, and it does not need sub-sample timing resolution.",
+  "BREAK-BEFORE-MAKE CHECK. Channels: CS_EN, CS_A, CS_B, CS_C on 4 channels, and 4 of the Y outputs on the rest. Verify in every transition that CS_EN goes LOW at least one sample before any of CS_A/B/C changes, and that no Y goes low between the address change and the CS_EN rising edge. With CS_SETTLE_NS = 500 the gaps are ~12 samples wide and trivially visible. Then reduce CS_SETTLE_NS and watch the gap shrink -- that is how you find the point where the analyser can no longer confirm ordering, and that is your floor for this instrument.",
+  "MEASURE THE 74HC04 tpd AT YOUR ACTUAL 3.3 V USING A RING OSCILLATOR -- this is the measurement that closes the datasheet's 3.3 V gap, and it is fully within a 24 MHz analyser's reach. Chain 13 inverters (you have 20 packages x 6 gates) output-to-input in a ring, close the loop, power at your real 3.3 V rail. Put one analyser channel on any node. The ring oscillates at f = 1 / (2 x N x tpd). If tpd is ~13 ns, f = 1/(2 x 13 x 13 ns) = 2.96 MHz -- well inside 24 MHz sampling. Then tpd = 1 / (2 x N x f). Repeat with N = 21 and N = 31 to confirm linearity (f should scale as 1/N). CAVEAT: the ring loads each stage with only one gate input (~3.5 pF Ci, plus a few pF of stray), not the 50 pF of the datasheet, so this yields an UNLOADED tpd -- a lower bound. Scale to your real load using the datasheet slope: the '138 shows ~12 ns typ at CL = 15 pF vs ~15 ns typ at CL = 50 pF, i.e. roughly 0.086 ns/pF. Add ~4 ns for a 50 pF load.",
+  "MEASURE THE 74HC138 ENABLE->Y DELAY AT 3.3 V using the same trick with a mixed ring. Wire Y0 of a '138 into three cascaded '04 gates and feed the third inverter's output back into G1/E3 of that same '138 (odd total inversion count, so it oscillates). Tie the address to 000 so Y0 is the selected output. Loop delay = tpd('138 enable->Y) + 3 x tpd('04). Measure the frequency, compute the loop delay as 1/(2f), and subtract 3 x tpd('04) from the previous experiment. That gives you a real, measured, 3.3 V '138 enable delay for your specific parts -- the number the datasheet refuses to give you. Repeat at 3.0 V and 3.6 V with a bench supply to see the slope.",
+  "MEASURE THE '373 CAPTURE INSTANT relative to the deselect. Channels: CS_EN, the relevant '138 Yn, the '04 output (= LE), one data-bus bit D, and the corresponding Q output. Drive a pattern where the bus bit changes shortly after the deselect write. With CS_SETTLE_NS = 500 the LE fall and the bus change are ~12 samples apart and you can confirm Q holds the pre-change value. Then deliberately break it: release the bus 100 ns after the deselect and confirm Q latches garbage. Seeing the failure once is worth more than trusting the arithmetic.",
+  "CONFIRM THE LE PULSE WIDTH. On the '04 output (LE), measure the high time in samples. It must exceed tw(LE high) with margin -- 24 ns at 4.5 V, 120 ns at the 2 V guaranteed bound. At CS_SETTLE_NS = 500 you will read ~12 samples (~500 ns), which is 4x the worst-case bound. Good.",
+  "INA219: FLOATING-INPUT / CONTENTION DETECTOR. Put one INA219 in the +3.3 V feed to the logic-fabric board only (not the Teensy). Quiescent expectation with everything static and every input properly tied: 80 uA max per '138 plus 160 uA max per '373 (both at the 6 V, over-temperature worst case, so at 3.3 V expect far less -- single-digit uA per package). If you read hundreds of uA or milliamps with nothing switching, an input is floating or two outputs are contending. Unplug packages one at a time to bisect. CAVEAT: the stock 0.1 Ohm shunt on a typical INA219 breakout with the common default calibration gives roughly 100 uA per LSB, which is barely enough resolution -- reconfigure to the low-current calibration (setCalibration_16V_400mA() or equivalent) before trusting sub-milliamp readings. UNVERIFIED: check your library's actual current-LSB for the calibration you select.",
+  "INA219: PROVE THE SERIES RESISTORS WORK, ONCE, DELIBERATELY. On a scrap '373 pair with 220 Ohm series resistors fitted, force both /OE low simultaneously with a jumper (not from firmware) with opposite data on the two latches, and read the rail current. Expect roughly 44 mA for 8 bits of contention. Then remove the resistors and repeat with ONE bit only -- expect roughly 21 mA for that single bit. Do not run the 8-bit unresisted case; that is the 165 mA condition that destroys the part. This calibrates your estimate of the HC output impedance, which is currently a derived number rather than a datasheet one.",
+  "VERIFY THE PULL RESISTORS ACTUALLY HOLD AT POWER-UP. Put an analyser channel on CS_EN and one on a Y output, arm the trigger on the Y output going low, then power-cycle the board. With the 10 kOhm pull-down fitted you should capture nothing. Remove the pull-down and repeat several times -- you will eventually catch the phantom assert. That is the boot hazard, on your own bench, in a screenshot."
+ ],
+ "open_questions": [
+  "What is the actual measured voltage on the fabric rail under load -- 3.30 V, or 3.15 V after a regulator and some trace drop? Every propagation-delay estimate scales steeply with VCC in the 3 V region, and the difference between 3.0 V and 3.3 V is meaningful on a curve whose 2 V point is 5x slower than its 4.5 V point.",
+  "How many 74HC373 D inputs, plus how much trace and breadboard, will sit on the shared 8-bit data bus? That decides whether the CL = 50 pF or the CL = 150 pF switching table applies -- the difference is 45 ns vs 60 ns (D->Q) at 4.5 V, and TI explicitly says not to exceed 50 pF. Count the loads and estimate the capacitance before fixing the settle wait.",
+  "Who manufactured the 74HC138, 74HC373 and 74HC04 parts you own -- TI, Nexperia, Toshiba, or unmarked? Everything above is cited from TI and Nexperia. Unmarked marketplace HC parts routinely miss the 3.3 V corner. If they are unmarked, the ring-oscillator measurement is not optional.",
+  "Do the 74HC373 outputs actually need to drive a SHARED bus, or are they point-to-point to dedicated loads (LEDs, individual peripheral inputs)? If every '373's Q outputs go to their own private destination, there is no shared bus, no /OE arbitration problem, no shoot-through hazard, and no need for series resistors -- you can tie every /OE to GND permanently and the whole contention analysis evaporates. This single answer changes half the design.",
+  "Is the 2.4 inch display on Teensy1 sharing the same SPI bus whose /CS lines the '138 will decode? If so, what is its controller's minimum /CS-high recovery time between transactions? That figure, not the '138's propagation delay, may well be the binding constraint on CS_SETTLE_NS.",
+  "Which Teensy 4.1 pins will carry CS_A, CS_B, CS_C? If all three land on the same fast-GPIO port (GPIO6/7/8/9) you can write them in a single register store and eliminate inter-bit skew entirely. If they are scattered across ports you take three separate stores and three skew intervals. Worth deciding before wiring anything.",
+  "How many independently addressable chip-selects do you actually need in stack 1 -- 8, 16, 32, or 64? 1-of-32 costs 5 '138s per stack (10 across both stacks, leaving 10 spare of your 20). 1-of-64 costs 9 per stack (18 of 20, leaving 2 spare) for the same two-stage delay. If 32 is enough, take 32 and keep the spares.",
+  "Does anything in the planned stack genuinely run at 5 V? That is the only thing that decides between buying SN74HC245N (cheaper, matches the fabric, HC thresholds throughout) and SN74LVC245AN (5 V-tolerant inputs, 6.3 ns, but fast edges that will ring on breadboard and that your 24 MHz analyser cannot see). If the answer is 'nothing is 5 V', buy the HC245 and stop thinking about it.",
+  "Do you want the '373s to be readable back onto the bus (i.e. is anything ever reading FROM a '373's Q outputs into the Teensy), or are they write-only output expanders? A '373 is not a transceiver -- if you need bidirectional traffic on that bus you need the '245 you do not currently own, and the whole /OE arbitration question gets larger."
+ ],
+ "injection_seen": "None. Every source in this pass was a manufacturer PDF fetched directly (ti.com/lit/ds/symlink/*.pdf for SN74HC138 SCLS107G, SN74HC373 SCLS140G, SN74HC573A SCLS147G, SN74HC374 SCLS141G, SN74HC04 SCLS078H, SN74HC14, SN74HC245, SN74LVC245A, SN74LS245 SDLS146B; assets.nexperia.com for 74HC/HCT138 Rev 10 and 74HC/HCT374; nxp.com for IMXRT1060CEC Rev 4) plus one vendor product page (pjrc.com/store/teensy41.html). The PDFs were extracted locally with pypdf rather than being interpreted by a summarising model, so the text I read was the raw datasheet content. I found no instruction-shaped text, no fake system-reminder blocks, no attribution-change directives, and nothing purporting to grant authority or urgency in any fetched document. One WebSearch was run (i.MX RT1060 absolute maximum ratings); its result summary contained no embedded instructions, and I verified its claim independently against the NXP PDF rather than relying on the summary. Note for completeness: two early WebFetch calls returned a model-written summary saying it could not read the compressed PDF and suggesting I supply a different document -- that is the fetch tool's own helper model failing on binary content, not injected content, and I ignored its suggestion and extracted the PDFs locally instead."
+}

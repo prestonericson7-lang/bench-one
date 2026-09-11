@@ -1,0 +1,8 @@
+
+  stage 2 of 4: layers 12..25, listening on 9202, forwarding to 127.0.0.1:9203
+  601.9 MB of weights, 224.0 MB of KV cache for 4 streams, loaded in 0.2 s
+  ring connected, running
+
+  48 messages carrying 220 positions through 14 layers, 130.6 ms per position
+  601.5 MB of weights, read once per MESSAGE not per position -> 0.98 GB/s
+  BUSY 86% of the run. That is the number streams exist to raise.

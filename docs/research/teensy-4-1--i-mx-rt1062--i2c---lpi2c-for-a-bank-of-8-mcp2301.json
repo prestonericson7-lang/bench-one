@@ -1,0 +1,325 @@
+{
+ "topic": "Teensy 4.1 (i.MX RT1062) I2C / LPI2C for a bank of 8 MCP23017 expanders — pins, real clock rates, timeouts, bus recovery, transaction arithmetic, yield() reentrancy, and pull-up sizing at 3.3 V",
+ "summary": "On Teensy 4.1 all three usable I2C buses land on top-side header pins: Wire = SDA 18 / SCL 19, Wire1 = SDA 17 / SCL 16, Wire2 = SDA 25 / SCL 24; only Wire1's alternates (SDA 44 / SCL 45) are back-side SMT pads. Wire.setClock() is quantised to exactly three profiles (<400000 -> 100 kHz; 400000..999999 -> 400 kHz; >=1000000 -> 1 MHz), all derived from a 24.000 MHz LPI2C functional clock. The \"runs ~7% fast\" folklore is wrong and I can show where it comes from: 24 MHz / (CLKHI+CLKLO+2) = 428.6 kHz, but the i.MX RT1060 RM's real period formula includes SCL_LATENCY, giving nominal 100.840 kHz / 400.000 kHz / 1.000 MHz with zero rise time — and because SCL_LATENCY absorbs the actual SCL rise time, real buses run SLOWER than nominal, not faster (expect roughly 358–375 kHz on a 2.2k / ~130 pF bus). One MCP23017 GPIOA+GPIOB read is 45 SCL pulses = 2842 LPI2C cycles = 118.42 us at the ideal 400.000 kHz, or ~132 us at a realistic 358 kHz; eight chips is ~0.96–1.07 ms of bus time if the inter-transaction gap is the RM's (CLKLO+1), but ~2.2 ms if the MCFGR2[BUSIDLE] 150 us gap applies — that ambiguity is the single biggest unknown and must be measured. Wire::endTransmission() and requestFrom() both call yield() every poll iteration, which on Teensy 4 dispatches serialEvent()/serialEventN() handlers with no interrupt-context check, so any Wire access from inside a serial event handler will silently corrupt an in-flight transaction. There is no setWireTimeout() API; timeouts are hard-coded at 15.0 ms (LPI2C pin-low/stretch), 16 ms (wait_idle, which then attempts a private 9-pulse recovery with no STOP), and 50 ms (transaction abort).",
+ "facts": [
+  {
+   "claim": "Wire (LPI2C1) SDA/SCL pins on Teensy 4.1 — no alternates exist in the library",
+   "value": "SDA = pin 18, SCL = pin 19. Both are top-side through-hole header pins (front card, right-hand column, labelled A4/SDA and A5/SCL). Pad regs: pin18 = GPIO_AD_B1_01, pin19 = GPIO_AD_B1_00. Library table: {{18, 3|0x10, &IOMUXC_LPI2C1_SDA_SELECT_INPUT, 1}, {0xff,...}} — the second slot is a terminator, so setSDA()/setSCL() have nothing to switch to.",
+   "source": "PaulStoffregen/Wire, WireIMXRT.cpp lines 421-430 (i2c1_hardware); PJRC Teensy 4.1 front pinout card https://www.pjrc.com/teensy/card11a_rev4_web.pdf; PaulStoffregen/cores teensy4/core_pins.h lines 453-454",
+   "confidence": "certain",
+   "why_it_matters": "Wire is the only bus with zero pin flexibility; if 18/19 are needed elsewhere the MCP23017 bank has to move to Wire1 or Wire2."
+  },
+  {
+   "claim": "Wire1 (LPI2C3) SDA/SCL pins on Teensy 4.1 — two selectable pin pairs",
+   "value": "Default SDA = pin 17, SCL = pin 16 (top-side headers, A3/TX4/SDA1 and A2/RX4/SCL1). Alternate SDA = pin 44, SCL = pin 45 — these are BACK-SIDE SMT pads (44 = CLK/CS2/SDA1, 45 = CMD/SCK2/SCL1) that are shared with the SD card socket signals. Select with Wire1.setSDA(44)/Wire1.setSCL(45).",
+   "source": "WireIMXRT.cpp lines 431-441 (i2c3_hardware, ARDUINO_TEENSY41 branch); PJRC Teensy 4.1 back card https://www.pjrc.com/teensy/card11b_rev4_web.pdf",
+   "confidence": "certain",
+   "why_it_matters": "44/45 are unsolderable-without-effort SMT pads AND collide with the built-in SD socket — do not route the expander bank there."
+  },
+  {
+   "claim": "Wire2 (LPI2C4) SDA/SCL pins on Teensy 4.1 — no alternates",
+   "value": "SDA = pin 25, SCL = pin 24. Both are top-side through-hole header pins (front card, lower block: 'PWM SCL2 TX6 A10 24' and 'PWM SDA2 RX6 A11 25'). Pad regs: pin24 = GPIO_AD_B0_12, pin25 = GPIO_AD_B0_13.",
+   "source": "WireIMXRT.cpp lines 443-450 (i2c4_hardware); PJRC card11a_rev4_web.pdf; core_pins.h lines 459-460",
+   "confidence": "certain",
+   "why_it_matters": "Note SCL is the LOWER pin number here (24) and SDA the higher (25) — the opposite ordering to Wire and Wire1. Easy silent swap."
+  },
+  {
+   "claim": "Wire3 does not exist on Teensy 4.1",
+   "value": "TwoWire Wire3 (LPI2C2) is compiled only under #if defined(ARDUINO_TEENSY_MICROMOD). On a Teensy 4.1 build there are exactly three objects: Wire, Wire1, Wire2.",
+   "source": "WireIMXRT.cpp lines 460-470",
+   "confidence": "certain",
+   "why_it_matters": "Any code or forum post referencing Wire3 on a T4.1 will not compile."
+  },
+  {
+   "claim": "Pin 51 is printed as 'SCL1' on the PJRC back card but is NOT usable from the Wire library",
+   "value": "Back card row: 'PWM SCL1 CS1 51'. The i2c3_hardware scl_pins[] table contains only {16, ...} and {45, ...}. Wire1.setSCL(51) will silently fail to match and leave the previous pin selected.",
+   "source": "PJRC card11b_rev4_web.pdf vs WireIMXRT.cpp i2c3_hardware",
+   "confidence": "certain",
+   "why_it_matters": "Trusting the silkscreen/card over the library table is a real trap here."
+  },
+  {
+   "claim": "LPI2C functional clock on Teensy 4 is 24.000 MHz, fixed by Wire.begin()",
+   "value": "begin() writes: CCM_CSCDR2 = (CCM_CSCDR2 & ~CCM_CSCDR2_LPI2C_CLK_PODF(63)) | CCM_CSCDR2_LPI2C_CLK_SEL; i.e. select osc_clk (24 MHz) and PODF = 0 (divide by 1). t_LPI2C = 41.6667 ns exactly.",
+   "source": "WireIMXRT.cpp lines 16-19 (comment: '// use 24 MHz clock')",
+   "confidence": "certain",
+   "why_it_matters": "Every timing number below is an integer multiple of 41.6667 ns. Changing F_CPU does NOT change I2C timing."
+  },
+  {
+   "claim": "Wire.setClock() on Teensy 4 is quantised to exactly three profiles",
+   "value": "if (frequency < 400000) -> 100 kHz profile; else if (frequency < 1000000) -> 400 kHz profile; else -> 1 MHz profile. So setClock(50000), setClock(200000) and setClock(399999) all give the identical 100 kHz profile; setClock(400000) and setClock(999999) give the identical 400 kHz profile.",
+   "source": "WireIMXRT.cpp lines 483-516",
+   "confidence": "certain",
+   "why_it_matters": "There is no way to ask for e.g. 350 kHz. Asking for anything under 400000 drops you to ~100 kHz — a 4x scan-rate cliff if a value is mistyped."
+  },
+  {
+   "claim": "RM period formula for LPI2C SCL",
+   "value": "t_SCL = (CLKHI + CLKLO + 2 + SCL_LATENCY) x (2^PRESCALE) LPI2C clock cycles, where SCL_LATENCY = ROUNDDOWN((2 + FILTSCL + SCL_RISETIME) / (2^PRESCALE)) and SCL_RISETIME = t_r(SCL)/t_LPI2C. Also t_LOW = (CLKLO+1) x 2^PRESCALE, t_HIGH = (CLKHI+1+SCL_LATENCY) x 2^PRESCALE, t_HD;STA = (SETHOLD+1) x 2^PRESCALE, t_SU;STA = t_SU;STO = (SETHOLD+1+SCL_LATENCY) x 2^PRESCALE.",
+   "source": "i.MX RT1060 Processor Reference Manual Rev. 3, 07/2021, section 47.3.1.4, Table 47-2 (p.2798) and Table 47-3 Synchronization Latency (p.2799)",
+   "confidence": "certain",
+   "why_it_matters": "This is the formula the '7% fast' myth omits. RM note: 'these parameters assume the risetime is less than one LPI2C functional clock cycle... A larger rise time increases the number of cycles... which increases the latency.'"
+  },
+  {
+   "claim": "400 kHz profile — exact register values and achieved frequency",
+   "value": "MCCR0 = CLKHI(26) | CLKLO(28) | DATAVD(12) | SETHOLD(18); MCFGR1 = PRESCALE(0); MCFGR2 = FILTSDA(2)|FILTSCL(2)|BUSIDLE(3600); MCFGR3 = PINLOW(1407). With rise time <41.7 ns: SCL_LATENCY = 4, t_SCL = 26+28+2+4 = 60 cycles = 2.5000 us -> f_SCL = 400.000 kHz EXACTLY. t_LOW = 29c = 1208.3 ns, t_HIGH = 31c = 1291.7 ns, t_HD;STA = 19c = 791.7 ns, t_SU;STA = t_SU;STO = 23c = 958.3 ns.",
+   "source": "WireIMXRT.cpp lines 495-502 + IMXRT1060RM Rev.3 Tables 47-2/47-3",
+   "confidence": "certain",
+   "why_it_matters": "The nominal is exactly 400.000 kHz, not 428 kHz. The '~7% fast' figure = 24e6/(26+28+2) = 428.571 kHz, which is what you get if you drop SCL_LATENCY from the formula."
+  },
+  {
+   "claim": "Real achieved frequency at the 400 kHz setting falls with SCL rise time — mapping table",
+   "value": "SCL_RISETIME (LPI2C cycles) -> SCL_LATENCY -> period -> f_SCL: 0c(0ns)->4->60c->400.00 kHz; 2c(83ns)->6->62c->387.10 kHz; 4c(167ns)->8->64c->375.00 kHz; 6c(250ns)->10->66c->363.64 kHz; 8c(333ns)->12->68c->352.94 kHz; 12c(500ns)->16->72c->333.33 kHz; 24c(1000ns)->28->84c->285.71 kHz.",
+   "source": "Derived from IMXRT1060RM Rev.3 Table 47-2/47-3 with Teensy's CLKHI=26, CLKLO=28, FILTSCL=2, PRESCALE=0, f=24 MHz",
+   "confidence": "likely",
+   "why_it_matters": "This is your in-situ capacitance meter: measure f_SCL on the LA, invert the table, get the real rise time, get Cb. It also means the bus NEVER exceeds 400 kHz — the I2C Fast-mode f_SCL max is respected."
+  },
+  {
+   "claim": "100 kHz profile — exact register values and achieved frequency",
+   "value": "MCCR0 = CLKHI(55) | CLKLO(59) | DATAVD(25) | SETHOLD(40); MCFGR1 = PRESCALE(1); MCFGR2 = FILTSDA(5)|FILTSCL(5)|BUSIDLE(3000); MCFGR3 = PINLOW(704). Fast rise: SCL_LATENCY = ROUNDDOWN((2+5+0)/2) = 3, t_SCL = (55+59+2+3) x 2 = 238 cycles = 9.9167 us -> f_SCL = 100.840 kHz (+0.84%). t_LOW = 120c = 5000.0 ns, t_HIGH = 118c = 4916.7 ns, t_HD;STA = 82c = 3416.7 ns, t_SU;STA = t_SU;STO = 88c = 3666.7 ns. With ~313 ns rise: 246 cycles -> 97.561 kHz.",
+   "source": "WireIMXRT.cpp lines 487-494 + IMXRT1060RM Rev.3 Tables 47-2/47-3",
+   "confidence": "certain",
+   "why_it_matters": "100.840 kHz nominally exceeds the Standard-mode f_SCL max of 100 kHz. Harmless for MCP23017 but will show up on a compliance capture."
+  },
+  {
+   "claim": "1 MHz profile — exact register values and achieved frequency",
+   "value": "MCCR0 = CLKHI(9) | CLKLO(10) | DATAVD(4) | SETHOLD(7); MCFGR1 = PRESCALE(0); MCFGR2 = FILTSDA(1)|FILTSCL(1)|BUSIDLE(2400); MCFGR3 = PINLOW(1407). Fast rise: SCL_LATENCY = 3, t_SCL = 24 cycles = 1.0000 us -> 1.000 MHz exactly. t_LOW = 11c = 458.3 ns.",
+   "source": "WireIMXRT.cpp lines 503-511",
+   "confidence": "certain",
+   "why_it_matters": "Irrelevant for MCP23017 (which supports 100 kHz / 400 kHz / 1.7 MHz only, per its feature list) and its t_LOW of 458.3 ns is below the Fast-mode Plus minimum of 500 ns. Do not use."
+  },
+  {
+   "claim": "The Teensy 400 kHz profile nominally VIOLATES the I2C Fast-mode minimum SCL LOW time",
+   "value": "Teensy t_LOW = (CLKLO+1) x scale = 29 x 41.6667 ns = 1208.3 ns. I2C Fast-mode minimum t_LOW = 1.3 us (1300 ns). Shortfall = 91.7 ns (7.1%). MCP23017 independently specifies TLOW min 1.3 us for 400 kHz mode (param 101). Note t_LOW is measured on the wire from SCL falling through 0.3VDD to rising through 0.3VDD, so a real fall time plus the sub-0.3VDD part of the rise adds roughly 0.357 x RC (~93 ns at Rp_eff 2.0k / Cb 130 pF), which is what pulls it back over the line in practice.",
+   "source": "NXP UM10204 Rev. 7.0 (2021-10-01) Table 11 (t_LOW Fast-mode min 1.3 us); Microchip MCP23017/MCP23S17 DS20001952D Table 1-3 param 101; WireIMXRT.cpp CLKLO(28)",
+   "confidence": "certain",
+   "why_it_matters": "If you make the pull-ups too strong / the bus too short, the rise-time padding vanishes and t_LOW genuinely drops under 1.3 us. This is a real argument AGAINST going below 2.2k here — the weak-ish pull-up is protecting you."
+  },
+  {
+   "claim": "The Teensy 100 kHz profile nominally violates two Standard-mode setup/hold minimums",
+   "value": "t_HD;STA = 3416.7 ns vs Sm minimum 4.0 us (short by 583 ns). t_SU;STA = 3666.7 ns vs Sm minimum 4.7 us (short by 1033 ns). t_SU;STO = 3666.7 ns vs Sm minimum 4.0 us (short by 333 ns). t_LOW (5000 ns) and t_HIGH (4916.7 ns) are compliant.",
+   "source": "UM10204 Rev.7.0 Table 11; derived from WireIMXRT.cpp SETHOLD(40), PRESCALE(1)",
+   "confidence": "likely",
+   "why_it_matters": "MCP23017 tolerates it in practice, but if you ever hang a slower/pickier device off the same bus this is where it will fail."
+  },
+  {
+   "claim": "Clock-stretch (pin-low) timeout is hard-coded at 15.0 ms and applies to SCL only",
+   "value": "#define CLOCK_STRETCH_TIMEOUT 15000 (microseconds). MCFGR3[PINLOW] = 15000*24/256+1 = 1407 for the 400 kHz/1 MHz profiles, and 15000*12/256+1 = 704 for the 100 kHz profile. RM: PLTF sets if SCL is low longer than (PINLOW * 256) prescaler cycles. Actual: 1407 x 256 / 24 MHz = 15.008 ms (400 kHz); 704 x 256 x 2 / 24 MHz = 15.019 ms (100 kHz). MCFGR1[TIMECFG] is never set by Wire, so TIMECFG = 0 -> PLTF triggers on SCL low only, not SDA.",
+   "source": "WireIMXRT.cpp lines 480, 494, 502, 510; IMXRT1060RM Rev.3 MCFGR3[PINLOW] field description and MCFGR1[TIMECFG] field description",
+   "confidence": "certain",
+   "why_it_matters": "A slave that stretches SCL beyond 15 ms sets MSR[PLTF] and endTransmission() returns 4. MCP23017 never stretches, so a PLTF in your logs means a wiring/short/other-device fault, not a slow expander."
+  },
+  {
+   "claim": "The LPI2C master fully supports slave clock stretching below the timeout",
+   "value": "The LPI2C master synchronises to the actual SCL line (that is exactly why SCL_LATENCY exists) and will wait indefinitely, up to PINLOW, for a slave holding SCL low. RM 47.3.1.5: software must respond to MSR[PLTF] by terminating the command either cleanly (clearing MCR[MEN]) or abruptly (setting MCR[RST]).",
+   "source": "IMXRT1060RM Rev.3 section 47.3.1.5 Error Conditions",
+   "confidence": "certain",
+   "why_it_matters": "Wire does neither of the RM-recommended recoveries on PLTF — it just clears the FIFOs and pushes a STOP command. See pitfalls."
+  },
+  {
+   "claim": "MCP23017 has no clock-stretching mechanism",
+   "value": "The MCP23017/MCP23S17 datasheet (DS20001952D) contains no reference to clock stretching, and specifies no t_SU/hold parameters that would require the device to hold SCL. It is a plain register file with an ACK-on-every-byte protocol.",
+   "source": "Microchip MCP23017/MCP23S17 DS20001952D — searched full text, zero occurrences of 'stretch'",
+   "confidence": "likely",
+   "why_it_matters": "Absence of evidence, stated honestly. Practically: assume no stretching, and treat any observed SCL-low-extension on the LA as a fault, not normal behaviour."
+  },
+  {
+   "claim": "There is NO setWireTimeout() / getWireTimeoutFlag() / clearWireTimeoutFlag() API on Teensy 4",
+   "value": "The public section of TwoWire in WireIMXRT.h exposes only setClock(), setSDA(), setSCL() beyond the standard Arduino methods. The Arduino-core timeout API added in Arduino 1.8.13 is absent.",
+   "source": "PaulStoffregen/Wire WireIMXRT.h lines 43-90",
+   "confidence": "certain",
+   "why_it_matters": "Any portable code that calls Wire.setWireTimeout() will not compile. Timeouts are fixed and must be worked around at the application layer."
+  },
+  {
+   "claim": "Hard-coded software timeouts in the transaction loops",
+   "value": "wait_idle(): elapsedMillis, gives up at 'timeout > 16' (16 ms), then calls force_clock(); if that also fails, returns false and endTransmission()/requestFrom() return 4. endTransmission() and requestFrom() main loops: 'timeout > 50' (50 ms) -> clear FIFOs, push STOP, return 4.",
+   "source": "WireIMXRT.cpp lines 78-88 (wait_idle), 143-147 (endTransmission), 194-198 (requestFrom)",
+   "confidence": "certain",
+   "why_it_matters": "A single wedged bus can block your scan loop for up to 66 ms. Across 8 chips that is >0.5 s of blocked main loop — enough to overflow the 921600-baud Serial1 RX ring from the ESP32-S3."
+  },
+  {
+   "claim": "Wire's built-in bus recovery (force_clock) does 9 pulses but NO STOP, and is private",
+   "value": "bool TwoWire::force_clock() — takes SDA and SCL with GPIO (mux = 5|0x10 = ALT5+SION), drives both high, delayMicroseconds(10), then loops i=0..8: if both SDA and SCL read high, return true; else clear SCL, delayMicroseconds(5), set SCL, delayMicroseconds(5). Finally restores the LPI2C mux values. Effective recovery clock ~100 kHz (5 us + 5 us). It is declared under 'private:' in WireIMXRT.h line 165 and is only reached from wait_idle() after the 16 ms timeout.",
+   "source": "WireIMXRT.cpp lines 232-263; WireIMXRT.h line 165",
+   "confidence": "certain",
+   "why_it_matters": "It never generates a STOP condition, so a slave that is mid-byte can be released but left without a clean frame boundary. You need your own public routine (see code_guidance)."
+  },
+  {
+   "claim": "Wire::endTransmission() and Wire::requestFrom() both call yield() on Teensy 4",
+   "value": "Both functions end their while(1) polling body with a bare 'yield();' — it runs on every iteration of the busy-poll, i.e. potentially thousands of times per transaction at 600 MHz.",
+   "source": "WireIMXRT.cpp line 149 (endTransmission) and line 208 (requestFrom)",
+   "confidence": "certain",
+   "why_it_matters": "This is the reentrancy hazard your existing firmware depends on. Details in the next three facts."
+  },
+  {
+   "claim": "Teensy 4 yield() is weak, gated, and only partly reentrancy-safe",
+   "value": "void yield(void) __attribute__((weak)). It returns immediately if yield_active_check_flags == 0. A 'static uint8_t running' flag guards the serialEvent dispatch block — BUT 'running = 0;' is executed BEFORE EventResponder::runFromYield() is called, so the EventResponder path is outside that guard. There is an explicit unimplemented comment: '// TODO: do nothing if called from interrupt'.",
+   "source": "PaulStoffregen/cores teensy4/yield.cpp (full file)",
+   "confidence": "certain",
+   "why_it_matters": "The 'running' guard stops infinite yield recursion but does NOT stop the first level of nesting, which is the one that corrupts Wire state."
+  },
+  {
+   "claim": "Which yield() sub-handlers are armed, and by what",
+   "value": "YIELD_CHECK_USB_SERIAL is set only if the sketch defines serialEvent(): 'if (serialEvent) yield_active_check_flags |= YIELD_CHECK_USB_SERIAL;' in usb_serial.c line 125. YIELD_CHECK_HARDWARE_SERIAL is set by HardwareSerial.cpp line 716 when a serialEventN() exists. YIELD_CHECK_EVENT_RESPONDER is set in EventResponder.h line 91 when a responder attaches to yield.",
+   "source": "PaulStoffregen/cores teensy4/usb_serial.c:125, HardwareSerial.cpp:716, EventResponder.h:91",
+   "confidence": "certain",
+   "why_it_matters": "If your firmware defines serialEvent1() for the ESP32-S3 link, then EVERY Wire poll iteration inside endTransmission() calls serialEvent1()."
+  },
+  {
+   "claim": "EventResponder::runFromYield() IS interrupt-safe and recursion-guarded; the serialEvent path is NOT",
+   "value": "runFromYield() reads IPSR ('mrs %0, ipsr') and returns immediately if ipsr != 0, and has its own 'runningFromYield' recursion flag. The serialEvent()/serialEventN() dispatch in yield() has neither check.",
+   "source": "PaulStoffregen/cores teensy4/EventResponder.h lines 175-197; yield.cpp lines 46-70",
+   "confidence": "certain",
+   "why_it_matters": "Calling Wire from an ISR on Teensy 4 will run your serialEvent handlers from interrupt context. Calling Wire from a serialEvent handler will re-enter Wire."
+  },
+  {
+   "claim": "MCP23017 GPIOA and GPIOB are adjacent and auto-increment by default",
+   "value": "With IOCON.BANK = 0 (POR default): GPIOA = 0x12, GPIOB = 0x13. IOCON.SEQOP = 0 (POR default) enables sequential mode: 'MCP23017 increments its address counter after each ACK during the data transfer.' So a 2-byte read from 0x12 returns GPIOA then GPIOB. (With BANK = 1 the addresses are 0x09 and 0x19 and they are NOT adjacent.)",
+   "source": "Microchip MCP23017/MCP23S17 DS20001952D, register map table (GPIOA: BANK1 09h / BANK0 12h; GPIOB: BANK1 19h / BANK0 13h) and section 3.2.1 / 3.2.2.3",
+   "confidence": "certain",
+   "why_it_matters": "The whole single-transaction 2-byte read depends on BANK=0 and SEQOP=0. If any init code sets BANK=1 the read silently returns GPIOA twice (byte-mode A/B pair toggle) or garbage."
+  },
+  {
+   "claim": "MCP23017 I2C addressing gives exactly 8 devices",
+   "value": "Control byte = 0 1 0 0 A2 A1 A0 R/W, i.e. 7-bit addresses 0x20 through 0x27. 'Three Hardware Address Pins to Allow Up to Eight Devices On the Bus.' A0/A1/A2 'must be externally biased' — they are not internally pulled.",
+   "source": "Microchip DS20001952D, features list and section 3.3 Hardware Address Decoder; pin table entries A0 (pin 15 SOIC/11 PDIP), A1, A2",
+   "confidence": "certain",
+   "why_it_matters": "Floating A0-A2 is a classic silent-misaddressing failure; it also violates your own no-floating-CMOS-inputs rule."
+  },
+  {
+   "claim": "MCP23017 400 kHz operation requires VDD 2.7-5.5 V — 3.3 V is in spec",
+   "value": "Table 1-3 conditions for the 400 kHz mode rows read '2.7V - 5.5V'. 100 kHz mode is 1.8-5.5 V; 1.7 MHz mode requires 4.5-5.5 V (so 1.7 MHz is NOT available at 3.3 V). 400 kHz mins: THIGH 0.6 us, TLOW 1.3 us, TR max 300 ns, TF max 300 ns (20 + 0.1*CB min).",
+   "source": "Microchip DS20001952D Table 1-3 params 100, 101, 102, 103",
+   "confidence": "certain",
+   "why_it_matters": "400 kHz at 3.3 V is fully supported; 1.7 MHz is not, so the 400 kHz profile is the correct and only sensible choice."
+  },
+  {
+   "claim": "MCP23017 bus loading spec and the missing input-capacitance number",
+   "value": "D102: SDA, CB, max 400 pF (this is the bus load the SDA driver is characterised against, not the pin's own capacitance). D101: GPIO/SO/INT CIO max 50 pF — these are the port pins, not SDA/SCL. The datasheet does NOT publish an input capacitance for the SDA or SCL pins.",
+   "source": "Microchip DS20001952D DC Characteristics, 'Capacitive Loading Specs on Output Pins', D101/D102",
+   "confidence": "certain",
+   "why_it_matters": "You cannot get a per-chip Cb contribution from the MCP23017 datasheet. Use the I2C spec's per-pin ceiling instead (next fact) and then measure."
+  },
+  {
+   "claim": "I2C spec per-pin capacitance ceiling and pull-up sizing equations",
+   "value": "UM10204 Table 10: Ci, capacitance for each I/O pin, max 10 pF (all modes). Rise-time relation: V(t1)=0.3VDD at t1=0.3566749*RC, V(t2)=0.7VDD at t2=1.2039729*RC, so T = t2-t1 = 0.8473 x RC. Rp(max) = t_r(max) / (0.8473 x Cb). Rp(min) = (VDD - VOL_max)/IOL, with IOL = 3 mA for Standard- and Fast-mode. Fast-mode t_r max = 300 ns, Cb max = 400 pF.",
+   "source": "NXP UM10204 Rev. 7.0, 1 October 2021, section 7.1 Pull-up resistor sizing, Table 10 and Table 11",
+   "confidence": "certain",
+   "why_it_matters": "This is the arithmetic backbone for the pull-up answer below."
+  },
+  {
+   "claim": "Teensy's Wire library enables an internal ~22 kOhm pull-up on SDA and SCL — you cannot turn it off through the API",
+   "value": "#define PINCONFIG (IOMUXC_PAD_ODE | IOMUXC_PAD_SRE | IOMUXC_PAD_DSE(4) | IOMUXC_PAD_SPEED(1) | IOMUXC_PAD_PKE | IOMUXC_PAD_PUE | IOMUXC_PAD_PUS(3) | IOMUXC_PAD_HYS). PUS(3) = '22K Ohm Pull Up' per the RM pad-control field encoding, with PKE=1 (pull/keeper enabled) and PUE=1 (pull, not keeper). DSE(4) = R0/4, where R0 = 150 Ohm @ 3.3 V, so the output driver is ~37.5 Ohm. The i.MX RT1060 datasheet specs RPU_22K at max 212 uA with Vin = 0 V, i.e. R >= 3.3 V / 212 uA = 15.6 kOhm; no minimum current is given, so the true value lies somewhere at or above 15.6 kOhm with 22 kOhm nominal.",
+   "source": "WireIMXRT.cpp line 8 (PINCONFIG); IMXRT1060RM Rev.3 SW_PAD_CTL PUS/DSE field encodings; i.MX RT1060 Industrial datasheet IMXRT1060IEC Rev.4 04/2024, RPU_22K row",
+   "confidence": "certain",
+   "why_it_matters": "Your external 2.2k does not act alone. 2.2k || 22k = 2.00 kOhm; worst case 2.2k || 15.6k = 1.93 kOhm. Every rise-time calculation must use the parallel value."
+  },
+  {
+   "claim": "Recommended pull-up for 8x MCP23017 + Teensy + 30 cm of breadboard wire at 3.3 V",
+   "value": "Keep 2.2 kOhm external on each of SDA and SCL, at the master only. Effective Rp = 2.2k || 22k = 2.00 kOhm (worst case 1.93 kOhm). Rp(min) = (3.3 - 0.4)/3 mA = 967 Ohm -> 2.0 kOhm is comfortably above. Sink current at VOL = 3.3/2000 = 1.65 mA, well inside the MCP23017's 3.0 mA characterisation point. Capacitance budget: 8 slaves x 10 pF (I2C spec ceiling) = 80 pF, + Teensy pad ~10 pF (unverified), + 30 cm of breadboard/jumper ~30-60 pF (unverified estimate) = roughly 120-150 pF, call it 130 pF nominal. t_r = 0.8473 x 2000 x 130e-12 = 220 ns, under the 300 ns Fast-mode limit with 27% margin. The 2.0 kOhm effective value stays legal up to Cb = 300e-9/(0.8473 x 2000) = 177 pF.",
+   "source": "UM10204 Rev.7.0 section 7.1 + Table 10 (Ci 10 pF) + Table 11 (t_r 300 ns); MCP23017 DS20001952D VOL/IOL rows; IMXRT1060IEC RPU_22K",
+   "confidence": "likely",
+   "why_it_matters": "Your existing 2.2k rule is correct here. But your written crossover ('1.5k if bus >150 pF') is slightly conservative: with the internal 22k in parallel the true 2.2k crossover is 177 pF, not 150 pF. And 1.5k external = 1.404 kOhm effective, good to 252 pF — still above Rp(min) 967 Ohm, so 1.5k remains a safe fallback."
+  },
+  {
+   "claim": "Rp(max) at several bus capacitances, Fast-mode (t_r = 300 ns)",
+   "value": "Cb = 100 pF -> Rp(max) = 3541 Ohm. Cb = 130 pF -> 2724 Ohm. Cb = 150 pF -> 2360 Ohm. Cb = 200 pF -> 1770 Ohm. Cb = 400 pF (spec ceiling) -> 885 Ohm — which is BELOW Rp(min) = 967 Ohm, i.e. at 400 pF a plain resistive pull-up cannot meet Fast-mode at 3.3 V.",
+   "source": "Derived from UM10204 Rev.7.0 Equation 1: Rp(max) = t_r / (0.8473 x Cb); Rp(min) = (3.3-0.4)/3mA",
+   "confidence": "certain",
+   "why_it_matters": "Sets the hard ceiling on how much wire you can add before 400 kHz is impossible with resistors alone. At 3.3 V the practical Cb ceiling for Fast-mode is around 350 pF."
+  },
+  {
+   "claim": "Exact byte-by-byte transaction: read GPIOA+GPIOB from one MCP23017 in one transaction",
+   "value": "Wire frame: S | 0x40|A (addr<<1, W) +ACK | 0x12 +ACK | Sr | 0x41|A (addr<<1|1, R) +ACK | GPIOA +ACK(master) | GPIOB +NACK(master) | P. That is 5 bytes x 9 bits = 45 SCL pulses. Cycle-exact at the 400 kHz profile with fast rise (SCL_LATENCY = 4, period 60c): t_HD;STA 19c + 5 bytes x 9 x 60c (2700c) + repeated-START overhead (t_LOW 29c + t_SU;STA 23c + t_HD;STA 19c = 71c) + STOP overhead (t_LOW 29c + t_SU;STO 23c = 52c) = 2842 LPI2C cycles = 118.42 us START-to-STOP. Naive check: 45 x 2.5 us = 112.50 us of clocking + 142 cycles (5.92 us) of condition overhead = 118.42 us.",
+   "source": "Derived from WireIMXRT.cpp 400 kHz register values + IMXRT1060RM Rev.3 Table 47-2; frame shape from MCP23017 DS20001952D Figure 3-2 'Byte and Sequential Read'",
+   "confidence": "likely",
+   "why_it_matters": "This is the number to check on the LA. If you measure materially more, the extra is rise-time latency (see the mapping table) or firmware overhead."
+  },
+  {
+   "claim": "Same transaction with realistic rise time",
+   "value": "With Rp_eff = 2.0 kOhm and Cb = 130 pF, t_r to the 0.7VDD guaranteed-VIH point = 1.204 x RC = 313 ns = 7.5 LPI2C cycles -> SCL_LATENCY = 11 -> period 67c -> f_SCL = 358.2 kHz -> transaction = 3171 cycles = 132.13 us. If the pad's Schmitt trip is nearer 0.5VDD, t_r = 0.693 x RC = 180 ns = 4.3 cycles -> SCL_LATENCY = 8 -> period 64c -> 375.0 kHz -> 3030 cycles = 126.25 us. Expect a measured f_SCL in the 355-378 kHz band and a transaction of 126-133 us.",
+   "source": "Derived; trip-point ambiguity from IMXRT1060IEC Rev.4 (VIH min = 0.7 x NVCC, input hysteresis min 250 mV, Schmitt VT+/VT- rows not cleanly resolvable in the datasheet text)",
+   "confidence": "unverified",
+   "why_it_matters": "Predicts what the LA will actually show. If the measurement lands outside 355-378 kHz, either Cb or the pull-up is not what you think."
+  },
+  {
+   "claim": "Full scan time for 8 MCP23017 chips (GPIOA+GPIOB each)",
+   "value": "Bus time only, 400 kHz profile. Ideal (400.000 kHz, t_BUF = (CLKLO+1) = 29c = 1208 ns): 8 x (118.42 + 1.21) = 957.0 us -> 1045 scans/s. Realistic (358.2 kHz, same t_BUF): 8 x (132.13 + 1.21) = 1066.7 us -> 938 scans/s. Same at 375 kHz: 1019.7 us. For comparison, the 100 kHz profile: transaction = 11290 cycles = 470.42 us, 8 chips = 3.77 ms -> 265 scans/s.",
+   "source": "Derived as above",
+   "confidence": "likely",
+   "why_it_matters": "Roughly 1 ms per full 8-chip scan at 400 kHz — 128 input bits per millisecond. That is your ceiling before firmware overhead."
+  },
+  {
+   "claim": "MAJOR UNCERTAINTY: the inter-transaction bus-free time may be 1.2 us or 152 us",
+   "value": "RM 47.3.1.2 says the bus becomes idle when a STOP is detected OR a bus idle timeout occurs, and that before starting a transfer the master waits (MCCR0[CLKLO]+1) x prescaler = 29 cycles = 1208 ns. But RM 47.3.1.3 says 'when BUSIDLE is configured greater than zero then SCL and/or SDA must be high for (BUSIDLE+1) prescaler cycles' before the bus is considered idle — and Teensy sets BUSIDLE(3600) in the 400 kHz profile, i.e. 3601 cycles = 150.04 us. An independent empirical analysis (Richard-Gemmell/teensy4_i2c) measured t_BUF and found it follows the BUSIDLE path: nominal = 1000 ns + SCALE x (CLKLO + 1 + BUSIDLE + 1) ~= 152.25 us, explicitly flagged as 'The actual behaviour of the i.MX RT1062 is significantly different to the equations given in 47.3.1.4'. If the BUSIDLE path is real, the 8-chip scan becomes 8 x (132.13 + 152.25) = 2275 us (~440 scans/s) instead of 1067 us.",
+   "source": "IMXRT1060RM Rev.3 sections 47.3.1.2 and 47.3.1.3 (contradictory); Richard-Gemmell/teensy4_i2c documentation/i2c_design/i2c_timing_analysis.md, t_BUF section",
+   "confidence": "unverified",
+   "why_it_matters": "A 2.1x difference in achievable scan rate. This is the single most important thing to measure first."
+  },
+  {
+   "claim": "The LPI2C master auto-NACKs the final byte of a receive command",
+   "value": "'The LPI2C master automatically transmits a NACK on the last byte of a receive data [transfer].' MTDR CMD encoding: 000b = Transmit DATA[7:0]; 001b = Receive (DATA[7:0] + 1) bytes; 010b = Generate STOP; 100b = Generate (repeated) START and transmit address. Wire's requestFrom() writes LPI2C_MTDR_CMD_RECEIVE | (length - 1), i.e. 1 for a 2-byte read.",
+   "source": "IMXRT1060RM Rev.3 section 47.3.1.2 and MTDR[CMD] field table (p.2831-2832); WireIMXRT.cpp line 172",
+   "confidence": "certain",
+   "why_it_matters": "You do not need to manage the final NACK yourself; the 2-byte read produces ACK then NACK correctly with the stock library."
+  },
+  {
+   "claim": "Wire buffer size and end() behaviour on Teensy 4",
+   "value": "#define BUFFER_LENGTH 136 (rxBuffer[136], txBuffer[137]) — much larger than the AVR 32. requestFrom() clamps length to 1..255 but rxBufferLength is capped by sizeof(rxBuffer) = 136. TwoWire::end() is an EMPTY function body on IMXRT — it does nothing at all.",
+   "source": "WireIMXRT.h lines 35, 170, 174; WireIMXRT.cpp lines 30-32",
+   "confidence": "certain",
+   "why_it_matters": "Wire.end(); Wire.begin(); is a valid re-init sequence only because begin() does the work — but begin() also resets MCR and calls setClock(100000), so you MUST re-apply setClock(400000) after any re-begin or you will silently drop to ~100 kHz."
+  }
+ ],
+ "code_guidance": [
+  "Bus assignment: put the 8-chip MCP23017 bank on Wire (SDA 18 / SCL 19) — top-side headers, adjacent, no alternates to get confused about. Keep Wire2 (SDA 25 / SCL 24) free; remember its SCL is the LOWER pin number, the opposite convention to Wire and Wire1. Do not use pins 44/45 (Wire1 alternates) — they are back-side SMT pads shared with the SD socket.",
+  "Init order matters: Wire.begin(); then Wire.setClock(400000); — in that order, because begin() internally calls setClock(100000) after resetting MCR. Re-apply setClock after ANY call to begin(). Wire.end() is a no-op on this core, so it is not a valid way to release the pins.",
+  "Do not pass a value below 400000 to setClock() expecting anything between: setClock(400000) is the ONLY way to get the 400 kHz profile. setClock(399999) silently gives you ~100 kHz. Consider a compile-time constant and a static_assert-style guard.",
+  "Read GPIOA+GPIOB in one transaction with the built-in internal-address form, which emits exactly S/addrW/0x12/Sr/addrR/data/data/P:\n  uint8_t n = Wire.requestFrom((uint8_t)addr, (uint8_t)2, (uint32_t)0x12, (uint8_t)1, (uint8_t)1);\n  if (n == 2) { a = Wire.read(); b = Wire.read(); }\nThe equivalent long form is: Wire.beginTransmission(addr); Wire.write(0x12); if (Wire.endTransmission(false) != 0) -> error; Wire.requestFrom(addr, 2, true);",
+  "Verify IOCON before trusting the 2-byte read: the single-transaction GPIOA+GPIOB read only works with IOCON.BANK = 0 and IOCON.SEQOP = 0 (both POR defaults). If your init writes IOCON, write it as BANK=0, MIRROR=1, SEQOP=0, ODR=1 — note ODR=1 makes INT open-drain and overrides the INTPOL bit. Read IOCON back and assert it, because a glitched write to IOCON at 0x0A/0x0B during a BANK transition is a known way to end up in an unexpected bank.",
+  "Add an application-level reentrancy guard around every Wire access, because Wire is not reentrant and endTransmission()/requestFrom() call yield() on every poll iteration:\n  static volatile bool i2c_busy = false;\n  // enter: if (i2c_busy) return I2C_BUSY; i2c_busy = true;  ... exit: i2c_busy = false;\nEnter/exit with interrupts briefly masked (__disable_irq()/__enable_irq()) around the test-and-set.",
+  "Alternative, stronger fix if you do not need serialEvent dispatch during I2C: define your own yield in the sketch. It is declared weak, so this compiles and fully overrides the core version:\n  extern \"C\" void yield(void) { }\nThe cost is that serialEvent()/serialEventN() are then never dispatched anywhere, so you must poll Serial1.available() in loop() yourself. At 921600 baud (~11 us/byte) a 132 us I2C transaction accumulates ~12 bytes, well inside the default HardwareSerial RX buffer.",
+  "Never call Wire from an ISR on this core. yield() has an unimplemented '// TODO: do nothing if called from interrupt' and will dispatch serialEvent handlers from interrupt context. (EventResponder handlers are safe — runFromYield() checks IPSR — but the serial path is not.) Have the MCP23017 INT ISR set a flag only, and do the I2C read from loop().",
+  "Write your own public bus-recovery routine — the library's force_clock() is private, never emits a STOP, and only runs after a 16 ms stall. For Wire on pins 18/19:\n\nbool i2cRecover(uint8_t sdaPin, uint8_t sclPin) {\n  pinMode(sclPin, OUTPUT_OPENDRAIN); digitalWrite(sclPin, HIGH);\n  pinMode(sdaPin, OUTPUT_OPENDRAIN); digitalWrite(sdaPin, HIGH);\n  delayMicroseconds(10);\n  for (int i = 0; i < 9; i++) {\n    if (digitalRead(sdaPin) && digitalRead(sclPin)) break;   // released early\n    digitalWrite(sclPin, LOW);  delayMicroseconds(5);\n    digitalWrite(sclPin, HIGH); delayMicroseconds(5);\n  }\n  // manual STOP: SDA low while SCL high, then SDA high\n  digitalWrite(sdaPin, LOW);  delayMicroseconds(5);\n  digitalWrite(sclPin, HIGH); delayMicroseconds(5);\n  digitalWrite(sdaPin, HIGH); delayMicroseconds(5);\n  bool ok = digitalRead(sdaPin) && digitalRead(sclPin);\n  Wire.begin(); Wire.setClock(400000);   // re-mux pins and restore speed\n  return ok;\n}\n\nNote pinMode(pin, OUTPUT_OPENDRAIN) writes pad = DSE(7)|ODE (drive ~21 Ohm, NO internal pull-up, no hysteresis) and sets mux = ALT5|SION, so recovery relies entirely on your external pull-ups. Then Wire.begin() restores the LPI2C mux via configSDApin()/configSCLpin() — and the setClock() after it is mandatory.",
+  "Distinguish the endTransmission() return codes on this core when logging: 0 = success; 2 = NACK (the library cannot tell an address NACK from a data NACK — it returns 2 for both); 4 = arbitration lost, OR pin-low/clock-stretch timeout (MSR[PLTF]), OR the 50 ms generic timeout, OR wait_idle() failed after 16 ms + failed recovery, OR an empty tx buffer; 5 = LPI2C FIFO error (MSR[FEF]) — note the library deliberately does NOT try to send a STOP on FEF ('empirical evidence suggests NOT trying to send a STOP condition'). Treat 5 as 'bus state unknown, run i2cRecover()'.",
+  "Budget the scan loop for blocking: a wedged bus costs up to 16 ms (wait_idle) + 50 ms (transaction) = 66 ms per chip. Across 8 chips that is >0.5 s of blocked loop(). Add your own elapsedMicros watchdog around each chip read, mark a failing chip 'offline', skip it for N cycles, and only run i2cRecover() once per scan pass rather than per chip.",
+  "Optional: to disable the Teensy's internal 22k pull-ups on SDA/SCL after Wire.begin() (only do this if you have measured that they are causing a t_LOW violation), clear PKE/PUE in the pad register:\n  CORE_PIN18_PADCONFIG &= ~(IOMUXC_PAD_PKE | IOMUXC_PAD_PUE);   // SDA, GPIO_AD_B1_01\n  CORE_PIN19_PADCONFIG &= ~(IOMUXC_PAD_PKE | IOMUXC_PAD_PUE);   // SCL, GPIO_AD_B1_00\nDo NOT clear IOMUXC_PAD_ODE — that would turn the pins into push-pull drivers and short the bus.",
+  "Use one MCP23017 read helper and reuse it for all 8 chips; do not re-order the address pointer between chips. Do not enable IOCON.SEQOP=1 (byte mode) — it breaks the 2-byte read. Do not enable IOCON.DISSLW; leaving slew-rate control at its default is what keeps SDA fall time inside the 300 ns Fast-mode limit."
+ ],
+ "pitfalls": [
+  "The '~7% fast' claim in the brief is wrong, and I can name the exact wrong formula: 24 MHz / (CLKHI + CLKLO + 2) = 24e6/56 = 428.571 kHz is +7.14%. The RM's real formula divides by (CLKHI + CLKLO + 2 + SCL_LATENCY) = 60, giving exactly 400.000 kHz. Because SCL_LATENCY grows with the actual SCL rise time, a real bus runs BELOW 400 kHz, never above. Anyone who sized a timing budget assuming 428 kHz has the sign of the error backwards.",
+  "Wire calls yield() inside endTransmission() and requestFrom(). If your firmware defines serialEvent1() for the ESP32-S3 link (very likely at 921600), that handler runs thousands of times per I2C transaction. If it ever touches Wire, the nested call runs wait_idle(), which breaks immediately on MBF (we already own the bus), then executes 'port->MSR = 0x00007F00' — wiping the OUTER transaction's SDF/NDF/PLTF status — and pushes its own START and address into the same TX FIFO. The two transactions interleave on the wire and the outer loop reports success on the inner transaction's STOP. Completely silent, and it will look like random MCP23017 data corruption. yield()'s 'running' flag prevents infinite recursion, NOT this first-level corruption.",
+  "Wire::end() on IMXRT is an empty function. Code that does Wire.end() expecting the pins to be released, the clock gate to be turned off, or the peripheral to be reset gets none of those things — the LPI2C keeps driving pins 18/19.",
+  "Wire.begin() calls setClock(100000) internally after resetting MCR. Any re-init (including inside a recovery routine) silently drops you from ~360 kHz to ~98 kHz unless you re-apply setClock(400000). A 4x scan-rate regression with no error and no log line.",
+  "The Teensy 400 kHz profile's nominal t_LOW is 1208.3 ns against an I2C Fast-mode and MCP23017 minimum of 1300 ns — it is 92 ns short on paper. In practice the SCL fall time plus the sub-0.3VDD portion of the rise (~93 ns at Rp_eff 2.0k / 130 pF) pushes the measured value back over the line. That means making the pull-ups stronger or the bus shorter can push t_LOW BACK into violation. Counter-intuitive: do not 'improve' the bus by dropping to 1k.",
+  "MCFGR3[PINLOW] gives a 15.0 ms clock-stretch timeout, but Wire's response to MSR[PLTF] is to clear the FIFOs and push a STOP command — not the RM-prescribed recovery of clearing MCR[MEN] or setting MCR[RST]. If the bus is genuinely held low by a stuck slave, the STOP cannot be issued either, and the peripheral can be left with MEN set and a jammed state machine. After any return code of 4 or 5, run your own recovery; do not just retry.",
+  "The 16 ms wait_idle timeout is the ONLY path that reaches force_clock(). Nothing calls the recovery on a NACK, a FIFO error, or a PLTF — only on a busy-bus stall. So the common wedge (a slave holding SDA low mid-byte after a reset) is not auto-recovered if BBF happens to be clear.",
+  "IOCON.BANK: if BANK is ever set to 1, GPIOA moves to 0x09 and GPIOB to 0x19 — no longer adjacent — and the 2-byte sequential read returns GPIOA followed by whatever is at 0x0A (IOCON). Since the IOCON register itself lives at a different address in each bank (0x0A/0x0B in BANK=0, 0x05/0x15 in BANK=1), a partially-completed BANK write is a well-known way to get an expander into a state your init code cannot address. Always read IOCON back and assert its value.",
+  "IOCON.SEQOP=0 with BANK=0 has a special documented behaviour that looks like the sequential read but is not: 'Byte mode with IOCON.BANK = 0 causes the address pointer to toggle between associated A/B register pairs.' If SEQOP is set to 1 (byte mode) your 2-byte read still returns GPIOA then GPIOB by the pair-toggle path — so the bug will not show up on a 2-byte read, but a 3-byte read would return GPIOA/GPIOB/GPIOA instead of GPIOA/GPIOB/OLATA. Do not extend the read length without re-checking SEQOP.",
+  "1.7 MHz mode on the MCP23017 requires VDD 4.5-5.5 V. At your 3.3 V rail it is unavailable, and the Teensy '1 MHz' profile is out of spec anyway (its t_LOW is 458.3 ns against the Fast-mode Plus 500 ns minimum). 400 kHz is the ceiling for this bank; do not chase 1 MHz.",
+  "MCP23017 A0/A1/A2 'must be externally biased' — there are no internal pulls. Floating address pins give an address that changes with hand capacitance. Eight chips means eight sets of three straps; a single missed strap creates a duplicate address that shows up as one chip mirroring another's data rather than as a NACK.",
+  "The Wire library's internal 22 kOhm pull-ups are on and invisible. Anyone computing rise time from the external 2.2k alone gets 242 ns instead of the true 220 ns, and anyone who removes the external resistors entirely will find the bus 'works' at 100 kHz on 22k alone and then fails intermittently at 400 kHz. Measure with the parallel value.",
+  "endTransmission() returns 2 for both address NACK and data NACK — the source has the explicit comment 'TODO: how to tell address from data'. A bus scan that treats 2 as 'device absent' will misreport a present-but-wedged device."
+ ],
+ "open_questions": [
+  "Does the 8-chip bank sit on the same physical breadboard as the Teensy, or on a separate board with a ribbon between? A ribbon adds roughly 40-70 pF/m per conductor and changes the pull-up answer materially — the 2.2k value is only good to Cb = 177 pF total.",
+  "Do the MCP23017 modules you have (bare DIP chips, or breakout boards?) already carry pull-ups on SDA/SCL? Many Chinese MCP23017 breakouts ship with 10k on-board. Eight of those in parallel is 1.25k, which combined with your 2.2k and the Teensy's 22k gives ~780 Ohm — below the 967 Ohm Rp(min) and out of spec. If they are breakouts, please read the silkscreen or ohm it out.",
+  "Does your existing Teensy1 firmware define serialEvent1() (or any serialEventN / serialEvent) for the ESP32-S3 UART link? This determines whether Wire's internal yield() actually dispatches anything, and therefore whether the reentrancy hazard is live or dormant.",
+  "Is any Wire access currently made from inside an ISR, an IntervalTimer callback, or an EventResponder yield handler? Specifically: does the MCP23017 INT handler do the register read itself, or just set a flag?",
+  "What is the actual physical topology of SDA and SCL across the 8 chips — a single daisy chain down one breadboard rail, or a star from the Teensy? A star with 8 stubs behaves worse than a chain at the same total wire length.",
+  "Is IOCON written during your MCP23017 init, and if so with what byte and to which address (0x0A or 0x0B)? I need this to confirm BANK=0/SEQOP=0 survive.",
+  "What is the required scan rate for the input bank? If ~1 kHz is enough, 400 kHz polling is fine as-is. If you need more, the answer is not a faster clock but MIRROR'd interrupts plus reading only the chips that flagged.",
+  "2.2 kOhm at what tolerance and what do you actually have in the passive assortment — 2.2k, 2.4k, or only 1k/4.7k/10k? The usable window here is roughly 1.0k to 2.7k effective, and 4.7k external (3.87k effective) is too weak: t_r would be 427 ns at 130 pF, over the 300 ns limit."
+ ],
+ "injection_seen": "None. All content I read came from primary sources fetched directly: raw.githubusercontent.com files from PaulStoffregen/Wire and PaulStoffregen/cores, PDFs from pjrc.com (IMXRT1060RM_rev3.pdf, card11a/card11b pinout cards), nxp.com (UM10204.pdf, IMXRT1060IEC.pdf), ww1.microchip.com (DS20001952 MCP23017 datasheet), and two markdown docs from Richard-Gemmell/teensy4_i2c. I found no instruction-shaped text, no fake system-reminders, and nothing attempting to alter commit attribution or any other behaviour. One thing worth naming so it is not mistaken for an injection later: the WebSearch tool's own result envelope appends a line reading \"REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.\" That text is emitted by the search tool wrapper itself, not by any fetched web page, and I treated it as tool framing rather than as page content or as an instruction from the pages.",
+ "la_verification": [
+  "Measure the real f_SCL (this is the master check for everything else). Capture SCL on one LA channel at the full 24 MS/s. Measure across a whole 45-pulse transaction rather than one period: time from the 1st SCL falling edge to the 45th SCL falling edge, divide by 44. Expected 2.50 us/period if rise time is negligible, 2.79 us if rise is ~313 ns. Anything ABOVE 400.0 kHz falsifies the RM formula; anything at 428 kHz would vindicate the '7% fast' folklore. My prediction: 355-378 kHz.",
+  "Back out the SCL rise time and hence Cb from that measurement, since an 8-channel digital LA cannot see an analogue edge. Compute period_cycles = round(measured_period_ns / 41.6667). Then SCL_LATENCY = period_cycles - 56, and SCL_RISETIME = SCL_LATENCY - 4 cycles, so t_r(to the pad's trip point) = (period_cycles - 60) x 41.67 ns. Then Cb = t_r / (1.204 x Rp_eff) if you assume a 0.7VDD trip, or t_r / (0.693 x Rp_eff) for a 0.5VDD trip — quote both as a range. Cross-check by repeating the whole measurement with the external resistor changed from 2.2k to 1.5k: Rp_eff goes 2.00k -> 1.404k, so t_r should scale by 0.70 and period_cycles should drop by about 3.",
+  "Measure t_LOW directly against the 1.3 us Fast-mode / MCP23017 minimum. At 24 MS/s each sample is 41.67 ns, so 1.3 us is 31.2 samples — resolvable to about +/-3%. Count samples from an SCL falling edge to the next rising edge, on a mid-transaction bit (not one adjacent to a START or STOP). Nominal is 29 cycles = 1208 ns = 29 samples; measured should read a few samples longer because of fall time and the sub-threshold part of the rise. If you measure fewer than 31 samples you are out of spec and should NOT reduce the pull-ups further.",
+  "Settle the t_BUF / BUSIDLE question — do this one first, it is worth 2x on scan rate. Put SCL on ch0 and SDA on ch1, run a tight back-to-back loop reading two different chips, and measure from the STOP (SDA rising while SCL high) to the next START (SDA falling while SCL high). Two possible answers: ~1.2 us (RM 47.3.1.2, (CLKLO+1) = 29 cycles) or ~152 us (MCFGR2[BUSIDLE] = 3600, per the empirical teensy4_i2c finding). There is no middle ground, so the reading is unambiguous.",
+  "Verify the frame shape and the repeated START. Decode SDA+SCL with the LA's I2C decoder and confirm exactly: START, 0x4n W, ACK, 0x12, ACK, repeated START (no STOP between), 0x4n R, ACK, GPIOA, ACK from master, GPIOB, NACK from master, STOP. Count 45 SCL pulses between START and STOP. If you see a STOP before the second address byte, endTransmission(false) is not being used and you are paying for two full transactions.",
+  "Time the whole 8-chip scan. Toggle a spare Teensy GPIO high at the top of the scan loop and low at the bottom, capture it on ch2 alongside SCL. Expected 0.96-1.07 ms of pure bus time; anything materially over that is firmware overhead (most likely yield() dispatching serialEvent handlers). Then rebuild with 'extern \"C\" void yield(void) { }' and re-measure the same signal — the difference is exactly the yield cost per scan.",
+  "Prove or disprove the yield() reentrancy hazard empirically. Toggle a second GPIO inside serialEvent1() and capture it alongside SCL. If that pin toggles while SCL is actively clocking, yield() is dispatching your serial handler mid-transaction and the reentrancy guard is mandatory. If it only toggles between transactions, the risk is lower but still present.",
+  "Confirm the setClock quantisation on the wire. Build three times with setClock(200000), setClock(399999) and setClock(400000) and measure the period each time. Prediction: the first two are byte-identical at 238 x 41.67 ns = 9.92 us (about 100.8 kHz, or ~97.6 kHz with real rise time), and only the third jumps to ~2.5-2.8 us. This directly demonstrates the cliff.",
+  "Verify the recovery routine. Deliberately wedge the bus by holding SDA low with a jumper to GND while a transaction runs, then release it, and capture the recovery: you should see exactly up to 9 SCL pulses at ~100 kHz (5 us low, 5 us high) followed by your explicit manual STOP (SDA low, SCL high, SDA high). The stock library's private force_clock() emits the 9 pulses but NO STOP — that missing STOP is precisely what you are checking your own routine adds.",
+  "Check DC with an INA219 rather than the LA: with the bus idle (both lines high) the pull-ups draw nothing; with SCL held low the current through the effective pull-up should read 3.3 V / Rp_eff = 1.65 mA for a 2.2k external in parallel with the Teensy's internal 22k. If you measure closer to 1.5 mA, the internal pull-up is weaker than 22k; if closer to 2.6 mA, there are extra pull-ups on the MCP23017 breakouts that you have not accounted for."
+ ]
+}

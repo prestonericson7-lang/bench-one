@@ -1,0 +1,150 @@
+ 
+ 
+====================================================== 
+ compiler present 
+====================================================== 
+gcc (GCC) 16.2.0
+Copyright (C) 2026 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+ 
+====================================================== 
+ natal frame properties 
+====================================================== 
+'born_test.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ superposition and self-direction 
+====================================================== 
+'wonder_test.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ quantized matmul, portable 
+====================================================== 
+'gemv_host.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ HDC kernel, portable build 
+====================================================== 
+'host_kernel.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ HDC kernel, AVX2 build 
+====================================================== 
+'host_native.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ does adding cores add bandwidth 
+====================================================== 
+'host_scaling.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ 
+====================================================== 
+ placement planner, llama-3b 
+====================================================== 
+
+========================================================================
+  hardware
+========================================================================
+  kind      count   MB each   MB/s each     MB total   MB/s total
+  teensy        9        16        32.8          144          295
+  esp32s3      15         8        57.6          120          864
+  luckfox      10        13       930.0          130         9300
+  zynq          2      1024      2500.0         2048         5000
+                                                2442        15459
+
+  2.38 GB of memory, 15.10 GB/s aggregate read
+
+========================================================================
+  llama-3b at INT4: 1.6 GB total, 1.6 GB active per token, 28 layers
+========================================================================
+
+  placement, balanced so every node takes the same time:
+  kind        used    MB each ms per token   % of cap
+  teensy         9        8.6       262.20        54%
+  esp32s3       15        8.0       138.89       100%
+  luckfox       10       13.0        13.98       100%
+  zynq           2      655.5       262.20        64%
+
+  slowest stage      : 262.20 ms
+  DECODE THROUGHPUT  : 3.81 tokens/sec
+  activation per hop : 6.0 KB, 36 hops = 0.21 MB per token
+  over 1G            : 1.69 ms per token, ceiling 593 tok/s
+  BOTTLENECK: memory bandwidth, which is where it should be.
+
+  NOT MODELLED: compute. Every node is assumed to consume weights as fast as it
+  reads them. True on the FPGA, where INT4 unpacking is free. NOT verified on the
+  CPUs -- gemv_host measured INT4 at 2.18 G MAC/s against INT8's 15.66, so a CPU
+  node may be compute bound and this number would be optimistic.
+
+ 
+====================================================== 
+ placement planner, what to buy 
+====================================================== 
+
+========================================================================
+  hardware
+========================================================================
+  kind      count   MB each   MB/s each     MB total   MB/s total
+  teensy        9        16        32.8          144          295
+  esp32s3      15         8        57.6          120          864
+  luckfox      10        13       930.0          130         9300
+  zynq          4      1024      2500.0         4096        10000
+                                                4490        20459
+
+  4.38 GB of memory, 19.98 GB/s aggregate read
+
+========================================================================
+  llama-3b at INT4: 1.6 GB total, 1.6 GB active per token, 28 layers
+========================================================================
+
+  placement, balanced so every node takes the same time:
+  kind        used    MB each ms per token   % of cap
+  teensy         9        4.4       135.17        28%
+  esp32s3       15        7.8       135.17        97%
+  luckfox       10       13.0        13.98       100%
+  zynq           4      337.9       135.17        33%
+
+  slowest stage      : 135.17 ms
+  DECODE THROUGHPUT  : 7.40 tokens/sec
+  activation per hop : 6.0 KB, 38 hops = 0.22 MB per token
+  over 1G            : 1.78 ms per token, ceiling 561 tok/s
+  BOTTLENECK: memory bandwidth, which is where it should be.
+
+  NOT MODELLED: compute. Every node is assumed to consume weights as fast as it
+  reads them. True on the FPGA, where INT4 unpacking is free. NOT verified on the
+  CPUs -- gemv_host measured INT4 at 2.18 G MAC/s against INT8's 15.66, so a CPU
+  node may be compute bound and this number would be optimistic.
+
+ 
+====================================================== 
+ capacity per dollar and litre 
+====================================================== 
+
+  configuration                         capacity       INT4 params      cost   power   volume     cost/GB
+  --------------------------------------------------------------------------------------------------------
+  what you own today                     2.38 GB      4.8 B params  $    708     30 W     0.8 L  $296.88/GB
+  +10 PSRAM per Teensy and Luckfox       3.87 GB      7.7 B params  $   1040     39 W     1.1 L  $268.92/GB
+  +500 PSRAM chips                       6.29 GB     12.6 B params  $   1583     54 W     1.6 L  $251.63/GB
+  +1000 PSRAM chips                     10.20 GB     20.4 B params  $   2458     80 W     2.3 L  $241.05/GB
+  +2000 PSRAM chips                     18.01 GB     36.0 B params  $   4208    130 W     3.8 L  $233.65/GB
+  +2 x 32 GB DIMM on FPGA               66.38 GB    132.8 B params  $   1028     46 W     1.4 L  $ 15.49/GB
+  +4 x 32 GB DIMM on FPGA              130.38 GB    260.8 B params  $   1348     62 W     2.0 L  $ 10.34/GB
+  +8 x 32 GB DIMM on FPGA              258.38 GB    516.8 B params  $   1988     94 W     3.2 L  $  7.69/GB
+
+  for comparison, what a graphics card holds:
+  RTX 4090                              24.00 GB     48.0 B params  $   1800    450 W     3.5 L
+  RTX 3060 12GB                         12.00 GB     24.0 B params  $    280    170 W     2.0 L
+  H100 80GB                             80.00 GB    160.0 B params  $  30000    700 W     2.5 L
+
+  cost per GB of model capacity:
+    PSRAM chip     $224.00/GB
+    DDR4 DIMM      $1.88/GB
+    RTX 4090 VRAM  $75.00/GB
+

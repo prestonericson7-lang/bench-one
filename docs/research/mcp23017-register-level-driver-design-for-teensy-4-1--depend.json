@@ -1,0 +1,429 @@
+{
+ "topic": "MCP23017 register-level driver design for Teensy 4.1 (dependency-free, 3.3 V, I2C master = Teensy1)",
+ "summary": "Everything needed for a bare-metal MCP23017 driver is in Microchip DS20001952D (Rev D, June 2022) — the current datasheet, which I read directly. BANK=0 gives 22 contiguous address slots 0x00–0x15 holding 21 unique registers (IOCON is physically one register mirrored at 0x0A and 0x0B), which makes the two transactions you actually care about — GPIOA+GPIOB at 0x12/0x13, and INTFA/INTFB/INTCAPA/INTCAPB at 0x0E–0x11 — single contiguous sequential reads. Target IOCON = 0x44 (MIRROR=1, ODR=1, SEQOP=0, BANK=0). Two hard constraints override generic advice: (1) Rev D Section 3.5.1 carries the note \"For MCP23017, IO7 must be set via I2C interface to '0' (output)\" and the Features page states GPA7/GPB7 are output-only — the driver must mask IODIR bit 7 to 0 on both ports and refuse to expose those two pins as inputs; (2) at 3.3 V the only guaranteed I2C speed is 400 kHz — the 1.7 MHz spec column is qualified \"4.5V – 5.5V\" throughout Table 1-3. Two corrections to your established rules: the MCP23017's GPIO VOL/VOH are characterised only at VDD = 4.5 V and 1.8 V, never at 3.3 V (so both sink and source drive at your rail are formally unverified, and the source spec collapses from 3.0 mA at 4.5 V to 400 µA at 1.8 V — that asymmetry, not the abs-max, is the real reason to sink-drive LEDs); and Teensy's own Wire library unconditionally enables a 22 kΩ internal pull-up on SDA and SCL, so \"pull-ups exactly once at the master\" is never literally true on a Teensy 4.1. There is exactly one formal Microchip errata document (DS80252A, Rev A0 silicon, date code 0542 and earlier), plus the GPA7/GPB7 restriction which Microchip folded into the datasheet rather than issuing as errata.",
+ "facts": [
+  {
+   "claim": "Complete BANK=0 register map. 21 unique registers in 22 address slots 0x00-0x15; the address pointer rolls over to 0x00 after 0x15.",
+   "value": "IODIRA 0x00, IODIRB 0x01, IPOLA 0x02, IPOLB 0x03, GPINTENA 0x04, GPINTENB 0x05, DEFVALA 0x06, DEFVALB 0x07, INTCONA 0x08, INTCONB 0x09, IOCON 0x0A, IOCON 0x0B (same physical register), GPPUA 0x0C, GPPUB 0x0D, INTFA 0x0E, INTFB 0x0F, INTCAPA 0x10, INTCAPB 0x11, GPIOA 0x12, GPIOB 0x13, OLATA 0x14, OLATB 0x15",
+   "source": "Microchip DS20001952D, Table 3-1 'Register Addresses', p.12; rollover stated in Section 3.2.2.3, p.14; 'One register (IOCON) is shared between the two ports' Section 3.5, p.17",
+   "confidence": "certain",
+   "why_it_matters": "GPIOA/GPIOB are adjacent (0x12,0x13) and INTFA/INTFB/INTCAPA/INTCAPB are contiguous (0x0E..0x11), so both hot-path reads are one transaction each with one pointer write."
+  },
+  {
+   "claim": "BANK=1 map, needed only for the recovery idiom",
+   "value": "IODIRA 0x00, IPOLA 0x01, GPINTENA 0x02, DEFVALA 0x03, INTCONA 0x04, IOCON 0x05, GPPUA 0x06, INTFA 0x07, INTCAPA 0x08, GPIOA 0x09, OLATA 0x0A; PORTB equivalents at 0x10..0x1A",
+   "source": "Microchip DS20001952D, Table 3-1, p.12",
+   "confidence": "certain",
+   "why_it_matters": "0x05 is IOCON in BANK=1 but GPINTENB in BANK=0. Writing 0x00 to 0x05 first forces any stray BANK=1 device back to BANK=0 while doing something harmless (disabling PORTB interrupts) to a device already in BANK=0."
+  },
+  {
+   "claim": "IOCON bit 7 BANK",
+   "value": "1 = registers for each port separated into different banks; 0 = registers in the same bank, addresses sequential. POR = 0.",
+   "source": "DS20001952D, Register 3-5, p.21 and Section 3.5.6, p.20",
+   "confidence": "certain",
+   "why_it_matters": "Datasheet explicitly warns the address pointer may point to an invalid location after the byte is clocked in, so BANK must only ever be written with a byte write, never inside a sequential block."
+  },
+  {
+   "claim": "IOCON bit 6 MIRROR",
+   "value": "1 = INT pins internally connected (functionally OR'ed, an interrupt on either port activates both pins); 0 = INTA associated with PORTA, INTB with PORTB. POR = 0.",
+   "source": "DS20001952D, Register 3-5, p.21; Section 3.6.1.1, p.24",
+   "confidence": "certain",
+   "why_it_matters": "Set to 1 per your rule so all INTs land on one Teensy IRQ pin."
+  },
+  {
+   "claim": "IOCON bit 5 SEQOP",
+   "value": "1 = sequential operation DISABLED, address pointer does not increment; 0 = sequential operation ENABLED, address pointer increments. POR = 0 (sequential enabled).",
+   "source": "DS20001952D, Register 3-5, p.21",
+   "confidence": "certain",
+   "why_it_matters": "Note the inverted sense - 0 is the mode you want. It is also the POR default, which is what makes a blind 22-byte fingerprint read work on an unconfigured part."
+  },
+  {
+   "claim": "IOCON bit 4 DISSLW",
+   "value": "1 = slew rate DISABLED; 0 = slew rate ENABLED (controls SDA slew when driving high-to-low). POR = 0.",
+   "source": "DS20001952D, Register 3-5, p.21; Section 3.5.6, p.20",
+   "confidence": "certain",
+   "why_it_matters": "Inverted sense again. Leave at 0 (slew limiting active) for 400 kHz; it is only worth disabling if you measure SDA fall time failing the 300 ns max."
+  },
+  {
+   "claim": "IOCON bit 3 HAEN",
+   "value": "1 = enables MCP23S17 address pins; 0 = disables them. Note 1 to Register 3-5: 'Address pins are always enabled on the MCP23017.' POR = 0.",
+   "source": "DS20001952D, Register 3-5 Note 1, p.21",
+   "confidence": "certain",
+   "why_it_matters": "Don't-care on your I2C parts. Write 0. Do not let a library that targets both parts convince you to set it."
+  },
+  {
+   "claim": "IOCON bit 2 ODR",
+   "value": "1 = INT pin is open-drain output, OVERRIDES the INTPOL bit; 0 = active driver output, INTPOL sets polarity. POR = 0.",
+   "source": "DS20001952D, Register 3-5, p.21; Section 3.5.6, p.21 'Setting this bit overrides the INTPOL bit'",
+   "confidence": "certain",
+   "why_it_matters": "With ODR=1 the INT pin is active-low by construction and INTPOL is meaningless - so all 12 devices can be wired-OR onto one pull-up."
+  },
+  {
+   "claim": "IOCON bit 1 INTPOL",
+   "value": "1 = active-high; 0 = active-low. Functional only when ODR = 0. POR = 0.",
+   "source": "DS20001952D, Register 3-5, p.21; Section 3.5.6, p.21",
+   "confidence": "certain",
+   "why_it_matters": "Irrelevant in your configuration; write 0 so a future reader is not misled."
+  },
+  {
+   "claim": "IOCON bit 0",
+   "value": "Unimplemented, read as '0'.",
+   "source": "DS20001952D, Register 3-5, p.21",
+   "confidence": "certain",
+   "why_it_matters": "Read-back verification must expect bit 0 = 0."
+  },
+  {
+   "claim": "IOCON value for MIRROR=1, ODR=1, SEQOP=0, BANK=0, DISSLW=0, HAEN=0, INTPOL=0",
+   "value": "0x44 (0b0100 0100)",
+   "source": "Computed from DS20001952D Register 3-5 bit definitions",
+   "confidence": "certain",
+   "why_it_matters": "This is the single magic constant for the whole driver. Read back BOTH 0x0A and 0x0B and require both == 0x44."
+  },
+  {
+   "claim": "Reading GPIO before INTCAP destroys the captured event snapshot",
+   "value": "Datasheet Note, Section 3.6.4: 'The value in INTCAP can be lost if GPIO is read before INTCAP while another IOC is pending. After reading GPIO, the interrupt will clear and then set due to the pending IOC, causing the INTCAP register to update.'",
+   "source": "DS20001952D, Section 3.6.4 'Interrupt Operation', p.25",
+   "confidence": "certain",
+   "why_it_matters": "This is the exact primary citation for the INTCAP-first rule. The failure is silent: you get a valid-looking byte that describes a later event."
+  },
+  {
+   "claim": "What clears an MCP23017 interrupt",
+   "value": "A read of GPIOn or INTCAPn. 'The interrupt condition is cleared after the LSb of the data is clocked out during a read command of GPIO or INTCAP.' Writing to these registers does not affect the interrupt. Reading INTF does NOT clear it.",
+   "source": "DS20001952D, Section 3.6.4, p.25",
+   "confidence": "certain",
+   "why_it_matters": "You can safely read INTF to find the culprit without disturbing state, then read INTCAP to both capture and clear. An aborted/NACKed read that never clocks out the LSb will not clear the interrupt."
+  },
+  {
+   "claim": "With MIRROR=1 the ISR must read BOTH ports - your rule confirmed by primary source",
+   "value": "Table 3-6 'Interrupt Operation (IOCON.MIRROR = 1)': interrupt from GPIOA is cleared only by reading PORTA (GPIOA or INTCAPA), reading PORTB leaves it Unchanged; interrupt from GPIOB cleared only by reading PORTB; interrupts from GPIOA AND GPIOB are cleared only by reading Both PORTA and PORTB.",
+   "source": "DS20001952D, Table 3-6, p.24",
+   "confidence": "certain",
+   "why_it_matters": "Reading only one port leaves the wired-OR INT line held low forever. Your existing rule is correct and now has a citation."
+  },
+  {
+   "claim": "Byte-mode A/B toggle - a faster GPIO poll that needs no pointer write",
+   "value": "With BANK=0 and SEQOP=1, if the pointer is at 0x12 (GPIOA) or 0x13 (GPIOB) it toggles between the pair on each byte instead of incrementing.",
+   "source": "DS20001952D, Section 3.2.1 'Byte Mode and Sequential Mode', p.13",
+   "confidence": "certain",
+   "why_it_matters": "Optional fast path: a bare 3-byte read (addr|R + 2 data) instead of 5 bytes. Costs you sequential mode for bulk config, and any other transaction destroys the pointer - so only worth it in a tight dedicated poll loop."
+  },
+  {
+   "claim": "I2C address format and range",
+   "value": "Control byte = 0 1 0 0 A2 A1 A0 R/W. Seven-bit address = 0x20 + (A2<<2 | A1<<1 | A0), i.e. 0x20 to 0x27. Eight devices maximum per bus.",
+   "source": "DS20001952D, Section 3.3.1 and Figure 3-4, p.15",
+   "confidence": "certain",
+   "why_it_matters": "You own 12 MCP23017s and one bus only holds 8. Teensy 4.1 gives you three hardware I2C buses."
+  },
+  {
+   "claim": "Address pins A0/A1/A2 are TTL-threshold inputs with no internal bias",
+   "value": "Pin table: 'Hardware address pin. Must be externally biased.' DC spec D030: A0,A1,A2 (TTL buffer) VIL = VSS to 0.15 VDD max. D040: A0,A1,A2 (TTL buffer) VIH = 0.25 VDD + 0.8 V min. At VDD = 3.3 V that is VIL <= 0.495 V, VIH >= 1.625 V. Section 3.3: 'The pins must be biased externally.'",
+   "source": "DS20001952D, Table 2-1 pin table p.11; Table 1-1 DC Characteristics D030/D040, p.4; Section 3.3, p.15",
+   "confidence": "certain",
+   "why_it_matters": "No internal pull-up or pull-down is specified anywhere. A floating strap sits in the 0.495-1.625 V dead band and the address is undefined. Hard-tie each strap directly to VDD or VSS - a 0 ohm connection, not a divider, not a 100k."
+  },
+  {
+   "claim": "RESET pin requirement and timing",
+   "value": "Pin table: 'Hardware reset. Must be externally biased.' Param 30: RESET pulse width low TRSTL min = 1 us. Param 32: device active after RESET high THLD typ = 0 ns at VDD = 5.0 V. Param 34: output high-impedance from RESET low TIOZ max = 1 us. RESET is a Schmitt-trigger input (D031/D041).",
+   "source": "DS20001952D, Table 2-1 p.11; Table 1-2 'Device Reset Specifications', p.5",
+   "confidence": "certain",
+   "why_it_matters": "RESET must never float. There is no software reset command anywhere in the datasheet - the pin is your only recovery path when firmware and silicon state diverge."
+  },
+  {
+   "claim": "There is no software reset command",
+   "value": "The register map (Table 3-1) and the whole of Section 3 contain no reset command, reset register, or general-call reset. Recovery is POR or the RESET pin only.",
+   "source": "DS20001952D, Section 3.0 and Table 3-1 (absence)",
+   "confidence": "certain",
+   "why_it_matters": "A Teensy reboot does not reset the expanders. Outputs stay driven, IOCON stays configured. Wire RESET to a Teensy GPIO."
+  },
+  {
+   "claim": "Per-pin absolute maximum output current",
+   "value": "Maximum output current sunk by any output pin = 25 mA. Maximum output current sourced by any output pin = 25 mA.",
+   "source": "DS20001952D, Absolute Maximum Ratings, p.3",
+   "confidence": "certain",
+   "why_it_matters": "These are stress ratings, not operating points. Nothing about VOL or VOH is guaranteed at 25 mA."
+  },
+  {
+   "claim": "Package aggregate current limits",
+   "value": "Maximum current out of VSS pin = 150 mA. Maximum current into VDD pin = 125 mA. Total power dissipation = 700 mW.",
+   "source": "DS20001952D, Absolute Maximum Ratings, p.3",
+   "confidence": "certain",
+   "why_it_matters": "16 pins sinking 8 mA each = 128 mA, only 15% under the 150 mA absolute-maximum. The source path (125 mA) is tighter still. Budget deliberately."
+  },
+  {
+   "claim": "Guaranteed sink drive (GPIO)",
+   "value": "D080: GPIO VOL max = 0.6 V at IOL = 8.0 mA, VDD = 4.5 V. There is no GPIO VOL row at 1.8 V and none at 3.3 V.",
+   "source": "DS20001952D, Table 1-1 DC Characteristics D080, p.4 (verified in PDF reading order, not the mangled layout view)",
+   "confidence": "certain",
+   "why_it_matters": "8.0 mA is the strongest characterised sink, and only at 4.5 V. At your 3.3 V rail it is uncharacterised - measure it."
+  },
+  {
+   "claim": "Guaranteed source drive (GPIO)",
+   "value": "D090: GPIO, INT, SO VOH min = VDD - 0.7 V at IOH = -3.0 mA, VDD = 4.5 V; and VOH min = VDD - 0.7 V at IOH = -400 uA, VDD = 1.8 V.",
+   "source": "DS20001952D, Table 1-1 DC Characteristics D090, p.4",
+   "confidence": "certain",
+   "why_it_matters": "This is the real LED argument: sink is characterised at 8.0 mA, source at 3.0 mA, and the source spec collapses to 400 uA as VDD falls. At 3.3 V the guaranteed source current lies somewhere in the 400 uA to 3.0 mA range with no datasheet value. Sink-drive every LED."
+  },
+  {
+   "claim": "INT pin guaranteed sink is much weaker than GPIO",
+   "value": "D080 row 2: INT VOL max = 0.6 V at IOL = 1.6 mA, VDD = 4.5 V.",
+   "source": "DS20001952D, Table 1-1 DC Characteristics D080, p.4",
+   "confidence": "certain",
+   "why_it_matters": "Directly sets your wired-OR pull-up floor: R >= 3.3 V / 1.6 mA = 2.06 kohm. A 2.2k pull-up runs the INT pin at 1.5 mA, right on the limit. Use 4.7 kohm (0.70 mA) and accept the slower edge."
+  },
+  {
+   "claim": "Internal pull-up strength - the datasheet contradicts itself",
+   "value": "Prose (Section 3.5.7): 'internally pulled up with a 100 k resistor'. DC table D070: GPIO weak pull-up current IPU = 40 uA min / 75 uA typ / 115 uA max at VDD = 5 V with GP pins at VSS. 5 V / those currents = 125 kohm / 66.7 kohm / 43.5 kohm equivalent.",
+   "source": "DS20001952D, Section 3.5.7 p.21 and Table 1-1 D070 p.4",
+   "confidence": "certain",
+   "why_it_matters": "The two statements do not agree. Design against the worst case: source impedance anywhere in 43.5 kohm to 125 kohm. At 3.3 V neither number is specified at all."
+  },
+  {
+   "claim": "Internal pull-up behaviour at 3.3 V",
+   "value": "Not specified. D070 is given only at VDD = 5 V.",
+   "source": "DS20001952D, Table 1-1 D070, p.4 (absence of a 3.3 V row)",
+   "confidence": "unverified",
+   "why_it_matters": "If it is a plain resistor, expect ~26-76 uA at 3.3 V. If it is a current source, closer to the 5 V figures. You must measure this if any timing depends on it."
+  },
+  {
+   "claim": "Input leakage sets the noise floor on a weakly pulled-up input",
+   "value": "D060 I/O port pins IIL max = +/-1 uA. D065 output leakage ILO max = +/-1 uA. VIL max for GPIO (Schmitt trigger, D031) = 0.2 VDD = 0.66 V at 3.3 V; VIH min (D041) = 0.8 VDD = 2.64 V at 3.3 V.",
+   "source": "DS20001952D, Table 1-1 D060/D065/D031/D041, p.4",
+   "confidence": "certain",
+   "why_it_matters": "With a 100 kohm internal pull-up, only 6.6 uA of external leakage (damp connector, long cable, a nearby ESD diode) drops the pin below VIH. That is why off-board buttons need an external pull-up."
+  },
+  {
+   "claim": "Maximum guaranteed I2C speed at 3.3 V is 400 kHz",
+   "value": "Table 1-3: every 1.7 MHz mode row is conditioned '4.5V - 5.5V'. The 400 kHz rows are conditioned '2.7V - 5.5V'. 400 kHz limits: THIGH min 0.6 us, TLOW min 1.3 us, TR max 300 ns, TF max 300 ns, TSU:DAT min 100 ns, THD:DAT max 0.9 us, TBUF min 1.3 us.",
+   "source": "DS20001952D, Table 1-3 'I2C Bus Data Requirements', pp.6-7",
+   "confidence": "certain",
+   "why_it_matters": "Wire.setClock(1700000) on a 3.3 V rail is out of spec and will mostly work - the worst kind of bug. Cap at 400000."
+  },
+  {
+   "claim": "Bus capacitance limits",
+   "value": "Param 111: CB max = 400 pF for 100 kHz and 400 kHz; CB max = 100 pF for 1.7 MHz. D102: SDA CB max = 400 pF. Note 2 to Table 1-3: CB is specified from 10 to 400 pF. Param 112: input spike suppression TSP max = 50 ns at 100/400 kHz.",
+   "source": "DS20001952D, Table 1-3 params 111/112 p.7 and Table 1-1 D102 p.4",
+   "confidence": "certain",
+   "why_it_matters": "Your <400 pF rule matches the datasheet exactly. The MCP23017's own SDA pin capacitance is not specified (see open questions)."
+  },
+  {
+   "claim": "Output pin capacitance",
+   "value": "D101: GPIO, SO, INT CIO max = 50 pF.",
+   "source": "DS20001952D, Table 1-1 D101, p.4",
+   "confidence": "certain",
+   "why_it_matters": "12 INT pins wired-OR = up to 600 pF on the interrupt net. With 4.7 kohm that is a 2.8 us time constant; keep the wired-OR net physically short or split it."
+  },
+  {
+   "claim": "GPA7 and GPB7 are output-only on the MCP23017 (I2C part)",
+   "value": "Features page: '16-Bit Remote Bidirectional I/O Port (Pins GPA7, GPB7 are output only for MCP23017)'. Pin table entries for GPB7 and GPA7 both append 'Output only (MCP23017).' Section 3.5.1 Note: 'For MCP23017, IO7 must be set via I2C interface to 0 (output).'",
+   "source": "DS20001952D, Features p.1; Table 2-1 pin table p.11; Section 3.5.1 Note p.18. Revision History confirms Rev D (June 2022) 'Updated Section 3.5.1 I/O Direction Register' and 'Updated description in Section Features'.",
+   "confidence": "certain",
+   "why_it_matters": "Your driver must force IODIRA bit 7 = 0 and IODIRB bit 7 = 0 and reject any API call trying to make GPA7/GPB7 an input. You lose 2 of 16 pins per chip: 14 usable, 24 chips-worth is 168 not 192."
+  },
+  {
+   "claim": "Mechanism of the GPA7/GPB7 restriction",
+   "value": "An input transition on GPA7/GPB7 while that bit is being shifted out can corrupt the SDA line; the MCP23S17 (SPI) is not affected.",
+   "source": "Microchip support article 'GPA7 & GPB7 Cannot Be Used as Inputs In MCP23017', https://support.microchip.com/s/article/GPA7---GPB7-Cannot-Be-Used-as-Inputs-In-MCP23017 - title and URL confirmed in the search index, but the page body is JavaScript-rendered and I could not retrieve it. Mechanism as described in secondary coverage.",
+   "confidence": "likely",
+   "why_it_matters": "The restriction itself is certain (datasheet). Only the mechanism is second-hand. Either way the fix is the same."
+  },
+  {
+   "claim": "Formal silicon errata DS80252A - I2C false-ACK on Rev A0 and prior",
+   "value": "'The I2C may detect its slave address (OPCODE) at the wrong time in a data transfer and acknowledge (ACK) its perceived OPCODE.' The device checks for an address match every 8 bits, but every I2C byte transfer is 9 bits, so the matching routine goes out of phase with the bus and a false ACK can occur in the data field or the ack field. Fixed in silicon revision A1. Date code 0542 and earlier have the issue; 0543 and later do not. Revision is read from the YYWWNNN package marking (Year + Week code).",
+   "source": "Microchip DS80252A 'MCP23017 Rev. A Silicon Errata', Nov 2005, Issue 1 and Appendix B Table B-1",
+   "confidence": "certain",
+   "why_it_matters": "Twenty-year-old parts from the shortage-era grey market could still be Rev A0. Symptom is a bus that corrupts when a DIFFERENT device is being addressed - you would never suspect the MCP23017. Read the date code on your parts."
+  },
+  {
+   "claim": "No further Microchip errata document located for the MCP23017",
+   "value": "DS80252A is the only errata document found. The GPA7/GPB7 restriction was published as a datasheet revision (Rev D) and a support article, not as an errata document.",
+   "source": "Searched microchip.com and the general index; DS80252A was the only hit.",
+   "confidence": "likely",
+   "why_it_matters": "State this as 'none located', not 'none exist'. Check the Microchip product page before a production run."
+  },
+  {
+   "claim": "DEFVAL-mode interrupts are level-persistent and will storm",
+   "value": "Section 3.6.5 item 2: 'Pins configured for interrupt-on-change from register value will cause an interrupt to occur if the corresponding input pin differs from the register bit. The interrupt condition will remain as long as the condition exists, regardless if the INTCAP or GPIO is read.'",
+   "source": "DS20001952D, Section 3.6.5, p.25",
+   "confidence": "certain",
+   "why_it_matters": "With INTCON bit = 1 you cannot clear the interrupt while the pin is in the non-default state. A held button pins your IRQ line low forever. Use INTCON = 0x00 (pin-change) for buttons."
+  },
+  {
+   "claim": "Pin-change mode re-baselines after each cleared interrupt",
+   "value": "Section 3.6.5 item 1: 'The default state is reset after an interrupt occurs and after clearing the interrupt condition... For example, an interrupt occurs by an input changing from 1 to 0. The new initial state for the pin is a logic 0 after the interrupt is cleared.'",
+   "source": "DS20001952D, Section 3.6.5, p.25",
+   "confidence": "certain",
+   "why_it_matters": "You cannot infer edge direction from the interrupt alone - only from comparing INTCAP against your last known state. Keep a shadow copy."
+  },
+  {
+   "claim": "Output pins never generate interrupts",
+   "value": "Section 3.6.4: 'Only those pins that are configured as an input (IODIR register) with Interrupt-On-Change (IOC) enabled (IOINTEN register) can cause an interrupt. Pins defined as an output have no effect on the interrupt output pin.'",
+   "source": "DS20001952D, Section 3.6.4, p.25",
+   "confidence": "certain",
+   "why_it_matters": "You can leave GPINTEN bits set on pins you later flip to outputs without side effects, but it is cleaner to keep GPINTEN a strict subset of the input mask."
+  },
+  {
+   "claim": "GPIO write vs OLAT write",
+   "value": "Section 3.4: 'Writing to the GPIOn register actually causes a write to the latches (OLATn).' 'Reading the GPIOn register reads the value on the port. Reading the OLATn register only reads the latches, not the actual value on the port.'",
+   "source": "DS20001952D, Section 3.4, p.16",
+   "confidence": "certain",
+   "why_it_matters": "Read OLAT to verify what you commanded; read GPIO to see what the pin actually is. If they differ on an output pin, the pin is being fought (short, contention, or a dead driver) - a free continuous self-test."
+  },
+  {
+   "claim": "POR register defaults - the fingerprint for bus identification",
+   "value": "IODIRA = IODIRB = 0xFF (all inputs). Every other register POR/RST value = 0x00. IOCON POR = 0x00, which means SEQOP = 0 (sequential enabled) out of reset.",
+   "source": "DS20001952D, Table 3-3 p.16 and Table 3-5 pp.17-18 POR/RST value columns",
+   "confidence": "certain",
+   "why_it_matters": "A 22-byte sequential read from pointer 0x00 on a virgin part must return FF FF followed by twenty 0x00 bytes. That is your device signature."
+  },
+  {
+   "claim": "Power-on-reset supply requirements",
+   "value": "D002: VDD start voltage to ensure POR, VPOR typ = VSS. D003: VDD rise rate to ensure POR, SVDD min = 0.05 V/ms - marked 'Design guidance only. Not tested.'",
+   "source": "DS20001952D, Table 1-1 D002/D003, p.4",
+   "confidence": "certain",
+   "why_it_matters": "A slow-ramping or sagging rail (a big bulk cap plus an inrush-limited supply) can rise slower than 0.05 V/ms and skip POR entirely - the chip comes up with garbage registers. This is the hot-plug / brownout failure mode."
+  },
+  {
+   "claim": "Supply and standby current",
+   "value": "D004: IDD max = 1 mA at SCL/SCK = 1 MHz. D005: standby IDDS max = 1 uA over -40 to +85 C; 3 uA at 4.5-5.5 V over +85 to +125 C.",
+   "source": "DS20001952D, Table 1-1 D004/D005, p.4",
+   "confidence": "certain",
+   "why_it_matters": "Eight expanders draw under 8 mA of logic current. Anything above that on your INA219 is pull-ups, LEDs, or a fault."
+  },
+  {
+   "claim": "Abs-max pin voltage - the rule a hot-plug violates",
+   "value": "Voltage on all other pins with respect to VSS (except VDD) = -0.6 V to (VDD + 0.6 V). Input clamp current IIK (VI < 0 or VI > VDD) = +/-20 mA. Output clamp current IOK = +/-20 mA. ESD protection all pins 4 kV HBM : 400 V MM.",
+   "source": "DS20001952D, Absolute Maximum Ratings, p.3",
+   "confidence": "certain",
+   "why_it_matters": "With VDD = 0 the permitted pin voltage is 0.6 V. A 3.3 V bus touching an unpowered module's SDA, SCL, A0-A2 or RESET violates this immediately."
+  },
+  {
+   "claim": "Hot-plug / partially-powered behaviour",
+   "value": "The datasheet describes no hot-swap or partial-power behaviour. Derived from abs-max: with VDD = 0 V and 3.3 V present on SDA/SCL, the ESD/clamp structure conducts, parasitically raising the module's VDD net toward roughly Vbus - Vdiode (~2.6 V), loading the bus with a diode drop and preventing a clean POR when real power arrives.",
+   "source": "Inference from DS20001952D Absolute Maximum Ratings p.3 and D002/D003 p.4. Microchip states no hot-swap behaviour.",
+   "confidence": "unverified",
+   "why_it_matters": "Symptom set: bus rise times collapse, an unpowered device ACKs, or a device ACKs but its registers are nonsense. Do not hot-plug; power the whole fabric from one rail behind one enable. If the module has bulk capacitance, add a POR-safe reset: hold RESET low from a Teensy GPIO until you have positively read IOCON back correctly."
+  },
+  {
+   "claim": "PCF8574 occupies exactly the same address range as the MCP23017",
+   "value": "Control byte = S 0 1 0 0 A2 A1 A0 R/W, i.e. 7-bit address 0x20-0x27. PCF8574A uses 0 1 1 1 A2 A1 A0 = 0x38-0x3F. PCF8575 (16-bit) also uses 0100 A2 A1 A0 = 0x20-0x27.",
+   "source": "TI PCF8574 datasheet SCPS068K (rev Sept 2024), Figure 7-4 slave address diagram p.10; PCF8574A per TI SCPS069; PCF8575 per TI E2E interface forum thread 1133164",
+   "confidence": "certain",
+   "why_it_matters": "A bus scan alone cannot distinguish them. PCF8574A at 0x38-0x3F is not a collision, so a mystery device up there is definitively NOT an MCP23017."
+  },
+  {
+   "claim": "PCF8574 has no register pointer at all - the basis of the identify test",
+   "value": "'This device does not have internal configuration or status registers. Instead, read or write to the device I/Os directly after sending the device address.'",
+   "source": "TI PCF8574 datasheet SCPS068K, Section 7.1 Detailed Description, p.11",
+   "confidence": "certain",
+   "why_it_matters": "Every byte you write to a PCF8574 lands on its output pins immediately. A careless MCP23017 pointer write is a port write on a PCF8574. This is why the identify sequence must restore 0xFF afterwards."
+  },
+  {
+   "claim": "PCF8574 output current limits (relevant to how much damage a mis-identify can do)",
+   "value": "Absolute max: IOL continuous output low current = 50 mA; IOH continuous output high current = -4 mA; continuous current through VCC or GND = +/-100 mA. Recommended operating: IOL max = 25 mA, IOH max = -1 mA.",
+   "source": "TI PCF8574 datasheet SCPS068K, Section 5.1 Absolute Maximum Ratings p.4 and Section 5.3 Recommended Operating Conditions p.4",
+   "confidence": "certain",
+   "why_it_matters": "Writing a low byte to a PCF8574 you mistook for an MCP23017 pulls its pins to ground with up to 25 mA of real sink capability. If something external is driving those pins high, you get a fight."
+  },
+  {
+   "claim": "Teensy 4.1 Wire library enables a 22 kohm internal pull-up on SDA and SCL - correction to your 'pull-ups exactly once' rule",
+   "value": "WireIMXRT.cpp line 9: #define PINCONFIG (IOMUXC_PAD_ODE | IOMUXC_PAD_SRE | IOMUXC_PAD_DSE(4) | IOMUXC_PAD_SPEED(1) | IOMUXC_PAD_PKE | IOMUXC_PAD_PUE | IOMUXC_PAD_PUS(3) | IOMUXC_PAD_HYS). This exact value is written to the pad control register of both the SDA pin (configSDApin) and the SCL pin (configSCLpin). PKE|PUE enable the keeper/pull, PUS(3) selects the 22 kohm pull-up option.",
+   "source": "PaulStoffregen/Wire, WireIMXRT.cpp (github.com/PaulStoffregen/Wire), lines 9, 374-381, 401-408. PUS field encoding 3 = 22K pull-up is the standard i.MX pad-control encoding.",
+   "confidence": "likely",
+   "why_it_matters": "Certain: an internal pull is enabled. Likely (not RM-confirmed): that it is specifically the 22 kohm option. Either way, your bus is never pulled up exactly once, and a MISSING external pull-up will still appear to work at 100 kHz - the bug only surfaces at 400 kHz with 8 loads."
+  },
+  {
+   "claim": "i.MX RT1062 22 kohm pull-up actual current",
+   "value": "RPU_22K: max 212 uA at Vin = 0 V; max 1 uA at Vin = NVCC_XXXX.",
+   "source": "NXP IMXRT1060CEC 'i.MX RT1060 Crossover Processors for Consumer Products', Rev. 4, 04/2024, GPIO DC characteristics table, p.37",
+   "confidence": "certain",
+   "why_it_matters": "212 uA worst case is an effective ~15.6 kohm at 3.3 V. In parallel with your 2.2 kohm external that gives ~1.93 kohm - a 12% shift, and 1.71 mA total for the MCP23017's SDA to sink (its SDA VOL is spec'd at 3.0 mA, so fine)."
+  },
+  {
+   "claim": "Teensy 4.1 I2C bus to pin mapping",
+   "value": "Wire: SDA = pin 18, SCL = pin 19. Wire1: SDA1 = pin 17, SCL1 = pin 16. Wire2: SDA2 = pin 25, SCL2 = pin 24. (Wire1 also has alternates on 36/37 and 44/45 in the hardware table.)",
+   "source": "PJRC Teensy 4.1 front pinout card (pjrc.com); cross-checked against PaulStoffregen/Wire WireIMXRT.cpp i2c1/i2c3/i2c4 hardware tables (lines 424-450)",
+   "confidence": "certain",
+   "why_it_matters": "Three independent buses x 8 addresses = 24 MCP23017 slots. Your 12 chips fit as 8 + 4, or 4+4+4 for shorter buses and lower per-bus capacitance."
+  },
+  {
+   "claim": "Wire.begin() forces 100 kHz",
+   "value": "TwoWire::begin() calls setClock(100000) before configuring the SDA/SCL pads.",
+   "source": "PaulStoffregen/Wire, WireIMXRT.cpp lines 16-28",
+   "confidence": "certain",
+   "why_it_matters": "Wire.setClock(400000) must come AFTER Wire.begin(), not before, or it is silently overwritten."
+  }
+ ],
+ "code_guidance": [
+  "Constants. Define the BANK=0 map exactly as Table 3-1: IODIRA 0x00, IODIRB 0x01, IPOLA 0x02, IPOLB 0x03, GPINTENA 0x04, GPINTENB 0x05, DEFVALA 0x06, DEFVALB 0x07, INTCONA 0x08, INTCONB 0x09, IOCON 0x0A, IOCON_ALIAS 0x0B, GPPUA 0x0C, GPPUB 0x0D, INTFA 0x0E, INTFB 0x0F, INTCAPA 0x10, INTCAPB 0x11, GPIOA 0x12, GPIOB 0x13, OLATA 0x14, OLATB 0x15. Define IOCON_TARGET = 0x44.",
+  "Primitives. Only four are needed. writeReg(a, reg, val): beginTransmission(a); write(reg); write(val); endTransmission(). writeBlock(a, startReg, buf, n): beginTransmission(a); write(startReg); write(buf, n); endTransmission() - valid only with SEQOP=0 and only within a block that does not straddle 0x0A/0x0B. readBlock(a, startReg, buf, n): beginTransmission(a); write(startReg); endTransmission(false) for a repeated START; requestFrom(a, n); then read n bytes. setPointer(a, reg): beginTransmission(a); write(reg); endTransmission() - a one-byte payload after the opcode is the register address only, never data.",
+  "Bus bring-up, in this order. Wire.begin(); then Wire.setClock(400000) - begin() calls setClock(100000) internally so the order matters. Do NOT use 1700000: Table 1-3 qualifies the entire 1.7 MHz column as 4.5-5.5 V and you run at 3.3 V.",
+  "Hardware reset before any I2C traffic. Drive the RESET GPIO low for at least 10 us (spec minimum TRSTL is 1 us; take 10x margin), release it high, then wait 1 ms before the first transaction. Param 32 THLD is typ 0 ns but is characterised only at VDD = 5.0 V, so the 1 ms is engineering margin, not a datasheet number. Fit a 10 kohm pull-up from RESET to 3.3 V so the line is defined during the window between Teensy power-up and pinMode() - Teensy pins boot as high-impedance inputs and RESET must never float.",
+  "BANK recovery, always, as the first I2C write. writeReg(a, 0x05, 0x00). If the device is somehow in BANK=1, 0x05 is IOCON and this clears BANK. If it is already in BANK=0, 0x05 is GPINTENB and you have merely disabled PORTB interrupts - which you are about to configure anyway. Use a byte write, never a block write: Section 3.5.6 warns the address pointer lands on an invalid location when BANK changes mid-transfer.",
+  "Configure IOCON: writeReg(a, 0x0A, 0x44). Then verify: readBlock(a, 0x0A, buf, 2) and require buf[0] == 0x44 AND buf[1] == 0x44. Both slots are the same physical register, so any disagreement means you are not talking to an MCP23017 or the bus is corrupting data. Fail the device out of the fabric rather than continuing.",
+  "Write OLAT BEFORE IODIR. At POR, OLATA/OLATB = 0x00 and IODIRA/IODIRB = 0xFF. If you set direction first, every output pin drives LOW for the duration of the next transaction - every sink-driven LED flashes, every relay twitches. Correct order: writeBlock(a, 0x14, {olatA, olatB}, 2) first, then the input-side registers, then IODIR last.",
+  "Configure the input-side block in one 10-byte sequential write from 0x00 - but only after OLAT is set. The block 0x00..0x09 is exactly IODIRA, IODIRB, IPOLA, IPOLB, GPINTENA, GPINTENB, DEFVALA, DEFVALB, INTCONA, INTCONB and stops one address short of IOCON. If you would rather not touch IODIR until the very end, split it: writeBlock(a, 0x02, {ipolA, ipolB, gpintenA, gpintenB, defvalA, defvalB, intconA, intconB}, 8), then writeBlock(a, 0x0C, {gppuA, gppuB}, 2), then writeBlock(a, 0x00, {iodirA, iodirB}, 2) as the final commissioning step.",
+  "Mask the errata pins in the direction setter, not in the caller. iodirA &= 0x7F; iodirB &= 0x7F; and make the public pinMode()-equivalent return an error for logical pins 7 and 15 when the caller asks for INPUT. Rev D Section 3.5.1 note: 'For MCP23017, IO7 must be set via I2C interface to 0 (output).' Also force gpintenA &= 0x7F and gpintenB &= 0x7F - an interrupt-enabled GPA7 is the exact condition that corrupts SDA.",
+  "Use INTCON = 0x00 on both ports (pin-change comparison) unless you specifically want a level alarm. With INTCON bit = 1 the interrupt does not clear while the pin differs from DEFVAL (Section 3.6.5 item 2) and your wired-OR IRQ line stays asserted.",
+  "Clear any latched interrupt at the end of init: readBlock(a, 0x10, buf, 2) reads INTCAPA and INTCAPB, which per Table 3-6 clears both ports. Discard the result. Do this after IOCON and GPINTEN are set, so the INT pin starts deasserted.",
+  "The hot-path GPIO read, one transaction: readBlock(a, 0x12, buf, 2) gives GPIOA in buf[0] and GPIOB in buf[1] because 0x12 and 0x13 are adjacent and SEQOP=0 auto-increments the pointer. On the wire this is START, (a<<1|0), 0x12, RESTART, (a<<1|1), D0+ACK, D1+NACK, STOP - 5 bytes, about 48 bit periods, roughly 120 us at 400 kHz.",
+  "The ISR read, also one transaction, and this is the important one: readBlock(a, 0x0E, buf, 4) returns INTFA, INTFB, INTCAPA, INTCAPB in that order because 0x0E, 0x0F, 0x10, 0x11 are contiguous. You get who-interrupted and what-the-pins-were in a single 7-byte transfer (~165 us at 400 kHz), and the two INTCAP bytes clear BOTH ports per Table 3-6 in the same breath. Never read GPIO first: Section 3.6.4 Note says INTCAP is overwritten if GPIO is read while another interrupt-on-change is pending.",
+  "Keep the ISR itself I2C-free. Teensy's Wire is not reentrant and 165 us inside an ISR is unacceptable. attachInterrupt on the wired-OR pin should set a volatile flag (or a bitmask if you group devices); do the readBlock from the main loop or a scheduled task. With ODR=1 the line is level-low while asserted, so use FALLING and then re-check the pin level after servicing - if it is still low, another device is also asserting and you must keep polling.",
+  "Servicing 12 wired-OR devices: on each IRQ you must poll all of them (about 2 ms of bus time at 400 kHz). If that is too slow, split the IRQ across three Teensy pins (one per I2C bus) so the poll set is 4 or 8, or route each device's INT to a 74HC165 input so one SPI read gives a 12-bit who-interrupted vector - but if you do that, each open-drain INT needs its own pull-up so the '165 inputs never float.",
+  "INT pull-up sizing: the INT pin's VOL is guaranteed only at IOL = 1.6 mA (D080), so R >= 3.3 / 0.0016 = 2.06 kohm. Use 4.7 kohm (0.70 mA). With up to 12 INT pins at CIO max 50 pF the net can reach 600 pF plus trace, giving a ~2.8 us RC - fine for an IRQ, but keep the net short and do not add a filter capacitor.",
+  "Keep a shadow copy of OLATA/OLATB in RAM and do read-modify-write locally, never a read of GPIO. Reading GPIO returns the pin state, which on a loaded output is not necessarily what you commanded. Periodically (say once a second) read OLAT back and compare against your shadow - a mismatch means the chip reset under you.",
+  "Health check / silent-reset detection: once per second read 0x0A and 0x0B and require both == 0x44. IOCON POR is 0x00, so a browned-out or reset expander announces itself immediately as MIRROR=0/ODR=0 (which also means its INT pin has become a push-pull driver fighting your wired-OR net). On detection, assert RESET and re-run the whole init.",
+  "Do not touch the BANK bit ever after init. If a future you wants BANK=1, the datasheet warning in Section 3.5.6 applies: use a byte write only, and treat the address pointer as invalid immediately afterwards.",
+  "Bus allocation: 8 addresses per bus, 12 chips. Put 8 on Wire (pins 18/19) and 4 on Wire1 (pins 17/16), or 4/4/4 across Wire, Wire1, Wire2 (pins 24/25) to cut per-bus capacitance and shorten the poll set per IRQ. Strap A2/A1/A0 with direct copper to VDD or VSS - they are TTL-threshold inputs with no internal bias and no defined behaviour when floating.",
+  "Sink-drive every LED. R = (3.3 - Vf - VOL) / I. For a red LED at Vf 2.0 V and a target 5 mA with VOL taken as 0.6 V: R = 140 ohm, use 150 ohm. Keep the aggregate under 100 mA out of VSS (the absolute maximum is 150 mA and that is a stress rating, not an operating point) - so no more than about 16 LEDs at 5 mA, or fewer at higher current. Never source-drive: at 3.3 V the guaranteed source current is uncharacterised and the 1.8 V data point is only 400 uA.",
+  "Off-board buttons: do not rely on GPPU. Fit an external 4.7-10 kohm pull-up at the expander, a 1 kohm series resistor in the signal line (limits clamp current to about 1.1 mA if the cable ever sees 5 V, against a +/-20 mA abs-max clamp rating), and a 10 nF cap to ground at the expander (100 us with a 10 kohm pull-up - fast enough not to swamp pin-change detection). Debounce in software on top. You may still set GPPU as a belt-and-braces default for unconnected pins.",
+  "No floating CMOS inputs, per your rule: unused GPIO pins should be left as inputs with GPPU enabled (a defined 43-125 kohm pull), or set as outputs driving low. The NC pins (pin 7 SPDIP / 11 SOIC on the MCP23017, and NC/SO) are true internal no-connects and are exempt - leave them open."
+ ],
+ "pitfalls": [
+  "Reading GPIO before INTCAP. The datasheet Note in Section 3.6.4 is explicit: if another interrupt-on-change is pending, reading GPIO clears the interrupt, the pending condition immediately re-sets it, and INTCAP is overwritten with the NEW port value. Your event log then contains a perfectly well-formed byte describing the wrong event. Nothing errors. This is the single most dangerous ordering bug in the part.",
+  "With MIRROR=1, reading only one port. Table 3-6: an interrupt from GPIOA clears only when PORTA is read; reading PORTB leaves it Unchanged. Miss one port and the wired-OR INT line stays low. A FALLING-edge ISR then never fires again and the system goes quiet - it looks like the buttons stopped working, not like a driver bug.",
+  "INTCON = 1 (DEFVAL comparison) on a button. Section 3.6.5 item 2: the interrupt condition persists as long as the pin differs from DEFVAL, regardless of INTCAP or GPIO reads. A held-down button pins the IRQ line low permanently. Use INTCON = 0.",
+  "Writing IODIR before OLAT during init. POR OLAT is 0x00, so the instant you set a pin to output it drives low. Every sink-driven LED lights, every active-low relay pulls in, for the duration of the next few transactions. It looks like a power-up flicker and gets dismissed.",
+  "GPA7 or GPB7 configured as an input. Rev D forbids it. The failure is intermittent SDA corruption triggered only when that pin happens to transition during the exact bit slot - so it presents as random bus errors, worsens as you add devices, and correlates with nothing in your code. If you have an existing pin map that uses pin 7 or 15 as an input, that is the bug.",
+  "Touching the BANK bit. Section 3.5.6 spells out the scenario: write 0x80 to 0x0A with sequential mode on, and the pointer afterwards sits at 0x0B, which is invalid in BANK=1. Everything you write next goes somewhere undefined.",
+  "Sequential blocks that straddle 0x0A/0x0B. A 2-byte write to 0x09 writes INTCONB and then IOCON. A 2-byte write to 0x0A writes IOCON twice (harmless, same register, but confusing on a logic analyser). Assert your block boundaries in code.",
+  "Assuming a Teensy reboot resets the expanders. There is no software reset command anywhere in the register map. After a crash, watchdog, or reflash, the MCP23017 still holds its old IOCON, IODIR and OLAT while your driver believes everything is at POR. Outputs stay driven through the whole reboot. Only the RESET pin or a power cycle fixes it - which is why RESET must go to a GPIO, not to VDD.",
+  "Forgetting an external I2C pull-up and not noticing. Teensy's Wire enables a 22 kohm internal pull-up on SDA and SCL (PKE|PUE|PUS(3) in WireIMXRT.cpp). At 100 kHz with two devices that works fine. Add six more expanders and go to 400 kHz and it fails - and you will look for the cause in the new devices, not in the resistor you never fitted.",
+  "Setting Wire.setClock(1700000). Every 1.7 MHz row in Table 1-3 is conditioned 4.5V-5.5V. At 3.3 V it is out of spec but will run 'mostly fine' at room temperature on a short bus, then fail in the field or when you add the eighth device. Also note the 1.7 MHz bus-capacitance limit drops to 100 pF.",
+  "Calling Wire.setClock() before Wire.begin(). begin() calls setClock(100000) internally, silently reverting you to 100 kHz. Your throughput budget is then 4x wrong and everything still works.",
+  "A NACKed or aborted read that never clears the interrupt. Section 3.6.4: the interrupt clears after the LSb is clocked out during a read of GPIO or INTCAP. If your master aborts mid-byte on an arbitration or timeout error, the interrupt stays latched and the INT line stays low - the ISR flag re-arms and you spin.",
+  "Enabling GPPU on an output pin and expecting it to do anything. Register 3-6 conditions the pull-up on 'when configured as an input'. It does nothing on an output. Silently ineffective.",
+  "Trusting VOL/VOH numbers at 3.3 V. The datasheet characterises GPIO VOL only at VDD = 4.5 V (8.0 mA) and GPIO VOH at 4.5 V (3.0 mA) and 1.8 V (400 uA). There is no 3.3 V row. Any current budget you compute from the 4.5 V numbers is an extrapolation, not a spec.",
+  "Buying MCP23017s with an unknown date code. DS80252A: Rev A0 silicon (date code 0542 and earlier) false-ACKs because its address matcher checks every 8 bits while I2C bytes are 9 bits long. The corruption appears when a DIFFERENT device is being addressed, so the MCP23017 will be the last thing you suspect.",
+  "Scanning a mixed bus with a data byte attached. A PCF8574 or PCF8575 at 0x20-0x27 has no register pointer - every byte you send lands on its output pins with up to 25 mA of sink capability. An innocent MCP23017 pointer write becomes a port write.",
+  "Assuming IPOL inversion applies uniformly. The datasheet says IPOL inverts what the GPIO register reflects (Register 3-1). It does not state whether INTCAP is also inverted, or whether the interrupt-on-change comparison happens pre- or post-inversion. If you use IPOL at all, verify on the analyser before trusting INTCAP polarity."
+ ],
+ "open_questions": [
+  "Are your 12 MCP23017s bare DIP/SOIC chips or pre-made breakout modules? Many MCP23017 breakouts fit onboard 10k or 4.7k pull-ups on SDA and SCL, and some pull RESET up as well. Eight such modules on one bus gives you eight parallel pull-ups plus the Teensy's internal 22k - which silently violates your pull-up-once rule and can overload the master's SDA driver. If they are modules, I need to know the exact board so I can tell you which resistors to lift.",
+  "What is the YYWWNNN date code marked on your parts? Anything at 0542 or earlier is Rev A0 silicon carrying the DS80252A false-ACK errata. Read the marking on one chip from each tube/reel.",
+  "Does your existing pin allocation use GPA7 (logical pin 7) or GPB7 (logical pin 15) as an input anywhere? Rev D makes those output-only. If yes, that pin map needs reworking before firmware is written.",
+  "How do you want the 12 chips split across Teensy 4.1's three I2C buses? One bus only holds 8 addresses. 8+4 across Wire and Wire1 is fewest wires; 4+4+4 across Wire/Wire1/Wire2 gives lower per-bus capacitance and cuts the per-interrupt poll set from 8 devices to 4. This is a wiring decision only you can make.",
+  "What is the physical bus topology and total wire length? I need this to check the 400 pF budget - the MCP23017's own SDA pin capacitance is not specified in the datasheet (only CB, the bus limit), so the budget has to come from measurement or from a typical 10 pF/device assumption plus your trace and cable length.",
+  "Do you want one wired-OR IRQ line for all 12 (your stated rule, costing about 2 ms of bus polling per interrupt event at 400 kHz), one per bus (about 0.7 ms), or a 74HC165-latched 12-bit who-interrupted vector? The first is simplest; the third is fastest and uses hardware you already own, but needs a pull-up per INT line so the '165 inputs never float.",
+  "What is on the far end of the off-board inputs - dry mechanical contacts, open-collector sensors, or something driven? And over what cable length? The internal pull-up is 43.5-125 kohm equivalent (and unspecified at 3.3 V), which is unusable past about 100 mm of unshielded wire.",
+  "What LED colours and how many lit simultaneously in the worst case? I need Vf and the concurrency to check the 150 mA out-of-VSS limit per chip, since that is an absolute maximum and not an operating rating.",
+  "Is there any chance of a PCF8574, PCF8575, MCP23008 or an I2C LCD backpack on the same bus? All of those sit at 0x20-0x27 and collide with your expanders. If the answer is definitely no, the identify sequence can be simplified and made fully non-destructive.",
+  "Will any expander module ever be plugged or unplugged with the bus live? If yes, we need staggered-contact connectors or a hot-swap-capable I2C buffer, neither of which is in your inventory - so the answer really wants to be no."
+ ],
+ "la_verification": [
+  "Channel allocation for the 8-channel 24 MHz analyser: CH0 = SCL, CH1 = SDA, CH2 = INT (the wired-OR net), CH3 = RESET, CH4-CH7 = four GPIO pins under test. At 24 MSa/s one sample is 41.7 ns, so a 400 kHz bit period (2.5 us) is 60 samples - comfortable. Do not attempt 1.7 MHz analysis: 588 ns per bit is 14 samples and it is out of spec at 3.3 V anyway.",
+  "Prove SEQOP=0 auto-increment is actually working. Trigger on START. The GPIO read must decode as exactly: START, 0x40 (for device 0x20, write), ACK, 0x12, ACK, RESTART, 0x41, ACK, byte0, ACK(master), byte1, NACK(master), STOP. If you see two separate STARTs with a STOP between them, your endTransmission(false) did not produce a repeated start. If byte1 equals byte0 every time regardless of pin state, SEQOP is set to 1 and the pointer is not incrementing.",
+  "Prove the 4-byte ISR read is contiguous and clears both ports. Force an input change on a PORTB pin only. Capture: the transaction from pointer 0x0E must return four bytes where byte0 (INTFA) = 0x00, byte1 (INTFB) has the culprit bit set, byte3 (INTCAPB) shows the captured level. On CH2, the INT line must release within the same transaction, at the ACK following the fourth byte - the datasheet says the interrupt clears after the LSb of the data is clocked out. If INT releases after the third byte instead, you are reading only three bytes.",
+  "Prove the INTCAP-before-GPIO rule empirically, because this is the bug you most want to never have. Set up a test pin toggling continuously at about 1 kHz. Run variant A (read INTCAP then GPIO) and variant B (read GPIO then INTCAP) and log the captured bytes against the analyser's ground-truth pin trace on CH4. Variant B will show captures that do not match the edge that raised the interrupt. That is the datasheet's Section 3.6.4 Note made visible.",
+  "Measure interrupt latency: pin edge on CH4 to INT falling on CH2. The datasheet specifies NO interrupt propagation time - there is no tINT parameter in Table 1-2 or Table 1-3. This number is unverified and must be measured, not assumed. Expect low microseconds; if you see tens of microseconds, something is wrong with the wired-OR RC.",
+  "Measure the wired-OR INT rise time on CH2 with all devices connected. With 4.7 kohm and up to 12 x 50 pF (CIO max) plus trace, expect roughly 2-3 us from release to threshold. If the Teensy's FALLING interrupt is retriggering, the culprit is usually a slow rise crossing the Schmitt threshold sluggishly - shorten the net or drop to 3.3 kohm (at 3.3 kohm the INT pin sinks 1.0 mA, still inside the 1.6 mA spec point).",
+  "Verify SDA and SCL edges against the 400 kHz limits: TR max 300 ns, TF max 300 ns, THIGH min 0.6 us, TLOW min 1.3 us, TSU:DAT min 100 ns, TBUF min 1.3 us. Honest limitation: 300 ns is only about 7 samples at 24 MSa/s, so the analyser can only tell you a rise is grossly out (>1 us) - it cannot certify 300 ns. Use a scope for the rise-time sign-off; use the analyser to catch the gross failures and to confirm THIGH/TLOW/TBUF, which are tens of samples wide and measurable.",
+  "Verify the RESET sequence on CH3 + CH4. RESET low must be at least 1 us wide (spec minimum TRSTL). Watch a GPIO pin previously driven high on CH4 - it must go high-impedance within 1 us of RESET falling (spec param 34 TIOZ max 1 us). If the pin stays driven, RESET is not reaching the chip.",
+  "Prove no output glitch at init. Put CH4-CH7 on four sink-driven LED pins and capture from RESET release through the end of init. If you see those pins go low before the OLAT write transaction completes, your init order is wrong (IODIR before OLAT). The correct capture shows the pins staying high-impedance until the final IODIR write, then going to their commanded level directly.",
+  "Bus-scan verification: a correct address probe is exactly nine SCL pulses (8 address bits + ACK) followed by STOP, with no data byte. If your scan emits a tenth-onward pulse group, you are writing a data byte and would be corrupting any PCF857x on the bus.",
+  "Device fingerprint capture: pointer-write 0x00, then a 22-byte sequential read. On the analyser the payload must be FF FF followed by twenty 0x00 bytes for a virgin MCP23017. Save this trace as your golden reference - any future mystery device gets compared against it.",
+  "INA219 measurements. Put one INA219 in the VDD feed of a single expander module. Idle logic current should be under 1 mA (D004 IDD max is 1 mA at 1 MHz SCL). Then light LEDs one at a time and confirm each step matches (3.3 - Vf - VOL)/R. Honest limitation: with the stock 0.1 ohm shunt and a 10 uV shunt-voltage LSB, the INA219 resolves about 100 uA - so it will see 1 mA clearly but cannot measure the 1 uA standby current (D005) at all. Do not try.",
+  "Use a second INA219 on the 3.3 V rail feeding the whole expander bank to check the aggregate against the 150 mA out-of-VSS limit per chip and your own derated budget. Log the worst-case all-LEDs-on pattern.",
+  "Contention self-test with no extra hardware: for every pin you drive as an output, read back both OLAT (0x14/0x15) and GPIO (0x12/0x13). They must agree. A disagreement on an output pin means the pin is being fought or the driver is dead - run this as a background sweep and log it."
+ ],
+ "injection_seen": "None. Every source in this pass was a PDF datasheet or a source-code file (Microchip DS20001952D, Microchip DS80252A, TI SCPS068K, NXP IMXRT1060CEC, PaulStoffregen/Wire WireIMXRT.cpp, PJRC Teensy 4.1 pinout card) and none contained instruction-shaped text, fake system-reminders, or any attempt to redirect commit attribution or behaviour. One page I attempted, the Microchip support article at support.microchip.com/s/article/GPA7---GPB7-Cannot-Be-Used-as-Inputs-In-MCP23017, returned only a JavaScript loading shell with a CSS error and no article body - it contained nothing at all, injected or otherwise, which is why I have marked the GPA7/GPB7 failure MECHANISM as \"likely\" rather than \"certain\" while the restriction itself is certain from the datasheet. Note for the parent agent: some of the PDFs I parsed were downloaded into a shared tool-results directory that also contained files fetched by other agents in this workflow (a TI 74HC595 datasheet, two Teensy 4.1 pinout PDFs, and two LCDWIKI E32R40T documents). I only read the two MCP23017 documents plus the TI PCF8574 datasheet I fetched myself and the NXP RT1060 datasheet I fetched myself; I did not treat any of the other agents' files as input."
+}

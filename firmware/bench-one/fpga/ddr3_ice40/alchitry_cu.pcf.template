@@ -1,0 +1,84 @@
+# ===========================================================================================
+#  alchitry_cu.pcf -- pin constraints for ddr3_top on an Alchitry Cu (iCE40-HX8K-CB132)
+# ===========================================================================================
+#
+#  THIS FILE IS A TEMPLATE AND WILL NOT BUILD AS IT STANDS.
+#
+#  The pin letters below are deliberately left as PLACEHOLDERs. The Alchitry Cu's ball assignments
+#  are published by Alchitry in their own cu.pcf, and inventing them here would be worse than
+#  useless: a wrong ball on a DDR3 data line is a short between a 1.5 V part and a 3.3 V driver.
+#  Copy the ball names from Alchitry's cu.pcf, which maps their silkscreen labels (A2, B14, C9 and
+#  so on) to CB132 balls, and fill them in.
+#
+#  WIRING RULES THAT MATTER MORE THAN THE PIN CHOICE
+#  ------------------------------------------------
+#  1. Keep all eleven DDR3 DQ-side lines (DQ0..7, DQS, plus returns) on the SAME bank and the same
+#     edge of the board, as short and as equal in length as you can manage. These are the only
+#     lines where skew costs data; the address and command lines are updated a half memory period
+#     early and have 20 ns of slack at 25 MHz.
+#  2. Give CK and CK# adjacent pins. They are a differential pair and want to run together.
+#  3. Every signal wants a ground return beside it. With flying leads that means a ground wire
+#     every few signals, not one ground for the whole harness.
+#  4. The Teensy side is 3.3 V and connects directly. The DDR3 side is 1.5 V and every line needs
+#     translation: dividers are fine for the output-only lines, but DQ and DQS are bidirectional
+#     and need real level shifters.
+#
+# ===========================================================================================
+
+# ---- clock and reset ----
+set_io clk          PLACEHOLDER   # 100 MHz board oscillator
+set_io rst_n        PLACEHOLDER   # reset button, active low
+
+# ---- Teensy FlexSPI2, 3.3 V, direct connection ----
+set_io qspi_sck     PLACEHOLDER   # <- Teensy pin 53
+set_io qspi_cs_n    PLACEHOLDER   # <- Teensy pin 51  (chip select 1, the free one)
+set_io qspi_io[0]   PLACEHOLDER   # <-> Teensy pin 52
+set_io qspi_io[1]   PLACEHOLDER   # <-> Teensy pin 49
+set_io qspi_io[2]   PLACEHOLDER   # <-> Teensy pin 50
+set_io qspi_io[3]   PLACEHOLDER   # <-> Teensy pin 54
+
+# ---- DDR3, through level translation. DIMM contact numbers are for a 240-pin DDR3 UDIMM. ----
+set_io ddr_ck_p     PLACEHOLDER   # contact 184
+set_io ddr_ck_n     PLACEHOLDER   # contact 185
+set_io ddr_cke      PLACEHOLDER   # contact 50
+set_io ddr_reset_n  PLACEHOLDER   # contact 168
+set_io ddr_cs_n     PLACEHOLDER   # contact 193  (S0#)
+set_io ddr_ras_n    PLACEHOLDER   # contact 192
+set_io ddr_cas_n    PLACEHOLDER   # contact 74
+set_io ddr_we_n     PLACEHOLDER   # contact 73
+set_io ddr_odt      PLACEHOLDER   # contact 195  (tie low; unsupported with the DLL off)
+
+set_io ddr_ba[0]    PLACEHOLDER   # contact 71
+set_io ddr_ba[1]    PLACEHOLDER   # contact 190
+set_io ddr_ba[2]    PLACEHOLDER   # contact 52
+
+set_io ddr_a[0]     PLACEHOLDER   # contact 188
+set_io ddr_a[1]     PLACEHOLDER   # contact 181
+set_io ddr_a[2]     PLACEHOLDER   # contact 61
+set_io ddr_a[3]     PLACEHOLDER   # contact 180
+set_io ddr_a[4]     PLACEHOLDER   # contact 59
+set_io ddr_a[5]     PLACEHOLDER   # contact 58
+set_io ddr_a[6]     PLACEHOLDER   # contact 178
+set_io ddr_a[7]     PLACEHOLDER   # contact 56
+set_io ddr_a[8]     PLACEHOLDER   # contact 177
+set_io ddr_a[9]     PLACEHOLDER   # contact 175
+set_io ddr_a[10]    PLACEHOLDER   # contact 70
+set_io ddr_a[11]    PLACEHOLDER   # contact 55
+set_io ddr_a[12]    PLACEHOLDER   # contact 174
+set_io ddr_a[13]    PLACEHOLDER   # contact 196
+set_io ddr_a[14]    PLACEHOLDER   # contact 172
+
+# The data group. Short, equal, same bank, ground returns between them.
+set_io ddr_dq[0]    PLACEHOLDER   # contact 3
+set_io ddr_dq[1]    PLACEHOLDER   # contact 4
+set_io ddr_dq[2]    PLACEHOLDER   # contact 9
+set_io ddr_dq[3]    PLACEHOLDER   # contact 10
+set_io ddr_dq[4]    PLACEHOLDER   # contact 122
+set_io ddr_dq[5]    PLACEHOLDER   # contact 123
+set_io ddr_dq[6]    PLACEHOLDER   # contact 128
+set_io ddr_dq[7]    PLACEHOLDER   # contact 129
+set_io ddr_dqs      PLACEHOLDER   # contact 7   (DQS0; its complement at contact 6 is unused here)
+
+# ---- indicators ----
+set_io led_init     PLACEHOLDER   # lit once the DIMM has been initialised
+set_io led_act      PLACEHOLDER   # lit while a transfer is in flight

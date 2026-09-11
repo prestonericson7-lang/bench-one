@@ -1,0 +1,290 @@
+{
+ "topic": "74HC595 / 74HC165 shift-register layer on Teensy 4.1 hardware SPI at 3.3 V",
+ "summary": "Both parts are SPI MODE0 (CPOL=0, CPHA=0) devices: both shift on the SCK rising edge, and mode 0's idle-low SCK is what makes RCLK and /PL transitions safe. No manufacturer specifies 74HC595 or 74HC165 at 3.3 V — TI and Nexperia only publish 2.0/4.5/6.0 V columns — but onsemi's MC74HC595A and MC74HC165A publish a real 3.0 V column, and that is the only defensible source for 3.3 V numbers. From it, the hard ceiling is not the single-chip fmax (10 MHz for the '595 at 3.0 V, ≤85 °C) but the per-hop cascade path: tPD(SRCLK→QH', 125 ns) + tsu(SER→SRCLK, 50 ns) = 175 ns, i.e. 5.71 MHz worst case, independent of chain length. Run the fabric at 4.000 MHz (an exact divisor of the Teensy's 176 MHz LPSPI clock) — that is the single most important number in this document. The 74HC165's QH is a permanently-driving totem pole, so sharing SPI0 MISO with anything else is an absolute-maximum-ratings violation (~30-60 mA into a ±25 mA pin), not merely a data-corruption bug; his cleanest fix costs zero parts, because Teensy1's SPI1 (26/27/39) is free once you move MISO off pin 1, which his already-built ESP32-S3 Serial1 link occupies. A second, subtler hazard is that the '595/'165 have no chip select at all, so every foreign SCK edge on a shared bus shifts the chains — the dedicated port fixes both problems at once.",
+ "facts": [
+  {
+   "claim": "74HC595 DIP-16 pin assignment (identical across TI SN74HC595N, Nexperia 74HC595, onsemi MC74HC595AN)",
+   "value": "1=QB, 2=QC, 3=QD, 4=QE, 5=QF, 6=QG, 7=QH, 8=GND, 9=QH' (serial out), 10=/SRCLR (active LOW), 11=SRCLK (shift clock), 12=RCLK (storage/latch clock), 13=/OE (active LOW), 14=SER (serial in), 15=QA, 16=VCC. Nexperia names: Q1..Q7=1..7, Q7S=9, MR=10, SHCP=11, STCP=12, OE=13, DS=14, Q0=15.",
+   "source": "TI SCLS041J (Oct 2021) Table 5-1 Pin Functions; Nexperia 74HC_HCT595 Rev.12 (20 Mar 2024) §6.1 Pinning; onsemi MC74HC595A Figure 1 Pin Assignments",
+   "confidence": "certain",
+   "why_it_matters": "QA is pin 15, not pin 1 — the single most common miswire. QA and QB are on opposite ends of the package."
+  },
+  {
+   "claim": "74HC165 DIP-16 pin assignment (identical across TI SN74HC165N, Nexperia 74HC165, onsemi MC74HC165AN; onsemi states it is 'identical in pinout to the LS165')",
+   "value": "1=/PL (SH/LD, active LOW), 2=CP (CLK), 3=D4 (E), 4=D5 (F), 5=D6 (G), 6=D7 (H), 7=/Q7 (/QH, complementary output), 8=GND, 9=Q7 (QH, serial output), 10=DS (SER, serial in), 11=D0 (A), 12=D1 (B), 13=D2 (C), 14=D3 (D), 15=/CE (CLK INH, active LOW enable), 16=VCC",
+   "source": "TI SCLS116H (Dec 2015) §5 Pin Functions; Nexperia 74HC_HCT165 Rev.8 (9 May 2025) Table 2 Pin description; onsemi MC74HC165A p.1",
+   "confidence": "certain",
+   "why_it_matters": "The parallel inputs are NOT in pin order: D0-D3 are pins 11-14 and D4-D7 are pins 3-6. Wiring buttons in pin order gives a scrambled byte."
+  },
+  {
+   "claim": "Both parts shift on the LOW-to-HIGH (rising) clock edge, so the correct SPI mode is MODE0 (CPOL=0, CPHA=0), MSB first",
+   "value": "SPI_MODE0, MSBFIRST. SPI_MODE3 also samples/latches on rising edges and works electrically, but is unsafe here (see pitfalls).",
+   "source": "TI SCLS041J §8.1: 'Both the shift register clock (SRCLK) and storage register clock (RCLK) are positive-edge triggered'; TI SCLS116H §3: 'Clocking is accomplished by a low-to-high transition of the clock (CLK) input'; Nexperia 74HC_HCT595 §1",
+   "confidence": "certain",
+   "why_it_matters": "Mode 0 drives MOSI on the falling edge, giving a full half-period of setup before the rising edge that latches it."
+  },
+  {
+   "claim": "No manufacturer publishes a 3.3 V specification for 74HC595 or 74HC165 — TI and Nexperia characterise only at 2.0 V, 4.5 V and 6.0 V",
+   "value": "TI SCLS041J §6.6/§6.7 and Nexperia Rev.12 Table 7 both have exactly three VCC columns: 2 V, 4.5 V, 6 V. Nothing at 3.0 V or 3.3 V.",
+   "source": "TI SCLS041J §6.6 Timing Requirements, §6.7 Switching Characteristics; Nexperia 74HC_HCT595 Rev.12 Table 7 Dynamic characteristics",
+   "confidence": "certain",
+   "why_it_matters": "Every '20 MHz at 3.3 V' figure on the internet is an interpolation between the 2 V and 4.5 V columns, not a datasheet number. Do not design to it."
+  },
+  {
+   "claim": "onsemi MC74HC595A is the only 595 datasheet with a real 3.0 V column — use it as the 3.3 V proxy. Maximum clock frequency at VCC = 3.0 V.",
+   "value": "fmax = 15 MHz (-55 to +25 °C), 10 MHz (≤85 °C), 8.0 MHz (≤125 °C), at CL = 50 pF, 50% duty cycle",
+   "source": "onsemi MC74HC595A/D, AC ELECTRICAL CHARACTERISTICS table (Farnell mirror 2032055.pdf p.5)",
+   "confidence": "certain",
+   "why_it_matters": "10 MHz is the single-chip guaranteed limit at 3.0 V and ≤85 °C — half the commonly quoted 20 MHz."
+  },
+  {
+   "claim": "THE CASCADE LIMIT: for a chained 74HC595, each hop QH'→SER must complete inside one SCK period. All chips share SRCLK, so this is a per-hop limit and is INDEPENDENT of chain length.",
+   "value": "At VCC = 3.0 V, ≤85 °C: tPD(Shift Clock → SQH) = 125 ns max, plus tsu(Serial Data A → Shift Clock) = 50 ns min. 125 + 50 = 175 ns → f_max_cascade = 5.71 MHz. At -55/+25 °C it is 100 + 40 = 140 ns → 7.14 MHz.",
+   "source": "onsemi MC74HC595A AC ELECTRICAL CHARACTERISTICS (tPLH/tPHL Shift Clock to SQH: 100/125/150 ns at 3.0 V) and TIMING REQUIREMENTS (tsu Serial Data Input A to Shift Clock: 40/50/60 ns at 3.0 V)",
+   "confidence": "certain",
+   "why_it_matters": "This, not fmax, is the number that sets your SPI clock. A 2-chip chain and a 20-chip chain have the same ceiling."
+  },
+  {
+   "claim": "74HC165 cascade limit at 3.0 V (same per-hop reasoning: QH of chip N+1 → DS of chip N)",
+   "value": "tPD(CLK → QH) = 63 ns max (≤85 °C) plus tsu(input SA → Clock) = 40 ns min (≤85 °C) = 103 ns → 9.71 MHz. Single-chip fmax at 3.0 V = 18/17/15 MHz (25/85/125 °C).",
+   "source": "onsemi MC74HC165A AC ELECTRICAL CHARACTERISTICS and TIMING REQUIREMENTS, 3.0 V rows (Octopart mirror MC74HC165ADR2G-ON-Semiconductor-datasheet-9697360.pdf pp.4-5)",
+   "confidence": "certain",
+   "why_it_matters": "The '165 chain is faster than the '595 chain, so the '595 sets the shared-SCK ceiling at 5.71 MHz."
+  },
+  {
+   "claim": "RECOMMENDED FABRIC SPI CLOCK",
+   "value": "SPISettings(4000000, MSBFIRST, SPI_MODE0) — 4.000 MHz exactly. Margin: 175 ns required vs 250 ns period = 43% headroom on the '595 cascade; MOSI setup = 125 ns vs 50 ns required = 2.5x. At 8 MHz the MOSI setup margin collapses to 62.5 ns vs 50 ns required (25%), which is not enough for breadboard skew.",
+   "source": "Derived from onsemi MC74HC595A 3.0 V timing; divisor verified against PaulStoffregen/SPI SPI.h:1215-1228 and SPI.cpp setClockDivider_noInline",
+   "confidence": "certain",
+   "why_it_matters": "4 MHz is an exact divisor of the Teensy LPSPI clock (176/44), so the LA will show a clean 250.0 ns period with no rounding."
+  },
+  {
+   "claim": "Teensy 4.x LPSPI peripheral clock is 176 MHz, NOT the 132 MHz stated in the library's own comment",
+   "value": "SPI::begin() writes CCM_CBCMR_LPSPI_PODF(2) | CCM_CBCMR_LPSPI_CLK_SEL(1) → PLL2 (528 MHz) with LPSPI_PODF=010. The i.MX RT1060 RM defines LPSPI_PODF 010 = 'divide by 3'. 528/3 = 176 MHz. The source comment says '// CBCMR[LPSPI_PODF] - div4 = 132 MHz' and is wrong.",
+   "source": "i.MX RT1060 Processor Reference Manual Rev.3 07/2021, p.1049, CCM_CBCMR field descriptions, bits 28-26 LPSPI_PODF; PaulStoffregen/SPI SPI.cpp lines ~1276-1281",
+   "confidence": "certain",
+   "why_it_matters": "The library's runtime readback formula uses (PODF+1), so it is self-consistent and requested frequencies ARE met — but never hand-compute a divider from the stale 132 MHz comment. Confirm the period on the analyser."
+  },
+  {
+   "claim": "Teensy 4.1 SPI cannot produce a clock below ~685 kHz",
+   "value": "SCKDIV is 8-bit; the library clamps its divisor d to 257 (SPI.h:1221 'if (d > 257) d = 257'). Minimum SCK = 176 MHz / 257 = 684.8 kHz. Requesting SPISettings(500000,...) silently yields 684.8 kHz. Maximum = 176/2 = 88 MHz.",
+   "source": "PaulStoffregen/SPI SPI.h lines 1215-1228; RT1060 RM p.1049",
+   "confidence": "certain",
+   "why_it_matters": "If you try to slow the fabric down for a marginal chain, 685 kHz is the floor. Below that you must bit-bang."
+  },
+  {
+   "claim": "74HC595 absolute maximum output current, per pin and per package",
+   "value": "Per pin (QA-QH): ±35 mA (TI, Nexperia, onsemi). Nexperia rates QH'/Q7S separately at ±25 mA. Continuous current through the VCC or GND pin: ±70 mA (TI SCLS041J, Nexperia ICC 70 mA / IGND -70 mA); onsemi MC74HC595A states ±75 mA. Total power dissipation: 500 mW SO16 / 450 mW TSSOP (onsemi, Nexperia); TI PDIP RθJA = 67 °C/W.",
+   "source": "TI SCLS041J §6.1 Absolute Maximum Ratings; Nexperia 74HC_HCT595 Rev.12 Table 4 Limiting values; onsemi MC74HC595A MAXIMUM RATINGS",
+   "confidence": "certain",
+   "why_it_matters": "70 mA is an absolute maximum, not a design target, and it is per supply pin — you get 70 mA of total sourcing (through VCC) AND separately 70 mA of total sinking (through GND), not 70 mA combined."
+  },
+  {
+   "claim": "74HC595 GUARANTEED per-pin drive at 3.0 V is only 2.4 mA — a quarter of the 5 V figure",
+   "value": "At VCC = 3.0 V: VOH ≥ 2.48 V (25 °C) / 2.34 V (≤85 °C) / 2.2 V (≤125 °C) at |Iout| ≤ 2.4 mA; VOL ≤ 0.26 / 0.33 / 0.4 V at |Iout| ≤ 2.4 mA. Compare 4.5 V: ±6 mA for QA-QH, ±4 mA for QH'.",
+   "source": "onsemi MC74HC595A DC ELECTRICAL CHARACTERISTICS, 3.0 V rows; TI SCLS041J §6.5 for the 4.5/6 V figures",
+   "confidence": "certain",
+   "why_it_matters": "Your existing note says '8x4 mA fine'. At 3.3 V the datasheet-guaranteed figure is 2.4 mA per pin, so 4 mA is already out of spec (it will work, but VOL/VOH degrade and brightness varies chip to chip)."
+  },
+  {
+   "claim": "LED sizing on a 74HC595 at 3.3 V",
+   "value": "Sink-drive (LED anode → 3V3 → R → Qn, LOW = on), red Vf ≈ 1.9 V: R = (3.3 - 1.9 - 0.33 V) / 2.4 mA = 446 Ω → use 470 Ω, giving ≈2.3 mA. Eight such LEDs = 18.4 mA through GND, 26% of the 70 mA package limit. Eight at 20 mA = 160 mA = 2.3x the absolute maximum — forbidden.",
+   "source": "Derived from onsemi MC74HC595A 3.0 V VOL/IOL spec and TI/Nexperia ±70 mA package rating",
+   "confidence": "likely",
+   "why_it_matters": "Vf figures are per-LED-part; the 2.4 mA and 70 mA numbers are datasheet-hard. Blue/white LEDs (Vf 2.8-3.2 V) cannot be driven from a 3.3 V '595 in either direction — headroom after VOL/VOH is under 0.5 V. Use TPL7407LA (TI, explicitly 3.3 V-logic-compatible, 7 ch low-side) rather than ULN2803A, whose input curves are specified for 5 V drive."
+  },
+  {
+   "claim": "Byte ORDER: the FIRST byte sent by the SPI master ends up in the LAST (farthest) 74HC595 in the chain",
+   "value": "With MOSI → SER(chip1), QH'(chip1) → SER(chip2), ... after 8N clocks the first byte has been pushed through all N-1 upstream chips. Firmware must transmit the array in REVERSE chip order: tx[0] = the farthest chip's byte, tx[N-1] = the nearest chip's byte.",
+   "source": "Derived from TI SCLS041J §8.4 Function Table (shift semantics) and §8.1 cascade description; onsemi MC74HC595A FUNCTION TABLE row 'Shift data into shift register: D → SRA; SRN → SRN+1'",
+   "confidence": "certain",
+   "why_it_matters": "Getting this backwards is the classic '595 bug and produces a plausible-looking but completely wrong output map."
+  },
+  {
+   "claim": "Bit ORDER within a 74HC595 byte (MSB-first SPI)",
+   "value": "bit7 → QH (pin 7), bit6 → QG (pin 6), bit5 → QF (pin 5), bit4 → QE (pin 4), bit3 → QD (pin 3), bit2 → QC (pin 2), bit1 → QB (pin 1), bit0 → QA (pin 15). The first bit clocked in travels furthest, so it ends at stage 8 = QH.",
+   "source": "Derived from TI SCLS041J Functional Block Diagram (stage order QA→QH→QH') plus MSBFIRST",
+   "confidence": "certain",
+   "why_it_matters": "Combined with the byte order: sending {0x80,0x00,0x00} to a 3-chip chain lights QH (pin 7) of the FARTHEST chip; {0x00,0x00,0x01} lights QA (pin 15) of the NEAREST chip. Those two frames pin down the whole map."
+  },
+  {
+   "claim": "Bit ORDER out of a 74HC165: pin 6 (H / D7) arrives as bit 7",
+   "value": "Q7 (pin 9) emits stage 8 first, which is loaded from D7 (pin 6). MSB-first assembly puts it in bit 7. Full map: pin 6 → b7, pin 5 → b6, pin 4 → b5, pin 3 → b4, pin 14 → b3, pin 13 → b2, pin 12 → b1, pin 11 → b0.",
+   "source": "Nexperia 74HC_HCT165 Rev.8 Table 3 Function table (parallel load Q7 ← D7) and Fig.3 Functional diagram; TI SCLS116H Logic Diagram",
+   "confidence": "certain",
+   "why_it_matters": "Note the '165's byte order is the OPPOSITE convention to the '595's: the FIRST byte received comes from the chip NEAREST the Teensy (the one whose Q7 drives MISO), because its bits are closest to the output."
+  },
+  {
+   "claim": "74HC165 /PL is an asynchronous, overriding parallel load — it needs no clock and it ignores the clock",
+   "value": "TI: 'While SH/LD is low, the parallel inputs to the register are enabled independently of the levels of the CLK, CLK INH, or SER inputs.' Timing at VCC = 3.0 V, ≤85 °C: tw(/PL low) ≥ 32 ns; tsu(parallel data → /PL↓) ≥ 40 ns; th(/PL↓ → parallel data) ≥ 5 ns; tsu(/PL high before CLK↑) ≥ 40 ns; tPD(/PL → Q7) = 70 ns max.",
+   "source": "TI SCLS116H §3 Description and §6.13 Timing Requirements; onsemi MC74HC165A TIMING REQUIREMENTS and AC ELECTRICAL CHARACTERISTICS, 3.0 V rows",
+   "confidence": "certain",
+   "why_it_matters": "The snapshot is genuinely simultaneous across the whole chain — one /PL pulse freezes every input on every chip at the same instant. That is the whole reason to use '165 over polling."
+  },
+  {
+   "claim": "74HC165 CLK_INH (pin 15) must be tied to GND, not driven",
+   "value": "TI: 'The functions of CLK and CLK INH are interchangeable. Because a low CLK and a low-to-high transition of CLK INH also accomplish clocking, CLK INH must be changed to the high level only while CLK is high.' In SPI mode 0 SCK idles LOW, so any attempt to raise CLK_INH between transactions injects a spurious shift.",
+   "source": "TI SCLS116H §3 Description; TI SCLS116H Table 1 Function Table (rows 'H | L | ↑' and 'H | ↑ | L' both shift)",
+   "confidence": "certain",
+   "why_it_matters": "This is a silent-corruption trap: using CLK_INH as a 'chip select' in a mode-0 system adds one extra shift per assertion, so every read is off by one bit."
+  },
+  {
+   "claim": "74HC165 has a LOWER package current rating than the 74HC595",
+   "value": "IO per pin ±25 mA; continuous current through VCC or GND ±50 mA (TI SCLS116H §6.1, Nexperia Table 4 ICC 50 mA / IGND -50 mA, onsemi MC74HC165A ±50 mA). Guaranteed drive at 4.5 V is only ±4 mA (vs 6 mA for the '595 Q outputs).",
+   "source": "TI SCLS116H §6.1 Absolute Maximum Ratings; Nexperia 74HC_HCT165 Rev.8 Table 4; onsemi MC74HC165A MAXIMUM RATINGS",
+   "confidence": "certain",
+   "why_it_matters": "±25 mA per pin is the number that makes MISO contention an absolute-maximum-ratings violation rather than a data bug."
+  },
+  {
+   "claim": "MISO CONTENTION: the 74HC165 Q7 output is a permanently-driving totem pole with no tri-state and no enable pin",
+   "value": "Estimated contention current if Q7 fights another SPI slave: Q7's output resistance at 3.3 V is roughly VOL/IOL = 0.33 V / 2.4 mA ≈ 137 Ω guaranteed, typically ~50 Ω; a typical SD card or sensor MISO driver is ~30-50 Ω. Contention current ≈ 3.3 V / 80-190 Ω ≈ 17-40 mA per conflicting bit, against a ±25 mA per-pin absolute maximum and a ±50 mA package maximum.",
+   "source": "Output impedance derived from onsemi MC74HC165A 3.0 V VOL spec; per-pin/package limits from TI SCLS116H §6.1. The opposing driver impedance is an estimate.",
+   "confidence": "likely",
+   "why_it_matters": "This is not 'the data gets corrupted' — it is over the absolute maximum rating, so it degrades both parts over time, and it corrupts BOTH devices' traffic, not just the fabric's. SD card init failures are the classic symptom."
+  },
+  {
+   "claim": "SECOND, less obvious shared-bus hazard: neither the '595 nor the '165 has a chip select",
+   "value": "Every SCK edge on a shared bus shifts both chains regardless of which device is selected, and every MOSI bit is shifted into the '595 chain. Foreign traffic corrupts the '595 shift register (benign only if you always write a complete N-byte frame before pulsing RCLK) and desynchronises the '165 chain (benign only if you always re-pulse /PL before every read).",
+   "source": "TI SCLS041J §8.4 Function Table (SRCLK↑ shifts unconditionally when SRCLR is high); TI SCLS116H Table 1 (CLK↑ shifts whenever SH/LD is high and CLK INH is low)",
+   "confidence": "certain",
+   "why_it_matters": "Even if you solve MISO contention with a tri-state gate, you have NOT solved this. Only a dedicated SPI port or gated SCK does."
+  },
+  {
+   "claim": "FIX 1 (recommended, zero parts): give the fabric Teensy 4.1's SPI1, with MISO moved to pin 39",
+   "value": "SPI1 = LPSPI3. MOSI = pin 26, SCK = pin 27, MISO = pin 1 (default) or pin 39 (alternate), hardware CS = pin 0 or pin 38. His ESP32-S3 link already occupies pins 0 (RX1) and 1 (TX1), so call SPI1.setMISO(39) and use pin 38 (or any GPIO) for CS. Pins 26, 27, 38, 39 are all free in his current wiring.",
+   "source": "PaulStoffregen/SPI SPI.cpp, spiclass_lpspi3_hardware under #if defined(ARDUINO_TEENSY41): miso_pin[]={1,39}, mosi_pin[]={26,255}, sck_pin[]={27,255}, cs_pin[]={0,38,255}. His pin usage from D:\\espicpc\\docs\\02-wiring-the-stack.md lines 21-22 and 11-12.",
+   "confidence": "certain",
+   "why_it_matters": "Solves BOTH the MISO contention and the foreign-SCK problem, costs no components, adds no propagation delay, and does not touch the already-tested ESP32-S3 link."
+  },
+  {
+   "claim": "Do NOT plan on Teensy 4.1 SPI2 for the fabric",
+   "value": "SPI2 = LPSPI1, primary pins MISO 42, MOSI 43, SCK 45, CS 44 — these are the SDIO pins of the built-in microSD socket and are not on the headers. Alternates are MISO 54, MOSI 50, SCK 49, which are bottom-side memory-chip pads requiring soldering.",
+   "source": "PaulStoffregen/SPI SPI.cpp spiclass_lpspi1_hardware (T4.1 block): miso_pin[]={42,54}, mosi_pin[]={43,50}, sck_pin[]={45,49}, cs_pin[]={44,...}; PJRC forum thread 'SPI2 Pins on Teensy 4.1?' (forum.pjrc.com/index.php?threads/spi2-pins-on-teensy-4-1.60954/)",
+   "confidence": "likely",
+   "why_it_matters": "Using SPI2 means giving up the built-in SD socket or soldering to the underside pads."
+  },
+  {
+   "claim": "FIX 2 (from inventory): tri-state the '165 Q7 through a 74HC373 held transparent",
+   "value": "74HC373: LE (pin 11) → 3V3 (permanently transparent), /OE (pin 1) → fabric CS (active LOW), one D input ← '165 Q7, matching Q output → MISO, all seven unused D inputs → GND. Cost in delay at VCC = 3.0 V, ≤85 °C: tPD(D→Q) = 110 ns, tPZL/tPZH(/OE→Q) = 125 ns, tPLZ/tPHZ = 125 ns.",
+   "source": "onsemi MC74HC373A AC ELECTRICAL CHARACTERISTICS, 3.0 V rows (Farnell mirror 308507.pdf p.5)",
+   "confidence": "certain",
+   "why_it_matters": "110 ns in the MISO path is large. Total MISO valid time becomes 63 ns ('165) + 110 ns ('373) + master setup ≈ 178 ns, which fits inside a 250 ns period at 4 MHz with 72 ns spare but FAILS at 8 MHz (125 ns period). Also, CS must be asserted ≥125 ns before the first SCK edge and released only after the last sample."
+  },
+  {
+   "claim": "Chain-length limit on the shared SRCLK / RCLK / /PL nets is a signal-integrity limit, not a fanout limit",
+   "value": "DC fanout is irrelevant: HC input leakage is ±1 µA max, so 20 chips draw 20 µA. The datasheet slew limit is also not binding: at VCC = 3.0 V max input rise/fall time is 800 ns (onsemi MC74HC595A and MC74HC165A tr,tf rows), and a Teensy pin at DSE(7) has an output impedance of 34 Ω (dual-voltage pad) / 23 Ω (single-voltage pad) at 3.3 V, so you would need roughly 3 nF to violate it. Practical cut-over: ~150 pF total net capacitance ≈ 8 chips on a breadboard, assuming ~10 pF max input capacitance per chip (TI/onsemi Cin) plus ~8 pF of breadboard wiring per chip site.",
+   "source": "i.MX RT1060 RM Rev.3 p.383, SW_PAD_CTL DSE field: '111 DSE_7 — Dual/Single voltage: 37/37 Ohm @ 1.8V, 34/23 Ohm @ 3.3V'; PaulStoffregen/cores teensy4/digital.c line 171 (pinMode OUTPUT writes IOMUXC_PAD_DSE(7)) and SPI.cpp begin() (SCK/MOSI/MISO pads set to DSE(7)|SPEED(2)); onsemi tr/tf and Cin rows. The ~8 pF/chip breadboard wiring allowance is an estimate.",
+   "confidence": "likely",
+   "why_it_matters": "A 23-34 Ω driver into unterminated breadboard wire rings badly. Add a 33 Ω series resistor at the Teensy pin on SCK, MOSI, RCLK and /PL — it damps the ringing while still giving ~18 ns edges into 150 pF."
+  },
+  {
+   "claim": "What to buffer with, and the rule that matters more than the buffer choice",
+   "value": "From inventory: 74HC373 in transparent mode (LE → VCC, /OE → GND) is a non-inverting octal buffer, tPD 110 ns at 3.0 V/85 °C. His 74HC04 is NOT a power buffer — its drive is the same 2.4 mA at 3.0 V as a '595 output, and it inverts, so you need two in series. Best purchase: 74HC541 or 74HC244 (octal, ±6 mA at 4.5 V, non-inverting). RULE: never split a single cascade across two clock buffers.",
+   "source": "onsemi MC74HC373A 3.0 V timing; TI/onsemi HC-family 3.0 V drive figures",
+   "confidence": "certain",
+   "why_it_matters": "Clock skew between two buffer branches must stay below the '595's contamination delay (its MINIMUM SRCLK→QH' delay, which no HC datasheet specifies — typicals are ~19 ns at 4.5 V). If the downstream chip is clocked later than the upstream chip's QH' has already changed, the chain silently duplicates or drops a bit. Keeping every cascaded chip on one branch removes the risk entirely."
+  },
+  {
+   "claim": "/OE (pin 13) idle state and pull resistor",
+   "value": "Active LOW. Idle HIGH (outputs Hi-Z). Fit a 10 kΩ pull-UP to 3V3 and drive from a Teensy GPIO (or PWM for global dimming). Teensy pins are Hi-Z at boot, so the pull-up guarantees the Q outputs stay disabled until firmware has shifted a known pattern and pulsed RCLK. /OE does NOT affect QH': onsemi states 'The serial output is not affected by this control unit'; Nexperia states 'Operation of the OE input does not affect the state of the registers'. Enable/disable timing at 3.0 V, ≤85 °C: ten = 125 ns, tdis = 125 ns.",
+   "source": "onsemi MC74HC595A PIN DESCRIPTIONS (Output Enable) and AC ELECTRICAL CHARACTERISTICS 3.0 V rows; Nexperia 74HC_HCT595 Rev.12 §1; TI SCLS041J Table 8-1",
+   "confidence": "certain",
+   "why_it_matters": "Hi-Z is not 'off'. Anything the Q outputs drive — a MOSFET gate, a /CS line, an enable — floats while /OE is high and needs its own pull resistor at the load."
+  },
+  {
+   "claim": "/SRCLR (pin 10) idle state, and what it does NOT clear",
+   "value": "Active LOW, asynchronous. Idle HIGH: either hard-tie to 3V3, or 10 kΩ pull-up plus a GPIO. It clears ONLY the shift register — the storage register and therefore the Q outputs are unaffected until you also pulse RCLK. Timing at 3.0 V, ≤85 °C: tw(Reset low) ≥ 60 ns, trec(Reset inactive → Shift Clock) ≥ 50 ns, tPHL(Reset → SQH) = 125 ns.",
+   "source": "onsemi MC74HC595A FUNCTION TABLE ('Reset shift register: Shift Register Contents = L, Latch Register Contents = U') and TIMING REQUIREMENTS 3.0 V rows; TI SCLS041J Table 8-1 row 'X X L X X: Shift register is cleared'",
+   "confidence": "certain",
+   "why_it_matters": "A common wrong assumption is that pulsing /SRCLR blanks the outputs. It does not. To blank outputs use /OE, or /SRCLR followed by an RCLK pulse."
+  },
+  {
+   "claim": "Unused pins: inputs must be tied, outputs must be left open",
+   "value": "Tie every unused 74HC INPUT to VCC or GND. Leave unused OUTPUTS open. Specifically: the '165's /Q7 (pin 7) is an OUTPUT — leave it unconnected, do not tie it. All eight '165 parallel inputs must be terminated (10 kΩ to 3V3 with the switch to GND is standard).",
+   "source": "TI SCLS041J §6.3 note (1) and TI SCLS116H §6.3 note (1): 'All unused inputs of the device must be held at VCC or GND'; onsemi MC74HC595A RECOMMENDED OPERATING CONDITIONS box: 'Unused inputs must always be tied to an appropriate logic voltage level... Unused outputs must be left open.' TI app note SCBA004 'Implications of Slow or Floating CMOS Inputs' is cited by both.",
+   "confidence": "certain",
+   "why_it_matters": "Tying an output to a rail is a short. Your existing 'no floating CMOS inputs' rule is right; the '165's pin 7 is the exception that catches people."
+  },
+  {
+   "claim": "Teensy 4 SPI.transfer(buf, count) is byte-at-a-time and byte-order-safe, but transfer16()/transfer32() are NOT",
+   "value": "The 32-bit and 16-bit fast paths inside transfer(void*, size_t) are compiled out under '#if 0' with the author's comment 'TODO: byte order still needs work to match SPISettings'. Use transfer(const void *tx, void *rx, size_t count) or transfer(buf, count) only.",
+   "source": "PaulStoffregen/SPI SPI.h lines ~1270-1288 (the #if 0 block) and line 1290 'void transfer(const void * buf, void * retbuf, size_t count);'",
+   "confidence": "certain",
+   "why_it_matters": "Reaching for transfer32() to speed up a long chain would silently reverse the byte order within each group of four — exactly the failure mode that is hardest to spot on a shift register."
+  },
+  {
+   "claim": "Expect gaps in SCK at byte boundaries — they are harmless",
+   "value": "Teensy 4's transfer(uint8_t) writes one byte per LPSPI frame (TCR FRAMESZ(7), CONT not set) and polls the RX FIFO, so LPSPI inserts its DBT delay (SPI.cpp sets LPSPI_CCR_DBT(div/2)) plus software latency between frames. SCK will show short pauses between bytes on the analyser.",
+   "source": "PaulStoffregen/SPI SPI.h transfer(uint8_t) for IMXRT (writes port().TDR, polls FSR); SPI.cpp _ccr = LPSPI_CCR_SCKDIV(div) | LPSPI_CCR_DBT(div/2) | LPSPI_CCR_PCSSCK(div/2). Exact gap duration unverified.",
+   "confidence": "likely",
+   "why_it_matters": "Shift registers count edges, not continuity, so gaps do not matter — but do not mistake them for a fault, and do not assume a device that DOES need a continuous clock will tolerate the same bus."
+  },
+  {
+   "claim": "Recommended analyser capture rate and matching SCK for the proof run",
+   "value": "His 8-channel 24 MHz analyser gives 41.67 ns per sample at 24 MSa/s. Run the proof capture at SCK = 2.000 MHz (exact divisor: 176/88), giving a 500 ns period = 12 samples per period, 6 per half-period. Then move production to 4.000 MHz (6 samples/period), which is still decodable but leaves no room for jitter measurement.",
+   "source": "Derived from the analyser's stated 24 MSa/s and the Teensy LPSPI divisor arithmetic (SPI.h:1215-1228)",
+   "confidence": "likely",
+   "why_it_matters": "At 4 MHz you get 3 samples per half-period, which is enough for sigrok's SPI decoder but too coarse to measure the RCLK-after-last-SCK setup gap. Prove at 2 MHz, run at 4 MHz."
+  }
+ ],
+ "code_guidance": [
+  "PIN BUDGET (Teensy1, master). Fabric on SPI1: MOSI = 26, SCK = 27, MISO = 39 (call SPI1.setMISO(39) BEFORE SPI1.begin() — the default is pin 1, which his ESP32-S3 Serial1 link already owns). Plus three plain GPIOs: RCLK (595 latch), PL_N (165 load), OE_N (595 output enable). Suggested: RCLK = 28, PL_N = 29, OE_N = 30 — confirm against his final pin map. Total 6 pins for unlimited output bits and unlimited input bits.",
+  "SETUP ORDER at boot, and it matters: (1) pinMode(OE_N, OUTPUT); digitalWriteFast(OE_N, HIGH) FIRST, before anything else touches the fabric — this keeps the '595 Q outputs in Hi-Z. (2) pinMode(RCLK, OUTPUT); digitalWriteFast(RCLK, LOW). (3) pinMode(PL_N, OUTPUT); digitalWriteFast(PL_N, HIGH). (4) SPI1.setMISO(39); SPI1.begin(). (5) Shift a full N-byte all-zeros frame and pulse RCLK. (6) Only now digitalWriteFast(OE_N, LOW). A 10 kΩ pull-up to 3V3 on OE_N covers the window before step 1 runs, because Teensy pins are Hi-Z out of reset.",
+  "SPI SETTINGS, everywhere: SPISettings(4000000, MSBFIRST, SPI_MODE0). Never MODE3 — see pitfalls. Never LSBFIRST. Never transfer16() or transfer32() on fabric frames.",
+  "74HC595 WRITE, exact sequence. Given out[0..N-1] where out[0] is the chip NEAREST the Teensy:\n  uint8_t tx[N];\n  for (int i = 0; i < N; i++) tx[i] = out[N-1-i];   // farthest chip's byte goes out FIRST\n  SPI1.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));\n  SPI1.transfer(tx, nullptr, N);\n  SPI1.endTransaction();\n  delayNanoseconds(200);                 // tsu(SRCLK^ -> RCLK^) needs >= 70 ns at 3.0 V, 85 C\n  digitalWriteFast(PIN_RCLK, HIGH);\n  delayNanoseconds(200);                 // tw(RCLK high) needs >= 60 ns at 3.0 V, 85 C\n  digitalWriteFast(PIN_RCLK, LOW);",
+  "THE delayNanoseconds CALLS ARE NOT OPTIONAL. digitalWriteFast on a 600 MHz Cortex-M7 writes GPIO DR_SET/DR_CLEAR back-to-back in a handful of core cycles; a bare HIGH-then-LOW pair produces a pulse on the order of 10 ns, well under the 74HC595's 60 ns minimum RCLK pulse width at 3.0 V / 85 C. delayNanoseconds() is DWT-cycle-counter based (teensy4/core_pins.h) so 200 ns is accurate to ~1.7 ns.",
+  "74HC165 READ, exact sequence. Fills in[0..M-1] where in[0] is the chip NEAREST the Teensy (opposite convention to the '595 — do not copy-paste the reversal loop):\n  digitalWriteFast(PIN_PL_N, LOW);\n  delayNanoseconds(200);                 // tw(/PL low) needs >= 32 ns at 3.0 V, 85 C\n  digitalWriteFast(PIN_PL_N, HIGH);\n  delayNanoseconds(200);                 // covers tsu(/PL high -> CLK^) >= 40 ns AND tPD(/PL -> Q7) = 70 ns\n  SPI1.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));\n  SPI1.transfer(nullptr, in, M);\n  SPI1.endTransaction();",
+  "BIT MAPPING HELPERS, write them once and never hand-index again. For output bit B on a chain of N '595s: chip = B / 8 (0 = nearest), bitInByte = B % 8, and out[chip] |= (1 << bitInByte) where bit 0 = QA (pin 15) and bit 7 = QH (pin 7). For input bit B on a chain of M '165s: chip = B / 8 (0 = nearest), value = (in[chip] >> bitInByte) & 1, where bit 0 = D0/A (pin 11) and bit 7 = D7/H (pin 6). Note the '595 pin order runs 15,1,2,3,4,5,6,7 for bits 0..7.",
+  "WIRING, 74HC595 chain: pin 14 SER of chip1 <- MOSI (26); pin 9 QH' of chip N -> pin 14 SER of chip N+1; pin 11 SRCLK of ALL chips <- SCK (27); pin 12 RCLK of ALL chips <- RCLK GPIO; pin 13 /OE of ALL chips <- OE_N GPIO with a 10 kOhm pull-up to 3V3; pin 10 /SRCLR of ALL chips -> 3V3 (direct tie is fine if you never need it); pin 16 -> 3V3; pin 8 -> GND; 100 nF X7R across pins 16 and 8 at EVERY chip with leads under 10 mm.",
+  "WIRING, 74HC165 chain: pin 9 Q7 of chip1 -> MISO (39); pin 9 Q7 of chip N+1 -> pin 10 DS of chip N; pin 10 DS of the LAST chip -> GND (it is an input, it must not float); pin 2 CP of ALL chips <- SCK (27); pin 1 /PL of ALL chips <- PL_N GPIO; pin 15 CLK_INH of ALL chips -> GND (hard tie, never drive it); pin 7 /Q7 -> leave open on every chip; all eight parallel inputs terminated with 10 kOhm to 3V3, switch to GND; 100 nF across pins 16 and 8 at every chip.",
+  "SERIES RESISTORS: 33 Ohm in series at the TEENSY end of SCK, MOSI, RCLK and /PL. The Teensy pad is 23-34 Ohm at DSE(7), which rings hard into unterminated breadboard wire. 33 Ohm damps it while keeping edges around 18 ns into 150 pF. Do not use 100 Ohm on SCK if you have 8 chips on the net — it slows the edge to ~35 ns, which is 28% of the half-period at 4 MHz.",
+  "ROUTING ORDER on the breadboard: put the '595 chain and the '165 chain on the SAME SCK branch, and keep every cascaded chip of one chain within that branch. If you ever add a buffer, buffer whole chains, never split one chain across two buffers.",
+  "MISO CONTENTION — pick fix 1 unless you cannot: dedicate SPI1 to the fabric (setMISO(39)) and leave SPI0 (11/12/13) for the 2.4in display and any SD card. Zero parts, zero added delay, and it also stops foreign SCK edges from shifting the chains. Only if SPI1 is unavailable, fall back to the 74HC373 gate described in the facts, and in that case you MUST also keep the discipline of writing a complete N-byte '595 frame before every RCLK and re-pulsing /PL before every read, because foreign SCK/MOSI traffic will still be shifting both chains.",
+  "SANITY ASSERT to run once at boot on the '165 chain: with all parallel inputs pulled to 3V3 and nothing pressed, a read must return 0xFF in every byte. If any byte reads 0x00, that chip has no power, no ground, or CLK_INH is floating high. If bytes are shifted by one bit position, CLK_INH is being driven or SPI_MODE3 is set.",
+  "DO NOT compute an SPI divider from the '132 MHz' comment in SPI.cpp — the actual LPSPI peripheral clock is 176 MHz (RT1060 RM p.1049: LPSPI_PODF=010 means divide by 3, 528/3). The library's own runtime readback is correct, so just pass the frequency you want to SPISettings and verify the period on the analyser. Also note SPISettings cannot go below ~685 kHz on this chip."
+ ],
+ "pitfalls": [
+  "SPI_MODE3 works electrically (it also samples and latches on rising edges) but will corrupt the chain at startup. In mode 3 SCK idles HIGH, so the very first SPI1.begin()/beginTransaction() drives the SCK pad from Hi-Z/low up to high — a rising edge on SRCLK and CP that shifts both chains by one bit before you have sent anything. The symptom is a one-bit offset that appears only on the first frame after boot and then vanishes, which is nearly impossible to find without an analyser. Use MODE0 only.",
+  "Tying SRCLK and RCLK together seems tempting (it saves a pin) and both TI and Nexperia explicitly document what happens: 'If both clocks are connected together, the shift register always is one clock pulse ahead of the storage register.' Three consequences, all bad. (a) You lose atomicity completely — the outputs ripple through eight garbage intermediate states during every update, which for relay coils, MOSFET gates or /CS lines means eight spurious pulses. (b) The outputs are permanently one bit stale, so you need a ninth clock to get the last bit out. (c) There is no glitch-free update at all. Always give RCLK its own GPIO.",
+  "/SRCLR does not blank the outputs. It clears only the shift register; the storage register and therefore QA-QH are untouched until you also pulse RCLK. Firmware that pulses /SRCLR expecting a safe-state blank will leave relays energised.",
+  "When /OE is HIGH the Q outputs are Hi-Z, which is not the same as LOW. Every downstream load needs its own defined state — a pull-down at a MOSFET gate, a pull-up at an active-low /CS. Using /OE as an emergency-off is only safe if the loads are biased for it.",
+  "The 74HC165's parallel inputs are not in pin order. D0-D3 are pins 11, 12, 13, 14 and D4-D7 are pins 3, 4, 5, 6. Wiring eight buttons across pins 3-6 and 11-14 in physical order produces a scrambled byte that still 'works' — every button does something, just not the thing you expect.",
+  "The '595 and the '165 have OPPOSITE byte-order conventions in a chain. For the '595 the first byte SENT lands in the FARTHEST chip. For the '165 the first byte RECEIVED comes from the NEAREST chip. Writing one reversal helper and using it for both is a guaranteed bug.",
+  "CLK_INH on the '165 looks like a chip select and is not one. TI's own description: because a low CLK plus a rising CLK_INH also clocks the part, CLK_INH may only go high while CLK is high. SPI mode 0 idles CLK low, so every attempt to gate with CLK_INH injects exactly one extra shift. Tie pin 15 to GND.",
+  "Back-to-back digitalWriteFast(HIGH) / digitalWriteFast(LOW) on a 600 MHz M7 produces a pulse far shorter than the 60 ns minimum RCLK width and 32 ns minimum /PL width at 3.0 V. This fails intermittently and temperature-dependently — the worst possible failure mode. Always insert delayNanoseconds().",
+  "Do not treat the ±70 mA package rating as an LED budget. It is an absolute maximum, and the guaranteed per-pin drive at 3.0 V is only 2.4 mA (VOH 2.34 V / VOL 0.33 V at ≤85 °C), not the 6 mA quoted at 4.5 V. Running eight outputs at 20 mA is 160 mA, 2.3x over absolute maximum. Note also that the 70 mA is per supply pin, so sourcing and sinking have separate budgets.",
+  "Blue and white LEDs (Vf 2.8-3.2 V) cannot be driven usefully from a 3.3 V '595 in either direction — after VOH sag or VOL you have under 0.5 V of headroom. They will light dimly and inconsistently and look like a bad solder joint. Use a driver IC or a 5 V rail for those channels.",
+  "A series resistor on the '165 Q7 line is NOT a fix for MISO contention. It limits the current below absolute maximum, which stops the damage, but leaves MISO at an indeterminate mid-rail voltage when both drivers fight, so the data is still garbage — and a logic analyser cannot show you an intermediate voltage, so it will look like random bit errors rather than contention.",
+  "Solving MISO contention with a tri-state gate does not solve the fact that the '595 and '165 have no chip select. Foreign SCK edges still shift both chains and foreign MOSI bits still enter the '595. That is only tolerable if you religiously write a complete N-byte frame before every RCLK and re-pulse /PL before every read. A dedicated SPI port removes the whole class of problem.",
+  "No HC datasheet specifies a MINIMUM propagation delay (contamination delay) for SRCLK→QH' or CLK→Q7. The mode-0 read of a '165 depends on the part's contamination delay exceeding the Teensy's sample delay (LPSPI CFGR1_SAMPLE, roughly 5.7 ns at 176 MHz). It is empirically reliable and universally used, but it is not datasheet-guaranteed. If you ever see single-bit read errors that scale with temperature, clearing LPSPI_CFGR1_SAMPLE or halving SCK are the two knobs.",
+  "Do not probe SCK at the Teensy pin. Probe it at the LAST chip in the chain. A capture at the driver looks perfect no matter how badly the far end is ringing.",
+  "The '165 has a LOWER package rating than the '595: ±50 mA through VCC/GND versus ±70 mA, and ±25 mA per pin versus ±35 mA. Applying '595 rules of thumb to a '165 board overloads it.",
+  "If you ever reach for SPI.transfer32() to speed up a long chain, PJRC's own source comments that its byte order relative to the buffer is unfinished ('TODO: byte order still needs work to match SPISettings'). On a shift register that produces a silently transposed output map."
+ ],
+ "la_verification": [
+  "CHANNEL MAP for the 8-channel analyser: D0 = SCK (probed at the LAST chip in the chain, not at the Teensy), D1 = MOSI, D2 = MISO, D3 = RCLK, D4 = /PL, D5 = /OE, D6 = QH' of the last '595, D7 = QA (pin 15) of the last '595. Ground clip every 2-3 signals. Capture at 24 MSa/s with SCK set to 2.000 MHz (12 samples per SCK period).",
+  "TRIGGER: for the '595 chain, trigger on RCLK RISING with pre-trigger buffer set to 75% or more, so the entire preceding shift frame is captured. For the '165 chain, trigger on /PL FALLING. Decoder settings in PulseView/sigrok: SPI decoder, CPOL = 0, CPHA = 0, bit order MSB-first, word size 8, CS = none (there is no real chip select on these parts).",
+  "TEST 1 — EDGE COUNT. Between one RCLK rising edge and the next, count SCK rising edges. It must be EXACTLY 8 x N for an N-chip '595 chain (24 for three chips). Any other count means either the transfer length is wrong or a foreign device is sharing SCK. This single assertion catches the shared-bus problem.",
+  "TEST 2 — RCLK IS OUTSIDE THE FRAME. Count RCLK edges within the span of those 8N SCK edges: must be ZERO. This is the machine-checkable proof that SRCLK and RCLK are not tied and not being pulsed early.",
+  "TEST 3 — RCLK SETUP. Measure dt = t(RCLK rising) - t(the 8N-th SCK rising edge). Datasheet minimum is 70 ns (onsemi tsu Shift Clock to Latch Clock, 3.0 V, ≤85 °C). At 24 MSa/s one sample is 41.67 ns, so 70 ns is only 2 samples — set the firmware delay to 200 ns and expect to measure 5 or more samples. If dt reads 0 samples, your delayNanoseconds() call is missing or optimised away.",
+  "TEST 4 — RCLK PULSE WIDTH. Measure RCLK high duration: datasheet minimum 60 ns at 3.0 V / ≤85 °C, i.e. at least 2 samples at 24 MSa/s. With delayNanoseconds(200) expect 5 or more samples. Also confirm SCK is LOW at both the rising and the falling edge of RCLK.",
+  "TEST 5 — /PL WINDOW. Confirm /PL falls while SCK is low; measure /PL low width (minimum 32 ns = 1 sample, target 200 ns = 5 samples); measure t(first SCK rising) - t(/PL rising), which must exceed 40 ns and should read 5 or more samples. Count /PL edges inside the 8M SCK-edge read window: must be ZERO.",
+  "TEST 6 — THE FIRST '165 BIT EXISTS BEFORE THE FIRST CLOCK. This is the single most diagnostic trace. MISO must settle to the value of pin 6 (D7/H) of the NEAREST '165 within about 70 ns (2 samples) of /PL FALLING, and must still hold that value across the first SCK rising edge. If MISO only becomes valid after the first SCK edge, you have an off-by-one and will read seven real bits plus one garbage bit. Force it visible: ground pin 6 of the nearest chip and confirm MISO goes low at /PL-fall, then release it and confirm MISO goes high at /PL-fall.",
+  "TEST 7 — CASCADE PROOF BY OVERSHIFT. Deliberately send 2N bytes into an N-chip '595 chain (do not pulse RCLK). Probe QH' of the LAST chip on D6. It must reproduce the MOSI bit stream delayed by EXACTLY 8N SCK rising edges — 24 edges for a three-chip chain. Line up the MOSI and QH' traces in the decoder and confirm the first N bytes reappear on QH' as bytes N+1..2N. This proves every hop in the cascade in one capture, including a cold-solder QH' joint that a functional test would miss.",
+  "TEST 8 — WALKING ONE, the definitive bit-to-pin map. Send an N-byte frame containing exactly one set bit, pulse RCLK, record which physical pin goes high, and sweep the bit through all 8N positions. Expected result, which you should verify rather than assume: {0x80, 0x00, 0x00} on a three-chip chain lights QH (pin 7) of the FARTHEST chip; {0x00, 0x00, 0x01} lights QA (pin 15) of the NEAREST chip. Two frames pin down chip order and bit order together, with no theory involved. The '165 equivalent: ground exactly one parallel input at a time (all others pulled to 3V3) and record which received bit goes to 0.",
+  "TEST 9 — CLOCK PERIOD, do not trust SPISettings. Measure the SCK period directly. At SPISettings(4000000, ...) with a 176 MHz LPSPI clock and divisor d = 44 you should measure exactly 250.0 ns. If you measure 333 ns (3.0 MHz), the peripheral clock is 132 MHz and every timing margin in this document shifts in your favour — but you need to know which. Also confirm you cannot get below ~685 kHz: request SPISettings(500000,...) and verify the analyser shows 1.46 us, not 2.0 us.",
+  "TEST 10 — BOOT SAFETY. Arm a long capture on D5 (/OE) and D3 (RCLK), then press the Teensy reset button. /OE must be continuously HIGH from the reset until AFTER the first RCLK rising edge. Any window where /OE is low before the first latch means the outputs drove an undefined pattern at boot.",
+  "TEST 11 — CONTENTION, which the analyser alone cannot see. A logic analyser digitises to 1/0 and cannot show a mid-rail fight, so use two indirect proofs. (a) Capture MISO during an SD card or sensor transaction with the '165 Q7 disconnected, then reconnect it and repeat the identical transaction: if the decoded bytes change, contention is real. (b) Put an INA219 on the fabric 3V3 feed (PGA/1, ±400 mA range) and log current with the fabric idle while the other SPI device transacts — contention shows as a step of tens of milliamps that appears and disappears with the foreign traffic.",
+  "EXPECTED ARTEFACT, not a fault: short gaps in SCK at byte boundaries. Teensy 4's transfer() sends one byte per LPSPI frame with CONT clear, so LPSPI's DBT delay plus software latency appears between the 8th and 9th edge. The shift registers count edges, not continuity, so this is harmless — just do not chase it."
+ ],
+ "open_questions": [
+  "Which three GPIOs do you want for RCLK, /PL and /OE on Teensy1? I assumed 28/29/30 but I have not seen your final Teensy1 pin allocation, and pins 0, 1, 7, 8, 14, 15 are already committed to the ESP32-S3, Luckfox and Teensy2 links.",
+  "Do you want the fabric on SPI1 (26 MOSI / 27 SCK / 39 MISO) leaving SPI0 (11/12/13) for the 2.4in display and SD, or the other way round? The answer depends on whether the 2.4in display breakout actually brings out a MISO pin — most ST7789 boards do not, in which case putting the display on SPI0 with the fabric on SPI1 is the clean split.",
+  "Unresolved from the BOM: is the 2.4in display on Teensy1 an ST7789 SPI TFT or an OLED? If it is an SSD1306/SH1106 OLED it is I2C, not SPI, and the whole SPI0-sharing question changes.",
+  "How many '595s and '165s in the first chain? The cascade limit is length-independent, but the shared-net buffering decision (~8 chips) and the frame length for the edge-count test both need the actual number.",
+  "What make are your 74HC595s and 74HC165s? All the 3.3 V numbers here come from onsemi's MC74HC595A and MC74HC165A, which are the improved 'A' variants. Generic marked-'74HC595' parts from a kit may be slower. If you can read the manufacturer logo on the package, I can pull the matching datasheet — otherwise derate the 5.71 MHz cascade limit further or just prove it at 2 MHz first.",
+  "Do you have any 74HC125, 74HC126, 74HC244 or 74HC541 on hand that were not in the inventory list? If so the '373 tri-state workaround gets much cheaper in propagation delay (~20 ns instead of 110 ns at 3.0 V).",
+  "Is the fabric going to run at room temperature only, or do you care about the ≤85 °C column? Every limiting number here is quoted at ≤85 °C. At 25 °C the '595 cascade limit rises from 5.71 MHz to 7.14 MHz, which would let you run 6 MHz."
+ ],
+ "injection_seen": "none. I fetched TI SCLS041J and SCLS116H from ti.com, Nexperia 74HC_HCT595 Rev.12 and 74HC_HCT165 Rev.8 from assets.nexperia.com, onsemi MC74HC595A / MC74HC165A / MC74HC373A via Farnell and Octopart mirrors, the i.MX RT1060 Reference Manual Rev.3 from pjrc.com, pjrc.com product and library pages, and raw source files from github.com/PaulStoffregen (SPI.h, SPI.cpp, cores/teensy4/digital.c, core_pins.h). None of these contained instruction-shaped text, fake system-reminders, or any attempt to redirect commit attribution or change my behaviour. Two notes on source hygiene rather than injection: (1) onsemi.com and mouser.com returned HTML error pages instead of PDFs for direct curl requests, so I used the Farnell and Octopart mirrors of the same onsemi documents and have cited them as mirrors rather than as the primary host; (2) the PJRC SPI library source contains a stale in-code comment ('div4 = 132 MHz') that contradicts the NXP reference manual, which I flagged as a fact rather than repeating."
+}

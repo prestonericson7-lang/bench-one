@@ -1,0 +1,285 @@
+{
+ "topic": "Teensy 4.1 (i.MX RT1062) complete pin budget: 8 UARTs, ADC, and every conflict — allocation for the Bench One stack-1 hub",
+ "summary": "All eight LPUARTs, the analog map, the SPI/I2C maps and the XBAR list were taken from PJRC's own source of truth (cores/teensy4 + the SPI and Wire libraries + the rev-4 pinout cards), not from third-party pinout blogs, and they cross-check each other exactly (e.g. digitalPinHasPWM() matches the PWM marks on the card for all 55 pins). The headline result for this build: Serial2 (RX 7 / TX 8), Serial7 (RX 28 / TX 29) and Serial8 (RX 34 / TX 35) are the only three UART pairs that cost zero analog pins, zero I2C buses, zero SPI pins, no LED, no SD socket and no bottom-pad soldering — so Link A = Serial2, Link C = Serial7, Link D = Serial8, and all 16 remaining analog inputs plus Wire1 and Wire2 stay free for the second stack. Ethernet is a genuine non-conflict: it lives on GPIO_B1_04..B1_11, B1_14/15 and B0_14/15, none of which are Teensy pin numbers, and USB device/host are dedicated RT1062 USB pads. The two real traps are (a) Serial1's pins 0/1 are also SPI1's default CS and MISO, so SPI1 is only usable via setMISO(39)/CS 38, and (b) the 64-byte default RX buffer holds only 0.69 ms of 921600-baud traffic against a 1024-byte max frame, so addMemoryForRead() is mandatory on every link. On the ADC: Teensyduino runs ADCK at roughly 10 MHz (ADACK ~20 MHz with ADHSC=1, ADIV=/2), giving ~2.4 µs acquisition and ~5.0 µs per 12-bit conversion, and the binding limit on source impedance is not RC settling (~120 kΩ) but the ±1 µA pad leakage spec, which caps you at ~800 Ω for 1 LSB at 12 bits.",
+ "facts": [
+  {
+   "claim": "All 8 hardware serial ports, RX/TX/CTS pin numbers, with bottom-pad flags",
+   "value": "Serial1=LPUART6: RX 0 or 52*, TX 1 or 53*, no native CTS. Serial2=LPUART4: RX 7, TX 8, no native CTS. Serial3=LPUART2: RX 15, TX 14, CTS 19. Serial4=LPUART3: RX 16, TX 17, no native CTS. Serial5=LPUART8: RX 21 or 46(SD), TX 20 or 47(SD), CTS 43(SD). Serial6=LPUART1: RX 25, TX 24, no native CTS. Serial7=LPUART7: RX 28, TX 29, no native CTS. Serial8=LPUART5: RX 34 or 48*, TX 35 only, CTS 50*. (*=bottom SMT pad; (SD)=wired to the SD socket). RTS = any digital pin. Serial8 exists only on Teensy 4.1.",
+   "source": "github.com/PaulStoffregen/cores teensy4/HardwareSerial1..8.cpp (UART6_Hardware..UART5_Hardware structs, ARDUINO_TEENSY41 branches); cross-checked against https://www.pjrc.com/teensy/td_uart.html",
+   "confidence": "certain",
+   "why_it_matters": "Serial8 TX has no alternate pin at all, so pin 35 is immovable if you use Serial8; Serial5's alternates are inside the SD socket and are unusable if the SD card is used."
+  },
+  {
+   "claim": "Analog-capable pins A0..A17 with digital pin numbers, ADC instance and hardware channel",
+   "value": "A0=14 (ADC1 ch7, AD_B1_02), A1=15 (ADC1 ch8), A2=16 (ADC1 ch12), A3=17 (ADC1 ch11), A4=18 (ADC1 ch6), A5=19 (ADC1 ch5), A6=20 (ADC1 ch15), A7=21 (ADC1 ch0), A8=22 (ADC1 ch13), A9=23 (ADC1 ch14), A10=24 (ADC1 ch1, AD_B0_12), A11=25 (ADC1 ch2, AD_B0_13), A12=26 (ADC2 ch3, AD_B1_14), A13=27 (ADC2 ch4, AD_B1_15), A14=38 (ADC2 ch1, AD_B1_12), A15=39 (ADC2 ch2, AD_B1_13), A16=40 (ADC1 ch9, AD_B1_04), A17=41 (ADC1 ch10, AD_B1_05). Pins 26, 27, 38, 39 are ADC2-ONLY in the stock core; every other analog pin is served from ADC1. Digital pins 0-13, 28-37 and 42-54 have NO analog function.",
+   "source": "cores/teensy4/pins_arduino.h (PIN_A0..PIN_A17) and cores/teensy4/analog.c pin_to_channel[] (0x80 flag = ADC2)",
+   "confidence": "certain",
+   "why_it_matters": "Lets you split a scan across ADC1 and ADC2 for near-simultaneous sampling, and tells you exactly which analog pins each UART/I2C choice destroys."
+  },
+  {
+   "claim": "Hardware chip-select-capable pins per SPI port",
+   "value": "SPI (LPSPI4): SCK 13, MOSI 11, MISO 12, hardware CS 10, 36, 37. SPI1 (LPSPI3): SCK 27, MOSI 26, MISO 1 or 39, hardware CS 0 or 38. SPI2 (LPSPI1): SCK 45 or 49, MOSI 43 or 50, MISO 42 or 54, hardware CS 44. Any other pin can be a software CS via digitalWrite.",
+   "source": "github.com/PaulStoffregen/SPI SPI.cpp, spiclass_lpspi4/lpspi3/lpspi1_hardware structs under #if defined(ARDUINO_TEENSY41); confirmed by the CS/CS1/CS2 labels on PJRC card11a_rev4_web.pdf / card11b_rev4_web.pdf",
+   "confidence": "certain",
+   "why_it_matters": "SPI1's default CS (0) and MISO (1) are exactly the tested ESP32-S3 Serial1 pins, so SPI1 is only usable after SPI1.setMISO(39) and with CS on 38 or a software CS."
+  },
+  {
+   "claim": "XBAR-capable pins on Teensy 4.1 (the only pins usable for attachCts() when a port has no native CTS pin, or for an XBAR setRX)",
+   "value": "20 pins: 0, 1, 2, 3, 4, 5, 7, 8, 30, 31, 32, 33, 36, 37, 42, 43, 44, 45, 46, 47. XBAR input index per pin: 0->IN17, 1->IN16, 2->IN06, 3->IN07, 4->IN08, 5->IN17, 7->IN15, 8->IN14, 30->IN23, 31->IN22, 32->IN10, 33->IN09, 36->IN16, 37->IN17, 42->IN07, 43->IN06, 44->IN05, 45->IN04, 46->IN09, 47->IN08. Pins sharing an input (0/5/37 on IN17; 1/36 on IN16; 2/43 on IN06; 3/42 on IN07; 4/47 on IN08; 33/46 on IN09) are mutually exclusive.",
+   "source": "cores/teensy4/HardwareSerial.cpp, pin_to_xbar_info[] table (lines ~720-757); PJRC td_uart.html lists the same set as \"Primary XBAR Pins 1,2,3,4,5,7,8,30,31,32,33 - Alt Pins: 0,36,37,42,43,44,45,46,47\"",
+   "confidence": "certain",
+   "why_it_matters": "Serial2, Serial7 and Serial1 have no native CTS pin, so their only hardware CTS option is an XBAR pin, and you must give each port a DIFFERENT XBAR input."
+  },
+  {
+   "claim": "XBAR CTS is polarity-inverted relative to the native CTS pin",
+   "value": "Native CTS pin (19/43/50): pin driven HIGH = pause transmission (i.e. standard active-low /CTS). Via XBAR: \"Teensy transmits when the pin is logic high and pauses transmission while the pin is low\" - i.e. inverted. Each serial port can make only ONE XBAR connection, so per port you can have an XBAR CTS or an XBAR RX, never both.",
+   "source": "https://www.pjrc.com/teensy/td_uart.html (CTS section and XBAR note); mechanism visible in cores/teensy4/HardwareSerial.cpp attachCts(), which sets LPUART PINCFG=TRGSEL(2) for the XBAR path",
+   "confidence": "certain",
+   "why_it_matters": "A standard /CTS driver wired to an XBAR CTS pin will hold the Teensy transmitter off forever. One gate of a 74HC04 (you own 20) between the peer's /CTS output and the Teensy XBAR pin fixes it."
+  },
+  {
+   "claim": "CONFLICT MATRIX - what each UART pin pair collides with",
+   "value": "Serial1 (0/1): SPI1 CS0 (pin 0) and SPI1 MISO (pin 1); CAN2 RX/TX; XBAR IN17/IN16. No analog, no Wire, no SD, no LED. Serial2 (7/8): NOTHING except I2S1 (OUT1A/IN1) and XBAR IN15/IN14. Serial3 (15/14): A1/A0; S/PDIF IN/OUT. Serial4 (16/17): A2/A3 AND Wire1 (SCL1=16, SDA1=17) - taking Serial4 kills Wire1 entirely. Serial5 (21/20): A7/A6; I2S1 BCLK1/LRCLK1; its alternates 46/47 are SD-socket DAT3/DAT2 and its CTS 43 is SD DAT0. Serial6 (25/24): A11/A10 AND Wire2 (SDA2=25, SCL2=24) - taking Serial6 kills Wire2 entirely. Serial7 (28/29): NOTHING (EMC_32/EMC_31; PWM only). Serial8 (34/35): NOTHING (B1_13/B1_12; not PWM, not analog, not Ethernet); alt RX 48 and CTS 50 are QSPI-memory bottom pads. SPI0 (11/12/13) collides with no UART. Wire (18/19) collides with no UART RX/TX but pin 19 IS Serial3's native CTS. Onboard LED = pin 13 = SPI0 SCK. SD socket = pins 42-47. Ethernet = no Teensy pin numbers at all. USB device and USB host = dedicated RT1062 USB pads, no pin numbers.",
+   "source": "Composite, all verified: cores/teensy4/HardwareSerial*.cpp; PaulStoffregen/SPI SPI.cpp; PaulStoffregen/Wire WireIMXRT.cpp i2c1/i2c3/i2c4_hardware; cores/teensy4/pins_arduino.h (LED_BUILTIN=13); PJRC card11a/card11b rev4",
+   "confidence": "certain",
+   "why_it_matters": "This is the whole allocation decision in one table: only Serial2, Serial7 and Serial8 are free of analog/I2C/SPI/SD cost."
+  },
+  {
+   "claim": "Ethernet on Teensy 4.1 uses no user pin number",
+   "value": "RMII: GPIO_B1_04 (RXD0), B1_05 (RXD1), B1_06 (RX_EN), B1_11 (RX_ER), B1_07 (TXD0), B1_08 (TXD1), B1_09 (TX_EN), B1_10 (REF_CLK); MDC = B1_14, MDIO = B1_15; DP83825 RST_N = B0_14, INTR/PWRDN = B0_15. The only GPIO_B1 pads exposed as Teensy pins are B1_00=pin 8, B1_01=pin 7, B1_02=pin 36, B1_03=pin 37, B1_12=pin 35, B1_13=pin 34; the only GPIO_B0 pads exposed are B0_00=10, B0_01=12, B0_02=11, B0_03=13, B0_10=6, B0_11=9, B0_12=32. Therefore Ethernet overlaps nothing.",
+   "source": "QNEthernet src/qnethernet/drivers/driver_teensy41.cpp (IOMUXC SW_MUX_CTL_PAD kB1_04..kB1_11, kB1_14/15, kB0_14/15) cross-referenced against cores/teensy4/core_pins.h CORE_PINn_CONFIG pad names",
+   "confidence": "certain",
+   "why_it_matters": "Kills the common worry that Ethernet steals GPIO. Even if you later add the magjack kit, Serial2/7/8 and the whole 74HC fabric are unaffected."
+  },
+  {
+   "claim": "Bottom-side pins: SD socket vs. bottom SMT pads, with pad names",
+   "value": "SD socket (physically inside the socket, NOT broken out to any pad or via): 42=SD_B0_03=DAT1, 43=SD_B0_02=DAT0, 44=SD_B0_01=CLK, 45=SD_B0_00=CMD, 46=SD_B0_05=DAT3, 47=SD_B0_04=DAT2. Bottom SMT pads (7 pads, require soldering to the underside): 48=EMC_24, 49=EMC_27, 50=EMC_28, 51=EMC_22, 52=EMC_26, 53=EMC_25, 54=EMC_29. Those 7 pads double as the QSPI memory signals for the two optional 8-pin PSRAM/flash footprints: 48=CS0, 49=D1, 50=D2, 51=CS1, 52=D0, 53=CLK, 54=D3. All 48 pins 0-47 minus 42-47, i.e. pins 0-41, are on the two 24-pin through-hole edges.",
+   "source": "cores/teensy4/core_pins.h CORE_PIN42..54_CONFIG; PJRC card11b_rev4_web.pdf (SD Card and QSPI Memory blocks)",
+   "confidence": "certain",
+   "why_it_matters": "Pins 42-47 are only reachable by plugging a breakout into the SD socket; pins 48-54 need SMT soldering and become unusable the moment you fit a PSRAM chip. Neither is a sane place for Link A/C/D."
+  },
+  {
+   "claim": "Teensy 4.1 edge pin physical order (for wiring the harness)",
+   "value": "Left edge top-to-bottom: GND, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 3.3V, 24, 25, 26, 27, 28, 29, 30, 31, 32. Right edge top-to-bottom: Vin, GND, 3.3V, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, GND, 41, 40, 39, 38, 37, 36, 35, 34, 33.",
+   "source": "PJRC card11a_rev4_web.pdf",
+   "confidence": "certain",
+   "why_it_matters": "Serial2 (7,8) and Serial7 (28,29) are adjacent pairs on the left edge; Serial8 (34,35) is an adjacent pair on the right edge - three clean 2-wire runs, no crossovers."
+  },
+  {
+   "claim": "3.3 V rail current budget and voltage tolerance",
+   "value": "3.3V output pin: 250 mA max. Vin: 3.6 to 5.5 V. \"Teensy 4.1 pins are not 5 volt tolerant. Do not apply more than 3.3V to any pin, except VIN & VUSB.\"",
+   "source": "PJRC card11a_rev4_web.pdf (\"3.3V (250 mA max)\", \"Vin (3.6 to 5.5 volts)\") and card11b_rev4_web.pdf; also https://www.pjrc.com/store/teensy41.html",
+   "confidence": "certain",
+   "why_it_matters": "12x MCP23017 + 20x 74HC595 + 15x 74HC165 will not fit in 250 mA once outputs are loaded - the fabric needs its own 3.3 V regulator, with the grounds tied and the Teensy 3.3V pin NOT back-fed."
+  },
+  {
+   "claim": "i.MX RT1062 GPIO DC parameters at 3.3 V (relevant to the whole 74HC fabric)",
+   "value": "VIH min = 0.7 x NVCC = 2.31 V; VIL max = 0.3 x NVCC = 0.99 V; input hysteresis 250 mV min WHEN ENABLED; VOH min = NVCC - 0.15 V at 0.1 mA (DSE 001/010) or 1 mA (DSE 011..111); guaranteed IOH/IOL = 4 mA at 0.45 V from the rail with ipp_dse = 110/111; input current with no pull-up/pull-down IIN = -1 to +1 uA; keeper resistance 105 to 175 kohm.",
+   "source": "NXP IMXRT1060IEC Rev. 4, 04/2024, Table 22 \"Single voltage GPIO DC parameters\", pages 36-37",
+   "confidence": "certain",
+   "why_it_matters": "Confirms the all-3.3 V rule: a 74HC part at VCC=3.3 V needs VIH >= 2.31 V and the Teensy delivers >= 3.15 V; the 4 mA figure sets fanout for direct 74HC drive."
+  },
+  {
+   "claim": "pinMode(pin, INPUT) on Teensy 4 leaves the Schmitt trigger OFF",
+   "value": "pinMode() writes the pad register directly: OUTPUT -> DSE(7); OUTPUT_OPENDRAIN -> DSE(7)|ODE; INPUT -> DSE(7) only (no PKE, no PUE, NO HYS); INPUT_PULLUP -> DSE(7)|PKE|PUE|PUS(3)=22k pull-up|HYS; INPUT_PULLDOWN -> DSE(7)|PKE|PUE|PUS(0)=100k pull-down|HYS; INPUT_DISABLE -> DSE(7)|HYS (hysteresis on, no pull, no keeper). Mux is forced to ALT5|SION. SRE (fast slew) and SPEED are left at 0 = slow slew, 50 MHz pad speed.",
+   "source": "cores/teensy4/digital.c, pinMode() lines 162-188",
+   "confidence": "certain",
+   "why_it_matters": "A 74HC165 QH or an open-drain MCP23017 /INT on a long wire has slow edges; plain INPUT gives no hysteresis and can double-clock. Use INPUT_PULLUP, or INPUT_DISABLE when you already have an external pull-up."
+  },
+  {
+   "claim": "ADC resolution modes and the exact register settings Teensyduino uses",
+   "value": "analogReadRes(bits): 8 -> MODE(0), ADSTS(3), ADLSMP=0 (sample 8 ADCK); 10 -> MODE(1), ADSTS(2), ADLSMP=1 (sample 20 ADCK); ANY OTHER VALUE -> the 12-bit branch: MODE(2), ADSTS(3), ADLSMP=1 (sample 24 ADCK). Default at boot is 10 bits. analogReadRes() correctly preserves ADICLK, ADIV, ADLPC, ADHSC and AVGS (ADHSC is bit 10, outside the cleared field), so it does NOT silently drop the ADC out of high-speed mode.",
+   "source": "cores/teensy4/analog.c analogReadRes()/analog_init(); bit positions from cores/teensy4/imxrt.h lines 1127-1137 (ADC_CFG_ADHSC = 1<<10, ADC_CFG_ADSTS(n) = n<<8, ADC_CFG_ADLSMP = 1<<4, ADC_CFG_MODE(n) = n<<2)",
+   "confidence": "certain",
+   "why_it_matters": "analogReadRes(16) or analogReadRes(14) silently gives you 12-bit data, not an error."
+  },
+  {
+   "claim": "analogReadAveraging() only accepts 4 discrete hardware settings",
+   "value": "num >= 32 -> AVGS(3) = 32 samples; >= 16 -> AVGS(2) = 16; >= 8 -> AVGS(1) = 8; >= 4 -> AVGS(0) = 4; < 4 -> averaging DISABLED (ADC_GC AVGE cleared). Default at boot is 4. analogReadAveraging(64) clamps to 32; analogReadAveraging(2) or (3) turns averaging OFF entirely, it does not average 2. Applied to both ADC1 and ADC2 in one call.",
+   "source": "cores/teensy4/analog.c analogReadAveraging(); default analog_num_average = 4 at line ~37",
+   "confidence": "certain",
+   "why_it_matters": "analogReadAveraging(2) is a silent no-op-to-off; a firmware author expecting 2x averaging gets raw single conversions and 2x the noise."
+  },
+  {
+   "claim": "ADC clock and conversion / acquisition times as Teensyduino actually configures them",
+   "value": "analog_init() sets ADC_CFG_ADIV(1) | ADC_CFG_ADICLK(3) | ADC_CFG_ADHSC = asynchronous clock (ADACK) divided by 2, high-speed mode. Datasheet fADACK with ADHSC=1 is typ 20 MHz, so ADCK ~= 10 MHz (100 ns/cycle) - typical only, NOT crystal-derived, so it varies part to part and with temperature. Resulting times at 10 MHz ADCK: 12-bit acquisition 24 cycles = 2.4 us, total conversion 50 cycles = 5.0 us; 10-bit acquisition 20 cycles = 2.0 us, total ~37 cycles = 3.7 us; 8-bit acquisition 8 cycles = 0.8 us, total ~25 cycles = 2.5 us. Default analogRead() (10-bit, 4x average) is therefore ~4 x 3.7 us = ~14.8 us plus call overhead. fADCK legal range with ADHSC=1, 12-bit: 4 to 40 MHz.",
+   "source": "cores/teensy4/analog.c analog_init(); NXP IMXRT1060IEC Rev. 4, Table 55 (Sample Cycles, Conversion Cycles, ADC Asynchronous Clock Source) pp. 65-66 and Table 54 (fADCK range) p. 64",
+   "confidence": "likely",
+   "why_it_matters": "The 12-bit/50-cycle number is the datasheet's; the core's own comment says 25+24=49 cycles. Either way budget ~5 us. Because ADACK is a free-running RC oscillator, do not derive sample timing from analogRead() call counts - gate it on a timer."
+  },
+  {
+   "claim": "ADC analog input model: maximum source impedance",
+   "value": "CADIN (input capacitance, 8/10/12-bit) typ 1.5 pF, max 2 pF. RADIN (internal sampling series resistance): ADLPC=0 ADHSC=1 typ 5 k, max 7 kohm; ADLPC=0 ADHSC=0 typ 12.5 k, max 15 kohm; ADLPC=1 ADHSC=0 typ 25 k, max 30 kohm. Teensyduino runs ADHSC=1 so RADIN <= 7 kohm. Datasheet's hard anchor: RAS (analog source resistance) max 1 kohm at 12-bit, fADCK = 40 MHz, ADLSMP=0, ADSTS=10, ADHSC=1, Tsamp = 150 ns; \"RAS depends on Sample Time Setting (ADLSMP, ADSTS) and ADC Power Mode (ADHSC, ADLPC). See charts for Minimum Sample Time vs RAS\" (Figure 36, Cas = 2 pF).",
+   "source": "NXP IMXRT1060IEC Rev. 4, 04/2024, Table 54 \"12-bit ADC operating conditions\" and Figure 35/36, pp. 63-64, 67",
+   "confidence": "certain",
+   "why_it_matters": "That 1 kohm headline is for a 150 ns aperture. Teensyduino's 12-bit aperture is 2.4 us - 16x longer - so RC settling is not your limit."
+  },
+  {
+   "claim": "Derived RC settling limit vs. the real (leakage) limit on source impedance",
+   "value": "RC settling: the datasheet's own anchor is self-consistent with tau = (RAS + RADIN) x CADIN and ~9.4 tau for 0.5 LSB at 12 bits ((1k+7k) x 2pF = 16 ns; 150 ns / 16 ns = 9.4). Scaling to Teensyduino's 12-bit Tsamp of 2.4 us gives (RAS + 7k) <= 2.4us / (9.4 x 2pF) = 128 kohm, i.e. RAS <= ~120 kohm. LEAKAGE is the real limit: pad input current IIN = +/-1 uA max, so the DC error is 1 uA x RAS. For <= 1 LSB at 12 bits (3.3 V / 4096 = 0.806 mV) RAS <= ~806 ohm; for <= 1 LSB at 10 bits (3.22 mV) RAS <= ~3.2 kohm. RECOMMENDATION: keep total source impedance (sensor + mux RON + wiring) under 1 kohm for 12-bit work, under 3 kohm for 10-bit.",
+   "source": "Derived from NXP IMXRT1060IEC Rev. 4 Table 54 (CADIN, RADIN, RAS/Tsamp anchor) and Table 22 (IIN = -1 to +1 uA). The scaling is my derivation; NXP's Figure 36 chart is the authority and I could not read the plotted curve.",
+   "confidence": "likely",
+   "why_it_matters": "The usual folklore answer is \"10 kohm max\". At 12 bits on this part 10 kohm costs you up to 12 LSB of DC error from leakage alone, before any settling issue."
+  },
+  {
+   "claim": "ADC accuracy figures (all quoted WITH 32x hardware averaging enabled)",
+   "value": "12-bit: TUE typ 3.4 / max 4.28 LSB; DNL typ 0.76 / max 1.29 LSB; INL typ 2.78 / max 4.01 LSB; ENOB min 10.1, typ 10.7 bits; offset error typ -0.03 %FSV; gain error typ 0.01 %FSV. 10-bit: TUE typ 1.5 / max 1.95; DNL typ 0.36 / max 0.72; INL typ 0.61 / max 1.01 LSB. 8-bit: TUE typ 1.2 / max 1.25; DNL typ 0.14 / max 0.15; INL typ 0.14 / max 0.29 LSB. All accuracy numbers assume the ADC is calibrated with VREFH = VDDAD. Conditions column reads \"AVGE = 1, AVGS = 11\" i.e. 32x averaging.",
+   "source": "NXP IMXRT1060IEC Rev. 4, 04/2024, Table 55 \"12-bit ADC characteristics\", pp. 65-67",
+   "confidence": "certain",
+   "why_it_matters": "12-bit mode on this part gives ~10.7 effective bits even with 32x averaging. Asking for 12-bit resolution buys you about 0.7 real bits over 10-bit, at 35% more conversion time."
+  },
+  {
+   "claim": "ADC reference is fixed; analogReference() does nothing",
+   "value": "analogReference(uint8_t type) has an empty body on Teensy 4. VREFH = VDDA (the 3.3 V rail), VREFL = VSSAD. Table 54 gives Ref Voltage High min 1.13 V, typ VDDA, max VDDA; supply VDDA 3.0 to 3.6 V.",
+   "source": "cores/teensy4/analog.c analogReference(); NXP IMXRT1060IEC Rev. 4 Table 54",
+   "confidence": "certain",
+   "why_it_matters": "Every ADC reading is ratiometric to the 3.3 V rail. Rail droop when the 74HC fabric switches shows up directly as ADC gain error - measure the rail with an INA219 or a divider on a spare analog pin if it matters."
+  },
+  {
+   "claim": "74HC4051 on-resistance is NOT specified at 3.3 V",
+   "value": "Nexperia gives RON only at VCC = 2.0 V, 4.5 V, 6.0 V and 9.0 V. At VCC = 4.5 V, VEE = 0 V, ISW = 1000 uA: RON(peak) typ 100 / max 180 ohm at 25 C, max 225 ohm over -40..+85 C, max 270 ohm over -40..+125 C; RON(rail) at Vis=VCC typ 90 / max 160 ohm at 25 C. At VCC = 2.0 V only a typ of 150 ohm is given and the datasheet warns RON \"becomes extremely non-linear\" near 2.0 V. There is NO 3.3 V column - the 3.3 V value is UNVERIFIED; budget 250-400 ohm and measure it.",
+   "source": "Nexperia 74HC4051/74HCT4051 product data sheet Rev. 12, 21 March 2024, Table 6 \"RON resistance per switch\", and note [1]",
+   "confidence": "unverified",
+   "why_it_matters": "RON adds directly to RAS and it varies with the signal level (Fig. 8), so a 4051 at 3.3 V injects a signal-dependent gain error unless the ADC aperture is long enough - which at 2.4 us it comfortably is."
+  },
+  {
+   "claim": "74HC4051 switching times and capacitances (drive the settle delay)",
+   "value": "ton (Sn to Vos, RL = infinity): VCC=4.5 V typ 28 ns / max 69 ns at 25 C, max 86 ns over -40..+85 C; VCC=2.0 V typ 66 ns / max 345 ns at 25 C, max 430 ns over -40..+85 C. toff (Sn to Vos, RL = 1 kohm): VCC=4.5 V typ 25 / max 58 ns; VCC=2.0 V typ 61 / max 290 ns. tpd (Vis to Vos): VCC=4.5 V typ 5 / max 12 ns. Csw switch capacitance: independent pins Yn typ 5 pF, COMMON PIN Z typ 25 pF. CI (select input) typ 3.5 pF. VIH at VCC=4.5 V is 3.15 V min - a 4051 run at 5 V cannot be driven by 3.3 V logic.",
+   "source": "Nexperia 74HC4051/74HCT4051 Rev. 12, 21 March 2024, Table 9 \"Dynamic characteristics\" and Table 7 (CI, Csw, VIH)",
+   "confidence": "certain",
+   "why_it_matters": "The 25 pF common-pin capacitance plus 5 pF for the selected channel plus trace is what the source has to charge after every mux hop, and the VIH figure is another reason the whole fabric must stay at 3.3 V."
+  },
+  {
+   "claim": "Required settling delay after a 74HC4051 channel change, before starting a conversion",
+   "value": "Budget = ton + node RC. ton at 3.3 V is not specified; interpolating between the 4.5 V (86 ns max) and 2.0 V (430 ns max) columns, allow 350 ns. Node RC: Cnode ~= 25 pF (Z) + 5 pF (selected Yn) + ~10 pF pad/trace = ~40 pF; with Rsource + RON = 1.3 kohm, tau = 52 ns and 0.5 LSB at 12 bits needs 9.01 tau = 470 ns. TOTAL ~= 0.9 us. RECOMMENDATION: write the select lines, wait 2 us, then analogRead(). Do NOT put a filter capacitor larger than ~100 pF on the mux common pin - a 100 nF there gives tau = 130 us and 1.2 ms to settle, which looks exactly like crosstalk between channels.",
+   "source": "Derived from Nexperia 74HC4051 Rev. 12 Table 7/Table 9 and NXP IMXRT1060IEC Rev. 4 Table 54; the 3.3 V ton interpolation is unverified",
+   "confidence": "likely",
+   "why_it_matters": "The classic silent failure with a muxed ADC is a channel reading that is a weighted average of itself and the previous channel. It looks like plausible data, not like a bug."
+  },
+  {
+   "claim": "921600 baud is not exactly 921600 on Teensy 4.1",
+   "value": "UART_CLOCK is hard-coded to 24000000 Hz. begin() searches OSR 4..32 for the smallest fractional error using err <= besterr (so the LARGEST OSR wins ties). For 921600 it selects OSR = 26, SBR = 1, giving an actual 24e6 / 26 = 923076.9 baud, +0.160 %. BOTHEDGE is only set when OSR <= 8, so it is off here. For reference 115200 also lands at +0.160 % (OSR 26, SBR 8), while 1000000 and 2000000 baud are exact (0.000 %).",
+   "source": "cores/teensy4/HardwareSerial.cpp begin() lines 110-167 (#define UART_CLOCK 24000000, the OSR search loop, LPUART_BAUD_OSR/SBR/BOTHEDGE)",
+   "confidence": "certain",
+   "why_it_matters": "+0.16 % is harmless against a typical +/-2 % UART budget, but it means a logic analyser at 24 MSa/s will measure ~10.833 us frames, not 10.851 us - do not treat that as a fault."
+  },
+  {
+   "claim": "UART FIFO and software buffer sizes, and the RTS watermarks",
+   "value": "Hardware: all LPUARTs have a fixed 4-byte TX FIFO and 4-byte RX FIFO; the core sets RXWATER = 2 and TXWATER = 2. Software buffers: Serial1 TX 64 / RX 64; Serial2..Serial8 TX 40 / RX 64 bytes. RTS watermarks are computed as rts_low = total - 38 and rts_high = total - 24; with the default 64-byte RX buffer RTS de-asserts (goes HIGH = pause) once 40 bytes are buffered and re-asserts (LOW = ready) when <= 26 remain. RTS is active LOW. At 921600 baud one byte is 10.85 us, so 64 bytes = 0.69 ms of slack and the 24-byte headroom above the high watermark gives the peer 260 us to stop.",
+   "source": "cores/teensy4/HardwareSerial1..8.cpp (SERIALn_TX/RX_BUFFER_SIZE defines); HardwareSerial.cpp begin() (rx_water/tx_water, FIFO comment citing IMXRT1060RM rev2 p.2875 sec 49.4.1.12.3), rts_assert/rts_deassert and the watermark math at lines 134-135, 466-467, 548-553, 652-656; https://www.pjrc.com/teensy/td_uart.html",
+   "confidence": "certain",
+   "why_it_matters": "Your protocol allows 1024-byte frames = 11.1 ms of wire time. A 0.69 ms RX buffer will overrun the first time an SD write or a display refresh blocks the loop."
+  },
+  {
+   "claim": "addMemoryForRead / addMemoryForWrite limits",
+   "value": "\"The buffer array must be a global or static variable. Maximum total buffer size is 64K.\" addMemoryForRead() sets rx_buffer_total_size_ = rx_buffer_size_ + length and recomputes both RTS watermarks, so hardware flow control scales with the enlarged buffer automatically.",
+   "source": "https://www.pjrc.com/teensy/td_uart.html; cores/teensy4/HardwareSerial.cpp addMemoryForRead() lines 454-468",
+   "confidence": "certain",
+   "why_it_matters": "This is the supported way to get a bigger buffer - SERIALn_RX_BUFFER_SIZE cannot be overridden from a sketch in the Arduino IDE."
+  },
+  {
+   "claim": "Interrupt priorities that matter for this firmware",
+   "value": "startup.c sets EVERY NVIC interrupt to priority 128 at boot; SysTick and PendSV are set to 32 (SCB_SHPR3 = 0x20200000). HardwareSerial::begin() then raises each LPUART IRQ to priority 64. attachInterrupt() does NOT change priority, so all GPIO interrupts stay at 128 and share a single vector, IRQ_GPIO6789. Lower number = higher priority.",
+   "source": "cores/teensy4/startup.c line 136 and 239; cores/teensy4/HardwareSerial1..8.cpp (#define IRQ_PRIORITY 64); cores/teensy4/interrupt.c attachInterrupt()/irq_gpio6789",
+   "confidence": "certain",
+   "why_it_matters": "UART ISRs pre-empt the MCP23017 /INT handler, which is the right ordering - but it means the MCP ISR can be delayed by several UART ISRs, and all MCP23017 INTs share one vector with every other attachInterrupt pin."
+  },
+  {
+   "claim": "Wire / Wire1 / Wire2 pin map (and what does not exist)",
+   "value": "Wire = LPI2C1, SDA 18, SCL 19 (no alternates). Wire1 = LPI2C3, SDA 17 or 44, SCL 16 or 45 (44/45 are inside the SD socket). Wire2 = LPI2C4, SDA 25, SCL 24 (no alternates). There is NO Wire3 on Teensy 4.1 - the LPI2C2 (pins 40/41) definition is compiled only for ARDUINO_TEENSY_MICROMOD. WIRE_INTERFACES_COUNT = 3.",
+   "source": "PaulStoffregen/Wire WireIMXRT.cpp i2c1_hardware/i2c3_hardware/i2c4_hardware and the #if defined(ARDUINO_TEENSY_MICROMOD) guard on Wire3; cores/teensy4/pins_arduino.h WIRE_INTERFACES_COUNT",
+   "confidence": "certain",
+   "why_it_matters": "Wire1's only board-edge pins are 16/17, which are also Serial4 - so Serial4 and Wire1 are strictly exclusive. Same for Serial6 and Wire2 on 24/25."
+  },
+  {
+   "claim": "PWM-capable pins on Teensy 4.1 (complete)",
+   "value": "0-15, 18, 19, 22, 23, 24, 25, 28, 29, 33, 36, 37, 42, 43, 44, 45, 46, 47, 51, 54. NOT PWM: 16, 17, 20, 21, 26, 27, 30, 31, 32, 34, 35, 38, 39, 40, 41, 48, 49, 50, 52, 53.",
+   "source": "cores/teensy4/pins_arduino.h digitalPinHasPWM() macro for ARDUINO_TEENSY41; independently confirmed by the PWM marks on PJRC card11a/card11b rev4 (every one matches)",
+   "confidence": "certain",
+   "why_it_matters": "Serial8's pins 34/35 are among the few non-PWM pins, so allocating them to Link D costs no PWM channel."
+  },
+  {
+   "claim": "analogRead() has an off-by-one bounds check and a non-obvious Arduino-compat mapping",
+   "value": "The guard is `if (pin > sizeof(pin_to_channel)) return 0;` and pin_to_channel[] has exactly 42 entries (valid indices 0-41), so analogRead(42) reads one byte past the array. Separately, indices 0-13 of the table are NOT digital pins 0-13: they duplicate A0..A13 for Arduino compatibility, so analogRead(0) reads A0 (pin 14), analogRead(10) reads A10 (pin 24), and so on. Digital pins 0-13 have no ADC connection at all. Pins 28-37 map to 255 and return 0.",
+   "source": "cores/teensy4/analog.c, pin_to_channel[] and analogRead()",
+   "confidence": "certain",
+   "why_it_matters": "analogRead(7) silently returns A7 (pin 21) even though pin 7 will be your Link A RX. That is a plausible-looking wrong number, not a crash."
+  },
+  {
+   "claim": "analogRead() disables the pad keeper but not user pull-ups",
+   "value": "analogRead() checks the pad control register and, if (PUE|PKE) == PKE (keeper enabled, pull disabled), clears PKE with the comment \"disable keeper, as it messes up analog with higher source impedance ... but don't touch user's setting if ordinary pullup\". The keeper is specified at 105-175 kohm.",
+   "source": "cores/teensy4/analog.c analogRead(); keeper resistance from NXP IMXRT1060IEC Rev. 4 Table 22",
+   "confidence": "certain",
+   "why_it_matters": "If you ever call pinMode(A0, INPUT_PULLUP) on an analog pin, analogRead() will deliberately leave the 22 kohm pull-up in place and every reading will be pulled toward 3.3 V."
+  }
+ ],
+ "code_guidance": [
+  "FINAL ALLOCATION - Link A (Luckfox Pico Mini B) = Serial2, RX pin 7, TX pin 8. Justification against the matrix: pins 7/8 are GPIO_B1_01 and GPIO_B1_00, which touch nothing - no analog channel, no I2C bus, no SPI signal, not the LED, not the SD socket, not an Ethernet pad, not a bottom pad. Their only other functions are I2S1 (OUT1A/IN1) and XBAR inputs IN15/IN14, neither of which you use. They are adjacent on the left edge immediately below Serial1's 0/1, so the two 'upstream' links leave the board side by side.",
+  "FINAL ALLOCATION - Link C (Teensy2 worker) = Serial7, RX pin 28, TX pin 29. Justification: pins 28/29 are GPIO_EMC_32 and GPIO_EMC_31; the only alternate function either has is FlexPWM. No analog, no I2C, no SPI, no CAN (CAN3 is on 30/31, not 28/29), no SD, no Ethernet, no bottom pad. Adjacent on the left edge.",
+  "FINAL ALLOCATION - Link D (E32R40T display node) = Serial8, RX pin 34, TX pin 35. Justification: pins 34/35 are GPIO_B1_13 and GPIO_B1_12, adjacent on the right edge. No analog, no I2C, no SPI, no PWM, no LED, and they are NOT Ethernet RMII pads (Ethernet uses B1_04..B1_11 and B1_14/15). Serial8's alternates (RX 48, CTS 50) are QSPI bottom pads you will never solder, so nothing is lost by ignoring them. Note Serial8 TX has no alternate at all - pin 35 is fixed.",
+  "REJECTED and why, so the choice is auditable: Serial3 (15/14) costs A0 and A1. Serial4 (16/17) costs A2, A3 AND the whole Wire1 bus. Serial5 (21/20) costs A6, A7 and its alternates live in the SD socket. Serial6 (25/24) costs A10, A11 AND the whole Wire2 bus. Choosing Serial2 + Serial7 + Serial8 instead costs zero analog pins and zero I2C buses - all 16 remaining analog inputs (A0-A3, A6-A17) and both Wire1 and Wire2 stay available for stack 2 and for the 74HC fabric.",
+  "Bring the links up in this order, and never call attachCts() before begin(): Serial2.begin(921600, SERIAL_8N1); then, only if you want hardware flow control, Serial2.attachRts(<any free pin>); Serial2.attachCts(2). attachCts() returns false if the LPUART clock gate is still off, which is exactly the state before begin().",
+  "Enlarge every link's RX buffer before begin(). Declare static uint8_t rxA[2048], rxC[2048], rxD[1024]; then Serial2.addMemoryForRead(rxA, sizeof(rxA)); Serial7.addMemoryForRead(rxC, sizeof(rxC)); Serial8.addMemoryForRead(rxD, sizeof(rxD)); before the matching begin(). The buffers must be global or static and total no more than 64 KB. Your protocol's 1024-byte max frame is 11.1 ms of wire time at 921600 baud, and the stock 64-byte buffer holds only 0.69 ms.",
+  "If you add hardware flow control, assign CTS to XBAR pins with DIFFERENT XBAR inputs, one per port: Serial1 CTS = pin 2 (XBAR IN06), Serial2 CTS = pin 3 (IN07), Serial7 CTS = pin 4 (IN08), Serial8 CTS = pin 33 (IN09). Never pick two of {0, 5, 37} (all IN17), or {1, 36} (IN16), or {2, 43} (IN06), or {3, 42} (IN07), or {4, 47} (IN08), or {33, 46} (IN09) at the same time. RTS is plain GPIO, so use any free pins (e.g. 5, 6, 9, 10) with attachRts().",
+  "Invert every XBAR CTS input. The native CTS pins (19, 43, 50) follow the normal convention - high means pause. An XBAR CTS is backwards: the Teensy transmits while the pin is HIGH and pauses while it is LOW. If the peer drives a conventional active-low /CTS, put one gate of a 74HC04 (VCC = 3.3 V) between the peer and the Teensy pin. Do not try to fix this in software; the LPUART TXCTSE gate is hardware.",
+  "Do not use SPI1 as-is. Its defaults are CS = pin 0 and MISO = pin 1, which are the tested ESP32-S3 Serial1 pins. If you ever need a second SPI bus, call SPI1.setMISO(39) and use pin 38 (or any GPIO) as CS - MOSI 26 and SCK 27 are unaffected. SPI2 (42-45 / 49-54) is inside the SD socket and on the bottom pads; treat it as nonexistent.",
+  "Never use LED_BUILTIN (pin 13) for status while SPI0 is active - pin 13 IS the SPI0 SCK line. Put your heartbeat LED on a free pin (e.g. 6, 9 or 10 if 10 is not a chip select) with its own series resistor.",
+  "Analog scan with a 74HC4051: write S0/S1/S2 (and hold E low), delayMicroseconds(2), then analogRead(). Two microseconds covers the 4051's turn-on (interpolated <= ~350 ns at 3.3 V) plus about 470 ns of RC settling on the ~40 pF common node. Use the E (enable) pin as a global deselect and take it high before changing S0-S2, exactly as you already do with the 74HC138.",
+  "Do not put a filter capacitor larger than about 100 pF on the 4051 common (Z) pin. Anti-alias filtering belongs on each individual Y channel, before the switch. A 100 nF on the common node gives a 130 us time constant and about 1.2 ms to settle, which shows up as one channel bleeding into the next - a plausible-looking wrong reading, not an obvious fault.",
+  "Keep total analog source impedance (sensor output + 4051 RON + wiring) under 1 kohm if you use analogReadRes(12), or under 3 kohm at the default 10 bits. The limit is the +/-1 uA pad leakage, not RC settling.",
+  "Call analogReadAveraging() only with 4, 8, 16 or 32. Anything below 4 disables averaging entirely rather than averaging that count, and anything above 32 clamps to 32. Call analogReadRes() only with 8, 10 or 12 - every other value silently takes the 12-bit branch.",
+  "Never call analogRead() with a bare small integer. analogRead(7) reads A7 (pin 21), not digital pin 7. Always write analogRead(A7) or analogRead(21). Also never call analogRead(42): the bounds check is off by one and it reads past the end of the channel table.",
+  "For any fabric input with slow edges - a 74HC165 QH on a long run, an open-drain MCP23017 /INT with an external pull-up - do not use pinMode(pin, INPUT). That mode leaves the pad's Schmitt trigger off. Use INPUT_PULLUP if you want the internal 22 kohm pull-up as well, or INPUT_DISABLE if you already have the external pull-up and only want the hysteresis.",
+  "Leave pinMode()'s default slow slew rate alone on the 74HC fabric. pinMode() sets DSE(7) (4 mA guaranteed at 0.45 V) with SRE clear and SPEED = 0, which is the low-ringing choice for long parallel runs. Only reach for IOMUXC_PAD_SRE if a measured edge is genuinely too slow for a 165/595 setup time.",
+  "Do not power the 74HC/MCP23017 fabric from the Teensy's 3.3V pin. That rail is rated 250 mA max. Give the fabric its own 3.3 V regulator, tie the grounds at one point, and do not back-feed the Teensy 3.3V pin.",
+  "Budget for a second-stack expansion using the ports you have left free: Serial3 (15/14), Serial4 (16/17, gives up Wire1), Serial5 (21/20) and Serial6 (25/24, gives up Wire2). Prefer Serial3 and Serial5 first, since they only cost analog pins and no bus."
+ ],
+ "pitfalls": [
+  "analogRead(n) for n in 0..13 does NOT read digital pin n - it reads An. analogRead(7) returns A7 (pin 21). Once pin 7 is Link A's RX, a call to analogRead(7) still returns a perfectly plausible number from an entirely different pin.",
+  "analogReadAveraging(2) and (3) silently DISABLE hardware averaging instead of averaging 2 or 3 samples. Noise roughly doubles versus the boot default of 4, and nothing reports an error.",
+  "analogReadRes(14) or analogReadRes(16) silently configures 12-bit mode. The code has no validation - anything that is not 8 or 10 falls into the 12-bit branch.",
+  "The ADC conversion clock is a free-running RC oscillator (ADACK, typ 20 MHz with ADHSC=1, divided by 2), not a crystal-derived clock. NXP gives only a typical value, no min/max. Any firmware that times its ADC schedule by counting analogRead() calls will drift with temperature and between chips. Gate scans on IntervalTimer or micros().",
+  "SPI1's factory defaults are CS = pin 0 and MISO = pin 1 - the exact pins the tested ESP32-S3 link occupies. Calling SPI1.begin() without setMISO(39) will re-mux pin 1 away from Serial1 TX and kill the radio link, with no error message.",
+  "Serial4 and Wire1 are the same two pins (16/17), and Serial6 and Wire2 are the same two pins (25/24). Enabling one silently re-muxes the pads out from under the other; the I2C bus just stops acknowledging.",
+  "The onboard LED is pin 13, which is SPI0 SCK. digitalWrite(13, HIGH) for a status blink while SPI is active fights the SPI peripheral for the pad, and the LED's load sits on the clock line permanently.",
+  "pinMode(pin, INPUT) leaves the pad's 250 mV Schmitt hysteresis DISABLED on Teensy 4. A slow edge from a 74HC165 at the end of a long ribbon can produce multiple counted transitions. INPUT_PULLUP, INPUT_PULLDOWN and INPUT_DISABLE all enable hysteresis; plain INPUT does not.",
+  "A filter capacitor on a 74HC4051 common pin turns channel-to-channel crosstalk into readings that look like real, slightly-wrong data. With 100 nF and 1.3 kohm of source you need 1.2 ms to settle; at a 2 us settle delay every channel reads as a weighted average of itself and its predecessor.",
+  "921600 baud is actually 923077 baud on Teensy 4.1 (OSR 26, SBR 1 from a 24.000 MHz UART clock, +0.160 %). Harmless for the link, but a logic-analyser capture will measure 10.833 us frames and 1.0833 us bit cells - do not chase that as a fault.",
+  "The default 64-byte RX buffer holds 0.69 ms of 921600-baud traffic against a protocol whose maximum frame is 11.1 ms of wire time. An SD write or a display refresh in loop() will drop bytes mid-frame; the CRC catches it, so it presents as an intermittent frame-error rate rather than an obvious failure.",
+  "attachCts() returns false, silently, if it is called before begin() - it tests the LPUART clock gate. Flow control then just never happens.",
+  "XBAR CTS runs backwards from the native CTS pins. Wire a conventional active-low /CTS to an XBAR pin and the Teensy transmitter stays gated off permanently, which looks exactly like a dead UART.",
+  "Each serial port can make only ONE XBAR connection. Assign an XBAR pin to a port's CTS and you can no longer use an XBAR pin for that port's RX, and vice versa. Two ports assigned XBAR pins that share the same XBAR input (0/5/37, 1/36, 2/43, 3/42, 4/47, 33/46) will silently fight.",
+  "analogRead(42) reads one byte past the end of pin_to_channel[] - the bounds check is `pin > sizeof(...)` where it should be `>=`. It will return whatever byte follows the table, interpreted as an ADC channel.",
+  "Serial5's alternate pins (46/47) and CTS (43) are inside the SD card socket, and Serial8's alternate RX (48) and CTS (50) are QSPI memory pads. Selecting them via setRX()/attachCts() will appear to succeed in software while nothing is physically connected.",
+  "pinMode(An, INPUT_PULLUP) followed by analogRead(An) leaves the 22 kohm pull-up engaged - analogRead() only clears the keeper, and deliberately preserves a user-set pull. Every reading gets dragged toward 3.3 V.",
+  "The 3.3V pin is rated 250 mA. A fabric of 12 MCP23017s plus 20 shift registers with loaded outputs will brown out the regulator; the symptom is ADC gain error and random resets, not an obvious short."
+ ],
+ "la_verification": [
+  "Prove the UART pin map: with the 8-channel analyser at 24 MSa/s, put probes on pins 8, 29 and 35 (the three TX lines) plus a common ground, run Serial2/7/8.begin(921600) and print a known byte (0x55) on each. Decode as async 8N1 at 921600 - you should see 10.833 us frames (923077 baud, +0.16 %), not 10.851 us. Any port that shows nothing was mis-selected.",
+  "Prove 923077 baud rather than 921600: capture 200 consecutive bit cells of a 0x55 pattern at 24 MSa/s (26 samples per bit) and measure the total span. 200 bits should take 216.67 us, not 217.01 us. The 0.16 % difference is 0.34 us over 200 bits - resolvable at 41.7 ns per sample.",
+  "Prove Serial1 is untouched by the new links: probe pin 1 (Serial1 TX) while bringing up Serial2, Serial7 and Serial8, and confirm no glitch or re-mux transient. Then deliberately call SPI1.begin() and watch pin 1 go dead - that is the SPI1 MISO conflict, and it is the reason to call SPI1.setMISO(39) first.",
+  "Prove the RTS watermarks: probe the RTS pin and the RX line. Blast 64+ bytes at 921600 into a link whose loop() is stalled, and confirm RTS goes HIGH after the 40th byte enters the buffer and returns LOW once the backlog falls to 26 bytes. With the stock 64-byte buffer the peer has 24 bytes = 260 us to react; time the interval from the RTS edge to the last byte the peer sends.",
+  "Prove XBAR CTS polarity: attachCts() an XBAR pin, drive it LOW from a bench source and confirm the TX line stops mid-stream after the byte in flight; drive it HIGH and confirm transmission resumes. If the behaviour is reversed you are on a native CTS pin, not an XBAR one.",
+  "Measure real analogRead() duration: set a spare GPIO high immediately before analogRead() and low immediately after, and capture at 24 MSa/s (41.7 ns resolution). Expect roughly 3.7 us per conversion at the default 10 bits with averaging off, about 5.0 us at 12 bits, and roughly 4x those with analogReadAveraging(4). A measurement well above these indicates the asynchronous ADC clock start-up penalty (ADACKEN is not set in analog_init).",
+  "Measure the ADC acquisition window indirectly: run analogReadRes(8) then (10) then (12) with averaging off and compare the GPIO-bracketed durations. The ratios should be about 25 : 37 : 50 ADCK cycles, i.e. 2.5 us : 3.7 us : 5.0 us.",
+  "Find the true 4051 settle time: wire Y0 to GND and Y1 to 3.3 V. Toggle the select lines between them with a GPIO marker on the analyser, sweep the delay before analogRead() from 0 to 5 us in 250 ns steps, and plot the reading. The delay at which the value stops changing is your real settle time; set the firmware constant to twice it.",
+  "Measure 4051 RON at 3.3 V (the datasheet has no 3.3 V column): put a known 10.0 kohm resistor from 3.3 V into a channel and read the divider against a known load, or force a 1 mA current through one switch with a bench supply and measure the drop with a DMM. Expect somewhere between 150 and 400 ohm; whatever you get goes straight into your source-impedance budget.",
+  "Quantify the leakage-driven source-impedance limit empirically: read the same 3.3 V/2 source through 0 ohm, 1 k, 10 k and 100 k series resistors at 12-bit with 32x averaging. The 1 uA spec predicts about 0, 1.2, 12 and 124 LSB of offset. If the 10 k point moves by ~12 LSB the model is confirmed and your 1 kohm design rule is justified.",
+  "Confirm the 3.3 V rail holds under fabric switching: put an INA219 on the fabric supply and simultaneously probe a 74HC595 SRCLK burst on the analyser. Correlate rail droop with the burst. If ADC readings shift with fabric activity, that is ratiometric gain error, not ADC noise.",
+  "Prove pins 2 and 3 really are free before committing them to RTS/CTS: toggle each at 1 MHz with the analyser attached and confirm clean 3.3 V edges with no contention from any peripheral you have enabled.",
+  "Prove Ethernet is a non-conflict, if you ever fit the magjack: capture pins 7, 8, 28, 29, 34 and 35 while the Ethernet driver initialises. Nothing on those six pins should move - the RMII signals are on GPIO_B1_04..B1_11, which carry no Teensy pin number."
+ ],
+ "open_questions": [
+  "How many analog inputs does stack 1 actually need, and at what source impedance? The allocation above leaves all 16 free analog pins untouched, but if the answer is 'none' then Serial3 or Serial5 become viable alternates and the whole matrix loosens.",
+  "Do Link A, C and D need hardware RTS/CTS at all, or is the CRC-framed protocol plus a 2 KB software buffer sufficient? Flow control costs up to 6 more pins and forces a 74HC04 inverter on every XBAR CTS line.",
+  "Is the Luckfox link 3.3 V CMOS on both ends with a shared ground and a direct wire, exactly like the tested ESP32-S3 link? If any level shifter is contemplated for it, confirm the rule (push-pull UART -> TXB0108, never TXS0108) still applies with the Luckfox's specific IO voltage.",
+  "What is the maximum time loop() can block on stack 1 (SD write, display refresh, fabric scan)? That number, times 92160 bytes/second, is the required RX buffer size per link. Until it is known, 2048 bytes is a guess.",
+  "Is the 2.4 inch display on Teensy1 an ST7789 SPI TFT or something else, and does it hang off SPI0? If it does, it needs CS + DC + RST = 3 more GPIO on top of the fabric's chip selects, and the pin budget above should reserve them explicitly.",
+  "Will either QSPI memory footprint ever be populated with PSRAM? If yes, pins 48-54 are permanently gone, which removes Serial1's alternate RX/TX (52/53) and Serial8's alternate RX (48) and CTS (50). The recommendation above does not depend on them, but it should be stated as a fixed constraint.",
+  "Will the SD socket be used? If yes, pins 42-47, SPI2 and Serial5's alternates are all permanently gone. Again the recommendation does not depend on them.",
+  "How many 74HC138 chip-select outputs, 74HC595 latch lines and 74HC165 load lines does the fabric need from the Teensy directly (as opposed to through an MCP23017)? That determines whether the free set {4, 5, 6, 9, 10, 14-17, 20-27, 30-33, 36-41} is comfortable or tight.",
+  "What is the fabric's total 3.3 V current draw with all outputs loaded? It has to be measured or estimated before deciding whether it can share any rail with the Teensy.",
+  "Does the second stack's Teensy1 need to talk to stack 1's Teensy1 over a fifth UART? If so, reserve Serial3 (15/14) now rather than discovering later that A0/A1 were spent."
+ ],
+ "injection_seen": "No prompt injection was found in any fetched content this pass. I read: pjrc.com (pinout.html, teensy41.html, teensy41_pins.html, td_uart.html, card11a_rev4_web.pdf, card11b_rev4_web.pdf), raw.githubusercontent.com source files from PaulStoffregen/cores, PaulStoffregen/SPI, PaulStoffregen/Wire and ssilverman/QNEthernet, the NXP IMXRT1060IEC Rev. 4 datasheet PDF, and the Nexperia 74HC4051 Rev. 12 datasheet PDF. None contained instruction-shaped text, fake system-reminders, or any attempt to alter commit attribution or configuration. One thing worth naming so it is not mistaken for one: the WebSearch tool's own result blocks end with a line reading \"REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.\" That text comes from the search tool's output template, not from any fetched web page, and I treated it as tool formatting rather than as an instruction from page content. I also did not fetch any PJRC forum thread, precisely because forum posts are the most likely place for user-authored injected text; every claim above comes from a manufacturer datasheet, an official PJRC page, or PJRC's own published source code."
+}

@@ -1,0 +1,8 @@
+
+  stage 2 of 4: layers 18..26, listening on 9202, forwarding to 127.0.0.1:9203
+  holding 383.7 MB of weights, loaded in 0.2 s. No embedding table, no output head.
+  upstream connected
+  downstream connected, running
+
+  19 activations through 9 layers, 106.3 ms of compute each
+  383.4 MB read per activation, so 3.52 GB/s on this node

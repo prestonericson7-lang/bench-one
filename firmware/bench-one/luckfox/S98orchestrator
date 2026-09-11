@@ -1,0 +1,76 @@
+#!/bin/sh
+# ===========================================================================================
+#  S98orchestrator -- start the BENCH ONE orchestrator under BusyBox init
+# ===========================================================================================
+#
+#  Install:  cp S98orchestrator /etc/init.d/ && chmod 755 /etc/init.d/S98orchestrator
+#
+#  THERE IS NO SYSTEMD ON THE STOCK LUCKFOX BUILDROOT IMAGE. It is BusyBox init running
+#  /etc/init.d/SXX scripts in sort order. Check before assuming otherwise:
+#      ls /lib/systemd/systemd     # absent on the stock image
+#
+#  TWO TRAPS THIS SCRIPT EXISTS TO AVOID
+#  -------------------------------------
+#  1. THE SHIPPED S99python DOES NOT BACKGROUND ITS PROCESS. It runs `python /root/main.py`
+#     in the foreground, so putting a long-running program there blocks init permanently:
+#     sshd never restarts, no later service starts, and the console looks completely normal
+#     while half the system never came up. start-stop-daemon -b is the fix.
+#
+#  2. /dev/ttyS3 DOES NOT EXIST UNTIL S99luckfoxconfigload HAS RUN. The UART3 overlay is a
+#     runtime configfs change re-applied at every boot by that script, at S99.
+#
+#     Naming this S98 therefore looks WRONG -- and it is deliberate. Two things make it work:
+#     the daemon retries the port open rather than assuming it, and being backgrounded means
+#     init proceeds to S99 immediately. Sorting after S99luckfoxconfigload by name is also
+#     fragile: S99python sorts BEFORE S99luckfoxconfigload alphabetically, so the same
+#     priority number does not guarantee the order you want.
+#
+#     Retrying is the honest fix. Ordering is a hope; a retry loop is a mechanism.
+# ===========================================================================================
+
+DAEMON=/usr/bin/python3
+SCRIPT=/root/bench-one/orchestrator.py
+PIDFILE=/var/run/orchestrator.pid
+LOGFILE=/var/log/orchestrator.log
+
+case "$1" in
+  start)
+    printf "Starting BENCH ONE orchestrator: "
+    if [ ! -f "$SCRIPT" ]; then
+      echo "FAILED -- $SCRIPT not found"
+      exit 1
+    fi
+    # -b background, -m write the pidfile, -S start.
+    start-stop-daemon -S -b -m -p "$PIDFILE" -x "$DAEMON" -- -u "$SCRIPT" >>"$LOGFILE" 2>&1
+    [ $? = 0 ] && echo "OK" || echo "FAILED"
+    ;;
+
+  stop)
+    printf "Stopping BENCH ONE orchestrator: "
+    start-stop-daemon -K -q -p "$PIDFILE"
+    [ $? = 0 ] && echo "OK" || echo "not running"
+    rm -f "$PIDFILE"
+    ;;
+
+  restart|reload)
+    "$0" stop
+    sleep 1
+    "$0" start
+    ;;
+
+  status)
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "running, pid $(cat "$PIDFILE")"
+    else
+      echo "stopped"
+      exit 1
+    fi
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

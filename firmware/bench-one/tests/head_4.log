@@ -1,0 +1,25 @@
+
+======================================================================
+  4 nodes, none holding the model, 4 sequences in flight
+======================================================================
+  36 layers total, this node holds 0..0 plus the embedding table and head
+  290.5 MB here, loaded in 0.1 s, activation on the wire 8192 bytes
+  ring closed across 4 nodes
+
+  ----------------------------------------------------------------------
+  The capital of France is Paris. Paris is the largest city in France and is known for
+  ----------------------------------------------------------------------
+
+  4 streams, all given the same prompt: IDENTICAL output, so the KV caches stayed separate
+
+  THROUGHPUT with 4 sequences in flight
+  tokens produced, all streams            68
+  wall clock                           12.96 s
+  AGGREGATE                             5.25 tok/s
+  per stream                            1.31 tok/s
+  this node's layers, per token         19.3 ms
+  output projection, per token         150.0 ms
+
+  Compare against the same four nodes with one sequence in flight: 1.55 tok/s.
+  Nothing about the hardware changed. The nodes simply stopped waiting on each
+  other, which is the difference between a capacity machine and a throughput one.

@@ -1,0 +1,13 @@
+model: qwen2.5-coder:14b
+files: firmware/bench-one/shared/bench_gemv.h
+---
+Produce exactly 20 MUTATIONS of this C header: single small edits that change behaviour.
+
+Each line must be:
+OLD<TAB>NEW
+
+OLD copied EXACTLY from the file, appearing exactly once. Concentrate on gemv_nib sign extension,
+the nibble shift and mask in gemv_int4, the clamping in gemv_pack4, loop bounds, and the stride
+arithmetic.
+
+Output only the 20 lines.

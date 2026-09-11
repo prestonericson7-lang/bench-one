@@ -1,0 +1,312 @@
+ 
+ 
+====================================================== 
+ compiler present 
+====================================================== 
+gcc (GCC) 16.2.0
+Copyright (C) 2026 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+ 
+====================================================== 
+ natal frame properties 
+====================================================== 
+
+===============================================================
+the natal frame: 21 axes of 8192 bits
+===============================================================
+
+[1] identical on every node, with nothing transmitted
+  two independent derivations agree bit for bit        yes
+
+[2] axes are mutually unrelated, and LESS/MORE deliberately is not
+      closest unrelated pair: AFTER/OTHER at 4000, furthest 4216, random expectation 4096
+      LESS to MORE: 1548, which is the continuum's whole length
+  no two independent axes drifted together             yes
+  LESS and MORE are related but distinct               yes
+
+[3] magnitude is smooth and monotonic -- the claim everything else rests on
+      distance from value 0.0: 0.0=0 0.2=309 0.4=619 0.6=928 0.8=1238 1.0=1548
+  further apart in value is further apart in space     yes
+  the ends of the range ARE the LESS and MORE axes     yes
+      0.3 to 0.4 is 155, 0.3 to 0.9 is 929
+  a small change in value is a small change in space   yes
+
+[4] nearby positions are nearby vectors
+      one step 71, nine steps on one axis 697, far corner 1393
+  distance in space tracks distance in the frame       yes
+
+[5] a moment can be returned to the thing it was a moment of
+      the thing three steps on sits 4086 from the thing itself
+  unrotating recovers it exactly                       yes
+  but a later moment is its own distinct thing         yes
+
+[6] it can tell a fact about itself from a fact about the world
+      200 of 200 classified correctly, mean margin 1042 bits
+  self-knowledge lands in its own region               yes
+
+===============================================================
+the frame holds
+===============================================================
+
+ 
+====================================================== 
+ superposition and self-direction 
+====================================================== 
+
+===============================================================
+holding possibilities, and asking its own questions
+===============================================================
+
+[1] superposition capacity -- how much ambiguity it can carry
+      members   distance to a member   noise floor is 4096
+            1                      0   all still readable
+            2                   2109   all still readable
+            4                   2586   all still readable
+            8                   3003   all still readable
+           12                   3245   all still readable
+           14                   3311   all still readable
+           15                   3288   all still readable
+           16                   3341   all still readable
+      it can hold 16 candidates at once before members fall into the noise
+  it can hold several possibilities at once              yes
+
+[2] collapse -- evidence picks, and nothing had to be decided before it arrived
+      200 of 200 collapsed to the candidate the evidence pointed at
+  evidence selects the right member                      yes
+
+[3] self-direction -- a flawed memory, no query, no input, no goal
+      running idle ticks with nothing else happening
+      formed 2 question(s) from 8 ticks, 2 still open
+      most urgent: ORPHAN about slots 11 and 11, tension 29
+  it generated questions with nothing asking it anything yes
+  it found the exact pair it cannot tell apart           yes
+
+[4] an arriving experience answers what it wanted to know
+      experience closed 1 open question(s), 1 remain
+  experience it was waiting for resolved a question      yes
+
+[5] a fact about itself is an ordinary memory in its own region
+      the machine places its own fact in the self region by 1092 bits
+  a fact about itself is recognisably about itself       yes
+  and it is not confusable with an unrelated memory      yes
+
+===============================================================
+it holds possibilities, and it asks its own questions
+===============================================================
+
+ 
+====================================================== 
+ quantized matmul, portable 
+====================================================== 
+
+  correctness   INT4 vs INT8: exact     INT16 vs INT8: exact
+  matrix 256x1024
+
+  format   weight bytes   consumed        per MAC
+  ------   ------------   ------------    -----------
+  INT16         512 KB    30393.3 MB/s    15.93 G MAC/s
+  INT8          256 KB    14926.7 MB/s    15.65 G MAC/s
+  INT4          128 KB     1033.8 MB/s     2.17 G MAC/s
+
+  INT4 halves the bytes but runs at 0.14x INT8's MAC rate.
+  It only pays where memory is the limit, never where compute is.
+
+ 
+====================================================== 
+ HDC kernel, portable build 
+====================================================== 
+
+===============================================================
+host compare kernel -- the same hd_hamming the boards run
+  8192-bit vectors, 1024 bytes each
+  built portable, no architecture flags -- like for like with the boards
+===============================================================
+
+  L1-resident  (8 KB)       0.509 us per compare      1965416 compares/s
+  L2-resident  (64 KB)      0.507 us per compare      1972507 compares/s
+  beyond cache (8 MB)       0.513 us per compare      1949075 compares/s
+
+  the beyond-cache figure is the one to compare, because the real workload
+  streams through memory it will not revisit.
+
+  measured on hardware, same source file:
+    Teensy 4.1  600 MHz, internal RAM     3.660 us    273224 compares/s
+    Teensy 4.1  600 MHz, PSRAM           31.340 us     31908 compares/s
+    ESP32-S3    240 MHz, internal SRAM   49.140 us     20350 compares/s
+    ESP32-S3    240 MHz, PSRAM           60.070 us     16647 compares/s
+    this host,           beyond cache     0.513 us     1949075 compares/s
+
+  one host core is worth 7.1 Teensys or 95.8 ESP32-S3s on this kernel.
+  multiply by the core count for the whole machine, remembering that they all
+  share one memory bus and the boards do not.
+===============================================================
+
+ 
+====================================================== 
+ HDC kernel, AVX2 build 
+====================================================== 
+
+===============================================================
+host compare kernel -- the same hd_hamming the boards run
+  8192-bit vectors, 1024 bytes each
+  built WITH AVX2 -- this is the PC at its best
+===============================================================
+
+  L1-resident  (8 KB)       0.115 us per compare      8724434 compares/s
+  L2-resident  (64 KB)      0.112 us per compare      8893047 compares/s
+  beyond cache (8 MB)       0.122 us per compare      8216020 compares/s
+
+  the beyond-cache figure is the one to compare, because the real workload
+  streams through memory it will not revisit.
+
+  measured on hardware, same source file:
+    Teensy 4.1  600 MHz, internal RAM     3.660 us    273224 compares/s
+    Teensy 4.1  600 MHz, PSRAM           31.340 us     31908 compares/s
+    ESP32-S3    240 MHz, internal SRAM   49.140 us     20350 compares/s
+    ESP32-S3    240 MHz, PSRAM           60.070 us     16647 compares/s
+    this host,           beyond cache     0.122 us     8216020 compares/s
+
+  one host core is worth 30.1 Teensys or 403.7 ESP32-S3s on this kernel.
+  multiply by the core count for the whole machine, remembering that they all
+  share one memory bus and the boards do not.
+===============================================================
+
+ 
+====================================================== 
+ does adding cores add bandwidth 
+====================================================== 
+
+===============================================================
+does adding cores add memory bandwidth?
+  8 logical cores, 64 MB streamed per thread, read only
+===============================================================
+
+  threads   aggregate GB/s   per thread   scaling vs 1 thread
+  -------   --------------   ----------   -------------------
+        1            10.23        10.23    1.00x of a perfect 1x
+        2            19.91         9.96    1.95x of a perfect 2x
+        4            28.01         7.00    2.74x of a perfect 4x
+        8            29.63         3.70    2.90x of a perfect 8x
+
+  one core alone reached 10.23 GB/s. All 8 together reached 29.63 GB/s,
+  which is 2.90x, not 8x. The gap is the shared memory controller,
+  and no amount of software removes it.
+
+  measured per node in this project, streaming reads:
+    Luckfox Pico Mini    0.930 GB/s      ESP32-S3  0.0576 GB/s
+    Teensy 4.1 PSRAM    0.0328 GB/s
+
+  boards needed to equal this whole machine's saturated 29.63 GB/s:
+      32 Luckfoxes, and each one ADDS to the total rather than queueing
+     514 ESP32-S3s
+
+  a desktop's ceiling is fixed when it is bought. This one is bought in
+  increments, and the increments do not contend.
+===============================================================
+
+ 
+====================================================== 
+ placement planner, llama-3b 
+====================================================== 
+
+========================================================================
+  hardware
+========================================================================
+  kind      count   MB each   MB/s each     MB total   MB/s total
+  teensy        9        16        32.8          144          295
+  esp32s3      15         8        57.6          120          864
+  luckfox      10        13       930.0          130         9300
+  zynq          2      1024      2500.0         2048         5000
+                                                2442        15459
+
+  2.38 GB of memory, 15.10 GB/s aggregate read
+
+========================================================================
+  llama-3b at INT4: 1.6 GB total, 1.6 GB active per token, 28 layers
+========================================================================
+
+  placement, balanced so every node takes the same time:
+  kind        used    MB each ms per token   % of cap
+  teensy         9        8.6       262.20        54%
+  esp32s3       15        8.0       138.89       100%
+  luckfox       10       13.0        13.98       100%
+  zynq           2      655.5       262.20        64%
+
+  slowest stage      : 262.20 ms
+  DECODE THROUGHPUT  : 3.81 tokens/sec
+  activation per hop : 6.0 KB, 36 hops = 0.21 MB per token
+  over 1G            : 1.69 ms per token, ceiling 593 tok/s
+  BOTTLENECK: memory bandwidth, which is where it should be.
+
+  NOT MODELLED: compute. Every node is assumed to consume weights as fast as it
+  reads them. True on the FPGA, where INT4 unpacking is free. NOT verified on the
+  CPUs -- gemv_host measured INT4 at 2.18 G MAC/s against INT8's 15.66, so a CPU
+  node may be compute bound and this number would be optimistic.
+
+ 
+====================================================== 
+ placement planner, what to buy 
+====================================================== 
+
+========================================================================
+  hardware
+========================================================================
+  kind      count   MB each   MB/s each     MB total   MB/s total
+  teensy        9        16        32.8          144          295
+  esp32s3      15         8        57.6          120          864
+  luckfox      10        13       930.0          130         9300
+  zynq          4      1024      2500.0         4096        10000
+                                                4490        20459
+
+  4.38 GB of memory, 19.98 GB/s aggregate read
+
+========================================================================
+  llama-3b at INT4: 1.6 GB total, 1.6 GB active per token, 28 layers
+========================================================================
+
+  placement, balanced so every node takes the same time:
+  kind        used    MB each ms per token   % of cap
+  teensy         9        4.4       135.17        28%
+  esp32s3       15        7.8       135.17        97%
+  luckfox       10       13.0        13.98       100%
+  zynq           4      337.9       135.17        33%
+
+  slowest stage      : 135.17 ms
+  DECODE THROUGHPUT  : 7.40 tokens/sec
+  activation per hop : 6.0 KB, 38 hops = 0.22 MB per token
+  over 1G            : 1.78 ms per token, ceiling 561 tok/s
+  BOTTLENECK: memory bandwidth, which is where it should be.
+
+  NOT MODELLED: compute. Every node is assumed to consume weights as fast as it
+  reads them. True on the FPGA, where INT4 unpacking is free. NOT verified on the
+  CPUs -- gemv_host measured INT4 at 2.18 G MAC/s against INT8's 15.66, so a CPU
+  node may be compute bound and this number would be optimistic.
+
+ 
+====================================================== 
+ capacity per dollar and litre 
+====================================================== 
+
+  configuration                         capacity       INT4 params      cost   power   volume     cost/GB
+  --------------------------------------------------------------------------------------------------------
+  what you own today                     2.38 GB      4.8 B params  $    708     30 W     0.8 L  $296.88/GB
+  +10 PSRAM per Teensy and Luckfox       3.87 GB      7.7 B params  $   1040     39 W     1.1 L  $268.92/GB
+  +500 PSRAM chips                       6.29 GB     12.6 B params  $   1583     54 W     1.6 L  $251.63/GB
+  +1000 PSRAM chips                     10.20 GB     20.4 B params  $   2458     80 W     2.3 L  $241.05/GB
+  +2000 PSRAM chips                     18.01 GB     36.0 B params  $   4208    130 W     3.8 L  $233.65/GB
+  +2 x 32 GB DIMM on FPGA               66.38 GB    132.8 B params  $   1028     46 W     1.4 L  $ 15.49/GB
+  +4 x 32 GB DIMM on FPGA              130.38 GB    260.8 B params  $   1348     62 W     2.0 L  $ 10.34/GB
+  +8 x 32 GB DIMM on FPGA              258.38 GB    516.8 B params  $   1988     94 W     3.2 L  $  7.69/GB
+
+  for comparison, what a graphics card holds:
+  RTX 4090                              24.00 GB     48.0 B params  $   1800    450 W     3.5 L
+  RTX 3060 12GB                         12.00 GB     24.0 B params  $    280    170 W     2.0 L
+  H100 80GB                             80.00 GB    160.0 B params  $  30000    700 W     2.5 L
+
+  cost per GB of model capacity:
+    PSRAM chip     $224.00/GB
+    DDR4 DIMM      $1.88/GB
+    RTX 4090 VRAM  $75.00/GB
+

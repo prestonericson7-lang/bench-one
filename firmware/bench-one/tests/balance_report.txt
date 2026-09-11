@@ -1,0 +1,15 @@
+pixels over a 120-frame orbit: 3355365 across 320 rows; rows that ever draw: 82..272
+
+  split across 33 nodes            slowest node    share    speedup (33 possible)
+  equal rows                        333155 px    9.9%       10.1x
+  equal pixels                      122559 px    3.7%       27.4x
+
+  five Luckfox Picos at the measured 9.47 M px/s each
+  equal rows       bands 0-64 64-128 128-192 192-256 256-320
+                   slowest  13207 px/frame ->   717.0 fps for the whole picture
+  equal pixels     bands 0-125 125-145 145-180 180-209 209-320
+                   slowest   5809 px/frame ->  1630.1 fps for the whole picture
+  one Pico alone    27961 px/frame ->   338.7 fps   (measured on the board: 338.8)
+
+BANDS_EQ 0,64 64,128 128,192 192,256 256,320
+BANDS_BAL 0,125 125,145 145,180 180,209 209,320

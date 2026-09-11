@@ -1,4 +1,4 @@
-<title>Four PSRAM Bank Wiring</title>
+<title>Six PSRAM Bank Wiring</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
 <style>
   :root{
@@ -97,17 +97,17 @@
 
 <div class="wrap">
 <header>
-  <h1>Four PSRAM on one Teensy</h1>
-  <p class="sub">Every wire, both ends, by pin number. Four ESP-PSRAM64H chips and one 74LVC138A on
-  perfboard. Each part is drawn on its own below, full size, with every pin labelled with exactly what
-  goes on it.</p>
+  <h1>Six PSRAM on one Teensy</h1>
+  <p class="sub">Every wire, both ends, by pin number. One ESP-PSRAM64H stays on the Teensy and
+  <b>five more</b> sit on perfboard behind a 74LVC138A, on decoder outputs Y0 to Y4. Each part is drawn
+  on its own below, full size, with every pin labelled with exactly what goes on it.</p>
 </header>
 
 <div class="stop">
   <b class="h">Read this before you cut anything</b>
   <p><b>The PSRAM already on the Teensy has to stay.</b> The Teensy's startup code checks chip-select 0
   first. If nothing answers there, it <b>never checks chip-select 1 at all</b> and reports zero. Your
-  four chips would be perfectly wired and completely invisible. One chip on the underside footprint is
+  five chips would be perfectly wired and completely invisible. One chip on the underside footprint is
   what switches the whole bus on.</p>
   <p><b>Solder the six fast wires to the Teensy's underside pads. Not to a breadboard.</b> The clock and
   the four data lines need a ground running beside them to come back along. A breadboard gives them
@@ -116,364 +116,403 @@
 </div>
 
 <h2 class="plain">The whole board</h2>
-<p class="lede">This is the thing itself. The Teensy on the left, the decoder under it, the four chips
-in a column on the right. <b>Seven lanes run down the board and every chip taps every one of them</b>
-&mdash; that is how the chips connect to each other. Only pin&nbsp;1 gets its own wire, and that is the
-entire reason the decoder exists.</p>
+<p class="lede">This is the thing itself. The Teensy on the left, the decoder under it, the five
+banked chips in a column on the right. <b>Seven lanes run down the board and every chip taps every one
+of them</b> &mdash; that is how the chips connect to each other. Only pin&nbsp;1 gets its own wire, and
+that is the entire reason the decoder exists.</p>
 
 <div class="board">
-<svg viewBox="0 0 1340 1520" xmlns="http://www.w3.org/2000/svg" role="img"
-     aria-label="Board wiring: the Teensy feeds seven shared lanes that run down the board, every PSRAM taps every lane, and the decoder gives each PSRAM its own chip-select wire">
-  <defs><style>
-    .body{fill:var(--panel-2);stroke:var(--ink);stroke-width:3}
-    .lane{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
-    .stub{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
-    .leg{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
-    .cname{font-family:var(--disp);font-size:27px;font-weight:700;fill:var(--ink)}
-    .csub{font-family:var(--disp);font-size:16px;font-weight:600;fill:var(--ink-3)}
-    .pnum{font-family:var(--mono);font-size:19px;font-weight:700;fill:var(--ink)}
-    .sig{font-family:var(--mono);font-size:15px;font-weight:600;fill:var(--ink-2)}
-    .llbl{font-family:var(--mono);font-size:16px;font-weight:700}
-    .grp{font-family:var(--disp);font-size:15px;font-weight:700;fill:var(--ink-3);letter-spacing:.12em}
-    .note{font-family:"Source Sans 3",sans-serif;font-size:17px;font-weight:600;fill:var(--ink)}
-    .note2{font-family:"Source Sans 3",sans-serif;font-size:15px;fill:var(--ink-3)}
-  </style></defs>
-  <path class="lane" d="M680 120 L680 1180" stroke="var(--dat)"/>
-  <path class="lane" d="M650 140 L650 1220" stroke="var(--dat)"/>
-  <path class="lane" d="M620 160 L620 1260" stroke="var(--gnd)"/>
-  <path class="lane" d="M1040 100 L1040 1140" stroke="var(--pwr)"/>
-  <path class="lane" d="M1070 80 L1070 1180" stroke="var(--dat)"/>
-  <path class="lane" d="M1100 60 L1100 1220" stroke="var(--clk)"/>
-  <path class="lane" d="M1130 40 L1130 1260" stroke="var(--dat)"/>
-  <path class="stub" d="M186 240 L210 240 L210 40 L1130 40" stroke="var(--dat)"/>
+<svg viewBox="0 0 1340 1720" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Board wiring: one PSRAM stays on the Teensy, five more sit on a decoder. Seven lanes run down the board and every chip taps all seven; each chip also gets its own chip-select wire from a different decoder output.">
+  <path d="M680 120 L680 1440" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M650 140 L650 1440" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M620 160 L620 1440" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1040 100 L1040 1440" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1070 80 L1070 1440" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1100 60 L1100 1440" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1130 40 L1130 1440" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M186 240 L212 240 L212 40 L1130 40" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="1130" cy="40" r="7" fill="var(--dat)"/>
-  <text class="llbl" x="222" y="28" fill="var(--dat)">SIO0</text>
-  <path class="stub" d="M186 292 L228 292 L228 60 L1100 60" stroke="var(--clk)"/>
+  <path d="M186 292 L232 292 L232 60 L1100 60" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="1100" cy="60" r="7" fill="var(--clk)"/>
-  <text class="llbl" x="240" y="48" fill="var(--clk)">SCLK</text>
-  <path class="stub" d="M186 344 L246 344 L246 80 L1070 80" stroke="var(--dat)"/>
+  <path d="M186 344 L252 344 L252 80 L1070 80" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="1070" cy="80" r="7" fill="var(--dat)"/>
-  <text class="llbl" x="258" y="68" fill="var(--dat)">SIO3</text>
-  <path class="stub" d="M186 396 L264 396 L264 100 L1040 100" stroke="var(--pwr)"/>
+  <path d="M186 396 L272 396 L272 100 L1040 100" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="1040" cy="100" r="7" fill="var(--pwr)"/>
-  <text class="llbl" x="276" y="88" fill="var(--pwr)">VCC</text>
-  <path class="stub" d="M186 448 L282 448 L282 120 L680 120" stroke="var(--dat)"/>
+  <path d="M186 448 L292 448 L292 120 L680 120" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="680" cy="120" r="7" fill="var(--dat)"/>
-  <text class="llbl" x="294" y="108" fill="var(--dat)">SIO1</text>
-  <path class="stub" d="M186 500 L300 500 L300 140 L650 140" stroke="var(--dat)"/>
+  <path d="M186 500 L312 500 L312 140 L650 140" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="650" cy="140" r="7" fill="var(--dat)"/>
-  <text class="llbl" x="312" y="128" fill="var(--dat)">SIO2</text>
-  <path class="stub" d="M186 552 L318 552 L318 160 L620 160" stroke="var(--gnd)"/>
+  <path d="M186 552 L332 552 L332 160 L620 160" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="620" cy="160" r="7" fill="var(--gnd)"/>
-  <text class="llbl" x="330" y="148" fill="var(--gnd)">VSS</text>
-  <rect class="body" x="720" y="200" width="280" height="200" rx="6"/>
-  <circle cx="746" cy="226" r="8" fill="var(--ink)"/>
-  <text class="cname" x="860" y="304" text-anchor="middle">PSRAM 1</text>
-  <text class="csub" x="860" y="330" text-anchor="middle">bank 0 &#183; dot = pin 1</text>
-  <line class="leg" x1="720" y1="240" x2="698" y2="240"/>
-  <text class="pnum" x="690" y="247" text-anchor="end">1</text>
-  <line class="leg" x1="1000" y1="240" x2="1022" y2="240"/>
-  <text class="pnum" x="1030" y="247">8</text>
-  <line class="leg" x1="720" y1="280" x2="698" y2="280"/>
-  <text class="pnum" x="690" y="287" text-anchor="end">2</text>
-  <line class="leg" x1="1000" y1="280" x2="1022" y2="280"/>
-  <text class="pnum" x="1030" y="287">7</text>
-  <line class="leg" x1="720" y1="320" x2="698" y2="320"/>
-  <text class="pnum" x="690" y="327" text-anchor="end">3</text>
-  <line class="leg" x1="1000" y1="320" x2="1022" y2="320"/>
-  <text class="pnum" x="1030" y="327">6</text>
-  <line class="leg" x1="720" y1="360" x2="698" y2="360"/>
-  <text class="pnum" x="690" y="367" text-anchor="end">4</text>
-  <line class="leg" x1="1000" y1="360" x2="1022" y2="360"/>
-  <text class="pnum" x="1030" y="367">5</text>
-  <path class="stub" d="M698 280 L680 280" stroke="var(--dat)"/>
-  <circle cx="680" cy="280" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 320 L650 320" stroke="var(--dat)"/>
-  <circle cx="650" cy="320" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 360 L620 360" stroke="var(--gnd)"/>
-  <circle cx="620" cy="360" r="7" fill="var(--gnd)"/>
-  <path class="stub" d="M1022 240 L1040 240" stroke="var(--pwr)"/>
-  <circle cx="1040" cy="240" r="7" fill="var(--pwr)"/>
-  <path class="stub" d="M1022 280 L1070 280" stroke="var(--dat)"/>
-  <circle cx="1070" cy="280" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 320 L1100 320" stroke="var(--clk)"/>
-  <circle cx="1100" cy="320" r="7" fill="var(--clk)"/>
-  <path class="stub" d="M1022 360 L1130 360" stroke="var(--dat)"/>
-  <circle cx="1130" cy="360" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 240 L1010 240 L1010 382 L710 382 L710 360" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
-  <rect x="831" y="369" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
-  <text class="sig" x="860" y="388" text-anchor="middle">104</text>
-  <rect class="body" x="720" y="500" width="280" height="200" rx="6"/>
-  <circle cx="746" cy="526" r="8" fill="var(--ink)"/>
-  <text class="cname" x="860" y="604" text-anchor="middle">PSRAM 2</text>
-  <text class="csub" x="860" y="630" text-anchor="middle">bank 1 &#183; dot = pin 1</text>
-  <line class="leg" x1="720" y1="540" x2="698" y2="540"/>
-  <text class="pnum" x="690" y="547" text-anchor="end">1</text>
-  <line class="leg" x1="1000" y1="540" x2="1022" y2="540"/>
-  <text class="pnum" x="1030" y="547">8</text>
-  <line class="leg" x1="720" y1="580" x2="698" y2="580"/>
-  <text class="pnum" x="690" y="587" text-anchor="end">2</text>
-  <line class="leg" x1="1000" y1="580" x2="1022" y2="580"/>
-  <text class="pnum" x="1030" y="587">7</text>
-  <line class="leg" x1="720" y1="620" x2="698" y2="620"/>
-  <text class="pnum" x="690" y="627" text-anchor="end">3</text>
-  <line class="leg" x1="1000" y1="620" x2="1022" y2="620"/>
-  <text class="pnum" x="1030" y="627">6</text>
-  <line class="leg" x1="720" y1="660" x2="698" y2="660"/>
-  <text class="pnum" x="690" y="667" text-anchor="end">4</text>
-  <line class="leg" x1="1000" y1="660" x2="1022" y2="660"/>
-  <text class="pnum" x="1030" y="667">5</text>
-  <path class="stub" d="M698 580 L680 580" stroke="var(--dat)"/>
-  <circle cx="680" cy="580" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 620 L650 620" stroke="var(--dat)"/>
-  <circle cx="650" cy="620" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 660 L620 660" stroke="var(--gnd)"/>
-  <circle cx="620" cy="660" r="7" fill="var(--gnd)"/>
-  <path class="stub" d="M1022 540 L1040 540" stroke="var(--pwr)"/>
-  <circle cx="1040" cy="540" r="7" fill="var(--pwr)"/>
-  <path class="stub" d="M1022 580 L1070 580" stroke="var(--dat)"/>
-  <circle cx="1070" cy="580" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 620 L1100 620" stroke="var(--clk)"/>
-  <circle cx="1100" cy="620" r="7" fill="var(--clk)"/>
-  <path class="stub" d="M1022 660 L1130 660" stroke="var(--dat)"/>
-  <circle cx="1130" cy="660" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 540 L1010 540 L1010 682 L710 682 L710 660" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
-  <rect x="831" y="669" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
-  <text class="sig" x="860" y="688" text-anchor="middle">104</text>
-  <rect class="body" x="720" y="800" width="280" height="200" rx="6"/>
-  <circle cx="746" cy="826" r="8" fill="var(--ink)"/>
-  <text class="cname" x="860" y="904" text-anchor="middle">PSRAM 3</text>
-  <text class="csub" x="860" y="930" text-anchor="middle">bank 2 &#183; dot = pin 1</text>
-  <line class="leg" x1="720" y1="840" x2="698" y2="840"/>
-  <text class="pnum" x="690" y="847" text-anchor="end">1</text>
-  <line class="leg" x1="1000" y1="840" x2="1022" y2="840"/>
-  <text class="pnum" x="1030" y="847">8</text>
-  <line class="leg" x1="720" y1="880" x2="698" y2="880"/>
-  <text class="pnum" x="690" y="887" text-anchor="end">2</text>
-  <line class="leg" x1="1000" y1="880" x2="1022" y2="880"/>
-  <text class="pnum" x="1030" y="887">7</text>
-  <line class="leg" x1="720" y1="920" x2="698" y2="920"/>
-  <text class="pnum" x="690" y="927" text-anchor="end">3</text>
-  <line class="leg" x1="1000" y1="920" x2="1022" y2="920"/>
-  <text class="pnum" x="1030" y="927">6</text>
-  <line class="leg" x1="720" y1="960" x2="698" y2="960"/>
-  <text class="pnum" x="690" y="967" text-anchor="end">4</text>
-  <line class="leg" x1="1000" y1="960" x2="1022" y2="960"/>
-  <text class="pnum" x="1030" y="967">5</text>
-  <path class="stub" d="M698 880 L680 880" stroke="var(--dat)"/>
-  <circle cx="680" cy="880" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 920 L650 920" stroke="var(--dat)"/>
-  <circle cx="650" cy="920" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 960 L620 960" stroke="var(--gnd)"/>
-  <circle cx="620" cy="960" r="7" fill="var(--gnd)"/>
-  <path class="stub" d="M1022 840 L1040 840" stroke="var(--pwr)"/>
-  <circle cx="1040" cy="840" r="7" fill="var(--pwr)"/>
-  <path class="stub" d="M1022 880 L1070 880" stroke="var(--dat)"/>
-  <circle cx="1070" cy="880" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 920 L1100 920" stroke="var(--clk)"/>
-  <circle cx="1100" cy="920" r="7" fill="var(--clk)"/>
-  <path class="stub" d="M1022 960 L1130 960" stroke="var(--dat)"/>
-  <circle cx="1130" cy="960" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 840 L1010 840 L1010 982 L710 982 L710 960" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
-  <rect x="831" y="969" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
-  <text class="sig" x="860" y="988" text-anchor="middle">104</text>
-  <rect class="body" x="720" y="1100" width="280" height="200" rx="6"/>
-  <circle cx="746" cy="1126" r="8" fill="var(--ink)"/>
-  <text class="cname" x="860" y="1204" text-anchor="middle">PSRAM 4</text>
-  <text class="csub" x="860" y="1230" text-anchor="middle">bank 3 &#183; dot = pin 1</text>
-  <line class="leg" x1="720" y1="1140" x2="698" y2="1140"/>
-  <text class="pnum" x="690" y="1147" text-anchor="end">1</text>
-  <line class="leg" x1="1000" y1="1140" x2="1022" y2="1140"/>
-  <text class="pnum" x="1030" y="1147">8</text>
-  <line class="leg" x1="720" y1="1180" x2="698" y2="1180"/>
-  <text class="pnum" x="690" y="1187" text-anchor="end">2</text>
-  <line class="leg" x1="1000" y1="1180" x2="1022" y2="1180"/>
-  <text class="pnum" x="1030" y="1187">7</text>
-  <line class="leg" x1="720" y1="1220" x2="698" y2="1220"/>
-  <text class="pnum" x="690" y="1227" text-anchor="end">3</text>
-  <line class="leg" x1="1000" y1="1220" x2="1022" y2="1220"/>
-  <text class="pnum" x="1030" y="1227">6</text>
-  <line class="leg" x1="720" y1="1260" x2="698" y2="1260"/>
-  <text class="pnum" x="690" y="1267" text-anchor="end">4</text>
-  <line class="leg" x1="1000" y1="1260" x2="1022" y2="1260"/>
-  <text class="pnum" x="1030" y="1267">5</text>
-  <path class="stub" d="M698 1180 L680 1180" stroke="var(--dat)"/>
-  <circle cx="680" cy="1180" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 1220 L650 1220" stroke="var(--dat)"/>
-  <circle cx="650" cy="1220" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M698 1260 L620 1260" stroke="var(--gnd)"/>
-  <circle cx="620" cy="1260" r="7" fill="var(--gnd)"/>
-  <path class="stub" d="M1022 1140 L1040 1140" stroke="var(--pwr)"/>
-  <circle cx="1040" cy="1140" r="7" fill="var(--pwr)"/>
-  <path class="stub" d="M1022 1180 L1070 1180" stroke="var(--dat)"/>
-  <circle cx="1070" cy="1180" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 1220 L1100 1220" stroke="var(--clk)"/>
-  <circle cx="1100" cy="1220" r="7" fill="var(--clk)"/>
-  <path class="stub" d="M1022 1260 L1130 1260" stroke="var(--dat)"/>
-  <circle cx="1130" cy="1260" r="7" fill="var(--dat)"/>
-  <path class="stub" d="M1022 1140 L1010 1140 L1010 1282 L710 1282 L710 1260" stroke="var(--ink-3)" stroke-dasharray="9 7" stroke-width="3"/>
-  <rect x="831" y="1269" width="58" height="26" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
-  <text class="sig" x="860" y="1288" text-anchor="middle">104</text>
-  <path class="stub" d="M492 835 L510 835 L510 240 L698 240" stroke="var(--cs)"/>
-  <text class="llbl" x="520" y="226" fill="var(--cs)">Y0 to pin 1</text>
-  <path class="stub" d="M492 880 L540 880 L540 540 L698 540" stroke="var(--cs)"/>
-  <text class="llbl" x="550" y="526" fill="var(--cs)">Y1 to pin 1</text>
-  <path class="stub" d="M492 925 L570 925 L570 840 L698 840" stroke="var(--cs)"/>
-  <text class="llbl" x="580" y="826" fill="var(--cs)">Y2 to pin 1</text>
-  <path class="stub" d="M492 970 L600 970 L600 1140 L698 1140" stroke="var(--cs)"/>
-  <text class="llbl" x="610" y="1126" fill="var(--cs)">Y3 to pin 1</text>
-  <rect class="body" x="300" y="744" width="170" height="407" rx="6"/>
-  <path d="M351 744 a34 34 0 0 0 68 0" fill="var(--panel)" stroke="var(--ink)" stroke-width="3"/>
-  <text class="cname" x="385" y="929" text-anchor="middle">74LVC</text>
-  <text class="cname" x="385" y="974" text-anchor="middle">138A</text>
-  <text class="csub" x="385" y="1015" text-anchor="middle">notch at the top</text>
-  <line class="leg" x1="300" y1="790" x2="278" y2="790"/>
-  <text class="pnum" x="270" y="797" text-anchor="end">1</text>
-  <text class="sig" x="310" y="796">A</text>
-  <line class="leg" x1="470" y1="790" x2="492" y2="790"/>
-  <text class="pnum" x="500" y="797">16</text>
-  <text class="sig" x="460" y="796" text-anchor="end">VCC</text>
-  <line class="leg" x1="300" y1="835" x2="278" y2="835"/>
-  <text class="pnum" x="270" y="842" text-anchor="end">2</text>
-  <text class="sig" x="310" y="841">B</text>
-  <line class="leg" x1="470" y1="835" x2="492" y2="835"/>
-  <text class="pnum" x="500" y="842">15</text>
-  <text class="sig" x="460" y="841" text-anchor="end">Y0</text>
-  <line class="leg" x1="300" y1="880" x2="278" y2="880"/>
-  <text class="pnum" x="270" y="887" text-anchor="end">3</text>
-  <text class="sig" x="310" y="886">C</text>
-  <line class="leg" x1="470" y1="880" x2="492" y2="880"/>
-  <text class="pnum" x="500" y="887">14</text>
-  <text class="sig" x="460" y="886" text-anchor="end">Y1</text>
-  <line class="leg" x1="300" y1="925" x2="278" y2="925"/>
-  <text class="pnum" x="270" y="932" text-anchor="end">4</text>
-  <text class="sig" x="310" y="931">G2A</text>
-  <line class="leg" x1="470" y1="925" x2="492" y2="925"/>
-  <text class="pnum" x="500" y="932">13</text>
-  <text class="sig" x="460" y="931" text-anchor="end">Y2</text>
-  <line class="leg" x1="300" y1="970" x2="278" y2="970"/>
-  <text class="pnum" x="270" y="977" text-anchor="end">5</text>
-  <text class="sig" x="310" y="976">G2B</text>
-  <line class="leg" x1="470" y1="970" x2="492" y2="970"/>
-  <text class="pnum" x="500" y="977">12</text>
-  <text class="sig" x="460" y="976" text-anchor="end">Y3</text>
-  <line class="leg" x1="300" y1="1015" x2="278" y2="1015"/>
-  <text class="pnum" x="270" y="1022" text-anchor="end">6</text>
-  <text class="sig" x="310" y="1021">G1</text>
-  <line class="leg" x1="470" y1="1015" x2="492" y2="1015"/>
-  <text class="pnum" x="500" y="1022">11</text>
-  <text class="sig" x="460" y="1021" text-anchor="end">Y4</text>
-  <line class="leg" x1="300" y1="1060" x2="278" y2="1060"/>
-  <text class="pnum" x="270" y="1067" text-anchor="end">7</text>
-  <text class="sig" x="310" y="1066">Y7</text>
-  <line class="leg" x1="470" y1="1060" x2="492" y2="1060"/>
-  <text class="pnum" x="500" y="1067">10</text>
-  <text class="sig" x="460" y="1066" text-anchor="end">Y5</text>
-  <line class="leg" x1="300" y1="1105" x2="278" y2="1105"/>
-  <text class="pnum" x="270" y="1112" text-anchor="end">8</text>
-  <text class="sig" x="310" y="1111">GND</text>
-  <line class="leg" x1="470" y1="1105" x2="492" y2="1105"/>
-  <text class="pnum" x="500" y="1112">9</text>
-  <text class="sig" x="460" y="1111" text-anchor="end">Y6</text>
-  <path class="stub" d="M492 790 L528 790 L528 720" stroke="var(--pwr)"/>
-  <text class="llbl" x="536" y="720" fill="var(--pwr)">3.3 V</text>
-  <text class="note2" x="536" y="742">100 nF from pin 16 to pin 8</text>
-  <path class="stub" d="M278 1015 L212 1015" stroke="var(--pwr)"/>
-  <text class="llbl" x="204" y="1021" text-anchor="end" fill="var(--pwr)">3.3 V</text>
-  <path class="stub" d="M278 970 L212 970" stroke="var(--gnd)"/>
-  <text class="llbl" x="204" y="976" text-anchor="end" fill="var(--gnd)">GROUND</text>
-  <path class="stub" d="M278 1105 L212 1105" stroke="var(--gnd)"/>
-  <text class="llbl" x="204" y="1111" text-anchor="end" fill="var(--gnd)">GROUND</text>
-  <text class="note2" x="602" y="1149" text-anchor="end">Y7, Y6, Y5, Y4: leave bare</text>
-  <rect class="body" x="30" y="160" width="156" height="1090" rx="6" fill="var(--panel)"/>
-  <text class="cname" x="108" y="200" text-anchor="middle">TEENSY</text>
-  <text class="grp" x="44" y="226">UNDERSIDE PADS</text>
-  <rect x="44" y="221" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="247">52</text>
-  <text class="sig" x="104" y="246">IO0</text>
-  <rect x="44" y="273" width="128" height="38" fill="var(--panel-2)" stroke="var(--clk)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="299">53</text>
-  <text class="sig" x="104" y="298">SCLK</text>
-  <rect x="44" y="325" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="351">54</text>
-  <text class="sig" x="104" y="350">IO3</text>
-  <rect x="44" y="377" width="128" height="38" fill="var(--panel-2)" stroke="var(--pwr)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="403">3V3</text>
-  <rect x="44" y="429" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="455">49</text>
-  <text class="sig" x="104" y="454">IO1</text>
-  <rect x="44" y="481" width="128" height="38" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="507">50</text>
-  <text class="sig" x="104" y="506">IO2</text>
-  <rect x="44" y="533" width="128" height="38" fill="var(--panel-2)" stroke="var(--gnd)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="559">GND</text>
-  <rect x="44" y="596" width="128" height="38" fill="var(--panel-2)" stroke="var(--ok)" stroke-width="2.5" stroke-dasharray="8 6"/>
-  <text class="pnum" x="58" y="622" fill="var(--ok)">48</text>
-  <text class="sig" x="104" y="621" fill="var(--ok)">SS0</text>
-  <text class="note" x="196" y="616" fill="var(--ok)">LEAVE THIS ONE ALONE</text>
-  <text class="note2" x="196" y="640">the chip already soldered here is what turns the bus on</text>
-  <text class="grp" x="44" y="768">TOP PINS</text>
-  <rect x="44" y="771" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="797">2</text>
-  <path class="stub" d="M172 790 L278 790" stroke="var(--cs)"/>
-  <rect x="44" y="816" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="842">3</text>
-  <path class="stub" d="M172 835 L278 835" stroke="var(--cs)"/>
-  <rect x="44" y="861" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="887">4</text>
-  <path class="stub" d="M172 880 L278 880" stroke="var(--cs)"/>
-  <text class="grp" x="44" y="1148">UNDERSIDE PAD</text>
-  <rect x="44" y="1161" width="128" height="38" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="pnum" x="58" y="1187">51</text>
-  <text class="sig" x="104" y="1186">SS1</text>
-  <path class="stub" d="M172 1180 L250 1180 L250 925 L278 925" stroke="var(--cs)"/>
-  <text class="note" x="196" y="1220" fill="var(--cs)">to G2A &mdash; the real chip select</text>
-  <rect x="44" y="1300" width="560" height="180" fill="var(--panel)" stroke="var(--cs)" stroke-width="3"/>
-  <text class="note" x="64" y="1334" fill="var(--cs)">THE THREE PULLDOWNS &mdash; not optional</text>
-  <text class="sig" x="64" y="1373">decoder pin 1</text>
-  <path class="stub" d="M194 1368 L254 1368" stroke="var(--cs)" stroke-width="3.5"/>
-  <rect x="254" y="1356" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="sig" x="285" y="1374" text-anchor="middle">10k</text>
-  <path class="stub" d="M316 1368 L374 1368" stroke="var(--gnd)" stroke-width="3.5"/>
-  <text class="llbl" x="382" y="1374" fill="var(--gnd)">GROUND</text>
-  <text class="sig" x="64" y="1407">decoder pin 2</text>
-  <path class="stub" d="M194 1402 L254 1402" stroke="var(--cs)" stroke-width="3.5"/>
-  <rect x="254" y="1390" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="sig" x="285" y="1408" text-anchor="middle">10k</text>
-  <path class="stub" d="M316 1402 L374 1402" stroke="var(--gnd)" stroke-width="3.5"/>
-  <text class="llbl" x="382" y="1408" fill="var(--gnd)">GROUND</text>
-  <text class="sig" x="64" y="1441">decoder pin 3</text>
-  <path class="stub" d="M194 1436 L254 1436" stroke="var(--cs)" stroke-width="3.5"/>
-  <rect x="254" y="1424" width="62" height="24" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
-  <text class="sig" x="285" y="1442" text-anchor="middle">10k</text>
-  <path class="stub" d="M316 1436 L374 1436" stroke="var(--gnd)" stroke-width="3.5"/>
-  <text class="llbl" x="382" y="1442" fill="var(--gnd)">GROUND</text>
-  <text class="note2" x="64" y="1458">They hold bank 0 selected while the Teensy probes the bus,</text>
-  <rect x="660" y="1300" width="640" height="180" fill="var(--panel)" stroke="var(--rule)" stroke-width="3"/>
-  <circle cx="690" cy="1334" r="8" fill="var(--ink)"/>
-  <text class="note" x="708" y="1340">A DOT means the wires are JOINED there.</text>
-  <path class="stub" d="M678 1374 L704 1374" stroke="var(--ink)" stroke-width="4"/>
-  <path class="stub" d="M691 1361 L691 1387" stroke="var(--ink)" stroke-width="4"/>
-  <text class="note" x="722" y="1380">Lines crossing with NO dot are NOT joined.</text>
-  <rect x="678" y="1404" width="26" height="5" fill="var(--clk)"/>
-  <text class="note2" x="714" y="1413">SCLK, the clock</text>
-  <rect x="678" y="1418" width="26" height="5" fill="var(--dat)"/>
-  <text class="note2" x="714" y="1427">SIO0 to SIO3, the four data lines</text>
-  <rect x="678" y="1432" width="26" height="5" fill="var(--pwr)"/>
-  <text class="note2" x="714" y="1441">3.3 V</text>
-  <rect x="678" y="1446" width="26" height="5" fill="var(--gnd)"/>
-  <text class="note2" x="714" y="1455">ground</text>
-  <rect x="678" y="1460" width="26" height="5" fill="var(--cs)"/>
-  <text class="note2" x="714" y="1469">chip select, one per chip</text>
+  <text transform="translate(687 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--dat)">SIO1</text>
+  <text transform="translate(657 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--dat)">SIO2</text>
+  <text transform="translate(627 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--gnd)">VSS</text>
+  <text transform="translate(1047 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--pwr)">VCC</text>
+  <text transform="translate(1077 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--dat)">SIO3</text>
+  <text transform="translate(1107 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--clk)">SCLK</text>
+  <text transform="translate(1137 1454) rotate(90)" font-family="var(--mono)" font-size="18" font-weight="700" fill="var(--dat)">SIO0</text>
+  <rect x="720" y="220" width="280" height="180" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <circle cx="742" cy="240" r="7" fill="var(--ink)"/>
+  <text x="860" y="208" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">PSRAM 1  ·  bank 0</text>
+  <line x1="720" y1="256" x2="698" y2="256" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="263" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="754" y="262" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">CE#</text>
+  <line x1="1000" y1="256" x2="1022" y2="256" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="263" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="966" y="262" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="720" y1="292" x2="698" y2="292" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="299" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="754" y="298" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO1</text>
+  <line x1="1000" y1="292" x2="1022" y2="292" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="299" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="966" y="298" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO3</text>
+  <line x1="720" y1="328" x2="698" y2="328" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="335" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="754" y="334" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO2</text>
+  <line x1="1000" y1="328" x2="1022" y2="328" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="335" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="966" y="334" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <line x1="720" y1="364" x2="698" y2="364" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="371" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="754" y="370" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VSS</text>
+  <line x1="1000" y1="364" x2="1022" y2="364" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="371" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="966" y="370" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO0</text>
+  <path d="M698 292 L680 292" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="680" cy="292" r="7" fill="var(--dat)"/>
+  <path d="M698 328 L650 328" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="650" cy="328" r="7" fill="var(--dat)"/>
+  <path d="M698 364 L620 364" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="620" cy="364" r="7" fill="var(--gnd)"/>
+  <path d="M1022 256 L1040 256" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1040" cy="256" r="7" fill="var(--pwr)"/>
+  <path d="M1022 292 L1070 292" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1070" cy="292" r="7" fill="var(--dat)"/>
+  <path d="M1022 328 L1100 328" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1100" cy="328" r="7" fill="var(--clk)"/>
+  <path d="M1022 364 L1130 364" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1130" cy="364" r="7" fill="var(--dat)"/>
+  <path d="M1022 256 L1010 256 L1010 384 L710 384 L710 364" fill="none" stroke="var(--ink-3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7"/>
+  <rect x="833" y="372" width="54" height="24" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text x="860" y="390" text-anchor="middle" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">104</text>
+  <rect x="720" y="470" width="280" height="180" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <circle cx="742" cy="490" r="7" fill="var(--ink)"/>
+  <text x="860" y="458" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">PSRAM 2  ·  bank 1</text>
+  <line x1="720" y1="506" x2="698" y2="506" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="513" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="754" y="512" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">CE#</text>
+  <line x1="1000" y1="506" x2="1022" y2="506" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="513" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="966" y="512" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="720" y1="542" x2="698" y2="542" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="549" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="754" y="548" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO1</text>
+  <line x1="1000" y1="542" x2="1022" y2="542" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="549" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="966" y="548" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO3</text>
+  <line x1="720" y1="578" x2="698" y2="578" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="585" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="754" y="584" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO2</text>
+  <line x1="1000" y1="578" x2="1022" y2="578" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="585" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="966" y="584" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <line x1="720" y1="614" x2="698" y2="614" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="621" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="754" y="620" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VSS</text>
+  <line x1="1000" y1="614" x2="1022" y2="614" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="621" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="966" y="620" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO0</text>
+  <path d="M698 542 L680 542" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="680" cy="542" r="7" fill="var(--dat)"/>
+  <path d="M698 578 L650 578" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="650" cy="578" r="7" fill="var(--dat)"/>
+  <path d="M698 614 L620 614" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="620" cy="614" r="7" fill="var(--gnd)"/>
+  <path d="M1022 506 L1040 506" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1040" cy="506" r="7" fill="var(--pwr)"/>
+  <path d="M1022 542 L1070 542" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1070" cy="542" r="7" fill="var(--dat)"/>
+  <path d="M1022 578 L1100 578" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1100" cy="578" r="7" fill="var(--clk)"/>
+  <path d="M1022 614 L1130 614" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1130" cy="614" r="7" fill="var(--dat)"/>
+  <path d="M1022 506 L1010 506 L1010 634 L710 634 L710 614" fill="none" stroke="var(--ink-3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7"/>
+  <rect x="833" y="622" width="54" height="24" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text x="860" y="640" text-anchor="middle" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">104</text>
+  <rect x="720" y="720" width="280" height="180" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <circle cx="742" cy="740" r="7" fill="var(--ink)"/>
+  <text x="860" y="708" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">PSRAM 3  ·  bank 2</text>
+  <line x1="720" y1="756" x2="698" y2="756" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="763" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="754" y="762" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">CE#</text>
+  <line x1="1000" y1="756" x2="1022" y2="756" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="763" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="966" y="762" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="720" y1="792" x2="698" y2="792" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="799" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="754" y="798" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO1</text>
+  <line x1="1000" y1="792" x2="1022" y2="792" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="799" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="966" y="798" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO3</text>
+  <line x1="720" y1="828" x2="698" y2="828" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="835" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="754" y="834" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO2</text>
+  <line x1="1000" y1="828" x2="1022" y2="828" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="835" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="966" y="834" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <line x1="720" y1="864" x2="698" y2="864" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="871" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="754" y="870" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VSS</text>
+  <line x1="1000" y1="864" x2="1022" y2="864" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="871" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="966" y="870" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO0</text>
+  <path d="M698 792 L680 792" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="680" cy="792" r="7" fill="var(--dat)"/>
+  <path d="M698 828 L650 828" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="650" cy="828" r="7" fill="var(--dat)"/>
+  <path d="M698 864 L620 864" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="620" cy="864" r="7" fill="var(--gnd)"/>
+  <path d="M1022 756 L1040 756" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1040" cy="756" r="7" fill="var(--pwr)"/>
+  <path d="M1022 792 L1070 792" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1070" cy="792" r="7" fill="var(--dat)"/>
+  <path d="M1022 828 L1100 828" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1100" cy="828" r="7" fill="var(--clk)"/>
+  <path d="M1022 864 L1130 864" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1130" cy="864" r="7" fill="var(--dat)"/>
+  <path d="M1022 756 L1010 756 L1010 884 L710 884 L710 864" fill="none" stroke="var(--ink-3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7"/>
+  <rect x="833" y="872" width="54" height="24" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text x="860" y="890" text-anchor="middle" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">104</text>
+  <rect x="720" y="970" width="280" height="180" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <circle cx="742" cy="990" r="7" fill="var(--ink)"/>
+  <text x="860" y="958" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">PSRAM 4  ·  bank 3</text>
+  <line x1="720" y1="1006" x2="698" y2="1006" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1013" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="754" y="1012" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">CE#</text>
+  <line x1="1000" y1="1006" x2="1022" y2="1006" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1013" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="966" y="1012" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="720" y1="1042" x2="698" y2="1042" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1049" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="754" y="1048" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO1</text>
+  <line x1="1000" y1="1042" x2="1022" y2="1042" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1049" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="966" y="1048" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO3</text>
+  <line x1="720" y1="1078" x2="698" y2="1078" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1085" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="754" y="1084" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO2</text>
+  <line x1="1000" y1="1078" x2="1022" y2="1078" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1085" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="966" y="1084" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <line x1="720" y1="1114" x2="698" y2="1114" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1121" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="754" y="1120" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VSS</text>
+  <line x1="1000" y1="1114" x2="1022" y2="1114" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1121" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="966" y="1120" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO0</text>
+  <path d="M698 1042 L680 1042" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="680" cy="1042" r="7" fill="var(--dat)"/>
+  <path d="M698 1078 L650 1078" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="650" cy="1078" r="7" fill="var(--dat)"/>
+  <path d="M698 1114 L620 1114" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="620" cy="1114" r="7" fill="var(--gnd)"/>
+  <path d="M1022 1006 L1040 1006" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1040" cy="1006" r="7" fill="var(--pwr)"/>
+  <path d="M1022 1042 L1070 1042" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1070" cy="1042" r="7" fill="var(--dat)"/>
+  <path d="M1022 1078 L1100 1078" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1100" cy="1078" r="7" fill="var(--clk)"/>
+  <path d="M1022 1114 L1130 1114" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1130" cy="1114" r="7" fill="var(--dat)"/>
+  <path d="M1022 1006 L1010 1006 L1010 1134 L710 1134 L710 1114" fill="none" stroke="var(--ink-3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7"/>
+  <rect x="833" y="1122" width="54" height="24" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text x="860" y="1140" text-anchor="middle" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">104</text>
+  <rect x="720" y="1220" width="280" height="180" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <circle cx="742" cy="1240" r="7" fill="var(--ink)"/>
+  <text x="860" y="1208" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">PSRAM 5  ·  bank 4</text>
+  <line x1="720" y1="1256" x2="698" y2="1256" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1263" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="754" y="1262" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">CE#</text>
+  <line x1="1000" y1="1256" x2="1022" y2="1256" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1263" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="966" y="1262" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="720" y1="1292" x2="698" y2="1292" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1299" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="754" y="1298" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO1</text>
+  <line x1="1000" y1="1292" x2="1022" y2="1292" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1299" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="966" y="1298" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO3</text>
+  <line x1="720" y1="1328" x2="698" y2="1328" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1335" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="754" y="1334" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO2</text>
+  <line x1="1000" y1="1328" x2="1022" y2="1328" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1335" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="966" y="1334" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <line x1="720" y1="1364" x2="698" y2="1364" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="732" y="1371" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="754" y="1370" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VSS</text>
+  <line x1="1000" y1="1364" x2="1022" y2="1364" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="988" y="1371" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="966" y="1370" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SIO0</text>
+  <path d="M698 1292 L680 1292" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="680" cy="1292" r="7" fill="var(--dat)"/>
+  <path d="M698 1328 L650 1328" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="650" cy="1328" r="7" fill="var(--dat)"/>
+  <path d="M698 1364 L620 1364" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="620" cy="1364" r="7" fill="var(--gnd)"/>
+  <path d="M1022 1256 L1040 1256" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1040" cy="1256" r="7" fill="var(--pwr)"/>
+  <path d="M1022 1292 L1070 1292" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1070" cy="1292" r="7" fill="var(--dat)"/>
+  <path d="M1022 1328 L1100 1328" fill="none" stroke="var(--clk)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1100" cy="1328" r="7" fill="var(--clk)"/>
+  <path d="M1022 1364 L1130 1364" fill="none" stroke="var(--dat)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1130" cy="1364" r="7" fill="var(--dat)"/>
+  <path d="M1022 1256 L1010 1256 L1010 1384 L710 1384 L710 1364" fill="none" stroke="var(--ink-3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7"/>
+  <rect x="833" y="1372" width="54" height="24" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="2.5"/>
+  <text x="860" y="1390" text-anchor="middle" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">104</text>
+  <path d="M492 905 L500 905 L500 256 L698 256" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="500" y="234" text-anchor="middle" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--cs)">Y0</text>
+  <path d="M492 950 L528 950 L528 506 L698 506" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="528" y="484" text-anchor="middle" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--cs)">Y1</text>
+  <path d="M492 995 L556 995 L556 756 L698 756" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="556" y="734" text-anchor="middle" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--cs)">Y2</text>
+  <path d="M492 1040 L584 1040 L584 1006 L698 1006" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="584" y="984" text-anchor="middle" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--cs)">Y3</text>
+  <path d="M492 1085 L598 1085 L598 1256 L698 1256" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="598" y="1284" text-anchor="middle" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--cs)">Y4</text>
+  <rect x="300" y="816" width="170" height="403" rx="6" fill="var(--panel-2)" stroke="var(--ink)" stroke-width="3"/>
+  <path d="M353 816 a32 32 0 0 0 64 0" fill="var(--panel)" stroke="var(--ink)" stroke-width="3"/>
+  <text x="385" y="802" text-anchor="middle" font-family="var(--disp)" font-size="24" font-weight="700" fill="var(--ink)">74LVC138A</text>
+  <line x1="300" y1="860" x2="278" y2="860" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="867" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">1</text>
+  <text x="340" y="866" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">A</text>
+  <line x1="470" y1="860" x2="492" y2="860" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="867" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">16</text>
+  <text x="430" y="866" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">VCC</text>
+  <line x1="300" y1="905" x2="278" y2="905" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="912" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <text x="340" y="911" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">B</text>
+  <line x1="470" y1="905" x2="492" y2="905" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="912" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">15</text>
+  <text x="430" y="911" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y0</text>
+  <line x1="300" y1="950" x2="278" y2="950" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="957" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <text x="340" y="956" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">C</text>
+  <line x1="470" y1="950" x2="492" y2="950" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="957" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">14</text>
+  <text x="430" y="956" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y1</text>
+  <line x1="300" y1="995" x2="278" y2="995" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="1002" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <text x="340" y="1001" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">G2A</text>
+  <line x1="470" y1="995" x2="492" y2="995" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="1002" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">13</text>
+  <text x="430" y="1001" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y2</text>
+  <line x1="300" y1="1040" x2="278" y2="1040" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="1047" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">5</text>
+  <text x="340" y="1046" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">G2B</text>
+  <line x1="470" y1="1040" x2="492" y2="1040" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="1047" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">12</text>
+  <text x="430" y="1046" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y3</text>
+  <line x1="300" y1="1085" x2="278" y2="1085" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="1092" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">6</text>
+  <text x="340" y="1091" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">G1</text>
+  <line x1="470" y1="1085" x2="492" y2="1085" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="1092" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">11</text>
+  <text x="430" y="1091" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y4</text>
+  <line x1="300" y1="1130" x2="278" y2="1130" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="1137" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">7</text>
+  <text x="340" y="1136" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y7</text>
+  <line x1="470" y1="1130" x2="492" y2="1130" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="1137" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">10</text>
+  <text x="430" y="1136" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y5</text>
+  <line x1="300" y1="1175" x2="278" y2="1175" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="312" y="1182" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">8</text>
+  <text x="340" y="1181" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">GND</text>
+  <line x1="470" y1="1175" x2="492" y2="1175" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  <text x="458" y="1182" text-anchor="end" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">9</text>
+  <text x="430" y="1181" text-anchor="end" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y6</text>
+  <path d="M492 860 L484 860 L484 764" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="490" y="758" text-anchor="end" font-family="var(--mono)" font-size="17" font-weight="700" fill="var(--pwr)">3.3 V</text>
+  <path d="M278 1085 L200 1085" fill="none" stroke="var(--pwr)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="196" y="1075" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--pwr)">3V3</text>
+  <path d="M278 1040 L200 1040" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="196" y="1030" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--gnd)">GND</text>
+  <path d="M278 1175 L200 1175" fill="none" stroke="var(--gnd)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="196" y="1165" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--gnd)">GND</text>
+  <text x="196" y="1120" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">Y7</text>
+  <rect x="30" y="160" width="156" height="1240" rx="6" fill="var(--panel)" stroke="var(--ink)" stroke-width="3"/>
+  <text x="108" y="192" text-anchor="middle" font-family="var(--disp)" font-size="25" font-weight="700" fill="var(--ink)">TEENSY</text>
+  <text x="44" y="216" font-family="var(--disp)" font-size="14" font-weight="700" fill="var(--ink-3)">UNDERSIDE PADS</text>
+  <rect x="44" y="222" width="128" height="36" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text x="56" y="247" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">52</text>
+  <text x="102" y="246" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">IO0</text>
+  <rect x="44" y="274" width="128" height="36" fill="var(--panel-2)" stroke="var(--clk)" stroke-width="2.5"/>
+  <text x="56" y="299" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">53</text>
+  <text x="102" y="298" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SCLK</text>
+  <rect x="44" y="326" width="128" height="36" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text x="56" y="351" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">54</text>
+  <text x="102" y="350" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">IO3</text>
+  <rect x="44" y="378" width="128" height="36" fill="var(--panel-2)" stroke="var(--pwr)" stroke-width="2.5"/>
+  <text x="56" y="403" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3V3</text>
+  <rect x="44" y="430" width="128" height="36" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text x="56" y="455" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">49</text>
+  <text x="102" y="454" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">IO1</text>
+  <rect x="44" y="482" width="128" height="36" fill="var(--panel-2)" stroke="var(--dat)" stroke-width="2.5"/>
+  <text x="56" y="507" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">50</text>
+  <text x="102" y="506" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">IO2</text>
+  <rect x="44" y="534" width="128" height="36" fill="var(--panel-2)" stroke="var(--gnd)" stroke-width="2.5"/>
+  <text x="56" y="559" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">GND</text>
+  <rect x="44" y="594" width="128" height="36" fill="var(--panel-2)" stroke="var(--ok)" stroke-width="2.5" stroke-dasharray="8 6"/>
+  <text x="56" y="619" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ok)">48</text>
+  <text x="102" y="618" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ok)">SS0</text>
+  <text x="44" y="658" font-family="var(--disp)" font-size="15" font-weight="700" fill="var(--ok)">LEAVE ALONE</text>
+  <text x="44" y="678" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ok)">your 1 chip</text>
+  <text x="44" y="826" font-family="var(--disp)" font-size="14" font-weight="700" fill="var(--ink-3)">TOP PINS</text>
+  <rect x="44" y="842" width="128" height="36" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text x="56" y="867" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">2</text>
+  <path d="M172 860 L278 860" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="887" width="128" height="36" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text x="56" y="912" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">3</text>
+  <path d="M172 905 L278 905" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="932" width="128" height="36" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text x="56" y="957" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">4</text>
+  <path d="M172 950 L278 950" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="44" y="1183" font-family="var(--disp)" font-size="14" font-weight="700" fill="var(--ink-3)">UNDERSIDE PAD</text>
+  <rect x="44" y="1197" width="128" height="36" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="2.5"/>
+  <text x="56" y="1222" font-family="var(--mono)" font-size="19" font-weight="700" fill="var(--ink)">51</text>
+  <text x="102" y="1221" font-family="var(--mono)" font-size="15" font-weight="700" fill="var(--ink-3)">SS1</text>
+  <path d="M172 1215 L240 1215 L240 995 L278 995" fill="none" stroke="var(--cs)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="690" y="1510" width="620" height="172" fill="var(--panel)" stroke="var(--rule)" stroke-width="3"/>
+  <circle cx="718" cy="1540" r="8" fill="var(--ink)"/>
+  <text x="736" y="1546" font-family="var(--body)" font-size="17" font-weight="600" fill="var(--ink)">a DOT means JOINED here</text>
+  <line x1="706" y1="1576" x2="732" y2="1576" stroke="var(--ink)" stroke-width="4"/>
+  <line x1="719" y1="1563" x2="719" y2="1589" stroke="var(--ink)" stroke-width="4"/>
+  <text x="736" y="1582" font-family="var(--body)" font-size="17" font-weight="600" fill="var(--ink)">crossing with NO dot is NOT joined</text>
+  <rect x="710" y="1622" width="26" height="6" fill="var(--clk)"/>
+  <text x="710" y="1652" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink-3)">clock</text>
+  <rect x="828" y="1622" width="26" height="6" fill="var(--dat)"/>
+  <text x="828" y="1652" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink-3)">data</text>
+  <rect x="946" y="1622" width="26" height="6" fill="var(--pwr)"/>
+  <text x="946" y="1652" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink-3)">3.3 V</text>
+  <rect x="1064" y="1622" width="26" height="6" fill="var(--gnd)"/>
+  <text x="1064" y="1652" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink-3)">ground</text>
+  <rect x="1182" y="1622" width="26" height="6" fill="var(--cs)"/>
+  <text x="1182" y="1652" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink-3)">chip select</text>
 </svg>
 </div>
 
 <p><b>Read it like this.</b> Start at a Teensy pad on the left. Follow its wire up and across to the
 top of a lane. Follow the lane down. Every chip it passes has a dot on it where that chip's pin joins.
-One lane, four chips, one signal. Then do the same for the next pad.</p>
+One lane, five chips, one signal. Then do the same for the next pad.</p>
 
-<p>The four violet wires are the odd ones out. Each starts at a different decoder output and ends at
-exactly one chip's pin&nbsp;1. Those four wires are the only thing that differs between the chips.</p>
+<p>The five violet wires are the odd ones out. Each starts at a different decoder output &mdash; Y0
+through Y4, decoder pins 15, 14, 13, 12 and 11 &mdash; and ends at exactly one chip's pin&nbsp;1. Those
+five wires are the only thing that differs between the chips.</p>
+
+<p><b>Y5, Y6 and Y7 stay bare.</b> The decoder has eight outputs and you are using five, so there is
+room for a sixth and seventh banked chip later with no rework beyond two more wires.</p>
 
 <!-- ============================================================ PART 1 -->
 <h2><span class="num">1</span>Close up: the Teensy</h2>
@@ -623,8 +662,7 @@ Pad&nbsp;48 you do not touch &mdash; it is the chip that has to stay.</p>
 <!-- ============================================================ PART 2 -->
 <h2><span class="num">2</span>Close up: the decoder</h2>
 <p class="lede">A 16-pin chip. <b>Notch or dot marks the pin&nbsp;1 end.</b> Pins run 1 to 8 down one
-side and 9 to 16 back up the other. Every single pin is labelled below &mdash; there are no pins you
-get to ignore except three.</p>
+side and 9 to 16 back up the other. Five outputs are in use, Y0 to Y4. Y5, Y6 and Y7 stay bare.</p>
 
 <div class="board">
 <svg viewBox="0 0 1100 680" xmlns="http://www.w3.org/2000/svg" role="img"
@@ -749,12 +787,14 @@ get to ignore except three.</p>
     <line class="leg" x1="660" y1="420" x2="690" y2="420"/>
     <text class="pn2" x="700" y="427">11</text>
     <text class="nm2" x="648" y="426" text-anchor="end">Y4</text>
-    <text class="go4" x="750" y="427">spare &mdash; a 5th chip goes here</text>
+    <rect x="750" y="401" width="52" height="36" fill="var(--ink)"/>
+    <text class="tag2" x="776" y="425" text-anchor="middle">W22</text>
+    <text class="go3" x="812" y="426" style="fill:var(--cs)">PSRAM 5, pin 1</text>
 
     <line class="leg" x1="660" y1="480" x2="690" y2="480"/>
     <text class="pn2" x="700" y="487">10</text>
     <text class="nm2" x="648" y="486" text-anchor="end">Y5</text>
-    <text class="go4" x="750" y="487">spare &mdash; a 6th chip goes here</text>
+    <text class="go4" x="750" y="487">bare &mdash; a 6th chip would go here</text>
 
     <line class="leg" x1="660" y1="540" x2="690" y2="540"/>
     <text class="pn2" x="700" y="547">9</text>
@@ -776,15 +816,16 @@ get to ignore except three.</p>
 <tr><td class="m">low</td><td class="m">low</td><td class="m">HIGH</td><td class="m">Y1 &mdash; pin 14</td><td>PSRAM 2</td></tr>
 <tr><td class="m">low</td><td class="m">HIGH</td><td class="m">low</td><td class="m">Y2 &mdash; pin 13</td><td>PSRAM 3</td></tr>
 <tr><td class="m">low</td><td class="m">HIGH</td><td class="m">HIGH</td><td class="m">Y3 &mdash; pin 12</td><td>PSRAM 4</td></tr>
+<tr><td class="m">HIGH</td><td class="m">low</td><td class="m">low</td><td class="m">Y4 &mdash; pin 11</td><td>PSRAM 5</td></tr>
 </tbody></table></div>
-<p>Pin 4 (C) stays low for four chips. Wire it anyway: a fifth and sixth chip then cost you nothing
-but the two wires to Y4 and Y5.</p>
+<p>All three address pins are in use now: five chips needs a count past binary 11, so pin 4 goes high to
+reach bank 4. A sixth chip would be <span class="m">HIGH low HIGH</span> on Y5 and cost one more wire.</p>
 
 
 <!-- ============================================================ PART 3 -->
 <h2><span class="num">3</span>Close up: any one PSRAM</h2>
 <p class="lede">Eight pins. <b>A dot in one corner marks pin&nbsp;1.</b> Numbering runs down that side
-and back up the other. <b>All four chips are wired exactly the same except pin&nbsp;1.</b></p>
+and back up the other. <b>All five banked chips are wired exactly the same except pin&nbsp;1.</b></p>
 
 <div class="board">
 <svg viewBox="0 0 1100 520" xmlns="http://www.w3.org/2000/svg" role="img"
@@ -814,29 +855,29 @@ and back up the other. <b>All four chips are wired exactly the same except pin&n
     <text class="pn3" x="406" y="168" text-anchor="end">1</text>
     <text class="nm3" x="462" y="167">CE#</text>
     <rect x="252" y="139" width="58" height="40" fill="var(--cs)"/>
-    <text class="tag3" x="281" y="166" text-anchor="middle">W18-21</text>
+    <text class="tag3" x="281" y="166" text-anchor="middle">W18-22</text>
     <text class="go5" x="242" y="167" text-anchor="end" style="fill:var(--cs)">ITS OWN decoder output</text>
-    <text class="go6" x="242" y="189" text-anchor="end">the ONLY pin that differs between the four chips</text>
+    <text class="go6" x="242" y="189" text-anchor="end">the ONLY pin that differs between the five chips</text>
 
     <line class="leg2" x1="450" y1="220" x2="416" y2="220"/>
     <text class="pn3" x="406" y="228" text-anchor="end">2</text>
     <text class="nm3" x="462" y="227">SIO1</text>
     <rect x="252" y="199" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="281" y="226" text-anchor="middle">W22</text>
+    <text class="tag3" x="281" y="226" text-anchor="middle">W23</text>
     <text class="go5" x="242" y="227" text-anchor="end" style="fill:var(--dat)">SIO1 rail</text>
 
     <line class="leg2" x1="450" y1="280" x2="416" y2="280"/>
     <text class="pn3" x="406" y="288" text-anchor="end">3</text>
     <text class="nm3" x="462" y="287">SIO2</text>
     <rect x="252" y="259" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="281" y="286" text-anchor="middle">W23</text>
+    <text class="tag3" x="281" y="286" text-anchor="middle">W24</text>
     <text class="go5" x="242" y="287" text-anchor="end" style="fill:var(--dat)">SIO2 rail</text>
 
     <line class="leg2" x1="450" y1="340" x2="416" y2="340"/>
     <text class="pn3" x="406" y="348" text-anchor="end">4</text>
     <text class="nm3" x="462" y="347">VSS</text>
     <rect x="252" y="319" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="281" y="346" text-anchor="middle">W24</text>
+    <text class="tag3" x="281" y="346" text-anchor="middle">W25</text>
     <text class="go5" x="242" y="347" text-anchor="end" style="fill:var(--gnd)">GROUND rail</text>
   </g>
 
@@ -846,28 +887,28 @@ and back up the other. <b>All four chips are wired exactly the same except pin&n
     <text class="pn3" x="694" y="168">8</text>
     <text class="nm3" x="638" y="167" text-anchor="end">VCC</text>
     <rect x="790" y="139" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="819" y="166" text-anchor="middle">W28</text>
+    <text class="tag3" x="819" y="166" text-anchor="middle">W29</text>
     <text class="go5" x="858" y="167" style="fill:var(--pwr)">3.3 V rail</text>
 
     <line class="leg2" x1="650" y1="220" x2="684" y2="220"/>
     <text class="pn3" x="694" y="228">7</text>
     <text class="nm3" x="638" y="227" text-anchor="end">SIO3</text>
     <rect x="790" y="199" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="819" y="226" text-anchor="middle">W27</text>
+    <text class="tag3" x="819" y="226" text-anchor="middle">W28</text>
     <text class="go5" x="858" y="227" style="fill:var(--dat)">SIO3 rail</text>
 
     <line class="leg2" x1="650" y1="280" x2="684" y2="280"/>
     <text class="pn3" x="694" y="288">6</text>
     <text class="nm3" x="638" y="287" text-anchor="end">SCLK</text>
     <rect x="790" y="259" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="819" y="286" text-anchor="middle">W26</text>
+    <text class="tag3" x="819" y="286" text-anchor="middle">W27</text>
     <text class="go5" x="858" y="287" style="fill:var(--clk)">SCLK rail</text>
 
     <line class="leg2" x1="650" y1="340" x2="684" y2="340"/>
     <text class="pn3" x="694" y="348">5</text>
     <text class="nm3" x="638" y="347" text-anchor="end">SIO0</text>
     <rect x="790" y="319" width="58" height="40" fill="var(--ink)"/>
-    <text class="tag3" x="819" y="346" text-anchor="middle">W25</text>
+    <text class="tag3" x="819" y="346" text-anchor="middle">W26</text>
     <text class="go5" x="858" y="347" style="fill:var(--dat)">SIO0 rail</text>
   </g>
 
@@ -883,19 +924,23 @@ and back up the other. <b>All four chips are wired exactly the same except pin&n
   <!-- which chip gets which output -->
   <rect x="252" y="430" width="600" height="72" fill="var(--panel-2)" stroke="var(--cs)" stroke-width="3"/>
   <text class="go5" x="272" y="458" style="fill:var(--cs)">PIN 1 IS THE ONLY DIFFERENCE</text>
-  <text class="go6" x="272" y="484" style="font-size:16px">chip 1 &rarr; decoder pin 15 &nbsp;&middot;&nbsp; chip 2 &rarr; pin 14 &nbsp;&middot;&nbsp; chip 3 &rarr; pin 13 &nbsp;&middot;&nbsp; chip 4 &rarr; pin 12</text>
+  <text class="go6" x="272" y="484" style="font-size:15px">1&rarr;pin 15 &#183; 2&rarr;pin 14 &#183; 3&rarr;pin 13 &#183; 4&rarr;pin 12 &#183; 5&rarr;pin 11</text>
 </svg>
 </div>
 
+<p>Seven of the eight signals are <b>shared rails</b>: run them as continuous columns down the
+perfboard and drop a short stub into each chip. Only pin&nbsp;1 differs, and that is the whole point of
+the decoder.</p>
+
 <p>So each chip takes <b>seven identical wires</b> plus <b>one capacitor</b> plus <b>one wire nobody
-else has</b>. Do one chip completely, check it against the drawing, then repeat three times.</p>
+else has</b>. Do one chip completely, check it against the drawing, then repeat four times.</p>
 
 
 <!-- ============================================================ WIRE LIST -->
 <h2 class="plain">The whole wire list</h2>
-<p class="lede"><b>Twenty-eight numbered connections</b>, and the <span class="wn">W</span> numbers
-match the labels in the drawings above. The last seven repeat on every chip, so the pile of wire you
-actually cut is about <b>forty-seven pieces</b>. Work down the table and tick them off.</p>
+<p class="lede"><b>Twenty-nine numbered connections</b>, and the <span class="wn">W</span> numbers
+match the labels in the drawings above. The last seven repeat on all five chips, so the pile of wire you
+actually cut is about <b>fifty-five pieces</b>. Work down the table and tick them off.</p>
 
 <div class="scroll"><table>
 <thead><tr><th class="m">#</th><th>from</th><th>to</th><th>notes</th></tr></thead>
@@ -922,7 +967,7 @@ actually cut is about <b>forty-seven pieces</b>. Work down the table and tick th
 <tr><td><span class="wn">W9</span></td><td class="m">Teensy pin 2</td><td class="m">decoder pin 1 (A)</td><td></td></tr>
 <tr><td><span class="wn">W10</span></td><td class="m">Teensy pin 3</td><td class="m">decoder pin 2 (B)</td><td></td></tr>
 <tr><td><span class="wn">W11</span></td><td class="m">Teensy pin 4</td><td class="m">decoder pin 3 (C)</td>
-    <td>Stays low with four chips. Wire it anyway.</td></tr>
+    <td>Goes HIGH to reach bank 4, so all three address pins are now in use.</td></tr>
 <tr><td><span class="wn">W12</span></td><td class="m">decoder pin 5 (G2B)</td><td class="m">ground</td><td></td></tr>
 <tr><td><span class="wn">W13</span></td><td class="m">decoder pin 6 (G1)</td><td class="m">3.3 V</td><td></td></tr>
 <tr><td><span class="wn">W14</span></td><td class="m">decoder pin 16 (VCC)</td><td class="m">3.3 V</td>
@@ -937,17 +982,18 @@ actually cut is about <b>forty-seven pieces</b>. Work down the table and tick th
 <tr><td><span class="wn">W19</span></td><td class="m">decoder pin 14 (Y1)</td><td class="m">PSRAM 2 pin 1</td><td>bank 1</td></tr>
 <tr><td><span class="wn">W20</span></td><td class="m">decoder pin 13 (Y2)</td><td class="m">PSRAM 3 pin 1</td><td>bank 2</td></tr>
 <tr><td><span class="wn">W21</span></td><td class="m">decoder pin 12 (Y3)</td><td class="m">PSRAM 4 pin 1</td><td>bank 3</td></tr>
+<tr><td><span class="wn">W22</span></td><td class="m">decoder pin 11 (Y4)</td><td class="m">PSRAM 5 pin 1</td><td>bank 4</td></tr>
 
-<tr class="grp"><td colspan="4">Each PSRAM onto the rails &mdash; identical on all four chips</td></tr>
-<tr><td><span class="wn">W22</span></td><td class="m">pin 2 (SIO1)</td><td class="m">SIO1 rail</td>
-    <td rowspan="6">Six stubs per chip, so twenty-four short wires in total. Keep every one of them
+<tr class="grp"><td colspan="4">Each PSRAM onto the rails &mdash; identical on all five chips</td></tr>
+<tr><td><span class="wn">W23</span></td><td class="m">pin 2 (SIO1)</td><td class="m">SIO1 rail</td>
+    <td rowspan="6">Six stubs per chip, so <b>thirty short wires</b> in total. Keep every one of them
     <b>under 50 mm and all the same length</b>. 30 AWG wire-wrap.</td></tr>
-<tr><td><span class="wn">W23</span></td><td class="m">pin 3 (SIO2)</td><td class="m">SIO2 rail</td></tr>
-<tr><td><span class="wn">W24</span></td><td class="m">pin 4 (VSS)</td><td class="m">ground rail</td></tr>
-<tr><td><span class="wn">W25</span></td><td class="m">pin 5 (SIO0)</td><td class="m">SIO0 rail</td></tr>
-<tr><td><span class="wn">W26</span></td><td class="m">pin 6 (SCLK)</td><td class="m">SCLK rail</td></tr>
-<tr><td><span class="wn">W27</span></td><td class="m">pin 7 (SIO3)</td><td class="m">SIO3 rail</td></tr>
-<tr><td><span class="wn">W28</span></td><td class="m">pin 8 (VCC)</td><td class="m">3.3 V rail</td>
+<tr><td><span class="wn">W24</span></td><td class="m">pin 3 (SIO2)</td><td class="m">SIO2 rail</td></tr>
+<tr><td><span class="wn">W25</span></td><td class="m">pin 4 (VSS)</td><td class="m">ground rail</td></tr>
+<tr><td><span class="wn">W26</span></td><td class="m">pin 5 (SIO0)</td><td class="m">SIO0 rail</td></tr>
+<tr><td><span class="wn">W27</span></td><td class="m">pin 6 (SCLK)</td><td class="m">SCLK rail</td></tr>
+<tr><td><span class="wn">W28</span></td><td class="m">pin 7 (SIO3)</td><td class="m">SIO3 rail</td></tr>
+<tr><td><span class="wn">W29</span></td><td class="m">pin 8 (VCC)</td><td class="m">3.3 V rail</td>
     <td>and the 100 nF straight across to pin 4</td></tr>
 </tbody></table></div>
 
@@ -955,22 +1001,22 @@ actually cut is about <b>forty-seven pieces</b>. Work down the table and tick th
 <div class="scroll"><table>
 <thead><tr><th class="m">qty</th><th>part</th><th class="m">marking</th><th>where</th></tr></thead>
 <tbody>
-<tr><td class="m">4</td><td>100 nF ceramic</td><td class="m">104</td><td>each PSRAM, pin 8 across to pin 4, at the chip</td></tr>
+<tr><td class="m">5</td><td>100 nF ceramic</td><td class="m">104</td><td>each banked PSRAM, pin 8 across to pin 4, at the chip</td></tr>
 <tr><td class="m">1</td><td>100 nF ceramic</td><td class="m">104</td><td>decoder, pin 16 across to pin 8</td></tr>
 <tr><td class="m">1</td><td>10 &micro;F</td><td class="m">&mdash;</td><td>anywhere on the 3.3 V rail</td></tr>
 <tr><td class="m">1</td><td>22 &#8486; resistor</td><td class="m">220</td><td>in series on SCLK, <b>at the Teensy end</b></td></tr>
 <tr><td class="m">3</td><td>10 k&#8486; resistor</td><td class="m">103</td><td>decoder pins 1, 2 and 3, each to ground</td></tr>
 </tbody></table></div>
 <p>Current is not a worry. One chip is selected at a time, so about 35 mA active plus a milliamp of
-standby across the others. The Teensy's regulator has 250 mA spare.</p>
+standby across the other four. The Teensy's regulator has 250 mA spare.</p>
 
 <h2 class="plain">What you end up with</h2>
 <div class="cols">
-  <div class="card"><div class="k">Installed</div><div class="v">40 MB</div>
-    <div class="n">Four 8 MB chips on the perfboard plus the 8 MB already on the Teensy.</div></div>
+  <div class="card"><div class="k">Installed</div><div class="v">48 MB</div>
+    <div class="n">Five 8 MB chips on the perfboard plus the 8 MB already on the Teensy.</div></div>
   <div class="card"><div class="k">Reachable at once</div><div class="v">16 MB</div>
     <div class="n">The onboard chip is always there. The bank is a second 8 MB window, and the address
-    pins choose which of the four appears in it.</div></div>
+    pins choose which of the five appears in it.</div></div>
   <div class="card"><div class="k">Speed</div><div class="v">unchanged</div>
     <div class="n">The decoder is only in the chip-select path. Clock and data go straight through, so
     a banked chip runs as fast as an onboard one.</div></div>
@@ -1011,14 +1057,16 @@ inside the bank-select function so it cannot be forgotten.</p>
      <b>nothing else</b>.</div></li>
   <li><div class="t">Power the board on its own and watch the decoder</div>
      <div class="d">With A, B and C all low, pin 15 should be the only output near 0 V and the rest near
-     3.3 V. Pull A high by hand and pin 14 takes over.</div></li>
+     3.3 V. Pull A high by hand and pin 14 takes over. Walk all five: 15, 14, 13, 12, then 11 with C
+     high.</div></li>
   <li><div class="t">Plug in the Teensy and just read the reported size</div>
      <div class="d">Run the bank sketch. It prints what was found before it tests anything. You want
      16 MB: 8 onboard and 8 for the bank. Anything less and it prints the likely causes in order.</div></li>
   <li><div class="t">Then run the bank test, which is built to be hard to fool</div>
      <div class="d">It writes <b>every</b> bank before reading <b>any</b>. Writing and reading one bank
-     at a time passes even with the decoder disconnected, because the data never leaves cache. Done
-     this way, a dead decoder means all four writes hit the same chip and three banks fail.</div></li>
+     at a time passes even with the decoder disconnected, because the data never leaves cache. Done this
+     way, a dead decoder means all five writes hit the same chip and four banks fail. The sketch already
+     expects five: <span class="m">BANKS 5</span>, outputs Y0 to Y4.</div></li>
 </ol>
 
 <footer>

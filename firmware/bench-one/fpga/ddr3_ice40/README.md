@@ -4,7 +4,7 @@ Give a Teensy 4.1 **256 MB of DDR3** instead of 16 MB of PSRAM, by putting an iC
 that pretends to be a quad SPI RAM. The DIMM is a scrapped desktop stick. The FPGA does no
 arithmetic, so every number measured through it is the microcontroller's own.
 
-Build videos: **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)**
+Build videos: **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)**
 
 Nothing here has run on hardware yet. Everything here is simulated, synthesised, and traced to a
 datasheet page. Where a number is a calculation rather than a measurement, it says so.
@@ -283,7 +283,7 @@ bank open at a time.
 
 ## Where to see it built
 
-**[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)** carries the build footage for this and
+**[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)** carries the build footage for this and
 everything else in the project, including the parts that did not work.
 
 ## Licence and provenance

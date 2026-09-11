@@ -4,7 +4,7 @@ Running large language models on a shelf of cheap heterogeneous processors — m
 small Linux SoCs and little FPGAs — instead of on a GPU. Every figure here is either measured on
 hardware or labelled as a calculation. Nothing is rounded up for effect.
 
-Built and documented on **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)** — the builds, the failures and the
+Built and documented on **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)** — the builds, the failures and the
 bench footage behind every number in this repository.
 
 The project started as a heterogeneous microcontroller stack with a decoded logic fabric, and that

@@ -32,4 +32,4 @@ traced to a datasheet page. Treat it as a design to check, not a design to trust
 
 ---
 
-Build videos, including the failures: **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)**
+Build videos, including the failures: **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)**

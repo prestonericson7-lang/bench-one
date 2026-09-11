@@ -6,7 +6,7 @@ Every count here is checked against the actual tree by `.claude/verify-index.sh`
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
 minutes of this file being written. Run it after moving or adding anything.
 
-The build videos are on **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)**, which is the fastest way to
+The build videos are on **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)**, which is the fastest way to
 see the hardware these files describe actually existing.
 
 If you know what you want, use the table. If you do not, start at
@@ -151,7 +151,7 @@ neural work and does not describe `tests/`.
 | [INDEX.md](INDEX.md) | this page |
 | [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) | **read before powering any DDR3 work.** Four mistakes destroy a module and one of them looks correct |
 | [LICENSE](LICENSE) | MIT |
-| **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)** | the channel. Build videos for everything here |
+| **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)** | the channel. Build videos for everything here |
 | [README-QUESTIONS.md](README-QUESTIONS.md) | phase-one record: specs needed and concerns raised during the first build. Mostly answered since |
 | [HANDOFF.md](HANDOFF.md) | phase-one record: the original handoff. **Its protocol summary describes v1 where the firmware is v2**, and a decoder built from it fails on every frame while looking like a wiring fault |
 | `.gitignore` | and the reasoning for each rule |

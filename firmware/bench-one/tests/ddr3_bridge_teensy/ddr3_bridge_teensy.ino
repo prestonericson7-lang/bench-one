@@ -87,28 +87,48 @@
  * ========================================================================================= */
 
 /* The gateware's CK_DIV as a memory clock in MHz: 6 means CK_DIV 16, 12 means 8, 25 means 4. */
-#define MEM_MHZ          12
+#define MEM_MHZ          25
 
 #if   MEM_MHZ == 25
-  /* 88 MHz is 44 MB/s against 50 MB/s of memory: a 12% margin. 99 MHz was tried and is wrong --
-   * 49.5 MB/s against 50 leaves nothing for the per-chunk overhead that always exists, and the reads
-   * then run ahead of the data. The end-to-end simulation fails at zero margin and passes at this. */
-  #define FLEXSPI_MHZ    88
+  /* 79.2 MHz is 39.6 MB/s against 50 MB/s of memory, a 21% margin, and it is the fastest setting
+   * verified end to end. 88 and 99 MHz were both tried: 99 is 49.5 against 50 and fails outright,
+   * and 88 is 44 against 50, which is closer to the edge than anything simulated. */
+  #define FLEXSPI_MHZ    79
   #define FPGA_DUMMY     200
   #define AHB_BUFSZ      32     /* 256-byte transactions; must stay under the gateware's RD_AHEAD */
+
 #elif MEM_MHZ == 12
-  #define FLEXSPI_MHZ    50     /* 24.75 MB/s against 25 MB/s of memory */
-  #define FPGA_DUMMY     200
-  #define AHB_BUFSZ      32
+  /* THIS CONFIGURATION CANNOT WORK, and the compiler stops here rather than letting it be wired.
+   *
+   * A 12.5 MHz memory clock delivers 25 MB/s on eight data lines. The slowest FlexSPI2 can be made to
+   * run is 49.5 MHz, its slowest source divided by eight, which consumes 24.75 MB/s. That is a 1%
+   * margin, and 1% is not a margin: every DRAM request carries fixed overhead, so the reader catches
+   * up and returns bytes that have not arrived. The end-to-end simulation fails three of its seven
+   * cases at exactly this pairing, and passes at 41.7 MB/s -- a link speed FlexSPI2 cannot reach.
+   *
+   * Use MEM_MHZ 25. If the level translators cannot carry 50 Mb/s data lines, the fix is a wider DDR3
+   * bus, not a slower one: see the note on MEM_MHZ 6. */
+  #error "MEM_MHZ 12 is unreachable: the FlexSPI2 clock floor of 49.5 MHz outruns a 12.5 MHz memory"
+
 #elif MEM_MHZ == 6
-  /* The link cannot be slowed to 25 MHz, so it will outrun a 6.25 MHz memory two to one. The answer
-   * is to make each transaction short enough that the dummy window covers the WHOLE fetch, rather
-   * than relying on the fill staying ahead of the reader. Slow and correct beats fast and wrong. */
-  #define FLEXSPI_MHZ    50
-  #define FPGA_DUMMY     255
-  #define AHB_BUFSZ      8      /* 64-byte transactions */
+  /* ALSO UNREACHABLE, for the same reason and worse: 6.25 MHz delivers 12.5 MB/s against a link that
+   * cannot go below 24.75. Shortening the transaction does not help, because the problem is the
+   * sustained rate and not the startup latency; the simulation still fails.
+   *
+   * If the translators on hand cannot do 50 Mb/s, the honest options are a SIXTEEN-bit DDR3 data path,
+   * which doubles throughput at the same edge rate, or a single-bit SPI read path on the Teensy side,
+   * which drops the link to 6.2 MB/s and makes a slow memory clock viable. Neither exists yet. */
+  #error "MEM_MHZ 6 is unreachable: the link cannot be slowed below twice what the memory delivers"
+
 #else
-  #error "MEM_MHZ must be 6, 12 or 25 and must match the gateware's CK_DIV"
+  #error "MEM_MHZ must be 25, and must match the gateware's CK_DIV of 4"
+#endif
+
+/* A belt-and-braces check on the rule above, in case someone edits the numbers rather than the mode.
+ * Memory delivers 8 bytes per 4 memory clocks, so 2 * MEM_MHZ megabytes per second. The link carries
+ * half a byte per clock, so FLEXSPI_MHZ / 2. Demand at least 15% of headroom. */
+#if (FLEXSPI_MHZ * 100) > (2 * MEM_MHZ * 2 * 85)
+  #error "the link is too fast for the memory: FLEXSPI_MHZ/2 must be under 85% of 2*MEM_MHZ"
 #endif
 
 #define FPGA_MB          224    /* 240 MB aperture minus the PSRAM's 16 */

@@ -29,3 +29,7 @@ clock and not a fast one — see [docs/38](docs/38-ddr3-on-a-microcontroller.md)
 
 Nothing in this repository has been run on hardware. Every figure is simulated, synthesised, or
 traced to a datasheet page. Treat it as a design to check, not a design to trust.
+
+---
+
+Build videos, including the failures: **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)**

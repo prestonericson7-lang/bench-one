@@ -20,6 +20,8 @@ not marginal notes. They are in this directory now.
 
 ---
 
+Build footage for most of what is described here: **[Big Mess Little Brains](https://www.youtube.com/@bigmesslittlebrains)**.
+
 ## If you are new, read these five
 
 | | |

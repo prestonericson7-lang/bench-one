@@ -44,13 +44,13 @@ why the rest of this table is worth believing:
 | configuration | raw read | effective | vs PSRAM |
 |---|---|---|---|
 | PSRAM, 16 MB | 33.9 | 18.2 | 1.00× |
-| this bridge, 12.5 MHz memory | 25.0 | 15.3 | 0.84× |
-| this bridge, 25 MHz memory | 50.0 | 22.0 | 1.21× |
-| bus-limited ceiling | 66.5 | 24.7 | 1.36× |
+| this bridge, single-bit link, 6.25 MHz memory | 6.2 | 5.4 | 0.29× |
+| this bridge, four-line link, 25 MHz memory | 39.6 | 19.5 | 1.07× |
+| four lines at the bus ceiling | 66.5 | 24.7 | 1.36× |
 | if the link were infinite | — | 39.3 | 2.16× |
 
-**First light is slower than the PSRAM it replaces.** That is expected and fine: it is proving
-256 MB works at all. And note where the curve flattens — past about 66 MB/s the processor's own
+**First light is much slower than the PSRAM it replaces** — about a fifth, on the single-bit path.
+That is expected and fine: it is proving 256 MB works at all, with translators already on the bench. And note where the curve flattens — past about 66 MB/s the processor's own
 nibble unpacking is the wall, so more bus speed buys nothing. The next real win after that is in the
 unpack kernel, not the memory.
 

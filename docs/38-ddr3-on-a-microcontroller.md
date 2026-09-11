@@ -14,9 +14,11 @@ moves bytes and nothing else, and the number that comes out is the microcontroll
 
 ## The answer, first
 
-**256 MB at 22 MB/s effective, which is 1.21× the PSRAM it replaces and sixteen times its capacity.**
-Not the dramatic speed win the idea suggests. The interesting result is elsewhere: in finding exactly
-why it cannot be faster, and discovering that the limit is not the DRAM.
+**256 MB at 19.5 MB/s effective, which is 1.07× the PSRAM it replaces and sixteen times its
+capacity** — and 5.4 MB/s, about a fifth of the PSRAM, in the configuration that can be built with
+ordinary level translators. Not the dramatic speed win the idea suggests. The interesting results are
+elsewhere: in finding exactly why it cannot be faster, and in discovering that the limit is neither
+the DRAM nor the wiring.
 
 Three ceilings stack. The lowest wins, and which one is lowest changes with configuration.
 
@@ -34,10 +36,13 @@ rest:
 | configuration | raw read | effective | vs PSRAM |
 |---|---|---|---|
 | PSRAM, 16 MB | 33.9 | 18.2 | 1.00× |
-| bridge at a 12.5 MHz memory clock | 25.0 | 15.3 | 0.84× |
-| bridge at a 25 MHz memory clock | 50.0 | 22.0 | 1.21× |
-| bus-limited ceiling | 66.5 | 24.7 | 1.36× |
+| bridge, single-bit link, 6.25 MHz memory | 6.2 | 5.4 | 0.29× |
+| bridge, four-line link, 25 MHz memory | 39.6 | 19.5 | 1.07× |
+| four lines at the bus ceiling | 66.5 | 24.7 | 1.36× |
 | infinitely fast link | — | 39.3 | 2.16× |
+
+There is no row between the first two, and that is a finding rather than an omission: see the section
+on the rate rule below.
 
 **The last row is the finding.** Past about 66 MB/s the processor's own unpacking is the wall and more
 memory bandwidth buys literally nothing. The project has been treating memory as the scarce resource;
@@ -156,13 +161,42 @@ FlexSPI2 can be made to run is **49.5 MHz**, its slowest source divided by eight
 the transaction length is shortened instead, so the dummy window covers the whole fetch rather than
 relying on the fill staying ahead of the reader.
 
-| memory clock | DDR3 supplies | link setting | data line rate | use |
-|---|---|---|---|---|
-| 6.25 MHz | 12.5 MB/s | 49.5 MHz, 64-byte reads | 12.5 Mb/s | first light with weak translators |
-| 12.5 MHz | 25.0 MB/s | 49.5 MHz | 25 Mb/s | matched, and the practical starting point |
-| 25 MHz | 50.0 MB/s | 99 MHz | 50 Mb/s | full speed, needs proper translators |
+| memory clock | DDR3 supplies | link | consumes | data lines | verified |
+|---|---|---|---|---|---|
+| 6.25 MHz | 12.5 MB/s | **one** pin at 49.5 MHz | 6.2 MB/s | 12.5 Mb/s | yes |
+| 12.5 MHz | 25.0 MB/s | four pins at 49.5 MHz | 24.75 MB/s | 25 Mb/s | **fails** |
+| 25 MHz | 50.0 MB/s | four pins at 79.2 MHz | 39.6 MB/s | 50 Mb/s | yes |
+
+**The middle row is unreachable, and the reason is worth stating plainly because it looks workable.**
+FlexSPI2's slowest possible clock is 49.5 MHz, its slowest source divided by eight. On four lines that
+consumes 24.75 MB/s against a 12.5 MHz memory's 25 MB/s: a 1% margin. One percent is not a margin.
+Every DRAM request carries fixed overhead no matter how the transfers are chunked, so the reader
+catches up and returns bytes that have not arrived. Three of seven end-to-end cases fail at exactly
+that pairing, and the link cannot be slowed to fix it.
+
+The way out is a **narrower** link, not a slower one. One pin at the same 49.5 MHz consumes 6.2 MB/s,
+leaving a factor of two in hand. That also halves the data line rate to 12.5 Mb/s, which is inside a
+TXB0108's rating where 50 Mb/s is not — so the slow configuration is the one that can be built with
+translators most people already own, and it is roughly a fifth the speed of the PSRAM it replaces.
+Both rows marked verified pass the end-to-end test; the build script runs both.
 
 ---
+
+## The rate rule, which turned out to be the hardest constraint in the design
+
+Not the DRAM timings, not the strobe, not the level translation. **The peripheral that consumes the
+data cannot be stalled and cannot be slowed below a floor**, and everything else has to be arranged
+around that.
+
+It bit three times. The testbench was first written pairing a 100 MHz link with a 25 MHz memory, both
+worth 50 MB/s, which violated the rule the design was built around and made reads fail in a way that
+looked like a buffer fault. The recommended first-light configuration was then set to 12.5 MHz and
+never simulated; it fails. And the 25 MHz setting was briefly 99 MHz, which is 49.5 against 50 and
+also fails. The working figure is 79.2 MHz, a 21% margin, and it is the fastest value actually
+verified rather than merely believed safe.
+
+The sketch now refuses to compile the configurations that cannot work, and carries an arithmetic guard
+for the case where someone edits the numbers instead of the mode.
 
 ## The hardware finding that nothing in simulation could have caught
 
@@ -245,7 +279,8 @@ and nobody built; the comment now says so explicitly.
 ## Where this leaves the machine
 
 For the nine-Teensy array, the honest read is that this is a **capacity** tool, not a speed tool. It
-trades 16 MB at 18.2 MB/s for 256 MB at 22 MB/s: a 16× capacity gain for a 1.21× throughput gain.
+trades 16 MB at 18.2 MB/s for 256 MB at 19.5 MB/s: a 16× capacity gain for a 1.07× throughput gain,
+and only 0.29× until the level translators are upgraded.
 Whether that is worth the wiring depends entirely on whether the models being run are capacity-bound
 or throughput-bound, and by [33](33-a-30b-runs.md) the answer for mixture-of-experts models is
 clearly capacity.

@@ -415,9 +415,6 @@ module ddr3_bridge #(
 
             /* ---- read: fetch in chunks for as long as the Teensy is still clocking ---- */
             B_RD_REQ: begin
-                if (1)
-                    $display("T %0t RD_REQ need=%0d rd_ended=%b fill=%0d skip=%0d row=%0d col=%0d",
-                             $time, need, rd_ended, fill, skip, a_row, {a_brst,3'b0});
                 if (need == 0 || rd_ended) begin
                     /* Either the buffer is full or the transaction has ended. Nothing is wasted by
                      * stopping early: the Teensy only reads what it asked for, and stopping promptly

@@ -92,8 +92,31 @@ typedef struct {
     uint8_t  slot;       /* SPI: 74HC138 output 0-7. I2C: 7-bit address. Else: chip index.     */
     uint8_t  first;      /* first bit/channel index within the layer                           */
     uint8_t  width;      /* how many bits/channels this port owns                              */
-    uint8_t  irq_bit;    /* which INTF bit reports this port, 0xFF if none                     */
-    uint8_t  reserved;   /* keeps the struct 4-byte aligned and the wire format stable         */
+
+    /* THE TWO AUXILIARY SIGNALS, and why they come from different silicon.
+     *
+     * A module needs more than the bus and a chip select: a reset, a chip enable, an interrupt,
+     * a data-ready. Those are where a fabric either works or turns into a pile of jumper wires.
+     *
+     * The two candidate homes are NOT equivalent:
+     *
+     *                          MCP23017 pin          74HC595 output
+     *   direction              in or out             OUT ONLY
+     *   interrupt on change    yes, in hardware      no
+     *   time to change a bit   ~120 us (I2C)         ~2 us (SPI byte + latch)
+     *   atomic with others     16 bits per txn       the WHOLE chain, one RCLK edge
+     *
+     * A '595 output is roughly sixty times faster. An MCP pin is the only one that can tell you
+     * something happened without being asked. So the assignment follows the signal's direction:
+     *
+     *   module OUTPUT -> irq_bit, an MCP23017 pin   (IRQ, DRDY, BUSY -- it must raise a flag)
+     *   module INPUT  -> ctl_bit, a 74HC595 output  (RESET, CE, mode strap -- speed matters)
+     *
+     * Backwards is not a style error. A reset on an expander takes 120 us; an interrupt on a
+     * shift register is invisible until something polls for it. */
+    uint8_t  irq_bit;    /* MCP_A pin carrying this port's interrupt. 0xFF = none               */
+    uint8_t  ctl_bit;    /* 74HC595 OA bit driving this port's reset/enable. 0xFF = none        */
+
     uint16_t flags;      /* BENCH_PORTF_*                                                      */
     uint16_t detected;   /* runtime: what actually answered here. 0 = nothing.                 */
 } BenchPortDesc;
@@ -187,25 +210,36 @@ static const BenchPortDesc BENCH_PORT_TABLE[] = {
   /*  id              kind                     bus slot first width irq  rsv  flags */
 
   /* ---- SPI module slots. Any SPI module drops into one of these and is addressed by name.
-   *      slot is the 74HC138 output number; the driver never lets two be low at once.        */
-  { PORT_SPI0,        BENCH_PORT_KIND_SPI,      0,  0,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI1,        BENCH_PORT_KIND_SPI,      0,  1,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI2,        BENCH_PORT_KIND_SPI,      0,  2,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI3,        BENCH_PORT_KIND_SPI,      0,  3,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI4,        BENCH_PORT_KIND_SPI,      0,  4,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI5,        BENCH_PORT_KIND_SPI,      0,  5,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
-  { PORT_SPI6,        BENCH_PORT_KIND_SPI,      0,  6,   0,   1,  0xFF, 0, BENCH_PORTF_HOTPLUG },
+   *
+   *      slot     = the 74HC138 output; the driver never lets two be low at once.
+   *      irq_bit  = MCP_A GPA pin carrying this port's interrupt (module -> us).
+   *      ctl_bit  = 74HC595 chip 1 output driving this port's reset/enable (us -> module).
+   *
+   *      Eight ports x one interrupt = eight GPA pins, and MCP_A's GPB0-7 stand ready as a
+   *      SECOND interrupt each, for the modules that have two: a CC1101 has GDO0 and GDO2, a
+   *      LoRa module has DIO0 through DIO5. Sixteen pins is exactly one MCP23017, which is why
+   *      the arithmetic works out rather than being forced.                                   */
+  { PORT_SPI0,        BENCH_PORT_KIND_SPI,      0,  0,   0,   1,  0, 0, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI1,        BENCH_PORT_KIND_SPI,      0,  1,   0,   1,  1, 1, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI2,        BENCH_PORT_KIND_SPI,      0,  2,   0,   1,  2, 2, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI3,        BENCH_PORT_KIND_SPI,      0,  3,   0,   1,  3, 3, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI4,        BENCH_PORT_KIND_SPI,      0,  4,   0,   1,  4, 4, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI5,        BENCH_PORT_KIND_SPI,      0,  5,   0,   1,  5, 5, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
+  { PORT_SPI6,        BENCH_PORT_KIND_SPI,      0,  6,   0,   1,  6, 6, BENCH_PORTF_HOTPLUG | BENCH_PORTF_IRQ },
   /* Slot 7 is reserved as the guaranteed-idle address. Parking the decoder here means "no
    * module selected" is reachable even if the enable line is ever in doubt, which makes the
    * CS_DESELECT self-test able to distinguish a stuck enable from a stuck address. */
-  { PORT_SPI7,        BENCH_PORT_KIND_SPI,      0,  7,   0,   1,  0xFF, 0, BENCH_PORTF_RESERVED },
+  { PORT_SPI7,        BENCH_PORT_KIND_SPI,      0,  7,   0,   1,  7, 7, BENCH_PORTF_RESERVED },
 
-  /* ---- MCP23017 expander banks. Two fitted in the minimal core; six more need only an
-   *      address strap and two wires. irq_bit is the position this chip occupies when the ISR
-   *      walks the bank looking for who pulled the shared line low.                           */
-  { PORT_MCP_A,       BENCH_PORT_KIND_GPIO_EXP, 0,  0x20, 0, 16, 0,    0,
-        BENCH_PORTF_IRQ | BENCH_PORTF_SINK_ONLY },
-  { PORT_MCP_B,       BENCH_PORT_KIND_GPIO_EXP, 0,  0x21, 0, 16, 1,    0,
+  /* ---- MCP23017 expander banks.
+   *      XA is NOT general-purpose: GPA0-7 are the eight SPI-port interrupts and GPB0-7 are
+   *      their second interrupts. Marked RESERVED so a stray pinWrite cannot drive a line a
+   *      module is also driving -- two outputs fighting is the one configuration that damages
+   *      hardware before anyone notices.
+   *      XB is the front panel: 8 sink-driven LEDs on GPA, 8 pulled-up inputs on GPB.         */
+  { PORT_MCP_A,       BENCH_PORT_KIND_GPIO_EXP, 0,  0x20, 0, 16, 0,    0xFF,
+        BENCH_PORTF_IRQ | BENCH_PORTF_RESERVED },
+  { PORT_MCP_B,       BENCH_PORT_KIND_GPIO_EXP, 0,  0x21, 0, 16, 1,    0xFF,
         BENCH_PORTF_IRQ | BENCH_PORTF_SINK_ONLY },
 
   /* ---- Generic I2C sensor slots. addr 0 means "whatever answers here"; the scan fills in

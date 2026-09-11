@@ -246,19 +246,54 @@ static void claim1_monoid(uint32_t queries)
 /* ------------------------------------------------------------------------------------------- */
 /*  CLAIM 2 and 3 -- degrade honestly, and report coverage truthfully                           */
 /* ------------------------------------------------------------------------------------------- */
+/* Which node holds a given global slot. Contiguous shards, so this is a walk rather than a map --
+ * the coordinator deliberately does not keep one, and neither does this. */
+static int owner_of(uint32_t slot)
+{
+    for (int n = 0; n < NODES; n++)
+        if (slot >= g_base[n] && slot < (uint32_t)g_base[n] + g_count[n]) return n;
+    return -1;
+}
+
 static void claim23_degrade(uint32_t queries)
 {
-    printf("\n[2] degrades under stalled nodes without ever answering confidently wrong\n");
+    printf("\n[2] a vector is found IF AND ONLY IF some node actually scanned it\n");
     printf("[3] and reported coverage matches what was really scanned\n\n");
-    printf("    stalled  recall   mean cov   confidently wrong   coverage lies\n");
-    printf("    -------  ------   --------   -----------------   -------------\n");
+
+    /* WHY THIS IS NOT A RECALL THRESHOLD ANY MORE
+     * -------------------------------------------
+     * This used to assert two things that are not true of a correct system, and it failed because
+     * the system is correct.
+     *
+     * It asserted perfect recall with no nodes stalled. But a node is randomly given a reduced
+     * budget one time in five even at zero stalls, so part of the store is never examined, and a
+     * vector nobody looked at cannot be returned. Recall at zero stalls is 97%, and it SHOULD be.
+     *
+     * It then counted any wrong answer above 90% coverage as a fault. At 97% coverage roughly 3% of
+     * targets were not scanned, so about 3% of queries must come back wrong. Counting those as bugs
+     * makes the test fail precisely when the machine is behaving.
+     *
+     * The honest invariant is sharper than either, and it is exact rather than statistical:
+     *
+     *     scanned the target  ->  MUST return it
+     *     did not scan it     ->  MUST NOT return it
+     *
+     * The first catches a broken comparison or a bad merge. The second catches a node inventing a
+     * slot it never examined, which is the failure that would quietly poison every downstream
+     * answer. Neither has a tolerance, so a single violation fails the run.
+     *
+     * Recall and coverage are still printed side by side, because they should track each other and
+     * a divergence is the first sign something is wrong even when both invariants hold. */
+    printf("    stalled  recall   mean cov   missed after scan   found unscanned   cov lies\n");
+    printf("    -------  ------   --------   -----------------   ---------------   --------\n");
 
     const int steps[] = { 0, 3, 7, 14, 20, 27, 31 };
 
     for (unsigned s = 0; s < sizeof(steps) / sizeof(steps[0]); s++) {
         const int stalled = steps[s];
         uint32_t rng = 0x5EEDu + (uint32_t)stalled;
-        uint32_t hit = 0, conf_wrong = 0, cov_lies = 0, cov_sum = 0;
+        uint32_t hit = 0, cov_lies = 0, cov_sum = 0;
+        uint32_t missed_after_scan = 0, found_unscanned = 0;
 
         for (uint32_t t = 0; t < queries; t++) {
             const uint32_t target = hd_rand(&rng) % g_total;
@@ -275,6 +310,12 @@ static void claim23_degrade(uint32_t queries)
             hd_merge_begin(&m, (uint16_t)t);
             uint32_t truly_scanned = 0;
 
+            /* Track whether the one node that holds the target actually reached it. A shard is
+             * scanned from its own slot 0 upwards, so "reached" is simply whether the target's
+             * local index fell inside the count that node got through. */
+            const int owner = owner_of(target);
+            uint32_t owner_scanned = 0;                                /* 0 if the owner is silent */
+
             for (int n = 0; n < NODES; n++) {
                 if (dead & ((uint64_t)1u << n)) continue;               /* silent */
                 const uint16_t budget = (hd_rand(&rng) % 5u == 0u)
@@ -283,8 +324,12 @@ static void claim23_degrade(uint32_t queries)
                 hd_partial_t p;
                 ask_node(n, q, (uint16_t)t, budget, &p);
                 truly_scanned += p.scanned;
+                if (n == owner) owner_scanned = p.scanned;
                 hd_merge_add(&m, &p);
             }
+
+            const int target_scanned =
+                (owner >= 0) && ((target - (uint32_t)g_base[owner]) < owner_scanned);
 
             const int32_t got = hd_partial_slot(&m.best);
             const uint8_t cov = hd_merge_coverage(&m, g_total);
@@ -294,17 +339,21 @@ static void claim23_degrade(uint32_t queries)
             if (cov > truth + 1u) cov_lies++;          /* +1 for integer rounding, not slack  */
 
             if (got == (int32_t)target) hit++;
-            else if (cov >= 230u)       conf_wrong++;  /* 90% of memory searched and still wrong */
+
+            /* The two directions of the invariant. */
+            if (target_scanned && got != (int32_t)target) missed_after_scan++;
+            if (!target_scanned && got == (int32_t)target) found_unscanned++;
         }
 
-        printf("    %5d    %5.1f%%   %6.1f%%   %17u   %13u\n",
+        printf("    %5d    %5.1f%%   %6.1f%%   %17u   %15u   %8u\n",
                stalled, 100.0 * hit / queries, 100.0 * (cov_sum / (double)queries) / 255.0,
-               (unsigned)conf_wrong, (unsigned)cov_lies);
+               (unsigned)missed_after_scan, (unsigned)found_unscanned, (unsigned)cov_lies);
 
-        check(conf_wrong == 0, "claim 2", "a query was answered wrongly at high coverage");
-        check(cov_lies == 0,   "claim 3", "reported coverage exceeded what was scanned");
-        if (stalled == 0) check(hit == queries, "claim 2",
-                                "not everything was found with every node healthy");
+        check(missed_after_scan == 0, "claim 2",
+              "a node scanned the target and the merge still returned something else");
+        check(found_unscanned == 0, "claim 2",
+              "the merge returned a vector that no node ever examined");
+        check(cov_lies == 0, "claim 3", "reported coverage exceeded what was scanned");
     }
 }
 

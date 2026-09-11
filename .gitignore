@@ -52,3 +52,6 @@ Thumbs.db
 # 270 kB. build.sh regenerates them identically; this is insurance against the toolchain, not a
 # substitute for it.
 !firmware/bench-one/fpga/ddr3_ice40/bitstreams/*.bin
+
+# Host test build products. run_host_tests.sh regenerates them.
+.hosttest/

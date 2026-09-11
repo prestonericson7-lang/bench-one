@@ -52,6 +52,30 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
+/* ---- sleeping for a fraction of a second, without usleep -----------------------------------
+ *
+ * This file declares _POSIX_C_SOURCE 200809L, and POSIX.1-2008 **deleted** usleep. It had been
+ * deprecated since 2001. So calling it here was not a portability nicety, it was a bug: the
+ * declaration is hidden by the very macro at the top of this file, the compiler falls back to an
+ * implicit declaration, and the program links only because the symbol happens to survive in libc.
+ *
+ * It built anyway because build.sh uses -Wall -Wextra without -Werror, so the warning scrolled past
+ * on every build and nobody read it. On a target where the implicit `int` return convention differs
+ * from the real one, that is how a silent miscompile starts.
+ *
+ * nanosleep is the POSIX.1-2008 replacement, is declared under this macro, and restarts correctly
+ * when a signal interrupts it -- which usleep did not, and which matters here because the
+ * coordinator installs a handler for orderly shutdown. */
+static void sleep_us(long us)
+{
+    struct timespec ts;
+    ts.tv_sec  = us / 1000000L;
+    ts.tv_nsec = (us % 1000000L) * 1000L;
+    while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
+        /* nanosleep writes the remaining time back into ts, so this resumes rather than restarts. */
+    }
+}
+
 #include "bench_hdc.h"
 #include "bench_hdc_shard.h"
 #include "bench_hdc_deep.h"
@@ -104,7 +128,56 @@ static void send_all(uint8_t type, uint16_t qid, uint16_t label,
  * peer. The merge dedups by node id, so a duplicate is free, and a node that never answers is
  * simply never counted. Tracking outstanding peers would add state that can go stale and buy
  * nothing the coverage number does not already say. */
-static int collect(hd_merge_t *m, uint16_t qid, uint32_t window_ms)
+/* ===========================================================================================
+ * THE SHORTLIST -- what stage 2 is given to work with
+ * -------------------------------------------------------------------------------------------
+ * Stage 2 scores a list of candidates at full dimension. Something has to produce that list, and
+ * stage 1 already does without being asked: every node reports its own local winner, so one
+ * candidate per node falls out of the replies that are arriving anyway. No extra round trip, no
+ * protocol change.
+ *
+ * That is also exactly the right list rather than a convenient one. Stage 2 exists for the case
+ * where the GLOBAL stage-1 winner is wrong and the true answer was some other node's local winner
+ * -- a concept whose 8192-bit slice looks unremarkable while its full 90,112-bit vector is the
+ * closest thing in the cluster. Every such candidate is, by definition, some node's local best, so
+ * one per node captures all of them.
+ *
+ * Per-node MAX, like hd_merge_add, so a retry replaces a node's earlier partial answer instead of
+ * adding a second entry for the same node. Two entries for one node would be harmless for
+ * correctness -- stage 2 scores each candidate independently -- but it would waste a slot out of
+ * HD_MAX_K and shrink the shortlist for no reason.
+ * =========================================================================================*/
+typedef struct {
+    uint16_t k;
+    uint32_t cand[HD_MAX_K];
+    uint32_t dist[HD_MAX_K];       /* the stage-1 distance, kept only to pick the per-node best */
+    uint16_t node[HD_MAX_K];
+} shortlist_t;
+
+static void sl_begin(shortlist_t *sl) { sl->k = 0; }
+
+static void sl_offer(shortlist_t *sl, const hd_partial_t *p)
+{
+    if (!sl) return;
+    if (p->best_local == 0xFFFFu) return;                   /* the node scanned nothing */
+    const uint32_t slot = (uint32_t)p->base + p->best_local;
+
+    for (uint16_t i = 0; i < sl->k; i++) {
+        if (sl->node[i] != p->node) continue;
+        if (p->best_dist < sl->dist[i]) {                   /* a fuller retry beat its own earlier answer */
+            sl->cand[i] = slot;
+            sl->dist[i] = p->best_dist;
+        }
+        return;
+    }
+    if (sl->k >= HD_MAX_K) return;                          /* more nodes than the protocol carries */
+    sl->cand[sl->k] = slot;
+    sl->dist[sl->k] = p->best_dist;
+    sl->node[sl->k] = p->node;
+    sl->k++;
+}
+
+static int collect(hd_merge_t *m, uint16_t qid, uint32_t window_ms, shortlist_t *sl)
 {
     const uint64_t deadline = now_us() + (uint64_t)window_ms * 1000u;
     int counted = 0;
@@ -133,6 +206,7 @@ static int collect(hd_merge_t *m, uint16_t qid, uint32_t window_ms)
         if (!hd_partial_unpack(&p, buf + QUERY_HDR)) continue;   /* malformed: drop, not merge */
         if (p.query_id != qid) continue;                        /* late answer to an old ask  */
 
+        sl_offer(sl, &p);
         counted += hd_merge_add(m, &p);
     }
     return counted;
@@ -151,9 +225,10 @@ static int collect(hd_merge_t *m, uint16_t qid, uint32_t window_ms)
  * =========================================================================================*/
 static int query_cluster(hd_merge_t *m, const hd_t v, uint16_t qid,
                          uint32_t window_ms, uint32_t cov_target_pct, int max_rounds,
-                         int *rounds_used)
+                         int *rounds_used, shortlist_t *sl)
 {
     hd_merge_begin(m, qid);
+    if (sl) sl_begin(sl);
     int counted = 0;
 
     for (int round = 0; round < max_rounds; round++) {
@@ -169,7 +244,7 @@ static int query_cluster(hd_merge_t *m, const hd_t v, uint16_t qid,
         if (rounds_used) (*rounds_used)++;
         if (!asked) break;
 
-        counted += collect(m, qid, window_ms);
+        counted += collect(m, qid, window_ms, sl);
 
         if (m->best.total &&
             (uint32_t)m->best.scanned * 100u >= (uint32_t)m->best.total * cov_target_pct)
@@ -230,7 +305,7 @@ static int deep_pass(hd_deep_t *d, const hd_t v, uint16_t qid,
 int main(int argc, char **argv)
 {
     const char *peers = NULL;
-    int self_test = 0, teach = 0, bench = 0;
+    int self_test = 0, teach = 0, bench = 0, deep = 0;
     uint32_t window_ms = 120;
 
     for (int i = 1; i < argc; i++) {
@@ -239,6 +314,23 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--window") && i + 1 < argc) window_ms = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--teach")  && i + 1 < argc) teach = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--bench")  && i + 1 < argc) bench = atoi(argv[++i]);
+        /* Stage 2 is OPT-IN, and under the sharding this cluster actually uses it CANNOT CHANGE
+         * THE ANSWER. Measured, not assumed: tests/deep_test.c claim 5, 300 queries, zero
+         * differences.
+         *
+         * bench_hdc_deep.h was written for a BIT-sliced cluster, where every node holds a slice of
+         * the bits of every concept and the true distance exists only as a sum. build.sh and
+         * hdc_node.c build a ROW-sharded one instead: each node holds different whole concepts at
+         * full width, with its own --base. hd_deep_score correctly gives a candidate the maximum
+         * distance on any node that does not hold it, but every candidate is held by exactly one
+         * node, so every candidate collects the same number of maxima. The sum is stage 1's
+         * distance plus a constant, and a constant cannot reorder anything.
+         *
+         * That is why deep_pass() sat uncalled: it was written for a cluster shape this project
+         * does not currently build. The flag is kept because the code is correct and the day this
+         * memory is bit-sliced it becomes necessary, and because leaving a whole subsystem
+         * unreferenced is how it rots. It prints what it is rather than implying a benefit. */
+        else if (!strcmp(argv[i], "--deep")) deep = 1;
         else if (!strcmp(argv[i], "--self-test")) self_test = 1;
         else {
             fprintf(stderr,
@@ -279,9 +371,9 @@ int main(int argc, char **argv)
             uint32_t s = 0xBEEF0000u + (uint32_t)i;
             hd_random(v, &s);                     /* derived, so any node can regenerate it */
             send_all(MSG_STORE, ++qid, (uint16_t)i, 0, v, i % g_npeers);
-            if ((i % 64) == 63) usleep(2000);     /* let the receivers drain their sockets */
+            if ((i % 64) == 63) sleep_us(2000);   /* let the receivers drain their sockets */
         }
-        usleep(200000);
+        sleep_us(200000);
         printf("taught %d concepts (one shot each, no training loop)\n", teach);
     }
 
@@ -302,9 +394,10 @@ int main(int argc, char **argv)
             }
 
             hd_merge_t m;
+            shortlist_t sl;
             int rounds = 0;
             const uint64_t t0 = now_us();
-            const int got = query_cluster(&m, v, ++qid, window_ms, 97, 3, &rounds);
+            const int got = query_cluster(&m, v, ++qid, window_ms, 97, 3, &rounds, &sl);
             const uint64_t dt = now_us() - t0;
 
             printf("  concept %d + 20%% noise -> slot %ld  dist %lu/%d  "
@@ -312,6 +405,41 @@ int main(int argc, char **argv)
                    trial, (long)hd_partial_slot(&m.best),
                    (unsigned long)m.best.best_dist, HD_BITS,
                    got, g_npeers, (unsigned long long)dt, (unsigned)m.dupes);
+
+            /* ---- stage 2, if asked for -----------------------------------------------------
+             * Every node rescores the whole shortlist against its own slice and the partials are
+             * summed, which makes the total the TRUE distance at HD_BITS * nodes wide. Stage 1
+             * compared 8192-bit slices; this compares the full 90,112.
+             *
+             * hd_deep_ready() is checked rather than trusted: a missing slice makes every
+             * candidate look closer, so a candidate scored by nine nodes would beat one scored by
+             * eleven. A partial deep result is refused outright instead of reported with a
+             * caveat -- it is the one way this design could be confidently wrong. */
+            if (deep && sl.k) {
+                if (trial == 0)
+                    printf("      (--deep re-scores at full width. Under ROW sharding it cannot\n"
+                           "       change the answer -- see tests/deep_test.c claim 5. It is\n"
+                           "       here to exercise the path, not to improve recall.)\n");
+                hd_deep_t d;
+                const uint64_t d0 = now_us();
+                const int complete = deep_pass(&d, v, ++qid, sl.cand, sl.k, window_ms);
+                const uint64_t ddt = now_us() - d0;
+
+                if (!complete) {
+                    printf("      deep: REFUSED -- only some slices reported, so the sums are "
+                           "not comparable (%u candidates, %llu us)\n",
+                           (unsigned)sl.k, (unsigned long long)ddt);
+                } else {
+                    uint32_t dist = 0, margin_q8 = 0;
+                    const int32_t win = hd_deep_best(&d, &dist, &margin_q8);
+                    printf("      deep: slot %ld  dist %lu/%d  margin %.1f sigma  "
+                           "%u candidates  %llu us%s\n",
+                           (long)win, (unsigned long)dist, HD_BITS * g_npeers,
+                           margin_q8 / 256.0, (unsigned)sl.k,
+                           (unsigned long long)ddt,
+                           (win == hd_partial_slot(&m.best)) ? "" : "   <-- CHANGED the answer");
+                }
+            }
         }
 
         printf("\n--- something never taught ---------------------------------------\n");
@@ -320,7 +448,7 @@ int main(int argc, char **argv)
         hd_merge_t m;
         hd_merge_begin(&m, ++qid);
         send_all(MSG_QUERY, qid, 0, (uint16_t)window_ms, v, -1);
-        const int got = collect(&m, qid, window_ms);
+        const int got = collect(&m, qid, window_ms, NULL);
         printf("  novel vector -> nearest dist %lu (orthogonal is %d)\n",
                (unsigned long)m.best.best_dist, HD_BITS / 2);
         printf("  scanned %u concepts across %d/%d nodes\n",
@@ -342,7 +470,7 @@ int main(int argc, char **argv)
             hd_merge_t m;
             int rounds = 0;
             const uint64_t t0 = now_us();
-            const int got = query_cluster(&m, v, ++qid, window_ms, 97, 3, &rounds);
+            const int got = query_cluster(&m, v, ++qid, window_ms, 97, 3, &rounds, NULL);
             const uint64_t dt = now_us() - t0;
             tot += dt;
             if (dt > worst) worst = dt;

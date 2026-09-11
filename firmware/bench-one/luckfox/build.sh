@@ -21,6 +21,10 @@
 #      ./build.sh deploy 10.0.0.20 ...     # compile, then push to each address in order
 #      ./build.sh start  10.0.0.20 ...     # start the daemon on each
 #      ./build.sh stat   10.0.0.20 ...     # ask each how it is doing
+#
+#  The coordinator's second stage is opt-in:
+#      ./build/hdc_coord --peers ... --self-test --deep
+#  It rescores stage 1's shortlist at the full 90,112 bits and costs one extra round trip.
 # ===========================================================================================
 
 set -u
@@ -63,12 +67,21 @@ mkdir -p "$OUT"
 # unrolling buys nothing and costs I-cache on a 32 KB L1.
 CFLAGS="-O2 -std=c99 -Wall -Wextra -Wformat=2 -ffunction-sections -fdata-sections"
 LDFLAGS="-Wl,--gc-sections"
+# The three files BOTH programs need: the vector primitives, the sharded scan and merge, and the
+# deep second stage.
 SRC_COMMON="$SHARED/bench_hdc.c $SHARED/bench_hdc_shard.c $SHARED/bench_hdc_deep.c"
 
+# The node needs three more, and leaving them out is why `./build.sh` used to stop with three
+# undefined references -- pb_read, pb_open and dream_init -- before it had built anything at all.
+# The node paged vectors out of PSRAM and ran consolidation while idle for as long as this script
+# has existed, and the script never listed either file. The coordinator does neither, so it keeps
+# the shorter list and --gc-sections has less to throw away.
+SRC_NODE="psram_bank.c $SHARED/bench_dream.c $SHARED/bench_index.c"
+
 echo "building  : hdc_node"
-$CC $CFLAGS -I"$SHARED" -o "$OUT/hdc_node"  hdc_node.c  $SRC_COMMON $LDFLAGS || exit 1
+$CC $CFLAGS -I. -I"$SHARED" -o "$OUT/hdc_node"  hdc_node.c  $SRC_COMMON $SRC_NODE $LDFLAGS || exit 1
 echo "building  : hdc_coord"
-$CC $CFLAGS -I"$SHARED" -o "$OUT/hdc_coord" hdc_coord.c $SRC_COMMON $LDFLAGS || exit 1
+$CC $CFLAGS -I. -I"$SHARED" -o "$OUT/hdc_coord" hdc_coord.c $SRC_COMMON $LDFLAGS || exit 1
 
 for b in hdc_node hdc_coord; do
     printf '  %-10s %s bytes\n' "$b" "$(wc -c < "$OUT/$b")"

@@ -121,7 +121,10 @@ void     hd_bind   (hd_t out, const hd_t a, const hd_t b);
 /* PERMUTE: rotate the whole vector by `shift` bits. This is what encodes ORDER. Without it a
  * sequence is just a set and 'ab' is indistinguishable from 'ba'. Rotation is invertible
  * (shift by -k undoes +k) and it produces a vector orthogonal to the original, which is
- * exactly the behaviour position information needs. */
+ * exactly the behaviour position information needs.
+ *
+ * NOT SAFE IN PLACE: `out` and `in` must be different buffers. Aliasing them returns a plausible
+ * wrong answer with no warning. */
 void     hd_permute(hd_t out, const hd_t in, int32_t shift);
 
 /* Similarity. Hamming distance in bits: 0 = identical, HD_BITS/2 = unrelated (orthogonal),

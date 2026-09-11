@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**422 tracked files.** This page exists so you never have to guess which directory something is in.
+**424 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -36,7 +36,7 @@ If you know what you want, use the table. If you do not, start at
 
 ```
 docs/         36 numbered documents + 11 research files    the engineering record
-firmware/     319 files                                    everything that runs on a board
+firmware/     321 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -81,10 +81,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 153 files
+### `bench-one/tests/` — 155 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **15 experiment directories, 35 C programs, 69 result logs.**
+cross-compiled programs. **15 experiment directories, 36 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
@@ -92,6 +92,8 @@ cross-compiled programs. **15 experiment directories, 35 C programs, 69 result l
 | `ddr3_spd_teensy/` | reads a DIMM's identity EEPROM, unpowered. Step zero of the DDR3 work |
 | **`offload_teensy/`** | **does taking work off a Teensy make its memory faster?** Five cases isolating compute, memory, eDMA overlap and the cost of link handling |
 | **`usblink_bench/`** | **how fast can a Luckfox feed a Teensy?** The unmeasured number that decides whether the Luckfox is a helper or a bottleneck. Both halves, host side cross-compiled |
+| **`run_host_tests.sh`** | **builds and RUNS every self-verifying test.** Correctness only, never speed. Until this existed none of them linked, so nothing had ever been run |
+| `deep_test.c` | the second recall stage, proven without hardware — including that under row sharding it cannot change the answer |
 | `psram_bank_teensy/` | the banked PSRAM array and its chip-select decode |
 | `psram_teensy/` | one PSRAM chip |
 | `can_bus_teensy/` | the control plane |

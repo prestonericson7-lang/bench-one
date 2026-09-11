@@ -149,6 +149,16 @@ int32_t hd_sim_q10(const hd_t a, const hd_t b)
  * `out` must not alias `in`. The wrap is across the entire vector, not per word -- a per-word
  * rotation would leave 256 independent little permutations and two different positions could
  * collide, which quietly destroys the order information this exists to provide. */
+/* NOT SAFE IN PLACE. `out` and `in` must be different buffers.
+ *
+ * Every output word is built from input words at other indices, so writing into the input as it is
+ * read corrupts the words not yet consumed. It does not fault and it does not warn: it returns a
+ * plausible vector that is simply wrong, which then gets stored and compared like any other. This
+ * cost a debugging session in born_test, where undoing a rotation in place produced a vector 4086
+ * bits from the original and looked exactly like time being lossy.
+ *
+ * A guard is not free here -- shadowing the input needs a full 1 KB buffer, and this runs on parts
+ * where that is a meaningful share of the stack -- so the contract is stated instead of enforced. */
 void hd_permute(hd_t out, const hd_t in, int32_t shift)
 {
     int32_t s = shift % (int32_t)HD_BITS;

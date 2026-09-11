@@ -179,6 +179,16 @@ void gguf_quantize_act(const float *x, uint64_t n, int8_t *xq, float *xs);
  * Returns the same value gguf_dequant + a float dot would, within rounding. */
 float gguf_dot_q(uint32_t type, const void *raw, const int8_t *xq, const float *xs, uint64_t n);
 
+/* Force the portable scalar kernels even on a host that has a vector path.
+ *
+ * Exists so one binary can run both and prove they agree. The vector version reduces the same
+ * integer products in a different order, and integer addition is associative, so the two must be
+ * BIT IDENTICAL rather than merely close. A vector kernel that is only close has a bug in it. */
+void gguf_dot_force_scalar(int on);
+
+/* Which kernel this build will actually use, for reporting. */
+const char *gguf_dot_kernel(void);
+
 /* Q4_K packs eight 6-bit scales and eight 6-bit minimums into twelve bytes, asymmetrically. Exposed
  * because both the dequantizer and the fused dot need it and a second copy of this bit arithmetic
  * would drift from the first. */

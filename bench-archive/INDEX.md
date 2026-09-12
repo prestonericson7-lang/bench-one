@@ -40,3 +40,4 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-081953 | psram_worker | 36f11b6+dirty | 133 | USB echo guarded, no interrupt masking |
 | 20260912-085159 | psram_worker | d753533+dirty | 133 | batch cap 64 |
 | 20260912-095331 | psram_worker | 9900f25+dirty | 0 | USB accepted as a second command source |
+| 20260912-102304 | psram_worker | fdb5088+dirty | 0 | chain firmware: non-blocking relay, leaf port, 4kB buffers |

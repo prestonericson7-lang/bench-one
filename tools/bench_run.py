@@ -78,7 +78,15 @@ def main():
     if r.returncode != 0:
         sys.stdout.write(r.stdout[-4000:])
         sys.stderr.write(r.stderr[-4000:])
-        sys.exit("build failed; nothing flashed, board untouched")
+        # Take the directory back out. A failed build leaves it empty, and an empty directory in the
+        # archive is a run that never happened claiming a slot -- it makes the index lie and it makes the
+        # archive verifier report a backup-shaped hole where there is simply nothing.
+        try:
+            if not os.listdir(outdir):
+                os.rmdir(outdir)
+        except OSError:
+            pass
+        sys.exit("build failed; nothing flashed, board untouched, archive slot released")
 
     hexes = [f for f in os.listdir(outdir) if f.endswith(".hex")]
     if not hexes:

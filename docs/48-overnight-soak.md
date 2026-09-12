@@ -463,3 +463,32 @@ Three rounds of numbers survived where previously there would have been none. If
 the checkpoint line says so on the line itself, so a partial result cannot be mistaken for a clean one.
 
 Those figures are the stub's fiction. No hardware was involved and this is not a performance change.
+
+---
+
+## 11:40 — fifth cycle with no hardware; the backup itself checked for the first time
+
+Neither board enumerates. One thing worth doing rather than more harness padding: the hard rule here is that
+the exact image flashed for every run is kept so any state the board has been in is one file away, and
+**nothing had ever checked those files.** The plan for the next window is "reflash from the run whose upload
+was interrupted", which is a plan resting on a file nobody has verified.
+
+Intel HEX is self-describing, so it can be checked without a board: record byte counts against payload
+length, every checksum, and the end-of-file record that a truncated write loses first.
+
+| | |
+|---|---|
+| archived runs | 40 |
+| images verified | 40 |
+| bad | 0 |
+| with logs but no image | 0 |
+| payload range | 61,440 to 107,520 bytes |
+
+**The image the next window needs is intact.** The backup promise holds.
+
+The check did find one blemish: a directory in the archive with nothing in it at all, the signature of a
+build that failed before producing anything. Benign, but it made the index claim a run that never happened.
+`bench_run.py` now releases the slot when a build fails, and the verifier distinguishes an empty directory
+from the genuinely alarming case of logs with no image.
+
+No hardware, no measurement, no performance change.

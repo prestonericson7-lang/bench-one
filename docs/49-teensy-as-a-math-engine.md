@@ -37,8 +37,11 @@ pass rather than as a bandwidth ceiling.
 
 | bit width | weights a byte | MMAC/s over 7 banks | MB/s |
 |---|---|---|---|
-| 4-bit | 2 | 6.56 | 3.28 |
-| 2-bit | 4 | 12.84 | 3.21 |
+| 4-bit | 2 | 7.41 | 3.71 |
+| 2-bit | 4 | 14.48 | 3.62 |
+
+*(First measured at 6.56 and 12.84; docs/48 records the read-command change and the compiler-unrolling
+fault that together took it to these figures.)*
 
 The bus moves bytes, and a byte costs the same whatever is packed into it, so the only lever left after
 the clock, the burst and the instruction count have all been exhausted is weights per byte. The 2-bit
@@ -101,8 +104,10 @@ dead in every mode.
 
 | bank | mode | read MB/s |
 |---|---|---|
-| CS0, CS1 | quad | 9.70 |
-| Y0, Y1, Y2, Y3, Y5 | single-bit | 2.59 |
+| CS0 | quad | 10.17 |
+| CS1 | quad | 8.91 |
+| Y0, Y1, Y2 | single-bit 0x0B | 2.91 |
+| Y3, Y5 | single-bit 0x0B | 3.06–3.11 |
 | Y4 | — | does not read in any mode |
 
 56 MB addressable instead of 16. One bit a clock is a quarter of the bits, and a quarter of the bits
@@ -116,18 +121,18 @@ the average. Filling the fast banks first and stopping is worth a factor of thre
 
 | model size | banks used | seconds a pass | effective MB/s |
 |---|---|---|---|
-| 8 MB | 1 | 0.82 | 9.70 |
-| 16 MB | 2 | 1.65 | 9.70 |
-| 24 MB | 3 | 4.74 | 5.07 |
-| 32 MB | 4 | 7.82 | 4.09 |
-| 40 MB | 5 | 10.91 | 3.67 |
-| 48 MB | 6 | 13.99 | 3.43 |
-| 56 MB | 7 | 17.08 | 3.28 |
+| 8 MB | 1 | 0.79 | 10.17 |
+| 16 MB | 2 | 1.68 | 9.50 |
+| 24 MB | 3 | 4.26 | 5.64 |
+| 32 MB | 4 | 6.87 | 4.65 |
+| 40 MB | 5 | 9.62 | 4.16 |
+| 48 MB | 6 | 12.37 | 3.88 |
+| 56 MB | 7 | 15.11 | 3.71 |
 
 This is the same load-balance result this project already measured on the render fleet, arriving from a
 different direction: equal shares waste the fast nodes.
 
-At 16 MB in quad mode the rate is **19.04 MMAC/s at 4 bits and 35.41 MMAC/s at 2 bits** — also verified
+At 16 MB in quad mode the rate is **19.00 MMAC/s at 4 bits and 35.78 MMAC/s at 2 bits** — also verified
 bit-identical. So there are two operating points and the model size picks between them.
 
 ## Two bugs worth keeping on the record

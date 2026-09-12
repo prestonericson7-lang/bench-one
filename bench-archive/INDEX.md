@@ -22,3 +22,7 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-031413 | psram_worker | 89b0acd+dirty | 133 | switchable pad configuration on the data lines |
 | 20260912-031646 | psram_worker | 89b0acd+dirty | 133 | single-bit read path for the external banks |
 | 20260912-031843 | psram_worker | 89b0acd+dirty | 133 | full single-bit mode, both directions |
+| 20260912-033143 | psram_worker | 4fe1332+dirty | 133 | 0x0B fast-read single-bit path, candidate optimisation |
+| 20260912-033656 | psram_worker | 4fe1332+dirty | 133 | bus loops in ITCM so their timing stops depending on code layout |
+| 20260912-034015 | psram_worker | 4fe1332+dirty | 133 | finer timing table, ITCM move reverted |
+| 20260912-034712 | psram_worker | 4fe1332+dirty | 133 | diagnostic tail removed to restore the unrolled payload loop |

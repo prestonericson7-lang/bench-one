@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-033656",
+  "sketch": "psram_worker",
+  "git": "4fe1332",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "bus loops in ITCM so their timing stops depending on code layout",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 279480
+}

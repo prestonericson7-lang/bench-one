@@ -1,3 +1,26 @@
+/* HOW MANY INSTANTIATIONS THIS FILE CAN AFFORD, AND WHY THAT IS A TIMING QUESTION.
+ *
+ * Adding the 0x0B read path cost the two quad banks 21% on a setting that had not changed: at write 8,
+ * read 8, burst 64 the same chip went from 9.70 MB/s to 7.71, with a bit-identical partial sum. It was
+ * not the wiring, the clock, the burst or the code placement -- both builds put these loops in ITCM and
+ * both keep the buffers in DTCM. It was the compiler.
+ *
+ * The symbol table says it outright. bread<8> is 0x29C bytes in the fast build and 0x244 in the slow
+ * one, from identical source. GCC unrolls the payload loop when the translation unit is small enough to
+ * justify it and stops when it is not, and the unrolled form is 21% faster. So every template
+ * instantiation added anywhere in this file is a change to the timing of every bus loop in it.
+ *
+ * That is docs/41 again at a larger scale: a no-op count is a timing specification for one exact
+ * instruction sequence, and here the compiler rewrote the sequence in response to code that has nothing
+ * to do with it. It is also why FASTRUN did not help -- these were already in ITCM, so there was never a
+ * fetch penalty to remove.
+ *
+ * The practical rule: keep the number of instantiations down, and treat adding one as a timing change
+ * that requires requalification. The diagnostic tail of 32 to 128 no-ops has done its job -- it proved
+ * that slowing down does not rescue a bank that will not read -- and it costs 25 instantiations, so it
+ * is gone.
+ */
+
 /* BUS-VARIANT: the burst asserts chip select and then waits g_csu no-ops before the first clock
  * edge, which no other sketch in the tree does. The six banks behind the 74LVC138A answer the slow
  * identity probe and return all zeroes to every fast transfer at every timing setting, and the reason
@@ -90,8 +113,10 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *    T <wi> <ri> <burst>     set write index, read index and burst for the selected bank
  *    U <nops>                chip-select setup: no-ops between asserting select and the first clock
  *    D <n>                   wait cycles after the read address, before the first data nibble
- *    Q <mode>                bus mode: 0 quad on four lines, 1 single-bit. Takes effect at the
- *                            next B, because it decides whether the chip is put into quad mode.
+ *    Q <mode>                bus mode: 0 quad on four lines, 1 single-bit with command 0x03,
+ *                            2 single-bit with the fast-read command 0x0B. Takes effect at the next
+ *                            B, because it decides whether the chip is put into quad mode.
+ *    J <n>                   wait cycles for the 0x0B fast read
  *    K <mode>                pad configuration for the four data lines: 0 the core default,
  *                            1 keeper off, 2 keeper off and hysteresis on, 3 as 2 plus a pull-up
  *    N <tag>                 tag the pattern, so each bank can be filled with data only it should
@@ -165,6 +190,7 @@ static inline void cs_setup(void)
  * the payload loop. The sweep settled it at six: the onboard banks are clean at six and totally wrong
  * at four, five, seven, eight and ten, and no other value helps any bank. */
 static uint32_t g_dummy = 6;
+static uint32_t g_dummy1 = 8;           /* wait cycles for the 0x0B fast read */
 
 /* WHAT THE PAD DOES WHILE IT IS LISTENING.
  *
@@ -303,6 +329,48 @@ template <int S> static void bwrite1(uint32_t a, const uint8_t *src, uint32_t le
         a += n; src += n; len -= n;
     }
 }
+/* 0x0B RATHER THAN 0x03, BECAUSE 0x03 IS THE SLOW ONE.
+ *
+ * Five of the seven usable banks read one bit to the clock, and they are the whole critical path: the
+ * two quad banks finish a megabyte in 103 ms and the five single-bit ones take 386 ms each. Anything
+ * that moves that number moves the machine.
+ *
+ * Command 0x03 is specified to 33 MHz on this part and has no wait cycles. 0x0B is the same read with
+ * wait cycles after the address, and exists precisely so the clock can go faster than 0x03 allows --
+ * the wait gives the array time to deliver the first byte instead of requiring a slow clock throughout.
+ * It costs eight clocks once per burst and may buy a faster clock on every one of the 128 payload
+ * clocks after it.
+ *
+ * Whether it actually does is a measurement, not an argument: the wait count is swept and so is the
+ * clock, and the only thing accepted is a full-span read-back with zero wrong bytes. The quad read
+ * already uses a wait count from the same datasheet table and the sweep confirmed its value exactly,
+ * which is the reason to trust the table enough to try this at all. */
+template <int S> static void bread1f(uint32_t a, uint8_t *d, uint32_t len)
+{
+    while (len) {
+        const uint32_t n = (len > g_burst) ? g_burst : len;
+        bus_out();
+        const uint32_t b = cbase() | (1u << 28) | (1u << 29);
+        GPIO9_DR = b; cs_setup();
+        s_byte<S>(b, 0x0B);
+        s_byte<S>(b, (uint8_t)(a >> 16)); s_byte<S>(b, (uint8_t)(a >> 8)); s_byte<S>(b, (uint8_t)a);
+        GPIO9_GDIR &= ~(1u << 27);
+        for (uint32_t k = 0; k < g_dummy1; k++)
+            { GPIO9_DR = b | B_CLK; spin<S>(); GPIO9_DR = b; spin<S>(); }
+        for (uint32_t i = 0; i < n; i++) {
+            uint8_t v = 0;
+            for (int k = 0; k < 8; k++) {
+                GPIO9_DR = b | B_CLK; spin<S>();
+                v = (uint8_t)((v << 1) | ((GPIO9_PSR >> 27) & 1u));
+                GPIO9_DR = b;         spin<S>();
+            }
+            d[i] = v;
+        }
+        GPIO9_DR = idle; bus_out();
+        a += n; d += n; len -= n;
+    }
+}
+
 template <int S> static void bread1(uint32_t a, uint8_t *d, uint32_t len)
 {
     while (len) {
@@ -327,38 +395,44 @@ template <int S> static void bread1(uint32_t a, uint8_t *d, uint32_t len)
     }
 }
 
-static const int NOPS[] = { 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 32, 48, 64, 96, 128 };
+static const int NOPS[] = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24 };
 #define NSET (sizeof(NOPS) / sizeof(NOPS[0]))
 static void (*const WF[NSET])(uint32_t, const uint8_t *, uint32_t) = {
-    bwrite<4>, bwrite<5>, bwrite<6>, bwrite<8>, bwrite<10>,
-    bwrite<12>, bwrite<14>, bwrite<16>, bwrite<20>, bwrite<24>,
-    bwrite<32>, bwrite<48>, bwrite<64>, bwrite<96>, bwrite<128> };
+    bwrite<4>, bwrite<5>, bwrite<6>, bwrite<7>, bwrite<8>, bwrite<9>, bwrite<10>,
+    bwrite<11>, bwrite<12>, bwrite<13>, bwrite<14>, bwrite<16>, bwrite<18>,
+    bwrite<20>, bwrite<24> };
 static void (*const RQ[NSET])(uint32_t, uint8_t *, uint32_t) = {
-    bread<4>, bread<5>, bread<6>, bread<8>, bread<10>,
-    bread<12>, bread<14>, bread<16>, bread<20>, bread<24>,
-    bread<32>, bread<48>, bread<64>, bread<96>, bread<128> };
+    bread<4>, bread<5>, bread<6>, bread<7>, bread<8>, bread<9>, bread<10>,
+    bread<11>, bread<12>, bread<13>, bread<14>, bread<16>, bread<18>,
+    bread<20>, bread<24> };
 static void (*const R1[NSET])(uint32_t, uint8_t *, uint32_t) = {
-    bread1<4>, bread1<5>, bread1<6>, bread1<8>, bread1<10>,
-    bread1<12>, bread1<14>, bread1<16>, bread1<20>, bread1<24>,
-    bread1<32>, bread1<48>, bread1<64>, bread1<96>, bread1<128> };
+    bread1<4>, bread1<5>, bread1<6>, bread1<7>, bread1<8>, bread1<9>, bread1<10>,
+    bread1<11>, bread1<12>, bread1<13>, bread1<14>, bread1<16>, bread1<18>,
+    bread1<20>, bread1<24> };
 
 static void (*const W1[NSET])(uint32_t, const uint8_t *, uint32_t) = {
-    bwrite1<4>, bwrite1<5>, bwrite1<6>, bwrite1<8>, bwrite1<10>,
-    bwrite1<12>, bwrite1<14>, bwrite1<16>, bwrite1<20>, bwrite1<24>,
-    bwrite1<32>, bwrite1<48>, bwrite1<64>, bwrite1<96>, bwrite1<128> };
+    bwrite1<4>, bwrite1<5>, bwrite1<6>, bwrite1<7>, bwrite1<8>, bwrite1<9>, bwrite1<10>,
+    bwrite1<11>, bwrite1<12>, bwrite1<13>, bwrite1<14>, bwrite1<16>, bwrite1<18>,
+    bwrite1<20>, bwrite1<24> };
 
-static uint8_t g_rmode;                 /* 0 quad, 1 single-bit */
+static void (*const RZ[NSET])(uint32_t, uint8_t *, uint32_t) = {
+    bread1f<4>, bread1f<5>, bread1f<6>, bread1f<7>, bread1f<8>, bread1f<9>, bread1f<10>,
+    bread1f<11>, bread1f<12>, bread1f<13>, bread1f<14>, bread1f<16>, bread1f<18>,
+    bread1f<20>, bread1f<24> };
+
+static uint8_t g_rmode;                 /* 0 quad, 1 single-bit 0x03, 2 single-bit 0x0B */
 
 /* One place decides how a bank is read, so what the sweep timed is what the work runs. */
 static inline void do_read(uint32_t a, uint8_t *d, uint32_t len)
 {
-    if (g_rmode) R1[g_ri](a, d, len);
-    else         RQ[g_ri](a, d, len);
+    if (g_rmode == 2)      RZ[g_ri](a, d, len);
+    else if (g_rmode == 1) R1[g_ri](a, d, len);
+    else                   RQ[g_ri](a, d, len);
 }
 
 static inline void do_write(uint32_t a, const uint8_t *src, uint32_t len)
 {
-    if (g_rmode) W1[g_wi](a, src, len);
+    if (g_rmode) W1[g_wi](a, src, len);      /* both single-bit modes write with 0x02 */
     else         WF[g_wi](a, src, len);
 }
 
@@ -702,8 +776,21 @@ static void handle(const char *c)
     }
 
     case 'Q': case 'q': {
-        g_rmode = (uint8_t)arg(c, 1) ? 1 : 0;
+        {
+            const long m = arg(c, 1);
+            g_rmode = (uint8_t)((m < 0 || m > 2) ? 0 : m);
+        }
         snprintf(out, sizeof(out), "Q %u", g_rmode);
+        say(out);
+        break;
+    }
+
+    case 'J': case 'j': {
+        long d = arg(c, 1);
+        if (d < 0)  d = 0;
+        if (d > 32) d = 32;
+        g_dummy1 = (uint32_t)d;
+        snprintf(out, sizeof(out), "J %lu", (unsigned long)g_dummy1);
         say(out);
         break;
     }

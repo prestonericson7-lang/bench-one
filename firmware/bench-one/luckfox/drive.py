@@ -68,8 +68,16 @@ LOGDIR = "/root/bench-logs"
 # The worker's timing table, in the worker's order: no-op counts inside the nibble loop, so a bigger
 # number is a slower clock. Everything past index 9 exists only to have proved that slowing down is not
 # the answer to a bank that will not read.
-NOPS = [4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 32, 48, 64, 96, 128]
-USABLE = 10                      # indices past this are diagnostic, never chosen for real work
+# Odd values are in here deliberately. With steps of two the sweep had to take whatever entry happened
+# to fall inside a bank's window and paid for the distance to its edge, and that showed up as a 5% swing
+# on the quad banks from nothing but a code-layout change elsewhere in the file. Filling in the gaps lets
+# the sweep express where the edge actually is.
+# The diagnostic tail of 32 to 128 no-ops is gone from the worker. It proved that slowing down does not
+# rescue a bank that will not read, and it cost 25 template instantiations -- which on this target is a
+# timing change, because GCC stops unrolling the payload loop when the file grows and the unrolled form
+# is 21% faster. Every entry in this table is paid for in the speed of every other one.
+NOPS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24]
+USABLE = 15
 
 # tCEM. The PSRAM is DRAM inside and refreshes only while chip select is HIGH, so a burst is bounded by
 # how long it holds chip select low and not by anything about the clock. 8 us is the datasheet limit and
@@ -90,7 +98,17 @@ SAFE_BURST = 16
 # and do not care. 16 no-ops is 27 nanoseconds, so it is tried second and only kept if it earns it.
 SETUPS = [0, 16]
 
-MODES = [(0, "quad"), (1, "single")]
+# Three ways to read a byte, and which is fastest is a property of the individual chip.
+#
+# Quad is four bits to the clock and always wins where it works, so it is tried first and nothing else
+# is tried after it succeeds. The two single-bit modes differ only in the command: 0x03 is specified to
+# 33 MHz and has no wait cycles, 0x0B adds eight wait cycles after the address so the clock may go
+# faster. Measured over 256 kB, 0x0B is worth 1.19 to 1.21x on Y1, Y3 and Y5 and 0.95x on Y0 and Y2 --
+# the eight extra clocks cost more than the clock gained when the clock does not actually improve. So
+# both are measured per bank and each bank keeps its own winner. Taking the first mode that merely works
+# would hand three banks a 20% loss.
+MODES = [(0, "quad"), (1, "single 0x03"), (2, "single 0x0B")]
+WAITS_0B = 8                    # the datasheet value for 0x0B; swept and confirmed on the hardware
 
 SEL_CS0, SEL_CS1, SEL_DEC = 0, 1, 2
 ROUTES = [(SEL_CS0, 0, "CS0"), (SEL_CS1, 0, "CS1")] + \
@@ -194,8 +212,10 @@ def discover(link, say):
 def select(link, kind, y, setting):
     """Put a bank in force. The bus mode is set BEFORE the select, because the select is what decides
     whether the chip is given the command that puts it into quad mode."""
-    mode, wi, ri, nb, su = setting
+    mode, wi, ri, nb, su = setting[:5]
     link.ask("Q %d" % mode, timeout=30.0)
+    if mode == 2:
+        link.ask("J %d" % WAITS_0B, timeout=30.0)
     link.ask("U %d" % su, timeout=30.0)
     link.ask("B %d %d" % (kind, y), timeout=30.0)
     link.ask("T %d %d %d" % (wi, ri, nb), timeout=30.0)
@@ -237,7 +257,7 @@ def sweep(link, say, kind, y, mode, setup, probe):
 
     The read is qualified first against a slow write, because a bad write poisons every read after it
     and the blame then lands in the wrong place. Then the write is pushed against the read just found."""
-    WHOLD = 7                                   # 16 no-ops: generous, and inside tCEM at burst 16
+    WHOLD = 11                                  # 16 no-ops: generous, and inside tCEM at burst 16
     select(link, kind, y, (mode, WHOLD, USABLE - 1, SAFE_BURST, setup))
 
     ri_ok = None
@@ -282,7 +302,9 @@ def confirm(link, say, kind, y, setting, span):
         v = link.ask("V 0 %d" % span, timeout=900.0)
         bad = int(v.split()[1]) if v and v.startswith("V ") else -1
         if bad == 0:
-            return (mode, wi, ri, nb, su)
+            # the verify just read the whole span, so its cycle count IS the read rate
+            rate = span / (int(v.split()[2]) / FCPU) / 1e6
+            return (mode, wi, ri, nb, su, rate)
         say("        %d wrong over %d kB at write %d read %d burst %d"
             % (bad, span // 1024, NOPS[wi], NOPS[ri], nb))
         if ri + 1 < USABLE:
@@ -297,20 +319,40 @@ def confirm(link, say, kind, y, setting, span):
 
 
 def qualify(link, say, kind, y, name, span, probe=32768):
-    """Quad first because it is four times the bits a clock; single-bit second because it works."""
+    """Every mode that survives the full span, and the fastest of them wins.
+
+    Quad short-circuits because four bits to the clock cannot lose to one, so a bank that reads in quad
+    is not asked anything further. The two single-bit modes are both measured, because which of them is
+    faster depends on whether the chip will actually take a faster clock with the wait cycles -- three
+    of the five do and two do not, and picking the first that merely works costs the three 20%."""
     say("    %s" % name)
+    found = []
     for mode, mlabel in MODES:
+        got = None
         for su in SETUPS:
             s = sweep(link, say, kind, y, mode, su, probe)
             if not s:
                 continue
             c = confirm(link, say, kind, y, s, span)
             if c:
-                say("      %s: %s, write %d read %d burst %d setup %d, clean over %d kB"
-                    % (name, mlabel, NOPS[c[1]], NOPS[c[2]], c[3], c[4], span // 1024))
-                return c
-        say("      %s: no %s setting survives %d kB" % (name, mlabel, span // 1024))
-    return None
+                got = c
+                break
+        if got:
+            say("      %s: %-11s write %2d read %2d burst %2d setup %2d -> %5.2f MB/s"
+                % (name, mlabel, NOPS[got[1]], NOPS[got[2]], got[3], got[4], got[5]))
+            found.append((got[5], mode, got))
+            if mode == 0:
+                break
+        else:
+            say("      %s: no %s setting survives %d kB" % (name, mlabel, span // 1024))
+    if not found:
+        return None
+    found.sort(reverse=True)
+    best = found[0][2]
+    if len(found) > 1:
+        say("      %s: keeping %s at %.2f MB/s"
+            % (name, MODES[best[0]][1], best[5]))
+    return best[:5]
 
 
 def check_kernels(link, say, xv):

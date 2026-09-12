@@ -31,10 +31,11 @@ is weights per byte.
 
     4 bits     2 weights a byte     the baseline
     2 bits     4 weights a byte     the same bytes, twice the weights
+    1 bit      8 weights a byte     the same bytes again, twice again
 
-The kernel costs the same 1.25 instructions a weight either way, so at a bus-limited rate two bits is
-twice the multiply-accumulates a second. This measures that instead of asserting it, and checks both
-kernels against arithmetic done here in Python before believing either number.
+All three kernels cost the same 1.25 instructions a weight, so at a bus-limited rate each halving of the
+weight is a doubling of the multiply-accumulates a second. This measures that instead of asserting it, and
+checks every kernel against arithmetic done here in Python before believing any number.
 
 TWO BUS MODES, CHOSEN PER BANK
 ------------------------------
@@ -124,7 +125,11 @@ SETUPS = [0, 16]
 # both are measured per bank and each bank keeps its own winner. Taking the first mode that merely works
 # would hand three banks a 20% loss.
 MODES = [(0, "quad"), (1, "single 0x03"), (2, "single 0x0B")]
+
+# The weight widths to measure, widest first so the comparisons read as gains.
+WIDTHS = (4, 2, 1)
 WAITS_0B = 8                    # the datasheet value for 0x0B; swept and confirmed on the hardware
+WAITS_QUAD = 6                  # the datasheet value for 0xEB, and the only one the good banks accept
 
 SEL_CS0, SEL_CS1, SEL_DEC = 0, 1, 2
 ROUTES = [(SEL_CS0, 0, "CS0"), (SEL_CS1, 0, "CS1")] + \
@@ -188,17 +193,22 @@ def reference_mac(w, bits, xv):
 
     4-bit: byte j holds weights 2j (low nibble) and 2j+1 (high nibble), zero point 8.
     2-bit: byte j holds weights 4j..4j+3, field f at bit 2f, zero point 2.
-    The activation index wraps every 2048 weights, which is every 1024 bytes at 4 bits and every 512 at
-    2 -- both whole divisors of the 8 kB block, so no chunk boundary lands mid-wrap."""
+    1-bit: byte j holds weights 8j..8j+7, bit f, and a bit means -1 or +1 rather than 0 or 1.
+    The activation index wraps every 2048 weights -- every 1024 bytes at 4 bits, 512 at 2 and 256 at 1 --
+    and all three divide the 8 kB block, so no chunk boundary lands mid-wrap."""
     total = 0
     if bits == 4:
         for j, b in enumerate(w):
             total += ((b & 0x0F) - 8) * xv[(2 * j) % 2048]
             total += ((b >> 4) - 8) * xv[(2 * j + 1) % 2048]
-    else:
+    elif bits == 2:
         for j, b in enumerate(w):
             for f in range(4):
                 total += (((b >> (2 * f)) & 3) - 2) * xv[(4 * j + f) % 2048]
+    else:
+        for j, b in enumerate(w):
+            for f in range(8):
+                total += (2 * ((b >> f) & 1) - 1) * xv[(8 * j + f) % 2048]
     total &= 0xFFFFFFFF                       # the kernel accumulates in int32 and wraps
     return total - 0x100000000 if total >= 0x80000000 else total
 
@@ -260,6 +270,14 @@ def select(link, kind, y, setting, rearm=False):
     selection after that is an E."""
     mode, wi, ri, nb, su = setting[:5]
     link.ask("Q %d" % mode, timeout=30.0)
+    # EVERY KNOB IS SET HERE, EVERY TIME, INCLUDING THE ONES THAT ARE NOT BEING SWEPT.
+    #
+    # The quad wait count was left to the worker's default and never sent, which made it the one piece of
+    # policy the host did not own -- so a diagnostic script that set it to 96 and exited left it there,
+    # and the next benchmark run silently failed both quad banks into single-bit mode and reported 26.39
+    # MMAC/s instead of 31.12. The whole point of this split is that the worker remembers nothing the host
+    # did not tell it, and a default is something it remembers.
+    link.ask("D %d" % WAITS_QUAD, timeout=30.0)
     if mode == 2:
         link.ask("J %d" % WAITS_0B, timeout=30.0)
     link.ask("U %d" % su, timeout=30.0)
@@ -420,6 +438,36 @@ def qualify(link, say, kind, y, name, span, probe=32768):
     return best[:5]
 
 
+def stable(link, say, kind, y, name, setting, span, reps=6):
+    """A BANK THAT CANNOT GIVE THE SAME ANSWER TWICE IS NOT A USABLE BANK.
+
+    Qualification asks whether a setting reads a span back without wrong bytes, four times from one fill.
+    That is necessary and it is not sufficient: Y4 passes it and then changes its answer in the benchmark,
+    which is how a chip that failed every mode last night came to be counted as working memory this
+    morning.
+
+    So each bank is asked for the same number several times and has to give it. The partial sum is a free
+    checksum over every byte in the span, so this costs one extra read per repetition and nothing else.
+    A bank that fails is left out, and the reported rate is then a rate over banks that demonstrably
+    return what was written to them."""
+    select(link, kind, y, setting)
+    link.ask("F 0 %d" % span, timeout=900.0)
+    answers = {}
+    for _ in range(reps):
+        m = link.ask("M 0 %d 4" % span, timeout=900.0)
+        if not m or not m.startswith("M "):
+            return False
+        v = int(m.split()[1])
+        answers[v] = answers.get(v, 0) + 1
+    if len(answers) == 1:
+        return True
+    common = max(answers, key=lambda k: answers[k])
+    say("      %s gave %d different answers in %d reads (%s); leaving it out"
+        % (name, len(answers), reps,
+           ", ".join("%+d" % (v - common) for v in answers if v != common)))
+    return False
+
+
 def check_kernels(link, say, xv):
     """Prove both kernels before trusting either throughput figure. One 8 kB block, filled with the
     known pattern, computed here in Python and there in assembly. Integer arithmetic, so a correct
@@ -428,7 +476,7 @@ def check_kernels(link, say, xv):
     n = 8192
     w = pattern(0, n)
     ok = True
-    for bits in (4, 2):
+    for bits in WIDTHS:
         want = reference_mac(w, bits, xv)
         r = link.ask("M 0 %d %d" % (n, bits), timeout=300.0)
         got = int(r.split()[1]) if r and r.startswith("M ") else None
@@ -443,12 +491,12 @@ def bench(link, say, banks, settings, span, rounds):
     say("\n  %d kB a bank, %.1f MB a pass, %d rounds"
         % (span // 1024, span * len(banks) / 1e6, rounds))
     say("\n  round  bits   partial sum       teensy ms     MB/s    MMAC/s    link ms   answer")
-    best = {4: 0.0, 2: 0.0}
+    best = dict((b, 0.0) for b in WIDTHS)
     per_bank = {}
     seen = {}
-    drift = {4: 0, 2: 0}
+    drift = dict((b, 0) for b in WIDTHS)
     for r in range(rounds):
-        for bits in (4, 2):
+        for bits in WIDTHS:
             total_cyc = 0
             total_bytes = 0
             partial = 0
@@ -484,12 +532,12 @@ def bench(link, say, banks, settings, span, rounds):
             say("  %5d  %4d   %-15d   %8.1f   %6.2f   %7.2f    %6.1f   %s"
                 % (r, bits, partial, secs * 1000.0, mbps, macs,
                    wall * 1000.0 - secs * 1000.0, mark))
-    if drift[4] or drift[2]:
-        say("  %d of %d rounds returned a different answer at 4 bits and %d at 2."
-            % (drift[4], rounds - 1, drift[2]))
+    if any(drift.values()):
+        say("  of %d repeat rounds, answers changed: %s"
+            % (rounds - 1, ", ".join("%d at %d bits" % (drift[b], b) for b in WIDTHS)))
         say("  The rates above are throughput over bytes that are not the bytes that were written.")
     else:
-        say("  every round returned the same answer at both widths")
+        say("  every round returned the same answer at every width")
     return best, per_bank, drift
 
 
@@ -554,6 +602,18 @@ def main():
     if not live:
         sys.exit("no bank held a setting over the full span")
 
+    say("\n  stability: every bank has to return the same answer six times over")
+    keep = []
+    for (kind, y, name) in live:
+        if stable(link, say, kind, y, name, settings[name], span):
+            keep.append((kind, y, name))
+    dropped = [n for (_, _, n) in live if n not in [k[2] for k in keep]]
+    if dropped:
+        say("  dropped for an unstable answer: %s" % ", ".join(dropped))
+    live = keep
+    if not live:
+        sys.exit("no bank returned a repeatable answer")
+
     nq = sum(1 for (_, _, n) in live if settings[n][0] == 0)
     say("  usable: %d banks, %.0f MB -- %d quad, %d single-bit"
         % (len(live), len(live) * 8.0, nq, len(live) - nq))
@@ -574,11 +634,11 @@ def main():
     best, per_bank, drift = bench(link, say, live, settings, span, rounds)
 
     say("\n  per bank, read plus multiply-accumulate")
-    say("    bank   mode     4-bit MB/s   2-bit MB/s")
+    say("    bank   mode         " + "".join("%d-bit MB/s  " % b for b in WIDTHS))
     for (kind, y, name) in live:
         p = per_bank.get(name, {})
-        say("    %-5s  %-7s  %10.2f   %10.2f"
-            % (name, MODES[settings[name][0]][1], p.get(4, 0.0), p.get(2, 0.0)))
+        say("    %-5s  %-11s  " % (name, MODES[settings[name][0]][1])
+            + "".join("%10.2f   " % p.get(b, 0.0) for b in WIDTHS))
 
     # WHERE TO PUT A MODEL, GIVEN BANKS THAT ARE NOT THE SAME SPEED.
     #
@@ -603,15 +663,17 @@ def main():
 
     say("\n  RESULT over %d banks, %.1f MB of weights a pass, %.0f MB addressable"
         % (len(live), span * len(live) / 1e6, len(live) * 8.0))
-    say("    4-bit  %6.2f MMAC/s" % best[4])
-    say("    2-bit  %6.2f MMAC/s" % best[2])
-    if best[4] > 0:
-        say("    2-bit is %.2fx the 4-bit rate over the same bytes" % (best[2] / best[4]))
+    for b in WIDTHS:
+        say("    %d-bit  %7.2f MMAC/s%s"
+            % (b, best[b],
+               "" if b == WIDTHS[0] or best[WIDTHS[0]] <= 0
+               else "   %.2fx the %d-bit rate over the same bytes"
+                    % (best[b] / best[WIDTHS[0]], WIDTHS[0])))
     say("    kernels verified against this board's own arithmetic: %s"
         % ("yes" if kernels_ok else "NO -- the figures above are throughput, not results"))
     say("    answer identical in every round: %s"
-        % ("yes" if not (drift[4] or drift[2]) else
-           "NO -- %d rounds drifted, so this configuration is not usable" % (drift[4] + drift[2])))
+        % ("yes" if not any(drift.values()) else
+           "NO -- %d rounds drifted, so this configuration is not usable" % sum(drift.values())))
     link.close()
     logfile.close()
 

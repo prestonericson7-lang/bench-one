@@ -119,13 +119,14 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *                            2 single-bit with the fast-read command 0x0B. Takes effect at the next
  *                            B, because it decides whether the chip is put into quad mode.
  *    J <n>                   wait cycles for the 0x0B fast read
- *    K <mode>                pad configuration for the four data lines: 0 the core default,
- *                            1 keeper off, 2 keeper off and hysteresis on, 3 as 2 plus a pull-up
+ *    K <mode>                pad configuration for the four data lines: 0 the core default with no
+ *                            hysteresis, 1 plus a Schmitt input, 2 plus fast slew and full pad
+ *                            bandwidth, 3 Schmitt input with a pull-up instead of a keeper
  *    N <tag>                 tag the pattern, so each bank can be filled with data only it should
  *                            hold and a read that returns somebody else is visible
  *    F <addr> <len>          fill with the pattern. -> "F <cycles>". The host never sends weights
  *                            over the UART: it sends the rule that generates them.
- *    M <addr> <len> <bits>   read and multiply-accumulate. bits is 4 or 2. -> "M <sum> <cycles>"
+ *    M <addr> <len> <bits>   read and multiply-accumulate. bits is 4, 2 or 1. -> "M <sum> <cycles>"
  *    R <nbytes>              time ONE read burst of this length. -> "R <nbytes> <cycles>"
  *    W <nbytes>              time ONE write burst of this length. -> "W <nbytes> <cycles>"
  *    X <addr> <n>            read n bytes and hand them back as hex, n <= 24. -> "X <hex...>"
@@ -231,10 +232,35 @@ static uint32_t g_dummy1 = 8;           /* wait cycles for the 0x0B fast read */
  * edge crosses it several times; with it the threshold moves away after the first crossing.
  *
  * Neither is assumed to help. Both are switchable and the host sweeps them against a read-back. */
-#define PADC_DEFAULT  0x10B0u
-#define PADC_NOKEEP   0x0039u             /* speed 3, drive 7, fast slew, no keeper, no pull */
-#define PADC_HYS      0x10039u            /* the same with hysteresis on the input */
-#define PADC_PULLUP   0x1B039u            /* hysteresis, and a 22k pull-up instead of a keeper */
+/* THESE WERE WRONG, AND THE CONCLUSION DRAWN FROM THEM WAS WRONG WITH THEM.
+ *
+ * The pad control fields on this part are, from imxrt.h and not from memory:
+ *
+ *     SRE   bit 0        slew rate, 1 = fast
+ *     DSE   bits 5:3     drive strength
+ *     SPEED bits 7:6     pad bandwidth
+ *     ODE   bit 11       open drain
+ *     PKE   bit 12       keeper or pull enabled
+ *     PUE   bit 13       0 = keeper, 1 = pull
+ *     PUS   bits 15:14   which pull
+ *     HYS   bit 16       Schmitt trigger on the input
+ *
+ * The earlier values put SPEED at bits 5:4, which overlapped DSE and left the pad bandwidth field at 0 --
+ * the SLOWEST setting. So the test that was supposed to ask "does a Schmitt input help" actually asked
+ * "does a Schmitt input help if the pad is also crippled", got no for an answer, and that was written
+ * down as hysteresis making no difference. It was never tested.
+ *
+ * It matters here more than anywhere. pinMode(OUTPUT) in the Teensy core writes DSE(7) and nothing else:
+ * no hysteresis. So every read this project has ever done sampled the data lines with a plain threshold.
+ * A plain threshold is the worst possible input for what these six chips present -- a weak driver at the
+ * far end of ribbon, through series resistance, into the capacitance of eight chip pins. A slow edge
+ * crosses one threshold several times and reads as several transitions; a Schmitt input moves the
+ * threshold away after the first crossing and reads one.
+ */
+#define PADC_DEFAULT  0x0038u             /* DSE 7, no hysteresis: what pinMode writes today */
+#define PADC_HYS      0x10038u            /* the same plus a Schmitt input */
+#define PADC_HYSFAST  0x100F9u            /* Schmitt input, fast slew, full pad bandwidth */
+#define PADC_HYSPULL  0x1F038u            /* Schmitt input and a 22k pull-up instead of a keeper */
 
 static uint8_t g_padmode;
 
@@ -242,9 +268,9 @@ static void set_pads(uint8_t mode)
 {
     g_padmode = mode;
     uint32_t v = PADC_DEFAULT;
-    if (mode == 1) v = PADC_NOKEEP;
-    else if (mode == 2) v = PADC_HYS;
-    else if (mode == 3) v = PADC_PULLUP;
+    if (mode == 1) v = PADC_HYS;
+    else if (mode == 2) v = PADC_HYSFAST;
+    else if (mode == 3) v = PADC_HYSPULL;
     IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_26 = v;   /* pin 52, SIO0 */
     IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_27 = v;   /* pin 49, SIO1 */
     IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_28 = v;   /* pin 50, SIO2 */
@@ -584,6 +610,7 @@ static bool probe_id(uint8_t kind, uint8_t y, uint8_t *id)
 static int8_t   xvec[2048];
 static uint32_t xpack4[256 * 4];
 static uint32_t xpack2[128 * 8];
+static uint32_t xpack1[64 * 16];
 static int32_t  xsum_all;
 
 static inline uint32_t sxtb16(uint32_t x)
@@ -609,6 +636,27 @@ static void build_packs(void)
                                   | ((uint32_t)(a[8 + j] & 0xFFFF) << 16);
             xpack2[g*8 + 2*j + 1] = ((uint32_t)(a[4 + j] & 0xFFFF))
                                   | ((uint32_t)(a[12 + j] & 0xFFFF) << 16);
+        }
+    }
+    /* ONE BIT A WEIGHT. EIGHT TO THE BYTE.
+     *
+     * Same extraction as the 2-bit kernel with the field narrowed to one: lane j is
+     * (v >> j) & 0x01010101, which selects bit j out of all four bytes at once. SXTB16 of that gives
+     * weights {j, 16+j} and the rotated form gives {8+j, 24+j}, because SXTB16 takes bytes 0 and 2 while
+     * the rotate takes 1 and 3. Eight lanes, sixteen SMLADs, thirty-two weights -- forty instructions
+     * for thirty-two weights, which is the same 1.25 an instruction a weight the 4-bit and 2-bit kernels
+     * both achieve. The cost per weight does not change; the bytes crossing the bus halve again.
+     *
+     * A bit is stored 0 or 1 and means -1 or +1, so the accumulator holds the sum of x where the bit is
+     * set and the answer is twice that minus the sum of all x. One subtraction per wrap, not per weight.
+     */
+    for (uint32_t g = 0; g < 64; g++) {
+        const int8_t *a = &xvec[g * 32];
+        for (int j = 0; j < 8; j++) {
+            xpack1[g*16 + 2*j + 0] = ((uint32_t)(a[0 + j] & 0xFFFF))
+                                   | ((uint32_t)(a[16 + j] & 0xFFFF) << 16);
+            xpack1[g*16 + 2*j + 1] = ((uint32_t)(a[8 + j] & 0xFFFF))
+                                   | ((uint32_t)(a[24 + j] & 0xFFFF) << 16);
         }
     }
     xsum_all = 0;
@@ -678,6 +726,45 @@ static inline int32_t mac2(const uint8_t *w, uint32_t nbytes)
  * and a collision is unobservable -- which is why it went unseen this long. */
 static uint8_t g_tag;
 
+/* Thirty-two weights from four bytes. 2048 weights is 256 bytes, so that is where the wrap lands, and
+ * 256 divides the 8 kB block, so no chunk boundary can fall mid-wrap. */
+static inline int32_t mac1(const uint8_t *w, uint32_t nbytes)
+{
+    int32_t a0 = 0, a1 = 0;
+    uint32_t g = 0;
+    for (uint32_t i = 0; i + 4 <= nbytes; i += 4) {
+        const uint32_t *P = &xpack1[g * 16];
+        const uint32_t v = *(const uint32_t *)(w + i);
+        const uint32_t l0 = v & 0x01010101u;
+        const uint32_t l1 = (v >> 1) & 0x01010101u;
+        const uint32_t l2 = (v >> 2) & 0x01010101u;
+        const uint32_t l3 = (v >> 3) & 0x01010101u;
+        const uint32_t l4 = (v >> 4) & 0x01010101u;
+        const uint32_t l5 = (v >> 5) & 0x01010101u;
+        const uint32_t l6 = (v >> 6) & 0x01010101u;
+        const uint32_t l7 = (v >> 7) & 0x01010101u;
+        a0 = smlad_(sxtb16(l0),   P[0],  a0);
+        a1 = smlad_(sxtb16r8(l0), P[1],  a1);
+        a0 = smlad_(sxtb16(l1),   P[2],  a0);
+        a1 = smlad_(sxtb16r8(l1), P[3],  a1);
+        a0 = smlad_(sxtb16(l2),   P[4],  a0);
+        a1 = smlad_(sxtb16r8(l2), P[5],  a1);
+        a0 = smlad_(sxtb16(l3),   P[6],  a0);
+        a1 = smlad_(sxtb16r8(l3), P[7],  a1);
+        a0 = smlad_(sxtb16(l4),   P[8],  a0);
+        a1 = smlad_(sxtb16r8(l4), P[9],  a1);
+        a0 = smlad_(sxtb16(l5),   P[10], a0);
+        a1 = smlad_(sxtb16r8(l5), P[11], a1);
+        a0 = smlad_(sxtb16(l6),   P[12], a0);
+        a1 = smlad_(sxtb16r8(l6), P[13], a1);
+        a0 = smlad_(sxtb16(l7),   P[14], a0);
+        a1 = smlad_(sxtb16r8(l7), P[15], a1);
+        g = (g + 1) & 63u;
+    }
+    /* a bit set means +1 and clear means -1, so the answer is twice the set-bit sum less all of x */
+    return 2 * (a0 + a1) - (int32_t)(nbytes / 256u) * xsum_all;
+}
+
 static inline uint8_t pat(uint32_t i)
 {
     return (uint8_t)(i * 0x9Du + 0x3Bu + (uint32_t)g_tag * 0x51u);
@@ -739,7 +826,7 @@ static void handle(const char *c)
     switch (c[0]) {
     case 'I': case 'i':
         snprintf(out, sizeof(out),
-                 "I bench-one worker 1 nsel 10 banksz %lu blk %lu bits 4,2 fcpu %lu",
+                 "I bench-one worker 2 nsel 10 banksz %lu blk %lu bits 4,2,1 fcpu %lu",
                  (unsigned long)BANKSZ, (unsigned long)BLK, (unsigned long)F_CPU_ACTUAL);
         say(out);
         break;
@@ -821,9 +908,13 @@ static void handle(const char *c)
     }
 
     case 'D': case 'd': {
+        /* Raised from 24 to 96 for one reason. The quad read is the ONLY operation that asks the
+         * Teensy to let go of a data line and the chip to take it over: a quad write never releases
+         * anything, and a single-bit read never drives the line it listens to. The wait cycles after
+         * the address are what pay for that handover, and they had only been swept to 10. */
         long d = arg(c, 1);
         if (d < 0)  d = 0;
-        if (d > 24) d = 24;
+        if (d > 96) d = 96;
         g_dummy = (uint32_t)d;
         snprintf(out, sizeof(out), "D %lu", (unsigned long)g_dummy);
         say(out);
@@ -879,7 +970,9 @@ static void handle(const char *c)
         for (uint32_t off = 0; off < len; off += BLK) {
             const uint32_t n = (len - off > BLK) ? BLK : (len - off);
             do_read(a + off, buf, n);
-            sum += (bits == 2) ? mac2(buf, n) : mac4(buf, n);
+            sum += (bits == 1) ? mac1(buf, n)
+                 : (bits == 2) ? mac2(buf, n)
+                 : mac4(buf, n);
         }
         const uint32_t cyc = ARM_DWT_CYCCNT - s0;
         snprintf(out, sizeof(out), "M %ld %lu", (long)sum, (unsigned long)cyc);

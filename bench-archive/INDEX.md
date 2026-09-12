@@ -28,3 +28,5 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-034712 | psram_worker | 4fe1332+dirty | 133 | diagnostic tail removed to restore the unrolled payload loop |
 | 20260912-040339 | psram_worker | 9b66374+dirty | 133 | route-only bank selection, no reset per switch |
 | 20260912-041041 | psram_worker | 9b66374+dirty | 133 | inter-burst refresh gap, sweepable |
+| 20260912-073808 | psram_worker | 4c51aac+dirty | 133 | one-bit kernel: eight weights a byte |
+| 20260912-074219 | psram_worker | 4c51aac+dirty | 133 | quad wait cycles sweepable to 96 |

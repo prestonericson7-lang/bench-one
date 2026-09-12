@@ -107,6 +107,22 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *
  *  THE COMMANDS, one line in and one line out, at 1 Mbaud on Serial2 (pins 7 and 8):
  *
+ *  THE CHAIN, so nine of these run one firmware image
+ *
+ *  Every node holds the same binary and works out where it is at power-up. Upstream is Serial2 on pins
+ *  7 and 8 -- the link the Luckfox already uses -- and downstream is Serial1 on pins 0 and 1, wired to
+ *  the next node's Serial2. Wire pin 1 to the next node's pin 7, pin 0 to its pin 8, and share a ground.
+ *
+ *      A <n>       take address n if unassigned, then hand n+1 downstream and report back.
+ *                  The host sends "A 1" once and the whole chain numbers itself.
+ *      @<n> <cmd>  run <cmd> on node n. Any other node passes the line down untouched and relays the
+ *                  answer back up. An unaddressed command still means "whoever I am talking to", so a
+ *                  single node on a bench behaves exactly as it did before there was a chain.
+ *
+ *  Nothing here knows how many chips a node has. The host probes each node's ten selects over the same
+ *  addressed protocol, which is the discovery that is already hardened, so an 8-chip node and a 2-chip
+ *  node take the identical image and neither is told anything at flash time.
+ *
  *    I                       identity: name, bank count, bank size, bit widths, clock rate
  *    P <kind> <y>            probe one select. kind 0=CS0 1=CS1 2=decoder. -> "P <ok> <id0> <id1>"
  *    B <kind> <y>            select a bank AND set its bus mode, which resets the chip
@@ -872,15 +888,47 @@ void setup()
     for (int i = 0; i < 2048; i++) xvec[i] = (int8_t)(((i * 37) & 0x7F) - 64);
     build_packs();
 
-    Serial2.begin(1000000);          /* UART3 to the Luckfox */
+    Serial2.begin(1000000);          /* upstream: the Luckfox, or the node in front of me */
+    Serial1.begin(1000000);          /* downstream: pins 0 and 1 to the next node's Serial2 */
     Serial.begin(115200);            /* USB, for a human watching. Never used for control. */
     delay(300);
     Serial.println(F("psram_worker up. math only; the Luckfox decides everything else."));
+    Serial.println(F("chain: upstream Serial2 pins 7/8, downstream Serial1 pins 0/1, address unset."));
     Serial.println(F("every line in and out of the link is echoed here, > in and < out."));
 }
 
-static char line[64];
+static char line[96];
 static uint8_t ln;
+
+/* 0 means "not yet numbered", and an unnumbered node still answers unaddressed commands so a bench of
+ * one behaves the way it always has. */
+static uint8_t g_addr;
+
+/* Relay whatever the downstream node says, upstream, until its line is complete.
+ *
+ * A node in the middle of the chain is a wire with a buffer. It must not interpret, reformat or reorder
+ * anything: the reply belongs to the host, and the only reason this code exists at all is that a UART
+ * is point to point. The deadline is generous because a command addressed to the far end of nine nodes
+ * carries nine hops of latency and a multiply-accumulate at the end of it. */
+static void relay_reply(uint32_t timeout_ms)
+{
+    const uint32_t t0 = millis();
+    char c;
+    bool any = false;
+    while (millis() - t0 < timeout_ms) {
+        while (Serial1.available()) {
+            c = (char)Serial1.read();
+            Serial2.write(c);
+            if (c == 0x0A) return;
+            any = true;
+        }
+        if (!any && (millis() - t0) > 200 && !Serial1.available()) {
+            /* nothing downstream at all: say so rather than leaving the host waiting */
+            if (millis() - t0 > 1000) { Serial2.println("E noend"); return; }
+        }
+    }
+    Serial2.println("E timeout");
+}
 
 static long arg(const char *s, int which)
 {
@@ -927,6 +975,43 @@ static inline void quiet_ports(void)
 
 static void handle(const char *c)
 {
+    /* ADDRESSED, OR NOT AT ALL.
+     *
+     * "@n cmd" is for node n. If that is me, strip the prefix and carry on as though it had arrived
+     * bare. If it is not, the line goes downstream exactly as it came in and the answer comes back the
+     * same way. A node never rewrites another node's traffic. */
+    if (c[0] == '@') {
+        const char *sp = c;
+        while (*sp && *sp != ' ') sp++;
+        const long want = atol(c + 1);
+        if (g_addr && want == (long)g_addr && *sp) {
+            c = sp + 1;                       /* mine: fall through with the prefix removed */
+        } else {
+            Serial1.println(c);
+            Serial.print(F("> down ")); Serial.println(c);
+            relay_reply(600000ul);
+            return;
+        }
+    }
+
+    /* Enumeration. The first node without a number takes this one and offers the next downstream, so
+     * the chain numbers itself from a single "A 1" and no node is ever told anything at flash time. */
+    if ((c[0] == 'A' || c[0] == 'a') && (c[1] == ' ' || c[1] == 0)) {
+        const long want = atol(c + 1);
+        if (!g_addr && want > 0) {
+            g_addr = (uint8_t)want;
+            snprintf(out, sizeof(out), "A %u here", g_addr);
+            say(out);
+            char nxt[16];
+            snprintf(nxt, sizeof(nxt), "A %ld", want + 1);
+            Serial1.println(nxt);            /* offer the next number to whoever is behind me */
+            return;
+        }
+        Serial1.println(c);                  /* already numbered: pass the offer along */
+        relay_reply(5000ul);
+        return;
+    }
+
     if (usb_listening((int)strlen(c) + 4)) {
         Serial.print(F("> ")); Serial.println(c);
     }
@@ -934,8 +1019,8 @@ static void handle(const char *c)
     switch (c[0]) {
     case 'I': case 'i':
         snprintf(out, sizeof(out),
-                 "I bench-one worker 2 nsel 10 banksz %lu blk %lu bits 4,2,1 fcpu %lu",
-                 (unsigned long)BANKSZ, (unsigned long)BLK, (unsigned long)F_CPU_ACTUAL);
+                 "I bench-one worker 3 addr %u nsel 10 banksz %lu blk %lu bits 4,2,1 fcpu %lu",
+                 g_addr, (unsigned long)BANKSZ, (unsigned long)BLK, (unsigned long)F_CPU_ACTUAL);
         say(out);
         break;
 

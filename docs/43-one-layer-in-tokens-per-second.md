@@ -89,20 +89,30 @@ That is worth stating plainly because the opposite was the natural assumption. T
 record has unpacking as the binding constraint on a general-purpose processor, and at these sizes,
 behind this bus, it is not even close.
 
-**With the real quantisation format the margin narrows but the conclusion holds.** This kernel has a
-constant zero point; `gguf_dot_q` over genuine Q4_K blocks measures 39.3 MB/s of packed bytes, which is
-69.9 million weights per second against this kernel's 291 million — 4.2× slower, because of the
-per-sub-block scales and the float conversion rather than the nibbles. Substituting it at hidden size
-512:
+### The real format, now measured rather than scaled
 
-| | compute | read | layer |
-|---|---|---|---|
-| bare 4-bit kernel | 14 ms | 152 ms | 166 ms |
-| Q4_K, fused dot | 60 ms | 152 ms | 212 ms |
+This kernel has a constant zero point and integer output. A real model stores Q4_K: 256 weights in 144
+bytes, a float scale and minimum per block, six-bit scales per 32-weight sub-block. An earlier version of
+this document estimated that layer time by scaling; `psram_layer` now streams genuine Q4_K blocks from
+the bank and calls the shared kernel, so these are measured.
 
-So the arithmetic goes from eleven times faster than the bus to about two and a half times faster, and
-the layer gets 28% slower. Still bus-bound, still the same ordering of priorities, and the honest figure
-for a real model is the second row.
+| hidden size | weights per layer | read | compute | both | tokens/s, 24 layers |
+|---|---|---|---|---|---|
+| 256 | 576 kB | 42.72 ms | 8.77 ms | 51.48 ms | **0.809** |
+| 512 | 2304 kB | 170.86 ms | 35.09 ms | 205.92 ms | **0.202** |
+
+The estimate for hidden size 512 was 212 ms against 205.92 measured, so it was sound — but it is better
+to have the measurement, and `measured ÷ sum = 1.000` confirms the costs add in the real format exactly as
+they do in the bare one.
+
+Two differences from the bare-kernel table worth naming. Q4_K needs **9*d*² bytes per layer rather than
+8*d*²**, because the scales and minimums are weights' worth of bus traffic that carry no weights — 2304 kB
+against 2048 kB at hidden size 512, a 12.5% tax paid on the scarcest resource in the machine. And the
+arithmetic is 35.09 ms against 14, so it goes from eleven times faster than the bus to **about five
+times** faster, using the Cortex-M7 DSP kernel of document 45.
+
+Still bus-bound, still the same ordering of priorities. **The honest end-to-end figure for a real model on
+one Teensy is 0.809 tokens per second at hidden size 256.**
 
 ---
 
@@ -112,9 +122,9 @@ The weights of a layer must cross the bus once per token, and decode generates o
 there is no reuse to hide the transfer behind. The token rate is therefore bytes per layer divided by
 bus rate, almost exactly, and everything else is a rounding error.
 
-One Teensy with 8 MB of hand-driven PSRAM runs a 24-layer model at hidden size 256 at **one token per
-second**. That is a real, measured, end-to-end figure for a board costing a few tens of dollars, and it
-is the first time this project has had one.
+One Teensy with 8 MB of hand-driven PSRAM runs a 24-layer model at hidden size 256 at **0.809 tokens per
+second in real Q4_K**, or 1.004 with a bare 4-bit kernel. That is a real, measured, end-to-end figure for
+a board costing a few tens of dollars, and it is the first time this project has had one.
 
 It also says where the next order of magnitude is, and it is not in the arithmetic:
 
@@ -123,6 +133,5 @@ It also says where the next order of magnitude is, and it is not in the arithmet
    problem, not a design one. Capacity, not rate, but it decides which models fit at all.
 3. **More nodes.** The per-layer cost is independent, so layers split across boards multiply
    throughput directly. This is the cheapest axis and the reason the machine is a fleet.
-4. **The arithmetic.** Eleven times faster than needed on a bare kernel, two and a half times on real
-   Q4_K. Nothing here until the bus moves — but the 4.2× the format costs over the raw nibbles is
-   unexplored, and `SXTB16`/`SMLAD` have not been pointed at Q4_K's scales yet.
+4. **The arithmetic.** Eleven times faster than needed on a bare kernel, five times on real Q4_K after
+   document 45. Nothing here until the bus moves.

@@ -208,6 +208,39 @@ static inline int32_t mac4(const uint8_t *w, uint32_t n)
     return a0 + a1 - 8 * (int32_t)(n / 1024u) * xsum_all;
 }
 
+/* ---------------------------------------------------------------------------------------------
+ *  and the same layer in the format a real model actually uses
+ *
+ *  Everything above uses a bare 4-bit kernel: one scale for everything, a constant zero point, integer
+ *  output. It is the right thing to bound the bus with, and it is not what a GGUF file contains. Q4_K
+ *  puts 256 weights in 144 bytes with a float scale and minimum per block and six-bit scales per
+ *  32-weight sub-block, and docs/43 estimated its layer time by scaling the bare figure rather than
+ *  measuring it.
+ *
+ *  This measures it. Same three timings -- read alone, compute alone, both -- over real Q4_K blocks
+ *  streamed from the bank, with the kernel from shared/gguf_dot.c rather than a local copy of the idea.
+ *
+ *  The chunk is 56 blocks, 8064 bytes, because a chunk has to hold whole blocks and 8064 is the largest
+ *  multiple of 144 that fits the staging buffer. A chunk that split a block would hand the kernel a
+ *  header that belongs to the previous read.
+ * ------------------------------------------------------------------------------------------ */
+extern "C" {
+float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
+                          const int32_t *xsum, uint64_t n);
+void  gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum);
+void  gguf_quantize_act(const float *x, uint64_t n, int8_t *xq, float *xs);
+const char *gguf_dot_kernel(void);
+}
+
+#define Q4K_BYTES 144u
+#define Q4K_NW    256u
+#define QCHUNK    (Q4K_BYTES * 56u)          /* 8064: whole blocks, fits the staging buffer */
+
+static int8_t   q_xq[Q4K_NW];
+static float    q_xs[Q4K_NW / 32];
+static int32_t  q_xsum[Q4K_NW / 32];
+static volatile float fsink;
+
 static volatile int32_t sink;
 
 static uint32_t t_read(uint32_t bytes)
@@ -238,6 +271,77 @@ static uint32_t t_both(uint32_t bytes)
 }
 
 static inline float ms(uint32_t c) { return 1000.0f * (float)c / (float)F_CPU_ACTUAL; }
+
+/* one layer's worth of Q4_K weights: 16 d^2 weights is 16 d^2 * 144/256 = 9 d^2 bytes */
+static void layer_q4k(uint32_t d)
+{
+    const uint32_t weights = 16u * d * d;
+    const uint32_t blocks  = weights / Q4K_NW;
+    const uint32_t bytes   = blocks * Q4K_BYTES;
+
+    if (bytes > 8u * 1024u * 1024u) {
+        Serial.print(F("\n  hidden size ")); Serial.print(d);
+        Serial.println(F(" in Q4_K needs more than the 8 MB the bank can hold"));
+        return;
+    }
+
+    /* lay the blocks down once. The contents are arbitrary -- the cost does not depend on the values,
+     * and the activation is quantized properly so the kernel walks the path the runtime walks. */
+    for (uint32_t off = 0; off < bytes; off += QCHUNK) {
+        const uint32_t n = (bytes - off > QCHUNK) ? QCHUNK : (bytes - off);
+        for (uint32_t i = 0; i < n; i++) stage[i] = (uint8_t)((off + i) * 0x9Du + 0x3Bu);
+        wr<6>(off, stage, n);
+    }
+
+    /* read only */
+    uint32_t t0 = ARM_DWT_CYCCNT;
+    for (uint32_t off = 0; off < bytes; off += QCHUNK) {
+        const uint32_t n = (bytes - off > QCHUNK) ? QCHUNK : (bytes - off);
+        rd<10>(off, stage, n);
+    }
+    const float r = ms(ARM_DWT_CYCCNT - t0);
+
+    /* compute only, over one chunk already on chip, repeated to the same block count */
+    memcpy(onchip, stage, QCHUNK > sizeof(onchip) ? sizeof(onchip) : QCHUNK);
+    const uint32_t per = (QCHUNK > sizeof(onchip) ? (uint32_t)sizeof(onchip) : QCHUNK) / Q4K_BYTES;
+    float acc = 0.0f;
+    t0 = ARM_DWT_CYCCNT;
+    for (uint32_t done = 0; done < blocks; done += per)
+        for (uint32_t i = 0; i < per && done + i < blocks; i++)
+            acc += gguf_dot_q4k_presum(onchip + i * Q4K_BYTES, q_xq, q_xs, q_xsum, Q4K_NW);
+    const float c = ms(ARM_DWT_CYCCNT - t0);
+
+    /* both, which is what has to happen */
+    t0 = ARM_DWT_CYCCNT;
+    for (uint32_t off = 0; off < bytes; off += QCHUNK) {
+        const uint32_t n = (bytes - off > QCHUNK) ? QCHUNK : (bytes - off);
+        rd<10>(off, stage, n);
+        for (uint32_t i = 0; i + Q4K_BYTES <= n; i += Q4K_BYTES)
+            acc += gguf_dot_q4k_presum(stage + i, q_xq, q_xs, q_xsum, Q4K_NW);
+    }
+    const float b = ms(ARM_DWT_CYCCNT - t0);
+    fsink = acc;
+
+    Serial.println();
+    Serial.print(F("  hidden size ")); Serial.print(d);
+    Serial.print(F(" in real Q4_K:  ")); Serial.print(blocks);
+    Serial.print(F(" blocks, ")); Serial.print(bytes / 1024u);
+    Serial.println(F(" kB per layer"));
+    Serial.print(F("    read only        ")); Serial.print(r, 2);
+    Serial.print(F(" ms    ")); Serial.print((float)bytes / r / 1000.0f, 2);
+    Serial.println(F(" MB/s"));
+    Serial.print(F("    compute only     ")); Serial.print(c, 2);
+    Serial.print(F(" ms    ")); Serial.print((float)bytes / c / 1000.0f, 2);
+    Serial.println(F(" MB/s"));
+    Serial.print(F("    both, per layer  ")); Serial.print(b, 2);
+    Serial.print(F(" ms    sum of the two is ")); Serial.print(r + c, 2);
+    Serial.println(F(" ms"));
+    Serial.print(F("    measured / sum = ")); Serial.print(b / (r + c), 3);
+    Serial.println(b < 0.8f * (r + c) ? F("   they overlap") : F("   they add, as before"));
+    Serial.print(F("    -> ")); Serial.print(1000.0f / (b * LAYERS), 3);
+    Serial.print(F(" tokens/s for a ")); Serial.print(LAYERS);
+    Serial.println(F("-layer model, measured rather than scaled"));
+}
 
 static void layer(uint32_t d)
 {
@@ -306,6 +410,13 @@ void setup()
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
     for (int i = 0; i < 2048; i++) xvec[i] = (int8_t)(((i * 37) & 0x7F) - 64);
     build_xpack();
+
+    /* a plausible activation, quantized the way the runtime quantizes it, and its per-32 sums hoisted
+     * out once -- which is the whole point of gguf_act_sums and is what a matrix-vector product does */
+    static float act[Q4K_NW];
+    for (uint32_t i = 0; i < Q4K_NW; i++) act[i] = ((float)(i % 37) - 18.0f) * 0.05f;
+    gguf_quantize_act(act, Q4K_NW, q_xq, q_xs);
+    gguf_act_sums(q_xq, Q4K_NW, q_xsum);
 }
 
 void loop()
@@ -322,13 +433,22 @@ void loop()
     layer(512);
     layer(1024);
 
+    Serial.print(F("\n  --- and the same thing in the format a real model uses. kernel: "));
+    Serial.print(gguf_dot_kernel());
+    Serial.println(F(" ---"));
+    layer_q4k(256);
+    layer_q4k(512);
+
     Serial.println(F("\n--- what this says about the architecture ---"));
     Serial.println(F("  The weights of one layer have to cross the bus once per token and there is"));
     Serial.println(F("  no reuse to hide it behind, because decode is one token at a time. So the"));
     Serial.println(F("  token rate is set by bytes per layer divided by bus rate, and the kernel"));
-    Serial.println(F("  only matters while it is slower than the bus. At 234 MMAC/s against"));
-    Serial.println(F("  13.8 MB/s the kernel is already the faster half, which is why optimising"));
-    Serial.println(F("  it further would buy nothing and widening the bus buys everything."));
+    Serial.println(F("  only matters while it is slower than the bus. In real Q4_K the arithmetic"));
+    Serial.println(F("  is about a fifth of the layer and the bus is the rest, so optimising the"));
+    Serial.println(F("  kernel further buys little and widening the bus buys everything."));
+    Serial.println(F("  Q4_K also needs 9 d^2 bytes a layer where a bare 4-bit kernel needs 8: the"));
+    Serial.println(F("  scales and minimums are bus traffic that carries no weights, a 12.5% tax"));
+    Serial.println(F("  on the scarcest thing in the machine."));
 
     Serial.println(F("\n=== repeating in 15 s ==="));
     delay(15000);

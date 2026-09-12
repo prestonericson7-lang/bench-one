@@ -272,6 +272,34 @@ static void report()
     Serial.print(F(" MB/s   "));      Serial.print(fast_q4 / ref_q4, 2);
     Serial.println(F("x"));
 
+    /* Q6_K the same way. It is 31% of the real file by bytes and time adds while rates do not, so the
+     * mix ceiling is the harmonic mean -- which makes the slower format matter more than its share. */
+    gguf_dot_force_scalar(0);
+    const float fast_q6 = bench_fused(int_buf, INT_BLOCKS, GGML_Q6_K, Q6K_BYTES);
+    const float fast6v  = gguf_dot_q(GGML_Q6_K, int_buf, xq, xs, QK_K);
+    gguf_dot_force_scalar(1);
+    const float ref_q6  = bench_fused(int_buf, INT_BLOCKS, GGML_Q6_K, Q6K_BYTES);
+    const float ref6v   = gguf_dot_q(GGML_Q6_K, int_buf, xq, xs, QK_K);
+    gguf_dot_force_scalar(0);
+
+    uint32_t f6, r6;
+    memcpy(&f6, &fast6v, 4);
+    memcpy(&r6, &ref6v, 4);
+    Serial.print(F("    Q6_K one block: fast 0x")); Serial.print(f6, HEX);
+    Serial.print(F("  reference 0x"));              Serial.print(r6, HEX);
+    Serial.println(f6 == r6 ? F("   bit-identical") : F("   DIFFERENT -- the fast path is wrong"));
+    Serial.print(F("    Q6_K fused dot   scalar ")); Serial.print(ref_q6, 2);
+    Serial.print(F(" MB/s   fast ")); Serial.print(fast_q6, 2);
+    Serial.print(F(" MB/s   "));      Serial.print(fast_q6 / ref_q6, 2);
+    Serial.println(F("x"));
+
+    const float mix_ref  = 1.0f / (0.69f / ref_q4  + 0.31f / ref_q6);
+    const float mix_fast = 1.0f / (0.69f / fast_q4 + 0.31f / fast_q6);
+    Serial.print(F("    the real 69/31 mix: scalar ")); Serial.print(mix_ref, 2);
+    Serial.print(F(" MB/s   fast ")); Serial.print(mix_fast, 2);
+    Serial.print(F(" MB/s   ")); Serial.print(mix_fast / mix_ref, 2);
+    Serial.println(F("x"));
+
     Serial.println(F("\n  FROM INTERNAL RAM -- the processor's own unpacking rate"));
     Serial.print(F("    Q4_K fused dot   "));
     Serial.print(bench_fused(int_buf, INT_BLOCKS, GGML_Q4_K, Q4K_BYTES), 2);

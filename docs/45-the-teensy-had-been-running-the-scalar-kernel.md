@@ -16,15 +16,34 @@ portable scalar reference.
 
 ## The result
 
-| | MB/s of packed Q4_K | weights per second |
-|---|---|---|
-| scalar reference, measured today | 42.94 | 76.3 million |
-| **Cortex-M7 DSP path** | **62.24** | **110.6 million** |
+Both formats, both paths, one binary:
 
-**1.45×, and bit-identical.** One Q4_K block through both paths returns `0x430F608D` either way.
+| | scalar | Cortex-M7 DSP | | bit-identical |
+|---|---|---|---|---|
+| Q4_K | 42.70 MB/s | **61.97 MB/s** | 1.45× | `0x430F608D` |
+| Q6_K | 40.88 MB/s | **67.91 MB/s** | 1.66× | `0x4C525A9A` |
+| **the real 69/31 mix** | 42.12 MB/s | **63.70 MB/s** | **1.51×** | |
+
+Per weight rather than per packed byte, since the two formats pack differently: Q4_K goes from 75.9 to
+110.2 million weights per second, Q6_K from 49.8 to 82.8. Q6_K's higher figure in megabytes is only
+because it spends 210 bytes on the 256 weights Q4_K fits in 144.
+
+The mix row is the one that matters. Time adds and rates do not, so the ceiling for a file that is 69%
+Q4_K and 31% Q6_K by bytes is the harmonic mean, which makes the slower format count for more than its
+share.
 
 The host suite still passes, including `dot_verify`, which compares the AVX2 path against scalar on
-two assertions. The new path compiles out entirely on anything that is not an ARMv7E-M part.
+two assertions. The new paths compile out entirely on anything that is not an ARMv7E-M part.
+
+### Why both numbers had to come from one binary
+
+The scalar Q6_K rate measured **33.00 MB/s in one build and 40.88 in the next**, with that kernel not
+touched between them — a 24% swing from nothing but code moving in ITCM as other code was added around
+it. A speedup claim of 1.66× compared against a baseline from a different build would be mostly noise.
+
+So the sketch runs both paths in the same binary, back to back, switching between them with
+`gguf_dot_force_scalar` at runtime. That was done to prove bit-identity and it turned out to be
+necessary for the timing as well.
 
 ---
 
@@ -59,7 +78,7 @@ patterns.
 ## The bottleneck has moved, and that is the more useful finding
 
 Document 42 measured a bare 4-bit kernel — constant zero point, integer output — at **2.07 cycles per
-weight**. Q4_K now runs at 62.24 MB/s, which is 5.4 cycles per weight.
+weight**. Q4_K now runs at 61.97 MB/s, which is 5.4 cycles per weight.
 
 So roughly **3.3 cycles per weight, about 61% of the time, is no longer the nibbles.** It is
 `gguf_q4k_scale_min` unpacking eight 6-bit scales and eight 6-bit minimums out of twelve asymmetrically
@@ -77,9 +96,16 @@ sub-block term in float and accumulating into a double would likely keep the acc
 of the cost. It would also change the result bits, so it is a numerics change that needs the float
 reference in `tests/fast_path.c` to adjudicate it, not a free win. It is the next thing to try.
 
-**Q6_K has no DSP path yet** and sits at 33.00 MB/s. The real model is 69% Q4_K and 31% Q6_K by bytes,
-and time adds while rates do not, so the mix ceiling is the harmonic mean — which means Q6_K is worth
-roughly a third of the remaining gain and is not optional.
+**Q6_K got a path too, and gains more than Q4_K: 1.66×.** Its six-bit value is split across two arrays
+and biased by −32, which needs one instruction Q4_K does not. The bias cannot be applied with an ordinary
+subtract, because a byte lane below 32 would borrow into the lane above it; `SSUB8` subtracts all four
+lanes independently and is a single instruction.
+
+The bias also does *not* factor out the way Q4_K's zero point did, and that asymmetry is worth keeping in
+mind. It could: the sum of (u−32)·x is the sum of u·x minus 32 times the sum of x. But that trades one
+`SSUB8` per four weights for a running sum of activations, which costs two more `SMLAD` per four weights.
+The identity pays when the correction is needed anyway — Q4_K's per-block minimum already demands a sum
+of activations — and loses when it is not. Q6_K has no block minimum, so the bias stays in place.
 
 ---
 
@@ -90,9 +116,9 @@ against 60 ms of Q4_K arithmetic; making the arithmetic 1.45× faster takes that
 goes from 212 ms to 193 ms — 9% — and the bus still dominates by nearly four to one. The ordering of
 priorities is unchanged: bus rate, then capacity, then nodes, then arithmetic.
 
-It does change what the FPGA comparison should quote. A Cortex-M7 does **110.6 million Q4_K weights per
-second**, not 76.3 million, and the gap to a fabric lane is that much narrower than the project's record
-says.
+It does change what the FPGA comparison should quote. A Cortex-M7 does **110.2 million Q4_K weights per
+second**, not 75.9 million, and on the real 69/31 mix it is 1.51× the figure the project's record carries.
+The gap to a fabric lane is that much narrower.
 
 ---
 

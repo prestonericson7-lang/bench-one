@@ -141,6 +141,46 @@
       int32_t r; __asm__("smlad %0, %1, %2, %3" : "=r"(r) : "r"(a), "r"(b), "r"(acc)); return r;
   }
 
+  static inline uint32_t gd_ssub8(uint32_t a, uint32_t b)
+  {
+      uint32_t r; __asm__("ssub8 %0, %1, %2" : "=r"(r) : "r"(a), "r"(b)); return r;
+  }
+
+  /* Q6_K, one 16-weight scale group.
+   *
+   * A Q6_K value is six bits split across two arrays: four bits in ql and two in qh, then biased by
+   * -32. Assembling it in packed bytes needs one extra step over Q4_K and one instruction that Q4_K
+   * did not: the bias cannot be applied with an ordinary subtract, because a byte lane whose value is
+   * below 32 would borrow into the lane above it. SSUB8 subtracts all four lanes independently, which
+   * is exactly the operation the format wants and it is a single instruction.
+   *
+   * The two shifts compose the value without any per-byte work. Shifting the ql word right by 0 or 4
+   * and masking with 0x0F0F0F0F selects the low or high nibble of every byte at once, for the reason
+   * set out above gd_dot32_m7. Shifting the qh word right by 0, 2, 4 or 6 and masking with 0x03030303
+   * selects one of the four bit-pairs of every byte at once, by the same argument: the bits that cross
+   * a byte boundary land above the mask.
+   *
+   * The -32 does NOT factor out the way Q4_K's zero point did, and deliberately so. It could -- the
+   * sum of (u-32)*x is the sum of u*x minus 32 times the sum of x -- but that trades one SSUB8 per four
+   * weights for a running sum of activations, which costs two more SMLAD per four weights. The
+   * identity is a win when the correction is already needed, as it is in Q4_K where the block minimum
+   * demands a sum of activations anyway, and a loss when it is not. Q6_K has no per-block minimum, so
+   * nothing else needs that sum and the bias stays in place. */
+  static inline int32_t gd_q6_dot16(const uint8_t *ql, const uint8_t *qh, const int8_t *x,
+                                    uint32_t qlsh, uint32_t hsh)
+  {
+      int32_t a0 = 0, a1 = 0;
+      for (int l = 0; l < 16; l += 4) {
+          const uint32_t lo = (gd_ld32(ql + l) >> qlsh) & 0x0F0F0F0Fu;
+          const uint32_t hi = ((gd_ld32(qh + l) >> hsh) & 0x03030303u) << 4;
+          const uint32_t q  = gd_ssub8(lo | hi, 0x20202020u);    /* six-bit value, biased by -32 */
+          const uint32_t xv = gd_ld32(x + l);
+          a0 = gd_smlad(gd_sxtb16(q),   gd_sxtb16(xv),   a0);
+          a1 = gd_smlad(gd_sxtb16r8(q), gd_sxtb16r8(xv), a1);
+      }
+      return a0 + a1;
+  }
+
   /* One 32-weight sub-block. shift is 0 for the low nibbles and 4 for the high ones.
    *
    * Two accumulators per quantity rather than one, so the SMLAD chain does not serialise on a single
@@ -674,12 +714,64 @@ static float dot_q6_k_neon(const uint8_t *raw, const int8_t *xq, const float *xs
 }
 #endif
 
+#if GGUF_HAVE_M7DSP
+/* Bit-identical to dot_q6_k_ref. All eight integer dots are computed before any float arithmetic runs,
+ * so the double accumulation happens in exactly the reference's order -- offset 0 to 3, and within each
+ * offset scale group 0 then 1. Reordering the integer products inside a dot is free because integer
+ * addition is exact; reordering the double sum would not be. */
+static float dot_q6_k_m7(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
+{
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 210u;
+        const uint8_t *ql  = blk;
+        const uint8_t *qh  = blk + 128;
+        const int8_t  *sc  = (const int8_t *)(blk + 192);
+        uint16_t hd;
+        memcpy(&hd, blk + 208, 2);
+        const float d = gguf_fp16(hd);
+        const int8_t *x  = xq + b * QK_K;
+        const float  *sx = xs + b * (QK_K / ABLK);
+
+        for (int n128 = 0; n128 < QK_K; n128 += 128) {
+            int32_t dot[4][2];
+            /* the four offsets are {ql base, ql nibble, qh bit-pair, activation offset} */
+            static const uint8_t QLOFF[4] = {  0, 32,  0, 32 };
+            static const uint8_t QLSH[4]  = {  0,  0,  4,  4 };
+            static const uint8_t HSH[4]   = {  0,  2,  4,  6 };
+
+            for (int o = 0; o < 4; o++) {
+                const uint8_t *qlb = ql + QLOFF[o];
+                const int8_t  *xb  = x + n128 + 32 * o;
+                /* scale group 0 is l = 0..15, group 1 is l = 16..31 */
+                dot[o][0] = gd_q6_dot16(qlb,      qh,      xb,      QLSH[o], HSH[o]);
+                dot[o][1] = gd_q6_dot16(qlb + 16, qh + 16, xb + 16, QLSH[o], HSH[o]);
+            }
+
+            for (int o = 0; o < 4; o++) {
+                const float s = sx[(n128 + 32 * o) / ABLK];
+                for (int g = 0; g < 2; g++)
+                    total += (double)s * d * sc[2 * o + g] * dot[o][g];
+            }
+            ql += 64;
+            qh += 32;
+            sc += 8;
+        }
+    }
+    return (float)total;
+}
+#endif
+
 static float dot_q6_k(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
 {
 #if GGUF_HAVE_AVX2
     if (!g_force_scalar) return dot_q6_k_avx2(raw, xq, xs, n);
 #elif GGUF_HAVE_NEON
     if (!g_force_scalar) return dot_q6_k_neon(raw, xq, xs, n);
+#elif GGUF_HAVE_M7DSP
+    if (!g_force_scalar) return dot_q6_k_m7(raw, xq, xs, n);
 #endif
     return dot_q6_k_ref(raw, xq, xs, n);
 }

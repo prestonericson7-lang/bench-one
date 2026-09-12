@@ -93,9 +93,51 @@ void loop()
             Serial.println(F("odd"));
     }
 
+    /* ---- do the failing pins share a node ---------------------------------------------------- */
+    Serial.println(F("\n[2] are the decoder pins connected to each other"));
+    Serial.println(F("    drive one, read the others. Rising together means one shared node."));
+    static const uint8_t D[3]     = { 2, 3, 4 };
+    static const char *DN[3]      = { "2 DEC-A", "3 DEC-B", "4 DEC-C" };
+    int coupled = 0, tested = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int k = 0; k < 3; k++) pinMode(D[k], INPUT_PULLDOWN);
+        delayMicroseconds(1000);
+        pinMode(D[i], OUTPUT);
+        digitalWrite(D[i], HIGH);
+        delayMicroseconds(2000);
+
+        Serial.print(F("    driving ")); Serial.print(DN[i]); Serial.print(F(" high  ->  "));
+        for (int k = 0; k < 3; k++) {
+            if (k == i) continue;
+            const int v = digitalRead(D[k]);
+            Serial.print(DN[k]); Serial.print(F(" reads ")); Serial.print(v); Serial.print(F("   "));
+            tested++;
+            if (v) coupled++;
+        }
+        Serial.println();
+        pinMode(D[i], INPUT_DISABLE);
+    }
+    for (int k = 0; k < 3; k++) pinMode(D[k], INPUT_DISABLE);
+
+    Serial.print(F("    "));
+    if (coupled == 0) {
+        Serial.println(F("none of them moved. They are NOT joined to each other, so each pad is"));
+        Serial.println(F("    separately touching ground. Look for solder, three times over."));
+    } else if (coupled == tested) {
+        Serial.println(F("they all move together, so they share one node -- and the only node all"));
+        Serial.println(F("    three decoder inputs have in common is the chip's own supply. THE"));
+        Serial.println(F("    DECODER HAS NO POWER. Check pin 16 to 3.3 V and pin 8 to ground; the"));
+        Serial.println(F("    wires to A, B and C are probably fine and so is the solder on them."));
+    } else {
+        Serial.print(coupled); Serial.print('/'); Serial.print(tested);
+        Serial.println(F(" moved. Partly joined, so it is likely both: a dead supply AND a"));
+        Serial.println(F("    bridge. Fix the power first, then measure again."));
+    }
+
     Serial.println(F("\n--- read the control rows first ---"));
-    Serial.println(F("  Pins 14, 15 and 16 go nowhere. If they are not 1 0 1 0 then this method"));
-    Serial.println(F("  is wrong and nothing above them should be believed, including by me."));
+    Serial.println(F("  Pins 2, 3 and 4 are the OLD decoder address pads, kept in the list as a"));
+    Serial.println(F("  reference. They could not be driven high before and are expected to stay"));
+    Serial.println(F("  that way; the address has moved to 14, 15 and 16."));
     Serial.println(F("  If they ARE 1 0 1 0, every other row is a fact about the board:"));
     Serial.println(F("    a pin that cannot be driven is shorted to that rail, full stop;"));
     Serial.println(F("    a pin held low when released has something pulling it, which on a"));

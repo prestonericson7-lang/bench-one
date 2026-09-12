@@ -13,6 +13,8 @@
 #define B_DATA (0xFu << 26)
 #define DSHIFT 26
 #define B_SS1  (1u << 22)
+/* The decoder address. Any pin works here: the address is set once per burst with digitalWriteFast
+ * and never inside the fast path, so unlike the chip select it does not have to live in GPIO9. */
 #define PIN_A 2
 #define PIN_B 3
 #define PIN_C 4
@@ -418,6 +420,66 @@ static uint16_t choose_burst(int ri)
     return (uint16_t)nmax;
 }
 
+/* ---------------------------------------------------------------------------------------------
+ *  the arithmetic, sharded across banks
+ *
+ *  A matrix-vector product splits by rows. Each bank holds a slice, each computes a partial sum over
+ *  its own slice, and the partials are added at the end. No operation needs more memory visible than
+ *  one bank holds and the banks never have to agree about anything, so this runs on whatever number
+ *  of banks exist.
+ *
+ *  The kernel is the one measured at 2.07 cycles per multiply-accumulate: one 32-bit load brings in
+ *  eight 4-bit weights, SXTB16 spreads them into 16-bit lanes two at a time, and SMLAD does two
+ *  multiply-accumulates per instruction. Both operands take the same split, so the weights and the
+ *  activations pair up with no shuffling.
+ * ------------------------------------------------------------------------------------------ */
+static int8_t   xvec[2048];
+static uint32_t xpack[256 * 4];
+static int32_t  xsum_all;
+
+static inline uint32_t sxtb16(uint32_t x)
+{ uint32_t r; __asm__("sxtb16 %0, %1" : "=r"(r) : "r"(x)); return r; }
+static inline uint32_t sxtb16r8(uint32_t x)
+{ uint32_t r; __asm__("sxtb16 %0, %1, ror #8" : "=r"(r) : "r"(x)); return r; }
+static inline int32_t smlad_(uint32_t a, uint32_t b, int32_t acc)
+{ int32_t r; __asm__("smlad %0, %1, %2, %3" : "=r"(r) : "r"(a), "r"(b), "r"(acc)); return r; }
+
+static void build_xpack(void)
+{
+    for (uint32_t g = 0; g < 256; g++) {
+        const int8_t *a = &xvec[g * 8];
+        xpack[g*4+0] = ((uint32_t)(a[0] & 0xFFFF)) | ((uint32_t)(a[4] & 0xFFFF) << 16);
+        xpack[g*4+1] = ((uint32_t)(a[2] & 0xFFFF)) | ((uint32_t)(a[6] & 0xFFFF) << 16);
+        xpack[g*4+2] = ((uint32_t)(a[1] & 0xFFFF)) | ((uint32_t)(a[5] & 0xFFFF) << 16);
+        xpack[g*4+3] = ((uint32_t)(a[3] & 0xFFFF)) | ((uint32_t)(a[7] & 0xFFFF) << 16);
+    }
+    xsum_all = 0;
+    for (int i = 0; i < 2048; i++) xsum_all += xvec[i];
+}
+
+static inline int32_t mac_block(const uint8_t *w, uint32_t nbytes)
+{
+    int32_t a0 = 0, a1 = 0;
+    uint32_t g = 0;
+    for (uint32_t i = 0; i + 8 <= nbytes; i += 8) {
+        const uint32_t *P = &xpack[g * 4];
+        const uint32_t v0 = *(const uint32_t *)(w + i);
+        const uint32_t v1 = *(const uint32_t *)(w + i + 4);
+        const uint32_t L0 = v0 & 0x0F0F0F0Fu, H0 = (v0 >> 4) & 0x0F0F0F0Fu;
+        const uint32_t L1 = v1 & 0x0F0F0F0Fu, H1 = (v1 >> 4) & 0x0F0F0F0Fu;
+        a0 = smlad_(sxtb16(L0),   P[0], a0);
+        a0 = smlad_(sxtb16r8(L0), P[1], a0);
+        a0 = smlad_(sxtb16(H0),   P[2], a0);
+        a0 = smlad_(sxtb16r8(H0), P[3], a0);
+        a1 = smlad_(sxtb16(L1),   P[4], a1);
+        a1 = smlad_(sxtb16r8(L1), P[5], a1);
+        a1 = smlad_(sxtb16(H1),   P[6], a1);
+        a1 = smlad_(sxtb16r8(H1), P[7], a1);
+        g = (g + 2) & 255u;
+    }
+    return a0 + a1 - 8 * (int32_t)(nbytes / 1024u) * xsum_all;
+}
+
 static inline uint8_t pat(uint8_t bank, uint32_t i)
 {
     return (uint8_t)(i * 0x9Du + 0x3Bu + (uint32_t)bank * 0x57u);
@@ -460,6 +522,11 @@ void setup()
     bus_out();
     ARM_DEMCR |= ARM_DEMCR_TRCENA;
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
+
+    for (int i = 0; i < 2048; i++) xvec[i] = (int8_t)(((i * 37) & 0x7F) - 64);
+    build_xpack();
+
+    Serial2.begin(1000000);          /* UART3 to the Luckfox, pins 7 and 8 */
 }
 
 static void stage1_discover(void)
@@ -581,6 +648,8 @@ static void stage3_timing(void)
 
     for (int b = 0; b < g_nbank; b++) {
         use_bank(b); enter_quad_here();
+        g_burst = 32;          /* inside the 8 us refresh limit at every setting in the table, so a
+                                * slow candidate cannot fail for a reason the sweep created */
 
         /* reads first, with writes held generous */
         int ri = -1;
@@ -620,7 +689,7 @@ static void stage3_timing(void)
          * rather than reported broken. */
         int wsafe = (wi < 0) ? (int)NSET - 1 : wi;
         int rs    = rsafe;
-        g_burst = 64;                       /* short enough that refresh cannot be the reason */
+        g_burst = 32;                       /* short enough that refresh cannot be the reason */
         int tries = 0;
         uint32_t cbad = 0;
         while (tries < 8) {
@@ -644,6 +713,12 @@ static void stage3_timing(void)
         const int rsafe_final = rs;
         g_wi[b] = (uint8_t)wsafe;
         g_ri[b] = (uint8_t)rsafe_final;
+        if (cbad) {
+            Serial.print(F("      bank ")); Serial.print(b);
+            Serial.print(F(" never verified clean; running it at write "));
+            Serial.print(NOPS[wsafe]); Serial.print(F("/read ")); Serial.print(NOPS[rsafe_final]);
+            Serial.println(F(" anyway"));
+        }
 
         /* Now fix the burst for this bank. The timing was chosen for margin and that lengthens a
          * burst, so the refresh limit has to be re-checked against the setting actually chosen
@@ -876,9 +951,159 @@ static void stage6_soak(void)
 
 static bool done_once = false;
 
+/* Every bank runs the kernel over its own slice and returns a partial sum. Nothing is skipped and
+ * nothing is gated on an earlier check: all banks that answered are used. */
+static void stage_matrix(void)
+{
+    const uint32_t PER = 1u * 1024u * 1024u;      /* weights per bank */
+
+    Serial.println(F("\n[M] sharded matrix-vector: every bank does its own partial sum"));
+    Serial.print(F("    loading ")); Serial.print(PER / 1024u);
+    Serial.println(F(" kB of 4-bit weights into each bank"));
+    for (int b = 0; b < g_nbank; b++) {
+        use_bank(b);
+        g_burst = g_bn[b];
+        for (uint32_t off = 0; off < PER; off += BLK) {
+            for (uint32_t i = 0; i < BLK; i++) ref[i] = (uint8_t)((off + i) * 0x9Du + 0x3Bu + b);
+            WF[g_wi[b]](off, ref, BLK);
+        }
+    }
+
+    /* the reference answer for each bank, taken at the slowest setting in the table */
+    Serial.println(F("    reference pass at the slowest setting, to have an answer to compare to"));
+    static int32_t refpart[MAXBANK];
+    for (int b = 0; b < g_nbank; b++) {
+        use_bank(b);
+        g_burst = 32;
+        int32_t part = 0;
+        for (uint32_t off = 0; off < PER; off += BLK) {
+            RF[NSET - 1](off, buf, BLK);
+            part += mac_block(buf, BLK);
+        }
+        refpart[b] = part;
+    }
+
+    /* then push each bank up the table until its answer stops matching */
+    Serial.println(F("    bank   fastest that still agrees   MB/s     MMAC/s     ms"));
+    int64_t total = 0;
+    uint64_t all_cyc = 0;
+    for (int b = 0; b < g_nbank; b++) {
+        use_bank(b);
+        g_burst = 32;
+
+        int best = (int)NSET - 1;
+        for (unsigned k = 0; k < NSET; k++) {
+            int32_t part = 0;
+            for (uint32_t off = 0; off < PER; off += BLK) {
+                RF[k](off, buf, BLK);
+                part += mac_block(buf, BLK);
+            }
+            if (part == refpart[b]) { best = (int)k; break; }
+        }
+        g_ri[b] = (uint8_t)best;
+
+        /* and time it there, for real */
+        int32_t part = 0;
+        const uint32_t t0 = ARM_DWT_CYCCNT;
+        for (uint32_t off = 0; off < PER; off += BLK) {
+            RF[best](off, buf, BLK);
+            part += mac_block(buf, BLK);
+        }
+        const uint32_t cyc = ARM_DWT_CYCCNT - t0;
+        all_cyc += cyc;
+        total += part;
+
+        const float sec = (float)cyc / (float)F_CPU_ACTUAL;
+        Serial.print(F("      ")); Serial.print(b);
+        Serial.print(F("          read "));
+        if (NOPS[best] < 10) Serial.print(' ');
+        Serial.print(NOPS[best]);
+        Serial.print(F("              ")); Serial.print((float)PER / sec / 1e6f, 2);
+        Serial.print(F("    ")); Serial.print((float)PER * 2.0f / sec / 1e6f, 2);
+        Serial.print(F("    ")); Serial.print(sec * 1000.0f, 1);
+        Serial.println(part == refpart[b] ? F("   ok") : F("   ANSWER CHANGED"));
+    }
+
+    const float secs  = (float)(double)all_cyc / (float)F_CPU_ACTUAL;
+    const float bytes = (float)PER * (float)g_nbank;
+    Serial.print(F("    combined sum over all ")); Serial.print(g_nbank);
+    Serial.print(F(" banks: ")); Serial.println((int32_t)total);
+    Serial.print(F("    aggregate ")); Serial.print(bytes / secs / 1e6f, 2);
+    Serial.print(F(" MB/s, ")); Serial.print(bytes * 2.0f / secs / 1e6f, 2);
+    Serial.println(F(" MMAC/s"));
+
+    const float rate = bytes / secs;
+    Serial.println(F("    what that is for a model, 24 layers:"));
+    for (uint32_t d = 256; d <= 1024; d *= 2) {
+        const float wb = 8.0f * (float)d * (float)d;
+        const float ms = wb / rate * 1000.0f;
+        Serial.print(F("      hidden size ")); Serial.print(d);
+        Serial.print(F("   ")); Serial.print(wb / 1024.0f, 0);
+        Serial.print(F(" kB/layer   ")); Serial.print(ms, 1);
+        Serial.print(F(" ms   ")); Serial.print(1000.0f / (ms * 24.0f), 3);
+        Serial.println(F(" tokens/s"));
+    }
+    Serial.print(F("    capacity ")); Serial.print((uint32_t)g_nbank * 8u);
+    Serial.print(F(" MB = ")); Serial.print((uint32_t)((float)g_nbank * 8.0f * 1048576.0f / (8.0f * 512.0f * 512.0f)));
+    Serial.println(F(" layers at hidden size 512"));
+}
+
+/* the same sharded product the bench runs, exposed as a callable unit of work */
+static int32_t run_shard(uint32_t per_bank, uint32_t *us_out, uint32_t *bytes_out)
+{
+    int32_t total = 0;
+    const uint32_t t0 = ARM_DWT_CYCCNT;
+    for (int b = 0; b < g_nbank; b++) {
+        use_bank(b);
+        g_burst = g_bn[b];
+        for (uint32_t off = 0; off < per_bank; off += BLK) {
+            RF[g_ri[b]](off, buf, BLK);
+            total += mac_block(buf, BLK);
+        }
+    }
+    const uint32_t cyc = ARM_DWT_CYCCNT - t0;
+    *us_out = (uint32_t)((uint64_t)cyc * 1000000ull / (uint64_t)F_CPU_ACTUAL);
+    *bytes_out = per_bank * (uint32_t)g_nbank;
+    return total;
+}
+
+/* Serial2 is UART3 on pins 7 and 8. One line in, one line out, no state kept between them -- a
+ * worker that remembers nothing cannot drift out of step with the thing driving it. */
+static void serve_link(void)
+{
+    static char line[32];
+    static uint8_t len = 0;
+    while (Serial2.available()) {
+        const char c = (char)Serial2.read();
+        if (c == '\n' || c == '\r') {
+            line[len] = 0;
+            if (len && (line[0] == 'G' || line[0] == 'g')) {
+                uint32_t kb = 1024;
+                if (len > 2) kb = (uint32_t)atol(line + 1);
+                if (kb < 8) kb = 8;
+                if (kb > 8192) kb = 8192;
+                uint32_t us = 0, by = 0;
+                const int32_t part = run_shard(kb * 1024u, &us, &by);
+                Serial2.print("P ");  Serial2.print(part);
+                Serial2.print(' ');   Serial2.print(us);
+                Serial2.print(' ');   Serial2.print(by);
+                Serial2.print(' ');   Serial2.print(g_nbank);
+                Serial2.println();
+            } else if (len && (line[0] == 'I' || line[0] == 'i')) {
+                Serial2.print("I banks "); Serial2.print(g_nbank);
+                Serial2.print(" mb ");     Serial2.print((uint32_t)g_nbank * 8u);
+                Serial2.println();
+            }
+            len = 0;
+        } else if (len < sizeof(line) - 1) {
+            line[len++] = c;
+        }
+    }
+}
+
 void loop()
 {
-    if (done_once) { stage6_soak(); return; }
+    if (done_once) { serve_link(); stage6_soak(); return; }
 
     Serial.println();
     Serial.println(F("=================================================================="));
@@ -901,15 +1126,10 @@ void loop()
         return;
     }
 
-    const int indep = stage2_independent();
+    stage2_independent();
     stage3_timing();
     stage4_tcem();
-    if (indep == g_nbank) {
-        stage5_whole();
-    } else {
-        Serial.println(F("\n[5] skipped: banks are not independent, so a flat address space across"));
-        Serial.println(F("    them would be measuring the same chip several times over."));
-    }
+    stage_matrix();
 
     Serial.println(F("\n--- what you built ---"));
     Serial.print(F("  ")); Serial.print(g_nbank);

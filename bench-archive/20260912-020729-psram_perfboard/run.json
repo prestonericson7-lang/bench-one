@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-020729",
+  "sketch": "psram_perfboard",
+  "git": "fdb4f57",
+  "git_dirty": true,
+  "seconds": 200,
+  "note": "8 banks, UART worker, archived run",
+  "hex": "psram_perfboard.ino.hex",
+  "hex_bytes": 172890
+}

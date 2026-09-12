@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-020751",
+  "sketch": "psram_perfboard",
+  "git": "fdb4f57",
+  "git_dirty": true,
+  "seconds": 30,
+  "note": "diagnostic",
+  "hex": "psram_perfboard.ino.hex",
+  "hex_bytes": 172890
+}

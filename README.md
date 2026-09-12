@@ -14,6 +14,27 @@ either way.
 
 ---
 
+## Current state — 2026-09-12
+
+**[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first. Every measurement, every
+mistake worth not repeating, and exactly which code has run on hardware and which has not.
+
+The short version, all measured:
+
+| | |
+|---|---|
+| best rate | **401 MMAC/s** with a Teensy and a Luckfox computing concurrently |
+| one node, batch 64 | 316.7 MMAC/s over 587 million parameters |
+| Luckfox alone, NEON, 1-bit | 648 MMAC/s at 81 MB/s — 21x the whole PSRAM array |
+| quantisation | 1 bit a weight is 3.69x the 4-bit rate, verified bit-identical |
+| real tCEM | 29.9 us clean, against a datasheet figure of 8 |
+
+A 19-node self-numbering chain is designed and built in firmware — nine Teensys, five Luckfoxes, six
+ESP32-S3s, 310 MB, 2.48 billion parameters at one bit. **None of the chain code has run on hardware
+yet.** docs/53 says precisely what has and what has not.
+
+---
+
 ## If you only read one thing
 
 Pick the part you actually want:

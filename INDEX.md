@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**439 tracked files.** This page exists so you never have to guess which directory something is in.
+**451 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -19,6 +19,8 @@ If you know what you want, use the table. If you do not, start at
 | I want to | Go here |
 |---|---|
 | See the machine actually work | [docs/40](docs/40-psram-bank-brought-up.md) — 8 MB of PSRAM verified on hardware, and what it cost |
+| Read one number correctly | [docs/41](docs/41-the-tuned-settings-were-a-cliff-edge.md) — why the settings in 40 stopped working the same day, and the six rules that came out of it |
+| See it do arithmetic | [docs/42](docs/42-matrix-arithmetic-on-the-teensy.md) — 499 MFLOP/s GEMM, 24 Mverts/s, and 234 MMAC/s on 4-bit weights |
 | Understand the point of the whole project | [docs/20](docs/20-the-actual-thesis.md), then [docs/27](docs/27-the-machine-as-measured.md) |
 | Put 256 MB of DDR3 on a microcontroller | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) |
 | Wire the DDR3 up tonight | **[WIRING.md](firmware/bench-one/fpga/ddr3_ice40/WIRING.md)** — every wire, both ends, and the part in between. Read [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) first |
@@ -37,8 +39,8 @@ If you know what you want, use the table. If you do not, start at
 ## The six compartments
 
 ```
-docs/         37 numbered documents + 11 research files    the engineering record
-firmware/     331 files                                    everything that runs on a board
+docs/         39 numbered documents + 11 research files    the engineering record
+firmware/     341 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -54,7 +56,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **37 numbered documents**, 01 to 40 | the record itself |
+| **39 numbered documents**, 01 to 42 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -83,10 +85,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 165 files
+### `bench-one/tests/` — 175 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **25 experiment directories, 36 C programs, 69 result logs.**
+cross-compiled programs. **35 experiment directories, 36 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
@@ -94,7 +96,12 @@ cross-compiled programs. **25 experiment directories, 36 C programs, 69 result l
 | `ddr3_spd_teensy/` | reads a DIMM's identity EEPROM, unpowered. Step zero of the DDR3 work |
 | **`offload_teensy/`** | **does taking work off a Teensy make its memory faster?** Five cases isolating compute, memory, eDMA overlap and the cost of link handling |
 | **`usblink_bench/`** | **how fast can a Luckfox feed a Teensy?** The unmeasured number that decides whether the Luckfox is a helper or a bottleneck. Both halves, host side cross-compiled |
-| **`psram_driver/`** | **the working PSRAM bank driver.** 8 MB verified at 23.7 MB/s write, 14.8 read, on a breadboard, driven by GPIO |
+| **`psram_driver/`** | **the working PSRAM bank driver.** 8 MB verified over eleven consecutive rounds at 21.3 MB/s write, 13.8 read, on a breadboard, driven by GPIO. Settings corrected in docs/41 |
+| **`psram_matrix/`** | **can it compute?** 4x4 vertex transforms, int8 and 4-bit matrix-vector and a float GEMM, in each of the three memory tiers, with checksums that must match across tiers. 499 MFLOP/s and 234 MMAC/s on chip |
+| `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together |
+| `psram_addr_fault/`, `psram_pattern/` | is a wrong byte an address line or a timing fault, and does the error rate depend on how hard the data switches |
+| `psram_coldstart/`, `psram_settle/`, `psram_idle/` | cold reads against warm ones. `psram_settle` is kept because its control line is the clearest ordering artefact in the tree |
+| `psram_soak/` | every candidate configuration, accumulating indefinitely, reporting error rate bounds in parts per billion rather than verdicts |
 | `psram_fast/`, `psram_bisect/`, `psram_probe/` | how it got there: the speed sweep, the two-implementations test that found the real bug, and the bit-banged bus probe |
 | **`run_host_tests.sh`** | **builds and RUNS every self-verifying test.** Correctness only, never speed. Until this existed none of them linked, so nothing had ever been run |
 | `deep_test.c` | the second recall stage, proven without hardware — including that under row sharding it cannot change the answer |

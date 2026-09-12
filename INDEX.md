@@ -106,7 +106,7 @@ cross-compiled programs. **40 experiment directories, 38 C programs, 69 result l
 | `teensy_pinmap/` | asks the core which GPIO register and bit each pin is, because the pinout card has been wrong here before. Drives nothing |
 | `psram_pads/` | sweeps pad drive, slew rate and input hysteresis. All eight configurations land on the same setting and the same 14.53 MB/s, which confirms the wiring as the limit and closes the cheapest route to more speed |
 | `psram_tcem/` | times chip-select-low directly instead of inferring it from throughput. 96 bytes is 6.93 us against an 8 us refresh limit, and 112 is already over |
-| `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together |
+| `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together. `psram_margin` also confirms its answer over the whole 8 MB twice and prints the error-rate bound, which is what the first version lacked |
 | `psram_addr_fault/`, `psram_pattern/` | is a wrong byte an address line or a timing fault, and does the error rate depend on how hard the data switches |
 | `psram_coldstart/`, `psram_settle/`, `psram_idle/` | cold reads against warm ones. `psram_settle` is kept because its control line is the clearest ordering artefact in the tree |
 | `psram_soak/` | every candidate configuration, accumulating indefinitely, reporting error rate bounds in parts per billion rather than verdicts |

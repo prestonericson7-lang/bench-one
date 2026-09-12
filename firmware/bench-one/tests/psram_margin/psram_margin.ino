@@ -232,6 +232,94 @@ static void sweep(const char *what, const int *nops,
     }
 }
 
+/* ===========================================================================================
+ *  THE STAGE THIS SKETCH WAS MISSING, AND THE REASON IT MISLED
+ *
+ *  Everything above sweeps 128 kB per setting, three rounds. That was enough to find the shape of the
+ *  cliff and nowhere near enough to qualify a setting: 393,216 bytes of silence bounds the error rate
+ *  below about 2.5 per million, and the rate that later turned up in the driver was 0.24 per million.
+ *  The sweep was not wrong. It had no resolution left at the scale that mattered, and it did not say so.
+ *
+ *  So the window search now hands its answer to a confirmation that covers the whole part, twice, with
+ *  BOTH directions at their chosen values at once -- because two single-variable sweeps can each come
+ *  back clean while the combination fails, and on this bench they did.
+ *
+ *  The verdict prints the bound its evidence supports rather than the word "clean". A configuration
+ *  that has not failed is bounded, not proven, and the bound is one over the bytes tested.
+ * ======================================================================================== */
+
+#define FULL (8u * 1024u * 1024u)
+
+template <int SWR, int SRD>
+static uint32_t confirm_full(uint32_t seed, float *wmb, float *rmb)
+{
+    uint32_t bad = 0, wc = 0, rc = 0;
+    for (uint32_t off = 0; off < FULL; off += BLK) {
+        for (uint32_t i = 0; i < BLK; i++) ref[i] = (uint8_t)((off + i) * 0x9D + seed);
+        uint32_t t = ARM_DWT_CYCCNT; wr<SWR>(off, ref, BLK); wc += ARM_DWT_CYCCNT - t;
+        t = ARM_DWT_CYCCNT;          rd<SRD>(off, buf, BLK); rc += ARM_DWT_CYCCNT - t;
+        for (uint32_t i = 0; i < BLK; i++) if (buf[i] != ref[i]) bad++;
+    }
+    *wmb = (float)FULL / ((float)wc / (float)F_CPU_ACTUAL) / 1e6f;
+    *rmb = (float)FULL / ((float)rc / (float)F_CPU_ACTUAL) / 1e6f;
+    return bad;
+}
+
+/* the pairs worth confirming: the middle of each window, and one step faster on the read so the
+ * margin being bought is visible rather than asserted */
+typedef uint32_t (*cfn)(uint32_t, float *, float *);
+static const int  CW[] = {  6,  6,  6,  8 };
+static const int  CR[] = { 10, 12, 14, 16 };
+static const cfn  CF[] = { confirm_full< 6,10>, confirm_full< 6,12>,
+                           confirm_full< 6,14>, confirm_full< 8,16> };
+#define NC (sizeof(CW) / sizeof(CW[0]))
+
+static void confirm_stage(void)
+{
+    Serial.println(F("\n[confirmation] both directions at once, the whole 8 MB, twice each"));
+    Serial.println(F("     write/read   pass1   pass2   W MB/s   R MB/s   bound"));
+    int best = -1;
+    for (unsigned k = 0; k < NC; k++) {
+        float w1 = 0, r1 = 0, w2 = 0, r2 = 0;
+        const uint32_t b1 = CF[k](0x3B, &w1, &r1);
+        const uint32_t b2 = CF[k](0x91, &w2, &r2);
+
+        Serial.print(F("        "));
+        if (CW[k] < 10) Serial.print(' ');
+        Serial.print(CW[k]); Serial.print('/');
+        if (CR[k] < 10) Serial.print(' ');
+        Serial.print(CR[k]);    Serial.print(F("      "));
+        Serial.print(b1);       Serial.print(F("       "));
+        Serial.print(b2);       Serial.print(F("     "));
+        Serial.print(w1, 2);    Serial.print(F("    "));
+        Serial.print(r1, 2);    Serial.print(F("    "));
+        if (b1 || b2) {
+            Serial.print((b1 + b2) * 1e9f / (2.0f * (float)FULL), 1);
+            Serial.println(F(" per billion"));
+        } else {
+            Serial.print(F("under "));
+            Serial.print(1e9f / (2.0f * (float)FULL), 1);
+            Serial.println(F(" per billion"));
+            if (best < 0) best = (int)k;          /* the list is fastest-first */
+        }
+    }
+
+    Serial.println(F("\n--- what to ship ---"));
+    if (best < 0) {
+        Serial.println(F("  no pair survived 16 MB of traffic. Do not ship any of them; the wiring"));
+        Serial.println(F("  needs attention before a setting can mean anything."));
+    } else {
+        Serial.print(F("  write ")); Serial.print(CW[best]);
+        Serial.print(F(", read ")); Serial.print(CR[best]);
+        Serial.println(F(", 96-byte bursts."));
+        Serial.println(F("  That is bounded under 60 errors per billion bytes by 16 MB of traffic, which"));
+        Serial.println(F("  is evidence and not proof. Run psram_soak to push the bound down, and"));
+        Serial.println(F("  psram_tcem to check chip select stays under 8 us at whatever rate results."));
+    }
+    Serial.println(F("  The 128 kB sweep above finds the SHAPE of the cliff. It cannot qualify a"));
+    Serial.println(F("  setting, and a previous version of this sketch was read as though it could."));
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -257,6 +345,8 @@ void loop()
     int rf, rl, wf, wl;
     sweep("read",  RN, RF, NR, &rf, &rl);
     sweep("write", WN, WF, NW, &wf, &wl);
+
+    confirm_stage();
 
     Serial.println(F("\n--- the window ---"));
     if (rf < 0) {

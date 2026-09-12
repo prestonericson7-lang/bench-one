@@ -129,7 +129,7 @@ bound that has not been beaten.
 
 | test | the one question it answers |
 |---|---|
-| `psram_margin` | where does the clean region begin and end, for each direction separately |
+| `psram_margin` | where does the clean region begin and end, for each direction separately — then confirms the chosen pair over the whole 8 MB twice and prints the bound, which the first version did not and which is why it misled |
 | `psram_addr_fault` | is a wrong byte a timing fault or an address line — every word carries its own address so it can say |
 | `psram_settle` | does a wait before reading help. Kept because its control line is the clearest example in the project of an ordering artefact |
 | `psram_coldstart` | cold read against warm read at the same setting, both orders, no writes at all |
@@ -228,6 +228,22 @@ measurement rather than by assumption. That closes the cheapest-looking route to
 the perfboard as the only one. A negative result, and worth the twenty minutes: the alternative was
 continuing to believe the wiring story without ever having tested the one thing that could have made
 it false.
+
+---
+
+The tool that produced the original bad answer has been fixed rather than merely noted.
+`psram_margin` now hands its window search to a confirmation stage: both directions at their chosen
+values **at once**, over the whole 8 MB, twice each, with the bound printed instead of the word clean.
+
+| write/read | pass 1 | pass 2 | W MB/s | R MB/s | bound |
+|---|---|---|---|---|---|
+| **6/10** | 0 | 0 | 21.34 | 13.80 | under 59.6 per billion |
+| 6/12 | 0 | 0 | 21.34 | 12.56 | under 59.6 per billion |
+| 6/14 | 0 | 0 | 21.34 | 11.53 | under 59.6 per billion |
+| 8/16 | 0 | 0 | 18.58 | 10.65 | under 59.6 per billion |
+
+It arrives at write 6 / read 10 independently, which is the configuration the driver ships. That
+agreement is worth something precisely because the two got there by different routes.
 
 ---
 

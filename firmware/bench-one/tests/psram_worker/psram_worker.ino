@@ -113,6 +113,18 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *  7 and 8 -- the link the Luckfox already uses -- and downstream is Serial1 on pins 0 and 1, wired to
  *  the next node's Serial2. Wire pin 1 to the next node's pin 7, pin 0 to its pin 8, and share a ground.
  *
+ *  A LUCKFOX HANGS OFF EACH NODE, AS A LEAF
+ *
+ *  A Luckfox exposes exactly one spare UART -- UART3, since UART2 is its console -- so it can be an end
+ *  of a link but never a relay. That settles the shape: it is a leaf, not a link in the chain.
+ *
+ *  Serial3 on pins 15 and 14 is the leaf port. It has no alternate pin pair in the core, so unlike
+ *  Serial1 it can never be remapped onto the PSRAM bus. Wire Teensy pin 14 to the Luckfox UART3 RX and
+ *  Teensy pin 15 to its TX, 100 ohms in series on each, grounds common.
+ *
+ *  Enumeration walks the leaf first and the chain second, so a Luckfox and the node hosting it get
+ *  consecutive numbers and the host can address either without knowing the topology.
+ *
  *      A <n>       take address n if unassigned, then hand n+1 downstream and report back.
  *                  The host sends "A 1" once and the whole chain numbers itself.
  *      @<n> <cmd>  run <cmd> on node n. Any other node passes the line down untouched and relays the
@@ -890,10 +902,12 @@ void setup()
 
     Serial2.begin(1000000);          /* upstream: the Luckfox, or the node in front of me */
     Serial1.begin(1000000);          /* downstream: pins 0 and 1 to the next node's Serial2 */
+    Serial3.begin(1000000);          /* leaf: pins 15 and 14 to this node's Luckfox, UART3 */
     Serial.begin(115200);            /* USB, for a human watching. Never used for control. */
     delay(300);
     Serial.println(F("psram_worker up. math only; the Luckfox decides everything else."));
-    Serial.println(F("chain: upstream Serial2 pins 7/8, downstream Serial1 pins 0/1, address unset."));
+    Serial.println(F("chain: upstream Serial2 pins 7/8, downstream Serial1 pins 0/1,"));
+    Serial.println(F("       leaf Serial3 pins 15/14 for a Luckfox. Address unset until A arrives."));
     Serial.println(F("every line in and out of the link is echoed here, > in and < out."));
 }
 
@@ -925,6 +939,7 @@ static bool g_from_usb;
 /* 0 means "not yet numbered", and an unnumbered node still answers unaddressed commands so a bench of
  * one behaves the way it always has. */
 static uint8_t g_addr;
+static uint8_t g_leaf;            /* the Luckfox on Serial3, or 0 if this node has none */
 
 /* Relay whatever the downstream node says, upstream, until its line is complete.
  *
@@ -932,24 +947,36 @@ static uint8_t g_addr;
  * anything: the reply belongs to the host, and the only reason this code exists at all is that a UART
  * is point to point. The deadline is generous because a command addressed to the far end of nine nodes
  * carries nine hops of latency and a multiply-accumulate at the end of it. */
-static void relay_reply(uint32_t timeout_ms)
+static void relay_from(HardwareSerial &src, uint32_t timeout_ms)
 {
     const uint32_t t0 = millis();
-    char c;
-    bool any = false;
     while (millis() - t0 < timeout_ms) {
-        while (Serial1.available()) {
-            c = (char)Serial1.read();
+        while (src.available()) {
+            const char c = (char)src.read();
             Serial2.write(c);
             if (c == 0x0A) return;
-            any = true;
-        }
-        if (!any && (millis() - t0) > 200 && !Serial1.available()) {
-            /* nothing downstream at all: say so rather than leaving the host waiting */
-            if (millis() - t0 > 1000) { Serial2.println("E noend"); return; }
         }
     }
     Serial2.println("E timeout");
+}
+
+/* Ask a port for one line and hand back whether it answered at all. Enumeration needs the answer
+ * rather than the text: a port with nothing on it must not stall the whole chain. */
+static bool probe_line(HardwareSerial &src, char *dst, size_t dsz, uint32_t timeout_ms)
+{
+    const uint32_t t0 = millis();
+    size_t k = 0;
+    while (millis() - t0 < timeout_ms) {
+        while (src.available()) {
+            const char c = (char)src.read();
+            if (c == 0x0A || c == 0x0D) {
+                if (k) { dst[k] = 0; return true; }
+            } else if (k < dsz - 1) {
+                dst[k++] = c;
+            }
+        }
+    }
+    return false;
 }
 
 static long arg(const char *s, int which)
@@ -1012,10 +1039,14 @@ static void handle(const char *c)
         const long want = atol(c + 1);
         if (g_addr && want == (long)g_addr && *sp) {
             c = sp + 1;                       /* mine: fall through with the prefix removed */
+        } else if (g_leaf && want == (long)g_leaf) {
+            Serial3.println(c);               /* my Luckfox */
+            relay_from(Serial3, 600000ul);
+            return;
         } else {
             Serial1.println(c);
             Serial.print(F("> down ")); Serial.println(c);
-            relay_reply(600000ul);
+            relay_from(Serial1, 600000ul);
             return;
         }
     }
@@ -1026,15 +1057,27 @@ static void handle(const char *c)
         const long want = atol(c + 1);
         if (!g_addr && want > 0) {
             g_addr = (uint8_t)want;
-            snprintf(out, sizeof(out), "A %u here", g_addr);
+            long next = want + 1;
+
+            /* the leaf gets the next number, if there is a leaf. Half a second is generous for a board
+             * that is already running and stingy enough that eight empty ports cost four seconds once. */
+            char nxt[24], got[64];
+            snprintf(nxt, sizeof(nxt), "A %ld", next);
+            Serial3.println(nxt);
+            if (probe_line(Serial3, got, sizeof(got), 500ul)
+                && (got[0] == 'A' || got[0] == 'a')) {
+                g_leaf = (uint8_t)next;
+                next++;
+            }
+
+            snprintf(out, sizeof(out), "A %u here leaf %u", g_addr, g_leaf);
             say(out);
-            char nxt[16];
-            snprintf(nxt, sizeof(nxt), "A %ld", want + 1);
-            Serial1.println(nxt);            /* offer the next number to whoever is behind me */
+            snprintf(nxt, sizeof(nxt), "A %ld", next);
+            Serial1.println(nxt);            /* then offer what is left to whoever is behind me */
             return;
         }
         Serial1.println(c);                  /* already numbered: pass the offer along */
-        relay_reply(5000ul);
+        relay_from(Serial1, 5000ul);
         return;
     }
 
@@ -1045,8 +1088,9 @@ static void handle(const char *c)
     switch (c[0]) {
     case 'I': case 'i':
         snprintf(out, sizeof(out),
-                 "I bench-one worker 3 addr %u nsel 10 banksz %lu blk %lu bits 4,2,1 fcpu %lu",
-                 g_addr, (unsigned long)BANKSZ, (unsigned long)BLK, (unsigned long)F_CPU_ACTUAL);
+                 "I bench-one worker 4 addr %u leaf %u nsel 10 banksz %lu blk %lu bits 4,2,1 fcpu %lu",
+                 g_addr, g_leaf, (unsigned long)BANKSZ, (unsigned long)BLK,
+                 (unsigned long)F_CPU_ACTUAL);
         say(out);
         break;
 

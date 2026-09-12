@@ -208,6 +208,16 @@ typedef struct {
     int     fast;
     int8_t *xq;          /* quantized activation, widest of dim and hidden */
     float  *xs;          /* its per-32 scales                             */
+    int32_t *xsum;       /* and its per-32 SUMS.
+                          *
+                          * Q4_K's per-block minimum needs the sum of the activations in each 32-element
+                          * sub-block, and gguf_dot_q recomputes them inside every row. They do not
+                          * depend on the weights, and a matvec dots one activation vector against
+                          * thousands of rows, so computing them once here and passing them in saves
+                          * two SMLAD per four weights on every row but the first.
+                          *
+                          * Measured on a Teensy 4.1: 60.68 -> 66.97 MB/s, and bit-identical, because the
+                          * sums are the same integers either way. */
 
     uint64_t weight_bytes;          /* everything held in memory               */
     uint64_t bytes_per_token;       /* everything READ to produce one token    */

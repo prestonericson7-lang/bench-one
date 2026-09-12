@@ -167,6 +167,31 @@ The gap to a fabric lane is that much narrower.
 
 ---
 
+## Wired into the runtime, and the regression that nearly went with it
+
+`matvec` in `model_q.c` quantizes the activation once for a whole matrix and then calls `gguf_dot_q`
+per row — which recomputes those activation sums inside every row, thousands of times per matrix for a
+quantity that does not change. It now computes them once with `gguf_act_sums` and calls
+`gguf_dot_q4k_presum`, which is the same scheduling-only change as `matvec_group` beside it and is
+bit-identical for the same reason.
+
+**Writing that introduced a regression and catching it needed one question.** On a host with AVX2, or a
+Cortex-A with NEON, `gguf_dot_q` dispatches to a hand-written vector kernel. `gguf_dot_q4k_presum` had
+only the Cortex-M7 path and a scalar fallback — so a runtime switched to it unconditionally would have
+**fallen off the vector path entirely on x86 and on every Cortex-A node in the machine**, trading a
+large loss for a 10% gain.
+
+The host test suite would not have caught it. It checks correctness, and the scalar result is correct.
+
+The fix is that `gguf_dot_q4k_presum` forwards to `dot_q4_k` wherever the hoisted kernel is not the
+fastest one available: the sums go unused, the answer is identical, and one entry point is safe on every
+node without the caller knowing which node it is on.
+
+The question that caught it is the same one this whole document is about — *which kernel will this target
+actually run?* — asked before shipping rather than after publishing a figure.
+
+---
+
 ## Is it happening on any other node? Audited, and no
 
 A fault of this shape — a preprocessor condition silently deciding what a published figure measured —

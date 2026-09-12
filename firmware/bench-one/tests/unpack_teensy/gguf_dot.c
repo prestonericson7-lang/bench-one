@@ -525,6 +525,8 @@ static float dot_q4_k_m7(const uint8_t *raw, const int8_t *xq, const float *xs, 
 }
 #endif
 
+static float dot_q4_k(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n);
+
 /* ---------------------------------------------------------------------------------------------
  *  Q4_K with the activation sums supplied rather than recomputed
  *
@@ -554,6 +556,22 @@ void gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum)
 float gguf_dot_q4k_presum(const void *raw_, const int8_t *xq, const float *xs,
                           const int32_t *xsum, uint64_t n)
 {
+#if !GGUF_HAVE_M7DSP
+    /* NEVER SLOWER THAN gguf_dot_q, wherever it is called.
+     *
+     * Hoisting the sums only wins where this file's fastest Q4_K kernel is the one below. On a host
+     * with AVX2, or a Cortex-A with NEON, gguf_dot_q dispatches to a vector kernel that the scalar
+     * loop below would lose to badly -- so a runtime that switched to this function unconditionally
+     * would fall off the vector path entirely on x86 and on every Cortex-A node in the machine.
+     *
+     * That regression was written and caught before it shipped, by asking which kernel each target
+     * would actually run rather than assuming the faster-looking call is faster. It is the same
+     * question document 45 is about. Here the answer is to forward: the sums go unused, the result is
+     * identical, and the caller can use one entry point everywhere without knowing which node it is on.
+     */
+    (void)xsum;
+    return dot_q4_k((const uint8_t *)raw_, xq, xs, n);
+#else
     const uint8_t *raw = (const uint8_t *)raw_;
     const uint64_t nb = n / QK_K;
     double total = 0.0;
@@ -601,6 +619,7 @@ float gguf_dot_q4k_presum(const void *raw_, const int8_t *xq, const float *xs,
         }
     }
     return (float)total;
+#endif
 }
 
 /* ---------------------------------------------------------------------------------------------

@@ -269,6 +269,7 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         if ((size_t)m->hidden > wide) wide = (size_t)m->hidden;
         m->xq = (int8_t *)calloc(wide, 1);
         m->xs = (float *)calloc(wide / 32 + 1, sizeof(float));
+        m->xsum = (int32_t *)calloc(wide / 32 + 1, sizeof(int32_t));
     }
     if (!m->k_cache || !m->v_cache || !m->k_scale || !m->v_scale ||
         !m->x || !m->xb || !m->xb2 || !m->q ||
@@ -334,6 +335,7 @@ void model_free(model_t *m)
     free(m->x); free(m->xb); free(m->xb2); free(m->q);
     free(m->att); free(m->hb); free(m->hb2); free(m->logits);
     free(m->xq); free(m->xs);
+    free(m->xsum);
     memset(m, 0, sizeof(*m));
 }
 
@@ -426,6 +428,20 @@ static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int 
          * activation is 2048 values against millions of weights, so this cost disappears; it is the
          * same asymmetry that puts activations in fabric and streams weights past them. */
         gguf_quantize_act(x, w->cols, m->xq, m->xs);
+
+        /* and the per-32 sums, once for the whole matrix rather than once per row. Only Q4_K uses
+         * them -- it is the format with a per-block minimum -- and the result is bit-identical, so
+         * this is a scheduling change exactly like matvec_group below and not a numerics one. */
+        if (w->type == GGML_Q4_K && m->xsum) {
+            gguf_act_sums(m->xq, w->cols, m->xsum);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+            for (int r = 0; r < n; r++)
+                out[r] = gguf_dot_q4k_presum(w->raw + (size_t)r * w->row_bytes,
+                                             m->xq, m->xs, m->xsum, w->cols);
+            return;
+        }
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif

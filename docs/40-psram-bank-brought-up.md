@@ -1,5 +1,13 @@
 # 40 — Six PSRAM on one Teensy: brought up, and what it cost
 
+> **Corrected by documents 41 and 44.** The write 5 / read 8 settings below were the fast edge of
+> their clean window and stopped passing the same day; the qualified configuration is write 6 /
+> read 10 at **21.31 MB/s write and 13.80 read**, verified over eleven consecutive 8 MB rounds. The
+> chip-select-low times in the burst table were inferred from payload throughput and are about 7%
+> low; measured directly, 96 bytes is 6.93 us and 112 is already past the 8 us limit. And the 8 MB
+> cap does not need the onboard chip desoldered -- one wire moves the decoder enable to pin 5 and
+> the usable capacity becomes 48 MB.
+
 Date: 2026-09-11. Status: **measured on hardware.** Every number here came off a Teensy 4.1 with six
 ESP-PSRAM64H chips attached, one on the board's own RAM footprint and five on a breadboard behind a
 74LVC138A.

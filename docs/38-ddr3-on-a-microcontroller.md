@@ -1,5 +1,10 @@
 # 38 — DDR3 on a microcontroller, and the three ceilings that decide it
 
+> **Corrected by document 45.** The 39.3 MB/s here is the portable scalar kernel: a Teensy 4.1 is
+> a Cortex-M7 and `gguf_dot.c`'s hand-written vector path was NEON, which never applied to it. A
+> Cortex-M7 DSP path measures **66.97 MB/s on Q4_K and 67.69 on Q6_K, 1.60x on the real 69/31 mix**,
+> bit-identical to the reference. Figures derived from 39.3 below are therefore low by that factor.
+
 Date: 2026-09-10, **corrected 2026-09-11.** Status: **simulated, placed and routed, never on
 hardware.** Every figure below is either traced to a datasheet page or calculated from one, and says
 which. The one measured number quoted, 39.3 MB/s of nibble unpacking, comes from

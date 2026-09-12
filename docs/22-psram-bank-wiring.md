@@ -1,5 +1,10 @@
 # 22 — Seven PSRAM chips on one Teensy: the wiring
 
+> **Corrected by document 45.** The 39.3 MB/s here is the portable scalar kernel: a Teensy 4.1 is
+> a Cortex-M7 and `gguf_dot.c`'s hand-written vector path was NEON, which never applied to it. A
+> Cortex-M7 DSP path measures **66.97 MB/s on Q4_K and 67.69 on Q6_K, 1.60x on the real 69/31 mix**,
+> bit-identical to the reference. Figures derived from 39.3 below are therefore low by that factor.
+
 Two chips already on the underside pads, five new ones added as a stack. 56 MB on one Teensy 4.1.
 
 Checked against the ESP-PSRAM64H and 74x138 datasheets on 2026-09-10. Corrections from that check are

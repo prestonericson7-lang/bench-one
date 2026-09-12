@@ -1,6 +1,9 @@
 # 24 — What this does that a PC cannot
 
-
+> **Corrected by document 45.** The 39.3 MB/s here is the portable scalar kernel: a Teensy 4.1 is
+> a Cortex-M7 and `gguf_dot.c`'s hand-written vector path was NEON, which never applied to it. A
+> Cortex-M7 DSP path measures **66.97 MB/s on Q4_K and 67.69 on Q6_K, 1.60x on the real 69/31 mix**,
+> bit-identical to the reference. Figures derived from 39.3 below are therefore low by that factor.
 
 Every number here was measured on this bench or synthesized from this project's own RTL. Nothing is
 quoted from a datasheet headline and nothing is a projection except where it says so.

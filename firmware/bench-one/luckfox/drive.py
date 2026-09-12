@@ -684,6 +684,17 @@ def main():
     say("  usable: %d banks, %.0f MB -- %d quad, %d single-bit"
         % (len(live), len(live) * 8.0, nq, len(live) - nq))
 
+    # Hand the chosen settings to whatever runs next.
+    #
+    # Qualification is the expensive, hardened part of this driver and there is no reason for a second
+    # program to repeat it. One line a bank: route, bus mode, timing, burst, chip-select setup.
+    with open("/root/banks.txt", "w") as bf:
+        for (kind, y, name) in live:
+            mode, wi, ri, nb, su = settings[name][:5]
+            bf.write("%d %d %s %d %d %d %d %d%s"
+                     % (kind, y, name, mode, wi, ri, nb, su, NL))
+    say("  settings written to /root/banks.txt for the concurrent runner")
+
     xv = activations()
     kind, y, name = live[0]
     select(link, kind, y, settings[name])

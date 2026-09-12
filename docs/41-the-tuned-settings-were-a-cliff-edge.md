@@ -143,6 +143,48 @@ that answered two questions at once and could not tell which had failed.
 
 ---
 
+## And one optimisation that turns out not to exist
+
+Every speed figure in documents 40 to 43 is read as a property of the wiring: the bus needs about
+37 ns per nibble because five jumper wires and a breadboard cannot carry an edge faster. That had
+never actually been tested, because the pads driving those wires were left at whatever `pinMode`
+leaves them, and `pinMode` is not trying to drive a memory bus.
+
+What the core sets for an output pin, from `digital.c`, is `IOMUXC_PAD_DSE(7)` — maximum drive
+strength, so that knob was already right — with the SPEED field **absent, therefore 0**, the slowest
+of four bandwidth settings, and the SRE bit **absent, therefore slow slew**. An input pin additionally
+gets `IOMUXC_PAD_HYS`, hysteresis, which rejects noise by refusing to believe an edge until it has
+travelled far enough and pays for that in input delay — and the read path is the slow one, and the
+only one that goes through it.
+
+Three untouched knobs on the path that needs the most help. Which way they go is not predictable from
+principle: a faster edge arrives sooner, which helps timing, and rings harder into an unterminated
+jumper wire, which hurts everything. `psram_pads` sweeps eight combinations and reports the fastest
+clean read setting for each, plus the error count one step faster so the cliff's shape is visible and
+not just its location.
+
+| pad configuration | fastest clean | MB/s | errors one step faster |
+|---|---|---|---|
+| baseline, what `pinMode` leaves | 9 | 14.53 | 3060 |
+| SPEED 1 | 9 | 14.53 | 3024 |
+| SPEED 2 | 9 | 14.53 | 3025 |
+| SPEED 3 | 9 | 14.53 | 3026 |
+| fast slew | 9 | 14.53 | 3014 |
+| SPEED 3 + fast slew | 9 | 14.53 | 3030 |
+| hysteresis off | 9 | 14.53 | 2950 |
+| SPEED 3 + fast slew + no hysteresis | 9 | 14.53 | 2849 |
+
+**Identical. All eight, to the same no-op count and the same 14.53 MB/s.** The error count one step
+faster moves from 3060 to 2849, a 7% spread on a 1.1% error density, which is noise and not a trend.
+
+So the pad configuration was never the limit, and the wiring is confirmed as the constraint by
+measurement rather than by assumption. That closes the cheapest-looking route to more speed and leaves
+the perfboard as the only one. A negative result, and worth the twenty minutes: the alternative was
+continuing to believe the wiring story without ever having tested the one thing that could have made
+it false.
+
+---
+
 ## Rules this earned
 
 1. **Never ship the fastest setting that passes.** Measure where the clean region ends on both sides

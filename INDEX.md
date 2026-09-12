@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**457 tracked files.** This page exists so you never have to guess which directory something is in.
+**458 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -41,7 +41,7 @@ If you know what you want, use the table. If you do not, start at
 
 ```
 docs/         41 numbered documents + 11 research files    the engineering record
-firmware/     344 files                                    everything that runs on a board
+firmware/     345 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -86,10 +86,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 178 files
+### `bench-one/tests/` — 179 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **38 experiment directories, 36 C programs, 69 result logs.**
+cross-compiled programs. **39 experiment directories, 36 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
@@ -102,6 +102,7 @@ cross-compiled programs. **38 experiment directories, 36 C programs, 69 result l
 | **`psram_layer/`** | **one decoder layer in tokens per second.** Read, compute and both, timed separately, which settles whether the two costs add or overlap. 0.997 of the sum: they add |
 | **`psram_bank6/`** | **8 MB or 48?** Writes a different pattern to every bank before reading any, which detects whether the decoder enable has its own pin yet. Reports the repair when it does not |
 | `teensy_pinmap/` | asks the core which GPIO register and bit each pin is, because the pinout card has been wrong here before. Drives nothing |
+| `psram_pads/` | sweeps pad drive, slew rate and input hysteresis. All eight configurations land on the same setting and the same 14.53 MB/s, which confirms the wiring as the limit and closes the cheapest route to more speed |
 | `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together |
 | `psram_addr_fault/`, `psram_pattern/` | is a wrong byte an address line or a timing fault, and does the error rate depend on how hard the data switches |
 | `psram_coldstart/`, `psram_settle/`, `psram_idle/` | cold reads against warm ones. `psram_settle` is kept because its control line is the clearest ordering artefact in the tree |

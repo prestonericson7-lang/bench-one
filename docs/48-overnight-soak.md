@@ -351,3 +351,45 @@ The last verified state, from `e4637d7`, stands as the current one:
 
 What the hardware needs is a physical check of whatever both boards share — they went together, which
 points at the hub or the rail rather than at either board.
+
+---
+
+## 09:55 — the Teensy came back, dropped again mid-flash, and the fallback that came out of it
+
+The Teensy enumerated on COM38 at the start of this cycle; the Luckfox did not. It then disappeared during
+the upload — the archived image is intact at 288,120 bytes but the six-second log window after it caught no
+boot banner, so the flash did not finish. Both boards are off the bus again as this is written.
+
+| | |
+|---|---|
+| Teensy | appeared on COM38, gone again mid-flash |
+| Luckfox | never appeared |
+| measurement taken | none |
+
+They have now dropped together once and the Teensy alone once, which is what an intermittent connection on
+something shared looks like rather than a fault in either board.
+
+### What the outage forced, which is worth having
+
+For a whole cycle the Teensy, its bus and its 64 MB were sitting there working and there was no way to
+issue a command, because the only control path was a UART to a board that was absent. A bench that can
+only be driven by a board that is missing is a bench that is down.
+
+So a command may now also arrive over the Teensy's USB port, on its own line buffer, with the reply going
+back to whichever port asked. The same driver reaches either transport through `BENCH_PORT`, so the
+qualification, the stability gate and the arithmetic checks are identical and the numbers stay comparable:
+every timing reported comes from the cycle counter around the bus work itself, not from anything the asker
+does. UART3 and the Luckfox remain the link and the orchestrator; this is a fallback, and Luckfox-driven
+runs remain the reference.
+
+**This is unmeasured.** It is not a throughput change and it has not been run against hardware, because
+the hardware left. What can be checked without a board passes: it compiles, and `bread<8>` is emitted at
+0x2b4 — byte-identical to the build that produced the zero-drift numbers — so the bus timing is untouched
+and nothing needs requalifying on account of it.
+
+### For the next cycle
+
+An interrupted upload can leave the board in its bootloader, which is harmless but means it will not answer
+until it is flashed again. Reflash from `bench-archive/20260912-095331-psram_worker/` first, then the
+missing measurement is the seven-bank aggregate at batch 32 — the only attempt at it so far was killed by
+the Luckfox running out of memory.

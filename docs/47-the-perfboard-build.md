@@ -8,8 +8,12 @@ The breadboard build works and is capped twice over. 8 MB of 48 usable because t
 shares a wire with a chip select, and 13.8 MB/s because five jumper wires cannot carry an edge faster
 than 37 ns per nibble. The perfboard fixes both, and this is the sheet to build it from.
 
-Nine chips. **72 MB.** Everything here is keyed by PSRAM pin number, because that is the orientation
+Eight chips. **64 MB.** Everything here is keyed by PSRAM pin number, because that is the orientation
 the bench asked for.
+
+The count is not baked into anything. The bring-up sketch probes all ten possible chip selects and
+reports what actually answered, so eight, nine or five all work without an edit — change your mind at
+the bench and the firmware follows.
 
 ---
 
@@ -56,7 +60,7 @@ Pin 1 is CE#, the chip select, and it is the only wire that differs between chip
 | new chip 4 | decoder **Y4**, pin 11 |
 | new chip 5 | decoder **Y5**, pin 10 |
 | new chip 6 | decoder **Y6**, pin 9 |
-| new chip 7 | decoder **Y7**, pin 7 |
+| — | **Y7**, pin 7, spare |
 
 Onboard chip B already has a flying wire on its pin 1, because that pad tore off during the first
 build. Its far end moves from chip A's select to decoder Y0. **That is the only thing that has to be
@@ -88,7 +92,8 @@ inputs are low. Tie G1 to 3.3 V and G2B to ground, and drive G2A. Putting the en
 would hold the decoder off for ever, and the bring-up sketch says so by name if nothing answers.
 
 With a dedicated enable, parking no longer needs a spare output: "nothing selected" is just the enable
-high. So all eight decoder outputs carry a chip, instead of seven plus an unconnected one.
+high. Y7 is therefore free for a ninth chip later, rather than being burnt as a parking place the way
+it was on the breadboard.
 
 ---
 
@@ -148,7 +153,7 @@ It does six things and then keeps going:
 
 What to look for, in order:
 
-- **Stage 1 should list nine chips.** If no decoder bank answers, the enable wire is the suspect and the
+- **Stage 1 should list eight chips.** If no decoder bank answers, the enable wire is the suspect and the
   sketch names it. If nothing at all answers, it prints the four causes in order of likelihood, with
   pin 53 first.
 - **Stage 3's ns/nibble column is the number this board was built for.** Under 20.2 and the hardware
@@ -163,7 +168,7 @@ What to look for, in order:
 
 ---
 
-## 4. What 72 MB changes
+## 4. What 64 MB changes
 
 Capacity is not speed, and for this project it decides something speed does not: whether a model has to
 be split across boards at all.
@@ -172,14 +177,14 @@ be split across boards at all.
 |---|---|
 | a decoder layer at hidden size 512, Q4_K | 2.304 MB |
 | layers that fit in 8 MB | 3 |
-| layers that fit in **72 MB** | **31** |
+| layers that fit in **64 MB** | **27** |
 
 A 24-layer model at hidden size 512 is 55 MB of weights. **That fits on one Teensy with room over.**
 The pipeline, the hop cost, the vocabulary split and the load balancing all exist because models did
 not fit on one node — and for this size, after this board, they do. Distribution becomes a throughput
 choice rather than a necessity.
 
-At hidden size 1024 a layer is 9 MB, so eight fit and splitting is still required. The boundary moves;
+At hidden size 1024 a layer is 9.2 MB, so six fit and splitting is still required. The boundary moves;
 it does not vanish.
 
 ---
@@ -197,5 +202,5 @@ A's CE# off it, which means lifting a pin on a chip already soldered to the Teen
 path, not the build. The discovery sketch needs no change to find that arrangement if it ever happens:
 chip A would simply turn up as a decoder bank instead of on CS0.
 
-So the honest expectation for the finished board is **8 MB at controller speed and 64 MB at bit-bang
+So the honest expectation for the finished board is **8 MB at controller speed and 56 MB at bit-bang
 speed**, with the bit-bang speed itself improved by however much the ground return buys.

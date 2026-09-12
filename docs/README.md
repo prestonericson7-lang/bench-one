@@ -109,7 +109,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [44 — 48 MB from one moved wire](44-forty-eight-megabytes-from-one-wire.md) | the 8 MB cap needs no chip desoldered, just the decoder enable on a pin of its own; and the pin map verified twice from the core rather than the pinout card, which confirms the wiring is FlexSPI-compatible. **Corrects 40** |
 | [45 — The Teensy had been running the scalar kernel](45-the-teensy-had-been-running-the-scalar-kernel.md) | the project's headline 39.3 MB/s was the portable fallback, because a Teensy 4.1 is a Cortex-M7 and the hand-written vector path was NEON. A Cortex-M7 DSP path is 1.45x and bit-identical, and the bottleneck moves from the nibbles to the per-sub-block double arithmetic |
 | [46 — Everything from 2026-09-11](46-session-log-2026-09-11.md) | the whole day: the bank requalified, matrix arithmetic measured across three memory tiers, the first end-to-end token rate in the project, and eight claims of mine the measurements overturned. The corrections section is the part that changes what to build |
-| [47 — The perfboard build](47-the-perfboard-build.md) | the wiring sheet for nine chips and 72 MB, keyed by PSRAM pin number; the one wire that removes the 8 MB cap; and the ground return that has to halve 40 ns per nibble to 20.2 before the hardware controller can ever be used |
+| [47 — The perfboard build](47-the-perfboard-build.md) | the wiring sheet for eight chips and 64 MB, keyed by PSRAM pin number; the one wire that removes the 8 MB cap; and the ground return that has to halve 40 ns per nibble to 20.2 before the hardware controller can ever be used |
 
 ## Reference
 

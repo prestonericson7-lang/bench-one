@@ -1,4 +1,4 @@
-<title>Nine PSRAM Perfboard</title>
+<title>Eight PSRAM Perfboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -324,13 +324,16 @@ footer {
 <div class="wrap">
 
 <header>
-  <h1>Nine PSRAM<br>Perfboard</h1>
-  <p class="standfirst">Every wire for a nine-chip, 72 MB bank on one Teensy 4.1. Keyed by PSRAM
-  pin number, because that is what you are looking at with the iron in your hand. Eight of the nine
+  <h1>Eight PSRAM<br>Perfboard</h1>
+  <p class="standfirst">Every wire for an eight-chip, 64 MB bank on one Teensy 4.1. Keyed by PSRAM
+  pin number, because that is what you are looking at with the iron in your hand. Seven of the eight
   wires per chip are identical; only the chip select differs.</p>
+  <p class="standfirst" style="margin-top:12px">The count is not baked into anything. The bring-up
+  sketch probes all ten possible chip selects and reports what actually answered, so eight, nine or
+  five all work with no edit.</p>
   <div class="facts">
-    <div><b>9</b><span>chips</span></div>
-    <div><b>72 MB</b><span>usable</span></div>
+    <div><b>8</b><span>chips</span></div>
+    <div><b>64 MB</b><span>usable</span></div>
     <div><b>7</b><span>wires per chip</span></div>
     <div><b>1</b><span>wire that removes the cap</span></div>
   </div>
@@ -348,7 +351,7 @@ footer {
 <!-- =================================================================== -->
 <section>
   <div class="station"><span class="num">1</span><h2>The seven wires every chip gets</h2></div>
-  <p class="sub">Identical on all nine chips. Solder these first, as one daisy chain past each chip
+  <p class="sub">Identical on all eight chips. Solder these first, as one daisy chain past each chip
   in turn, and the board is most of the way done.</p>
 
   <figure>
@@ -403,7 +406,7 @@ footer {
       <text x="830" y="182" text-anchor="middle" font-family="var(--font-head)" font-size="20"
             font-weight="700" fill="var(--ink)">ESP-PSRAM64H</text>
       <text x="830" y="202" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
-            fill="var(--muted)">any of the nine</text>
+            fill="var(--muted)">any of the eight</text>
 
       <!-- chip pin rows, aligned to the spine lines -->
       <g font-family="var(--font-mono)" font-size="13.5" font-weight="600">
@@ -443,7 +446,7 @@ footer {
 
       <!-- scale note -->
       <text x="24" y="516" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
-        Chips 2 to 9 hang off the same six signal lines and the same ground return, in a chain — not a star.</text>
+        Chips 2 to 8 hang off the same six signal lines and the same ground return, in a chain — not a star.</text>
       <text x="24" y="536" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
         Keep each chip's stub off the main run under about 15 mm.</text>
     </svg>
@@ -453,7 +456,7 @@ footer {
 
   <div class="scroll">
     <table>
-      <caption>The seven shared wires — identical on all nine chips</caption>
+      <caption>The seven shared wires — identical on all eight chips</caption>
       <thead><tr><th>PSRAM pin</th><th>signal</th><th>goes to</th></tr></thead>
       <tbody>
         <tr><td class="pin">6</td><td><span class="chip c-clk">SCLK</span></td><td class="dest">Teensy pad 53</td></tr>
@@ -472,7 +475,7 @@ footer {
 
 <!-- =================================================================== -->
 <section>
-  <div class="station"><span class="num">2</span><h2>The nine chip selects</h2></div>
+  <div class="station"><span class="num">2</span><h2>The eight chip selects</h2></div>
   <p class="sub">PSRAM pin 1 is the only wire that differs between chips. One goes to the Teensy
   directly; the other eight go to the decoder.</p>
 
@@ -549,13 +552,13 @@ footer {
         <text x="478" y="419">Y4  pin 11  →  new chip 4</text>
         <text x="478" y="457">Y5  pin 10  →  new chip 5</text>
         <text x="478" y="495">Y6  pin 9   →  new chip 6</text>
-        <text x="478" y="533">Y7  pin 7   →  new chip 7</text>
+        <text x="478" y="533">Y7  pin 7   →  spare, for a ninth later</text>
       </g>
 
       <text x="24" y="620" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
-        All eight outputs carry a chip. With a dedicated enable, "nothing selected" is just the enable high,</text>
+        With a dedicated enable, "nothing selected" is just the enable high — so Y7 is genuinely free for a</text>
       <text x="24" y="640" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
-        so no output has to be wasted as a parking place the way Y7 was on the breadboard.</text>
+        ninth chip later, rather than being burnt as a parking place the way it was on the breadboard.</text>
       <text x="24" y="672" font-family="var(--font-mono)" font-size="12.5" fill="var(--w-en)" font-weight="600">
         Onboard chip B already has a flying wire on its pin 1, because that pad tore off during the first build.</text>
       <text x="24" y="692" font-family="var(--font-mono)" font-size="12.5" fill="var(--w-en)" font-weight="600">
@@ -579,7 +582,7 @@ footer {
         <tr><td>new chip 4</td><td class="dest">Y4</td><td class="dest">11</td></tr>
         <tr><td>new chip 5</td><td class="dest">Y5</td><td class="dest">10</td></tr>
         <tr><td>new chip 6</td><td class="dest">Y6</td><td class="dest">9</td></tr>
-        <tr><td>new chip 7</td><td class="dest">Y7</td><td class="dest">7</td></tr>
+        <tr><td style="color:var(--muted)">spare, for a ninth chip later</td><td class="dest">Y7</td><td class="dest">7</td></tr>
       </tbody>
     </table>
   </div>
@@ -659,7 +662,7 @@ footer {
 
   <h3>What to look at, in order</h3>
   <ul class="plain">
-    <li><b>Stage 1 should list nine chips.</b> If no decoder bank answers, the enable wire is the
+    <li><b>Stage 1 should list eight chips.</b> If no decoder bank answers, the enable wire is the
       suspect and the sketch says so by name. If nothing at all answers, it prints the four likely
       causes in order, with pin 53 first.</li>
     <li><b>Stage 3's ns/nibble column is the number this board exists for.</b> Under 20.2 and the
@@ -678,14 +681,14 @@ footer {
 
 <!-- =================================================================== -->
 <section>
-  <div class="station"><span class="num">5</span><h2>What 72 megabytes changes</h2></div>
+  <div class="station"><span class="num">5</span><h2>What 64 megabytes changes</h2></div>
   <p class="sub">Capacity is not speed, and it decides something speed does not: whether a model has
   to be split across boards at all.</p>
 
   <div class="target">
     <div><dt>one layer, d=512, Q4_K</dt><dd>2.30 MB</dd></div>
     <div><dt>layers that fit in 8 MB</dt><dd>3</dd></div>
-    <div class="goal"><dt>layers that fit in 72 MB</dt><dd>31</dd></div>
+    <div class="goal"><dt>layers that fit in 64 MB</dt><dd>27</dd></div>
   </div>
 
   <p>A 24-layer model at hidden size 512 is <b>55 MB of weights. That fits on one Teensy with room
@@ -693,7 +696,7 @@ footer {
   models did not fit on one node — and for this size, after this board, they do. Distribution becomes
   a throughput choice rather than a necessity.</p>
 
-  <p>At hidden size 1024 a layer is 9 MB, so eight fit and splitting is still required. The boundary
+  <p>At hidden size 1024 a layer is 9.2 MB, so six fit and splitting is still required. The boundary
   moves; it does not vanish.</p>
 
   <div class="note warn">
@@ -703,7 +706,7 @@ footer {
     48 and 51. Pad 51 is the one that tore off. So it can reach onboard chip A and nothing else, while
     the eight decoder banks stay on the hand-driven driver. Making it reach all eight would mean
     putting the enable on pad 48 and lifting chip A's pin 1 off it — the upgrade path, not the build.</p>
-    <p>So the honest expectation is <b>8 MB at controller speed and 64 MB at bit-bang speed</b>, with
+    <p>So the honest expectation is <b>8 MB at controller speed and 56 MB at bit-bang speed</b>, with
     the bit-bang speed itself improved by whatever the ground return buys.</p>
   </div>
 </section>

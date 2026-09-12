@@ -128,11 +128,15 @@ static void enter_quad(void)
  *      pin 5    GPIO9 bit 8, free                   -> decoder G2A, the enable, active low
  *      pins 2/3/4                                   -> decoder A, B, C, already wired
  *      Y0                                           -> onboard chip B's CE#
- *      Y1 .. Y7                                     -> the seven new chips
+ *      Y1 .. Y6                                     -> the six new chips
+ *      Y7                                           -> spare, for a ninth chip later
  *
- *  Nine chips, 72 MB, and the decoder fully used. Parking does not need a spare output any more --
- *  with a dedicated enable, "no chip selected" is just the enable deasserted, so all eight outputs
- *  carry a chip instead of seven plus an unconnected one.
+ *  Eight chips, 64 MB. Parking does not need a spare output any more -- with a dedicated enable, "no
+ *  chip selected" is just the enable deasserted, so Y7 is genuinely free rather than burnt as a
+ *  parking place the way it was on the breadboard.
+ *
+ *  None of that count is baked in. This probes all ten possible selects and reports what answered, so
+ *  eight, nine or five all work without an edit.
  *
  *  Pin 5 is not an arbitrary choice. teensy_pinmap asked the core rather than the pinout card and
  *  found it free and in GPIO9, the same register as the clock and the four data lines, which the bus
@@ -525,7 +529,7 @@ static void stage3_timing(void)
     const uint32_t span = 256u * 1024u;
     Serial.println(F("\n[3] timing, per bank. 20.2 ns/nibble is the FlexSPI threshold."));
     Serial.println(F("    bank  write       read        W MB/s   R MB/s   ns/nib  controller?"));
-    Serial.println(F("          (edge->used) (edge->used)"));
+    Serial.println(F("          (edge->used) (edge->used)   -- PROVISIONAL. stage 6 qualifies these."));
 
     for (int b = 0; b < g_nbank; b++) {
         use_bank(b); enter_quad_here();
@@ -556,20 +560,52 @@ static void stage3_timing(void)
             if (bad == 0) { wi = (int)k; break; }
         }
 
-        /* one step of margin on each, which is the whole lesson of docs/41 */
-        const int wsafe = (wi < 0) ? (int)NSET - 1 : ((wi + 1 < (int)NSET) ? wi + 1 : wi);
+        /* CONFIRM OVER THE WHOLE BANK, AND STEP SLOWER UNTIL IT IS CLEAN.
+         *
+         * Not "one step of margin from the sweep" -- that was tried, and on this bench it chose write
+         * 5, which is the exact setting docs/41 is about. A 256 kB sweep cannot qualify anything: its
+         * silence bounds the error rate below roughly 4,000 per billion, and the fault it missed ran
+         * at 1,674. The sweep finds the shape of the cliff; only a full pass can say where to stand.
+         *
+         * Writes escalate first because the write side is where the too-small margin landed, and both
+         * escalate before giving up, so a bank that simply needs slow timing still gets qualified
+         * rather than reported broken. */
+        int wsafe = (wi < 0) ? (int)NSET - 1 : wi;
+        int rs    = rsafe;
+        g_burst = 64;                       /* short enough that refresh cannot be the reason */
+        int tries = 0;
+        uint32_t cbad = 0;
+        while (tries < 8) {
+            cbad = 0;
+            /* One pass, to catch a gross failure quickly. It cannot do more than that: three separate
+             * rules were tried here and every one picked a setting the soak later measured as bad,
+             * because the fault needs minutes of sustained load to appear and this runs for seconds.
+             * Stage 6 is what qualifies. This only has to reject settings that are obviously wrong. */
+            for (uint32_t off = 0; off < BANKSZ; off += BLK) {
+                for (uint32_t i = 0; i < BLK; i++) ref[i] = (uint8_t)((off + i) * 0x9Du + 0x3Bu);
+                WF[wsafe](off, ref, BLK);
+                RF[rs](off, buf, BLK);
+                for (uint32_t i = 0; i < BLK; i++) if (buf[i] != ref[i]) cbad++;
+            }
+            if (cbad == 0) break;
+            if (wsafe + 1 < (int)NSET)      wsafe++;
+            else if (rs + 1 < (int)NSET)    rs++;
+            else break;
+            tries++;
+        }
+        const int rsafe_final = rs;
         g_wi[b] = (uint8_t)wsafe;
-        g_ri[b] = (uint8_t)rsafe;
+        g_ri[b] = (uint8_t)rsafe_final;
 
         /* Now fix the burst for this bank. The timing was chosen for margin and that lengthens a
          * burst, so the refresh limit has to be re-checked against the setting actually chosen
          * rather than against the one the burst was picked for. */
         g_burst = 96;
         for (uint32_t i = 0; i < 96; i++) ref[i] = pat((uint8_t)b, i);
-        uint32_t t0 = ARM_DWT_CYCCNT; RF[rsafe](0, buf, 96); const float u96 =
+        uint32_t t0 = ARM_DWT_CYCCNT; RF[rsafe_final](0, buf, 96); const float u96 =
             1e6f * (float)(ARM_DWT_CYCCNT - t0) / (float)F_CPU_ACTUAL;
         g_burst = 32;
-        t0 = ARM_DWT_CYCCNT;          RF[rsafe](0, buf, 32); const float u32 =
+        t0 = ARM_DWT_CYCCNT;          RF[rsafe_final](0, buf, 32); const float u32 =
             1e6f * (float)(ARM_DWT_CYCCNT - t0) / (float)F_CPU_ACTUAL;
         const float per = (u96 - u32) / 64.0f;                 /* us per payload byte */
         const float fix = u96 - per * 96.0f;                   /* us of command and dummy clocks */
@@ -585,7 +621,7 @@ static void stage3_timing(void)
         for (uint32_t off = 0; off < span; off += BLK) {
             for (uint32_t i = 0; i < BLK; i++) ref[i] = pat((uint8_t)b, off + i);
             uint32_t t = ARM_DWT_CYCCNT; WF[wsafe](off, ref, BLK); wc += ARM_DWT_CYCCNT - t;
-            t = ARM_DWT_CYCCNT;          RF[rsafe](off, buf, BLK); rc += ARM_DWT_CYCCNT - t;
+            t = ARM_DWT_CYCCNT;          RF[rsafe_final](off, buf, BLK); rc += ARM_DWT_CYCCNT - t;
             for (uint32_t i = 0; i < BLK; i++) if (buf[i] != ref[i]) bad++;
         }
         const float wmb = (float)span / ((float)wc / (float)F_CPU_ACTUAL) / 1e6f;
@@ -598,7 +634,7 @@ static void stage3_timing(void)
         Serial.print(F("->"));  Serial.print(NOPS[wsafe]);
         Serial.print(F("        "));
         if (ri < 0) Serial.print(F("--")); else Serial.print(NOPS[ri]);
-        Serial.print(F("->"));  Serial.print(NOPS[rsafe]);
+        Serial.print(F("->"));  Serial.print(NOPS[rsafe_final]);
         Serial.print(F("      "));
         Serial.print(wmb, 2);       Serial.print(F("    "));
         Serial.print(rmb, 2);       Serial.print(F("    "));
@@ -716,6 +752,26 @@ static void stage6_soak(void)
         sk_bytes[b] += BANKSZ;
         sk_errs[b]  += bad;
         if (bad > sk_worst[b]) sk_worst[b] = bad;
+
+        /* THE PART THAT MAKES THIS A QUALIFIER RATHER THAN A REPORT.
+         *
+         * A bank that produces errors under sustained load is running too fast for the conditions it
+         * is actually in, whatever a four-second test concluded when it was cold. Step it slower,
+         * throw away the statistics gathered at the old setting -- they describe a configuration that
+         * no longer exists -- and say so, so the change is visible rather than silent. */
+        if (bad) {
+            uint8_t ow = g_wi[b], orr = g_ri[b];
+            if (g_wi[b] + 1 < (uint8_t)NSET)      g_wi[b]++;
+            else if (g_ri[b] + 1 < (uint8_t)NSET) g_ri[b]++;
+            sk_bytes[b] = 0; sk_errs[b] = 0; sk_worst[b] = 0;
+            Serial.print(F("  bank ")); Serial.print(b);
+            Serial.print(F(": ")); Serial.print(bad);
+            Serial.print(F(" errors under load at write ")); Serial.print(NOPS[ow]);
+            Serial.print(F("/read ")); Serial.print(NOPS[orr]);
+            Serial.print(F(" -- stepping to write ")); Serial.print(NOPS[g_wi[b]]);
+            Serial.print(F("/read ")); Serial.print(NOPS[g_ri[b]]);
+            Serial.println(F(", counters reset"));
+        }
     }
 
     Serial.println();
@@ -747,8 +803,9 @@ static void stage6_soak(void)
         }
     }
     Serial.println(F("  A bank with no errors yet is bounded, not proven, and the bound falls as"));
-    Serial.println(F("  this runs. Leave it going; the rate that matters is well below what one"));
-    Serial.println(F("  pass can resolve."));
+    Serial.println(F("  this runs. A bank that errors steps slower and starts its count again, so"));
+    Serial.println(F("  the settings converge on what survives sustained load rather than on what"));
+    Serial.println(F("  looked fine while the board was still cold. Leave it running."));
 }
 
 static bool done_once = false;
@@ -815,7 +872,9 @@ void loop()
         Serial.println(F("  psram_pads measured all eight drive and slew settings as identical."));
     }
 
-    Serial.println(F("\n  Bring-up complete. Soaking every bank from here on, indefinitely."));
-    Serial.println(F("  Stop it whenever; the bound printed is the evidence so far."));
+    Serial.println(F("\n  Bring-up complete, but stage 3's settings are PROVISIONAL: they were chosen"));
+    Serial.println(F("  in seconds and this bus loses margin over minutes as it warms. Soaking every"));
+    Serial.println(F("  bank from here on, stepping any that fails and resetting its count, until the"));
+    Serial.println(F("  settings are ones that survive being run hard. That is the real answer."));
     done_once = true;
 }

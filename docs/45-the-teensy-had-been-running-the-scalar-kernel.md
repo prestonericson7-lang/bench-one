@@ -167,6 +167,26 @@ The gap to a fabric lane is that much narrower.
 
 ---
 
+## Is it happening on any other node? Audited, and no
+
+A fault of this shape — a preprocessor condition silently deciding what a published figure measured —
+is worth checking across every node that carries weights rather than assuming the Teensy was unique.
+
+| node | processor | vector path | verdict |
+|---|---|---|---|
+| Teensy 4.1 | Cortex-M7, ARMv7E-M | none applied | **was the fault; fixed here** |
+| Luckfox Pico | Cortex-A7, ARMv7-A | NEON | **correct.** `.claude/skills/run-bench-one/driver.sh` builds `decode_limit_arm` with `-march=armv7-a -mfpu=neon -mfloat-abi=hard`, so `__ARM_NEON` is defined and the 61 MB/s in documents 24 and 27 was measured with the NEON kernel |
+| Zynq 7020 | Cortex-A9, ARMv7-A | NEON | untested on hardware, but the path exists and the flag pattern is the same |
+| ESP32, ESP32-S3 | Xtensa LX6/LX7 | none exists | scalar by necessity, not by accident |
+| host | x86-64 | AVX2 | correct, and `dot_verify` checks it against scalar every run |
+
+So the Luckfox figure stands and the Teensy's was the only one describing different code than it
+claimed. The ESP32-S3's 128-bit PIE instructions are unexploited, which is an opportunity rather than a
+fault — and a low-value one, since this project's own record puts the ESP32s on orchestration and keeps
+weights off them.
+
+---
+
 ## The structural fault, which is the same one as document 41
 
 The benchmark could not name its own code path. It measured whatever `dot_q4_k` dispatched to, printed

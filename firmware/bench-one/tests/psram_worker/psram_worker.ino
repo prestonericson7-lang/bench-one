@@ -109,7 +109,9 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *
  *    I                       identity: name, bank count, bank size, bit widths, clock rate
  *    P <kind> <y>            probe one select. kind 0=CS0 1=CS1 2=decoder. -> "P <ok> <id0> <id1>"
- *    B <kind> <y>            select a bank and put it in quad mode
+ *    B <kind> <y>            select a bank AND set its bus mode, which resets the chip
+ *    E <kind> <y>            select a bank without touching it: route only, no reset
+ *    Y <nops>                chip-select HIGH time between bursts, which is when the chip refreshes
  *    T <wi> <ri> <burst>     set write index, read index and burst for the selected bank
  *    U <nops>                chip-select setup: no-ops between asserting select and the first clock
  *    D <n>                   wait cycles after the read address, before the first data nibble
@@ -168,6 +170,29 @@ static uint32_t g_csu = 0;          /* no-ops between chip select falling and th
 static inline void cs_setup(void)
 {
     for (uint32_t k = 0; k < g_csu; k++) __asm__ volatile("nop");
+}
+
+/* THE GAP BETWEEN BURSTS IS WHEN THE CHIP REFRESHES.
+ *
+ * This is DRAM behind an SPI port and it refreshes only while chip select is HIGH. Between bursts the
+ * driver raises chip select and immediately starts the next one, which leaves a gap of a few
+ * nanoseconds -- a refresh opportunity far too short for a refresh to finish.
+ *
+ * Over one burst that does not matter. Over a megabyte it does: at burst 40 the bus holds chip select
+ * low for about 90% of a third of a second, and rows that were never refreshed come back wrong. That is
+ * what the drifting partial sums were. It is not the per-burst tCEM limit, which is why raising the
+ * chip-select budget did not change the error rate, and it is why REMOVING the per-bank resets made
+ * things worse rather than better: the reset sequence contains a 2 ms delay with chip select high, and
+ * that delay was the only real refresh window in the whole run.
+ *
+ * So the gap becomes a knob, swept like everything else. It costs a few no-ops per burst against a
+ * burst of several hundred clocks, and it buys an answer that does not change between rounds.
+ */
+static uint32_t g_gap;
+
+static inline void cs_gap(void)
+{
+    for (uint32_t k = 0; k < g_gap; k++) __asm__ volatile("nop");
 }
 
 /* WHERE THE READ IS SAMPLED, AND HOW LONG IT WAITS FIRST.
@@ -264,7 +289,7 @@ template <int S> static void bwrite(uint32_t a, const uint8_t *s, uint32_t len)
         bus_out(); const uint32_t b = cbase(); GPIO9_DR = b; cs_setup();
         put_nib<S>(b, 0x3); put_nib<S>(b, 0x8); addr_out<S>(b, a);
         for (uint32_t i = 0; i < n; i++) { put_nib<S>(b, s[i] >> 4); put_nib<S>(b, s[i] & 0xF); }
-        GPIO9_DR = idle;
+        GPIO9_DR = idle; cs_gap();
         a += n; s += n; len -= n;
     }
 }
@@ -282,7 +307,7 @@ template <int S> static void bread(uint32_t a, uint8_t *d, uint32_t len)
             const uint8_t hi = get_nib<S>(b);
             d[i] = (uint8_t)((hi << 4) | get_nib<S>(b));
         }
-        GPIO9_DR = idle; bus_out();
+        GPIO9_DR = idle; bus_out(); cs_gap();
         a += n; d += n; len -= n;
     }
 }
@@ -325,7 +350,7 @@ template <int S> static void bwrite1(uint32_t a, const uint8_t *src, uint32_t le
         s_byte<S>(b, 0x02);
         s_byte<S>(b, (uint8_t)(a >> 16)); s_byte<S>(b, (uint8_t)(a >> 8)); s_byte<S>(b, (uint8_t)a);
         for (uint32_t i = 0; i < n; i++) s_byte<S>(b, src[i]);
-        GPIO9_DR = idle;
+        GPIO9_DR = idle; cs_gap();
         a += n; src += n; len -= n;
     }
 }
@@ -366,7 +391,7 @@ template <int S> static void bread1f(uint32_t a, uint8_t *d, uint32_t len)
             }
             d[i] = v;
         }
-        GPIO9_DR = idle; bus_out();
+        GPIO9_DR = idle; bus_out(); cs_gap();
         a += n; d += n; len -= n;
     }
 }
@@ -390,7 +415,7 @@ template <int S> static void bread1(uint32_t a, uint8_t *d, uint32_t len)
             }
             d[i] = v;
         }
-        GPIO9_DR = idle; bus_out();
+        GPIO9_DR = idle; bus_out(); cs_gap();
         a += n; d += n; len -= n;
     }
 }
@@ -734,6 +759,36 @@ static void handle(const char *c)
         enter_quad_here();
         say("B ok");
         break;
+
+    case 'E': case 'e': {
+        /* ROUTE ONLY. NO RESET.
+         *
+         * B puts the chip into the current bus mode, and doing that means sending it 0xF5, 0x66, 0x99
+         * and possibly 0x35 -- a quad exit and a reset. That is correct once, when the mode is being
+         * established. Doing it on every bank switch is not: a reset arriving while the chip is
+         * mid-refresh can cost a row, and a benchmark that switches seven banks twice a round issues
+         * eighty-four of them in a run.
+         *
+         * That is what the drift was. Each bank read the same megabyte twenty times with a single
+         * distinct answer -- 140 MB, no drift at all -- while the seven-bank benchmark returned a
+         * different sum about one round in six. The difference between the two was the resets.
+         *
+         * So the mode is set once per bank and the route is changed with this, which touches nothing
+         * but the chip-select lines and the decoder address. */
+        select_route((uint8_t)arg(c, 1), (uint8_t)arg(c, 2));
+        say("E ok");
+        break;
+    }
+
+    case 'Y': case 'y': {
+        long g = arg(c, 1);
+        if (g < 0)    g = 0;
+        if (g > 2000) g = 2000;
+        g_gap = (uint32_t)g;
+        snprintf(out, sizeof(out), "Y %lu", (unsigned long)g_gap);
+        say(out);
+        break;
+    }
 
     case 'T': case 't': {
         long wi = arg(c, 1), ri = arg(c, 2), bu = arg(c, 3);

@@ -154,3 +154,79 @@ no-ops had already done its job — it proved that slowing down does not rescue 
 Up 13% on the seven-bank configuration and level on the two-bank one. Partial sums identical to every
 earlier run at both bit widths, across five rounds, so the arithmetic is unchanged and still verified
 against the Luckfox.
+
+---
+
+## 04:30 — Optimisation attempt 3: the chip-select budget, and a benchmark that was not checking its answer
+
+### What the budget was worth
+
+The burst was bounded by a 7 µs chip-select-low budget against a datasheet tCEM of 8 µs. Nothing here
+had ever tested that number, and it was expensive: at burst 16 a single-bit read spends 40 clocks on
+command, address and wait for every 128 clocks of payload, so a fifth of the bus was gone before a byte
+moved.
+
+A refresh limit cannot be tested with one pass — a violation does not fail when it is committed, it
+fails later when an unrefreshed row is read. So each burst was filled once and read back eight times
+without rewriting, 8 MB per setting, on a quad bank and two single-bit ones:
+
+| burst | chip-select low | wrong of 8 MB |
+|---|---|---|
+| 16 | 6.1 µs | 0 |
+| 24 | 8.7 µs | 0 |
+| 32 | 11.1 µs | 0 |
+| 48 | 15.8 µs | 0 |
+| 64 | 20.5 µs | 0 |
+| 96 | 29.9 µs | 0 |
+
+Clean to 29.9 µs, nearly four times the quoted limit. The budget is now **21 µs**, which selects the
+20.5 µs point and keeps the 29.9 µs result as headroom rather than spending it.
+
+### The more important thing it exposed
+
+Raising the budget produced an 18% higher rate and a *different partial sum in four rounds out of ten*.
+The partial sum is a free checksum over every byte read in a pass, and the benchmark had never compared
+one round to the next. So the first real question was not whether the budget was safe but how long this
+had been happening. At the original 7 µs budget: one round in five. **The drift was pre-existing and
+nothing was looking at it.**
+
+Four hypotheses were tested and three were wrong:
+
+| hypothesis | test | result |
+|---|---|---|
+| the raised budget causes it | sweep 7, 12, 16, 21 µs | present at all of them; only 21 was clearly worse |
+| a bank drifts on its own | 20 reads of 1 MB per bank, 140 MB | one distinct answer on all seven banks |
+| the per-switch chip reset costs a row | remove it | **worse** — 7 rounds in 7 instead of 1 in 5 |
+| refresh starvation over a megabyte | inter-burst gap 0, 40, 120, 400 no-ops | no change, and up to half the throughput gone |
+
+Removing the reset making things worse is the informative one: the reset sequence carries a 2 ms delay
+with chip select high, and that delay was the only substantial refresh window in the run.
+
+Then a two-bank alternation was clean over 192 MB in eight configurations, a seven-bank rotation was
+clean over 70 MB, and a seven-bank rotation alternating both bit widths — the benchmark's exact loop —
+was clean over 140 MB. All with settings hardcoded from a larger-burst run.
+
+Which located it: the drift was never in the loop, it was in the **settings the driver chose**.
+`confirm()` accepted the first setting that read a full span back without a single error, and a setting
+that works once is not a setting that works. It now requires four clean passes from one fill, which also
+makes it a retention test.
+
+### Result: kept
+
+| | before | after |
+|---|---|---|
+| 4-bit, 7 banks | 7.41 MMAC/s | **8.54** |
+| 2-bit, 7 banks | 14.48 MMAC/s | **16.56** |
+| CS0 read | 10.17 MB/s | 10.38 |
+| single-bit banks | 2.91–3.11 MB/s | **3.26–3.66** |
+| rounds drifting, 4-bit | 1–2 of 6 | **0 of 13** |
+| rounds drifting, 2-bit | not measured | 1 of 13 |
+
+Up 15% on rate and substantially better on correctness, over 204 MB in the confirming run.
+
+What remains is a residual intermittent read error of roughly one or two wrong bytes per 204 MB — under
+about ten per billion — which is present at every configuration tried, including the one committed
+before tonight. It is below what any sweep or single verify can see, and it is visible now only because
+the benchmark checks whether its own answer keeps still. Y4 aside, that residual is the last thing
+standing between this build and a clean bill of health, and on the evidence so far it belongs to the
+same marginal external wiring as the quad-read failure.

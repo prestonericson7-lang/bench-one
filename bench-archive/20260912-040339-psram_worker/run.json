@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-040339",
+  "sketch": "psram_worker",
+  "git": "9b66374",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "route-only bank selection, no reset per switch",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 276600
+}

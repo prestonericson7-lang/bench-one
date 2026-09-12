@@ -26,3 +26,5 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-033656 | psram_worker | 4fe1332+dirty | 133 | bus loops in ITCM so their timing stops depending on code layout |
 | 20260912-034015 | psram_worker | 4fe1332+dirty | 133 | finer timing table, ITCM move reverted |
 | 20260912-034712 | psram_worker | 4fe1332+dirty | 133 | diagnostic tail removed to restore the unrolled payload loop |
+| 20260912-040339 | psram_worker | 9b66374+dirty | 133 | route-only bank selection, no reset per switch |
+| 20260912-041041 | psram_worker | 9b66374+dirty | 133 | inter-burst refresh gap, sweepable |

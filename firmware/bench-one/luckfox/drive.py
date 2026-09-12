@@ -79,14 +79,30 @@ LOGDIR = "/root/bench-logs"
 NOPS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24]
 USABLE = 15
 
-# tCEM. The PSRAM is DRAM inside and refreshes only while chip select is HIGH, so a burst is bounded by
-# how long it holds chip select low and not by anything about the clock. 8 us is the datasheet limit and
-# 7 is the margin this project uses.
+# tCEM, MEASURED RATHER THAN QUOTED.
 #
-# This is the number that bit back once: slowing the clock LENGTHENS chip-select-low, so a bank that
-# errors does not improve by going slower unless the burst shrinks with it. Both ends of that trade are
-# computed here, together, from one measurement.
-CS_LOW_BUDGET_US = 7.0
+# The PSRAM is DRAM inside and refreshes only while chip select is HIGH, so a burst is bounded by how
+# long it holds chip select low and not by anything about the clock. The datasheet says 8 us and this
+# bench used 7 for margin -- a number nothing here had ever tested, and an expensive one: at burst 16 a
+# single-bit read spends 40 clocks on command, address and wait for every 128 clocks of payload, so a
+# fifth of the bus is gone before a byte moves.
+#
+# It was tested the only way a refresh limit can be. A refresh violation does not fail on the pass that
+# commits it; it fails later, when a row that was not refreshed in time is read. So each burst was filled
+# once and read back eight times without rewriting, 8 MB per setting, on a quad bank and on two
+# single-bit ones:
+#
+#     burst 16   6.1 us    0 wrong        burst 48   15.8 us   0 wrong
+#     burst 24   8.7 us    0 wrong        burst 64   20.5 us   0 wrong
+#     burst 32  11.1 us    0 wrong        burst 96   29.9 us   0 wrong
+#
+# Clean to 29.9 us, nearly four times the quoted limit. 21 us is taken as the budget, which selects the
+# 20.5 us point and keeps the 29.9 us result as headroom above it rather than spending it.
+#
+# This is still the number that bit back once: slowing the clock LENGTHENS chip-select-low, so a bank
+# that errors does not improve by going slower unless the burst shrinks with it. Both ends of that trade
+# are computed here, together, from one measurement.
+CS_LOW_BUDGET_US = 21.0          # overridden by the third command-line argument
 
 # Inside the refresh window at every setting in the table, in both directions and both bus modes, so a
 # slow candidate can never fail because the sweep lengthened chip-select-low.
@@ -209,15 +225,51 @@ def discover(link, say):
     return found
 
 
-def select(link, kind, y, setting):
-    """Put a bank in force. The bus mode is set BEFORE the select, because the select is what decides
-    whether the chip is given the command that puts it into quad mode."""
+# Which banks have already been put into which bus mode.
+ARMED = {}
+
+# Does every bank switch reset the chip, or only the first one?
+#
+# Removing the per-switch reset was tried and made the drift WORSE -- 7 rounds in 7 instead of 1 in 5.
+# The reset sequence carries a 2 ms delay with chip select high, and that delay was the only substantial
+# refresh window in the whole run. With an explicit inter-burst gap there is a proper one, so this is
+# left switchable and measured rather than assumed either way.
+RESET_EVERY_SWITCH = True
+
+# Chip-select HIGH no-ops between bursts: the window in which the chip refreshes. Swept from 0 to 400
+# and it changed nothing about the drift while costing up to half the throughput, so refresh starvation
+# is not what was wrong. Left at 0 and left switchable.
+GAP_NOPS = 0
+
+# How many times a chosen setting must read the span back cleanly from one fill before it is accepted.
+# One was not enough and that is what let marginal settings into the benchmark.
+CONFIRM_PASSES = 4
+
+
+def select(link, kind, y, setting, rearm=False):
+    """Put a bank in force, and reset it only when its mode has to change.
+
+    B sets the bus mode, and setting the mode means sending 0xF5, 0x66, 0x99 and possibly 0x35 -- a quad
+    exit and a reset. That is right once. Doing it on every bank switch is not, and it was corrupting
+    the measurement: each bank read the same megabyte twenty times with one distinct answer, 140 MB with
+    no drift at all, while the seven-bank benchmark returned a different sum about one round in six. The
+    benchmark switches seven banks twice a round, so a six-round run was sending eighty-four resets, and
+    a reset arriving while the chip is mid-refresh can cost a row.
+
+    E changes the route and touches nothing else. The mode is established once with B and every
+    selection after that is an E."""
     mode, wi, ri, nb, su = setting[:5]
     link.ask("Q %d" % mode, timeout=30.0)
     if mode == 2:
         link.ask("J %d" % WAITS_0B, timeout=30.0)
     link.ask("U %d" % su, timeout=30.0)
-    link.ask("B %d %d" % (kind, y), timeout=30.0)
+    link.ask("Y %d" % GAP_NOPS, timeout=30.0)
+    key = (kind, y)
+    if rearm or RESET_EVERY_SWITCH or ARMED.get(key) != mode:
+        link.ask("B %d %d" % (kind, y), timeout=30.0)
+        ARMED[key] = mode
+    else:
+        link.ask("E %d %d" % (kind, y), timeout=30.0)
     link.ask("T %d %d %d" % (wi, ri, nb), timeout=30.0)
 
 
@@ -258,7 +310,7 @@ def sweep(link, say, kind, y, mode, setup, probe):
     The read is qualified first against a slow write, because a bad write poisons every read after it
     and the blame then lands in the wrong place. Then the write is pushed against the read just found."""
     WHOLD = 11                                  # 16 no-ops: generous, and inside tCEM at burst 16
-    select(link, kind, y, (mode, WHOLD, USABLE - 1, SAFE_BURST, setup))
+    select(link, kind, y, (mode, WHOLD, USABLE - 1, SAFE_BURST, setup), rearm=True)
 
     ri_ok = None
     for ri in range(USABLE):
@@ -299,11 +351,24 @@ def confirm(link, say, kind, y, setting, span):
     for _ in range(8):
         select(link, kind, y, (mode, wi, ri, nb, su))
         link.ask("F 0 %d" % span, timeout=900.0)
-        v = link.ask("V 0 %d" % span, timeout=900.0)
-        bad = int(v.split()[1]) if v and v.startswith("V ") else -1
+
+        # ONE CLEAN PASS IS NOT A QUALIFICATION EITHER.
+        #
+        # This used to accept the first setting that read a full span back without error, and that is how
+        # marginal settings got through: the benchmark then returned a different answer about one round
+        # in six. Reading the same megabyte CONFIRM_PASSES times from one fill costs almost nothing next
+        # to the sweep that precedes it and rejects the settings that only worked once. It is also a
+        # retention test, because the data is not rewritten between passes.
+        bad = -1
+        rate = 0.0
+        for k in range(CONFIRM_PASSES):
+            v = link.ask("V 0 %d" % span, timeout=900.0)
+            bad = int(v.split()[1]) if v and v.startswith("V ") else -1
+            if k == 0 and bad == 0:
+                rate = span / (int(v.split()[2]) / FCPU) / 1e6
+            if bad != 0:
+                break
         if bad == 0:
-            # the verify just read the whole span, so its cycle count IS the read rate
-            rate = span / (int(v.split()[2]) / FCPU) / 1e6
             return (mode, wi, ri, nb, su, rate)
         say("        %d wrong over %d kB at write %d read %d burst %d"
             % (bad, span // 1024, NOPS[wi], NOPS[ri], nb))
@@ -377,9 +442,11 @@ def check_kernels(link, say, xv):
 def bench(link, say, banks, settings, span, rounds):
     say("\n  %d kB a bank, %.1f MB a pass, %d rounds"
         % (span // 1024, span * len(banks) / 1e6, rounds))
-    say("\n  round  bits   partial sum       teensy ms     MB/s    MMAC/s    link ms")
+    say("\n  round  bits   partial sum       teensy ms     MB/s    MMAC/s    link ms   answer")
     best = {4: 0.0, 2: 0.0}
     per_bank = {}
+    seen = {}
+    drift = {4: 0, 2: 0}
     for r in range(rounds):
         for bits in (4, 2):
             total_cyc = 0
@@ -405,17 +472,38 @@ def bench(link, say, banks, settings, span, rounds):
             secs = total_cyc / FCPU
             mbps = total_bytes / secs / 1e6
             macs = total_bytes * (8.0 / bits) / secs / 1e6
+            if bits not in seen:
+                seen[bits] = partial
+                mark = "first"
+            elif partial == seen[bits]:
+                mark = "same"
+            else:
+                mark = "CHANGED by %d" % (partial - seen[bits])
+                drift[bits] += 1
             best[bits] = max(best[bits], macs)
-            say("  %5d  %4d   %-15d   %8.1f   %6.2f   %7.2f    %6.1f"
+            say("  %5d  %4d   %-15d   %8.1f   %6.2f   %7.2f    %6.1f   %s"
                 % (r, bits, partial, secs * 1000.0, mbps, macs,
-                   wall * 1000.0 - secs * 1000.0))
-    return best, per_bank
+                   wall * 1000.0 - secs * 1000.0, mark))
+    if drift[4] or drift[2]:
+        say("  %d of %d rounds returned a different answer at 4 bits and %d at 2."
+            % (drift[4], rounds - 1, drift[2]))
+        say("  The rates above are throughput over bytes that are not the bytes that were written.")
+    else:
+        say("  every round returned the same answer at both widths")
+    return best, per_bank, drift
 
 
 def main():
     global FCPU
+    global CS_LOW_BUDGET_US, GAP_NOPS, RESET_EVERY_SWITCH
     kb = int(sys.argv[1]) if len(sys.argv) > 1 else 1024
     rounds = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+    if len(sys.argv) > 3:
+        CS_LOW_BUDGET_US = float(sys.argv[3])
+    if len(sys.argv) > 4:
+        GAP_NOPS = int(sys.argv[4])
+    if len(sys.argv) > 5:
+        RESET_EVERY_SWITCH = bool(int(sys.argv[5]))
     span = kb * 1024
     span -= span % 8192                       # whole 8 kB blocks; the kernels assume it
     span = max(8192, span)
@@ -434,6 +522,8 @@ def main():
         logfile.flush()
 
     say("bench one -- the Luckfox driving the Teensy")
+    say("  chip-select budget %.1f us, inter-burst gap %d no-ops, reset every switch %s"
+        % (CS_LOW_BUDGET_US, GAP_NOPS, RESET_EVERY_SWITCH))
     say("  log: %s" % logpath)
 
     link = Link(PORT, BAUD, say)
@@ -481,7 +571,7 @@ def main():
         if r and r.startswith("F "):
             say("    %-4s %5.2f MB/s write" % (name, span / (int(r.split()[1]) / FCPU) / 1e6))
 
-    best, per_bank = bench(link, say, live, settings, span, rounds)
+    best, per_bank, drift = bench(link, say, live, settings, span, rounds)
 
     say("\n  per bank, read plus multiply-accumulate")
     say("    bank   mode     4-bit MB/s   2-bit MB/s")
@@ -519,6 +609,9 @@ def main():
         say("    2-bit is %.2fx the 4-bit rate over the same bytes" % (best[2] / best[4]))
     say("    kernels verified against this board's own arithmetic: %s"
         % ("yes" if kernels_ok else "NO -- the figures above are throughput, not results"))
+    say("    answer identical in every round: %s"
+        % ("yes" if not (drift[4] or drift[2]) else
+           "NO -- %d rounds drifted, so this configuration is not usable" % (drift[4] + drift[2])))
     link.close()
     logfile.close()
 

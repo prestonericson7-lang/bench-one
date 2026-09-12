@@ -46,6 +46,18 @@
 #define PIN_A 2
 #define PIN_B 3
 #define PIN_C 4
+
+/* The decoder enable, on the perfboard build. It MUST be driven high here.
+ *
+ * The controller asserts its own chip select, pad 48, as part of every transfer, and it has no way to
+ * touch a GPIO while doing so. On the perfboard the decoder enable is pin 5 -- so if that pin is left
+ * floating or low, a decoder bank comes onto the data lines alongside the chip the controller is
+ * talking to, and the result is a contention failure that looks exactly like the speed failure this
+ * sketch exists to measure. One line of setup prevents a whole wrong conclusion.
+ *
+ * On the older breadboard wiring pin 5 goes nowhere and driving it high costs nothing, so this is
+ * unconditional rather than guarded. */
+#define PIN_DEC 5
 #define A_BIT (1u << 4)
 #define B_BIT (1u << 5)
 #define C_BIT (1u << 6)
@@ -157,6 +169,7 @@ void setup()
     Serial.println(F(" MB at 105.6 MHz"));
 
     pinMode(PIN_A, OUTPUT); pinMode(PIN_B, OUTPUT); pinMode(PIN_C, OUTPUT);
+    pinMode(PIN_DEC, OUTPUT); digitalWriteFast(PIN_DEC, HIGH);   /* decoder off: see the note above */
 
     /* ---- sweep ---------------------------------------------------------------------------- */
     Serial.println(F("\n[2] identity read at each clock, on the onboard chip alone (Y7)"));

@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**465 tracked files.** This page exists so you never have to guess which directory something is in.
+**467 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -23,6 +23,7 @@ If you know what you want, use the table. If you do not, start at
 | See it do arithmetic | [docs/42](docs/42-matrix-arithmetic-on-the-teensy.md) — 499 MFLOP/s GEMM, 24 Mverts/s, and 234 MMAC/s on 4-bit weights |
 | Know which kernel ran | [docs/45](docs/45-the-teensy-had-been-running-the-scalar-kernel.md) — the Teensy is a Cortex-M7 with no NEON, so the headline figure was the scalar fallback; a DSP path is 1.45x and bit-identical |
 | Read one day end to end | [docs/46](docs/46-session-log-2026-09-11.md) — the session log: every number measured on 2026-09-11 and every claim of mine it overturned |
+| Build the perfboard | [docs/47](docs/47-the-perfboard-build.md) — the wiring sheet, the signal-integrity targets, and what to flash when it is done |
 | Know the token rate | [docs/43](docs/43-one-layer-in-tokens-per-second.md) — one token a second, measured end to end, and where the next order of magnitude is |
 | Understand the point of the whole project | [docs/20](docs/20-the-actual-thesis.md), then [docs/27](docs/27-the-machine-as-measured.md) |
 | Put 256 MB of DDR3 on a microcontroller | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) |
@@ -42,8 +43,8 @@ If you know what you want, use the table. If you do not, start at
 ## The six compartments
 
 ```
-docs/         43 numbered documents + 11 research files    the engineering record
-firmware/     349 files                                    everything that runs on a board
+docs/         44 numbered documents + 11 research files    the engineering record
+firmware/     350 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -59,7 +60,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **43 numbered documents**, 01 to 46 | the record itself |
+| **44 numbered documents**, 01 to 47 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -88,10 +89,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 183 files
+### `bench-one/tests/` — 184 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **40 experiment directories, 38 C programs, 69 result logs.**
+cross-compiled programs. **41 experiment directories, 38 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
@@ -105,6 +106,7 @@ cross-compiled programs. **40 experiment directories, 38 C programs, 69 result l
 | **`psram_bank6/`** | **8 MB or 48?** Writes a different pattern to every bank before reading any, which detects whether the decoder enable has its own pin yet. Reports the repair when it does not |
 | `teensy_pinmap/` | asks the core which GPIO register and bit each pin is, because the pinout card has been wrong here before. Drives nothing |
 | `psram_pads/` | sweeps pad drive, slew rate and input hysteresis. All eight configurations land on the same setting and the same 14.53 MB/s, which confirms the wiring as the limit and closes the cheapest route to more speed |
+| **`psram_perfboard/`** | **flash this first on the perfboard.** Discovers which of ten chip selects has a chip on it, proves the banks separate, qualifies each one's timing and burst against the refresh limit, verifies the whole flat address space, then soaks every bank indefinitely reporting the error-rate bound |
 | `psram_tcem/` | times chip-select-low directly instead of inferring it from throughput. 96 bytes is 6.93 us against an 8 us refresh limit, and 112 is already over |
 | `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together. `psram_margin` also confirms its answer over the whole 8 MB twice and prints the error-rate bound, which is what the first version lacked |
 | `psram_addr_fault/`, `psram_pattern/` | is a wrong byte an address line or a timing fault, and does the error rate depend on how hard the data switches |

@@ -634,7 +634,10 @@ static uint32_t xpack1[64 * 16];
  * 17k, which is deterministic and cheap for the host to reproduce, so every slot stays verifiable. */
 /* 32 slots is 128 kB of activation packs against 362 kB free, checked in the build report rather
  * than assumed. Y1 was still gaining at 8 -- 1.85, 3.21, 4.25, 5.07 -- so the knee is past it. */
-#define MAXBATCH 32
+/* 64 slots is 256 kB of activation packs. The batch curve at full capacity was still climbing at
+ * 32 -- 109, 165, 222, 268 MMAC/s at 4, 8, 16, 32 -- so the knee is past the old cap. Checked
+ * against the build report, not assumed: 264 kB was free for locals at 32 slots. */
+#define MAXBATCH 64
 static uint32_t xpack1b[MAXBATCH][64 * 16];
 static int32_t  xsum_all;
 

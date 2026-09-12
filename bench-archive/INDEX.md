@@ -38,3 +38,4 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-081732 | psram_worker | 36f11b6+dirty | 133 | USB echo only when a host is listening; ports drained before masked bursts |
 | 20260912-081830 | psram_worker | 36f11b6+dirty | 133 | batch cap 32 |
 | 20260912-081953 | psram_worker | 36f11b6+dirty | 133 | USB echo guarded, no interrupt masking |
+| 20260912-085159 | psram_worker | d753533+dirty | 133 | batch cap 64 |

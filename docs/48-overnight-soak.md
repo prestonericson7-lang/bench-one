@@ -230,3 +230,95 @@ before tonight. It is below what any sweep or single verify can see, and it is v
 the benchmark checks whether its own answer keeps still. Y4 aside, that residual is the last thing
 standing between this build and a clean bill of health, and on the evidence so far it belongs to the
 same marginal external wiring as the quad-read failure.
+
+---
+
+## 08:30 — One bit a weight, batching, and the drift was my own logging
+
+### The drift was never the memory
+
+Every configuration drifted its partial sum roughly one round in six, and four separate hypotheses about
+the hardware were tested and refuted: the chip-select budget, per-bank resets, an inter-burst refresh gap,
+and per-bank reads in isolation. The answer was in the firmware, and it was something added for
+convenience.
+
+`say()` echoed every line of the link to USB. An unguarded `Serial.print` on this core **blocks when its
+buffer is full and no host is draining it**, for seconds at a time, and keeps the USB interrupt busy
+trying. One benchmark round stalled for 198 seconds. A reply came back with bytes missing out of the
+middle, which desynced the link, and a corrupted `M <sum>` reply parses as a different number — so some of
+the "answer changed" verdicts were the wire, not the memory.
+
+Guarding it on `if (Serial)` and `availableForWrite()` costs nothing when nobody is watching:
+
+| | before | after |
+|---|---|---|
+| rounds with a changed answer | ~1 in 6, every configuration | **0 of 20** |
+| total read in the clean run | — | **438 MB, three widths, zero drift** |
+
+That is the first clean bill of health this build has had.
+
+### The pad configuration test had been wrong all along
+
+The fields on this part are `DSE` bits 5:3, `SPEED` bits 7:6, `HYS` bit 16, taken from `imxrt.h` rather
+than from memory. The earlier test put `SPEED` on top of `DSE`, so it ran with the pad bandwidth field at
+zero — the slowest setting — and its "no effect" answer was meaningless.
+
+`pinMode(OUTPUT)` writes drive strength and **no hysteresis**, so every read this project has ever done
+sampled with a plain threshold. Measured properly over 256 kB on the single-bit path, a Schmitt input with
+fast slew and full bandwidth took **Y5 from completely broken to zero wrong bytes and Y0 from 297 to
+zero**, with no bank made worse. It still does nothing for the quad read on the external chips.
+
+### One bit a weight
+
+Eight weights to the byte, lane `j` is `(v >> j) & 0x01010101`, and a set bit means +1 rather than 1 so
+the answer is twice the set-bit sum less the sum of all activations. Forty instructions for thirty-two
+weights: the same 1.25 an instruction a weight as the 4-bit and 2-bit kernels.
+
+| width | MMAC/s over 7 banks | against 4-bit |
+|---|---|---|
+| 4-bit | 8.34 | — |
+| 2-bit | 16.22 | 1.95x |
+| 1-bit | 30.63 | **3.67x** |
+
+Verified bit-identical against arithmetic the Luckfox computes on its own core, at all three widths.
+
+### Batching, which is the largest result here
+
+A byte takes about 185 cycles to arrive on a single-bit bank and the 1-bit kernel spends roughly ten of
+them on it. The other 175 are the processor waiting. So the weights are read once and scored against
+several activation vectors out of the same bytes: the bus does identical work and the answer count
+multiplies.
+
+| batch | CS0 quad MMAC/s | x1 | Y0 single-bit MMAC/s | x1 |
+|---|---|---|---|---|
+| 1 | 55.94 | 1.00x | 24.44 | 1.00x |
+| 2 | 93.83 | 1.68x | 45.09 | 1.84x |
+| 4 | 141.37 | 2.53x | 77.92 | 3.19x |
+| 8 | 189.32 | 3.38x | 122.52 | 5.01x |
+| 16 | 228.00 | 4.08x | 171.64 | **7.02x** |
+| 32 | **253.93** | **4.54x** | — | — |
+
+The answer is stable at every batch size on both banks. The slow bank climbs harder because its bus shadow
+is deeper, which is the point: batching converts exactly the time the bus was wasting.
+
+**55.94 to 253.93 MMAC/s on one bank from reading the same bytes once.** Against the 14.74 MMAC/s this
+build reported yesterday — a figure that was itself measured over six banks of garbage — the verified
+single-bank rate is now 17x that, and the honest seven-bank batch-1 rate is 2.1x it.
+
+### Housekeeping that was causing real failures
+
+- Verbose logs filled the 67 MB root filesystem to 100% and killed a benchmark mid-round with `ENOSPC`.
+  Logs now go to the 3.7 GB SD card.
+- The host did not own the quad wait count, so a diagnostic script that set it to 96 and exited left it
+  there and the next run silently failed both quad banks into single-bit mode. The host now sets every
+  knob every time, which is the whole point of the split.
+- The link now drains bytes still in flight before its first command and verifies that a reply begins with
+  the letter of the command that asked for it. A truncated run used to leave a fragment in the wire, and
+  the driver would read it, reject it, and announce that the board was not answering — while it answered a
+  direct probe perfectly on the same port seconds later.
+
+### Open
+
+Both boards dropped off USB at the end of this session and need a physical check. The external chips still
+cannot be read in quad, and that remains a wiring question, not a firmware one -- the two chips on the
+Teensy's own pads have never produced a wrong byte.

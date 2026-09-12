@@ -143,6 +143,52 @@ that answered two questions at once and could not tell which had failed.
 
 ---
 
+## The burst table was measured the wrong way, and 96 bytes survives anyway
+
+Document 40 gives chip-select-low time per burst, and those figures were **inferred from throughput**:
+bytes divided by MB/s. That is the payload time. It leaves out the command, the 24-bit address and the
+six dummy clocks, which are fourteen nibbles of chip-select-low carrying no payload at all.
+
+So every figure in that table was low, and moving reads from 8 no-ops to 10 made each nibble about 7%
+longer on top of it. `psram_tcem` times the actual interval between asserting chip select and releasing
+it, from the cycle counter, with the clamp and everything else held at the shipped settings.
+
+| burst | read CS low | write CS low | MB/s | wrong of 262144 | |
+|---|---|---|---|---|---|
+| 32 B | 2.56 µs | 1.61 µs | 12.28 | 26 | safe |
+| 48 B | 3.65 µs | 2.33 µs | 12.98 | 0 | safe |
+| 64 B | 4.75 µs | 3.05 µs | 13.36 | 0 | safe |
+| 80 B | 5.84 µs | 3.77 µs | 13.59 | 0 | safe |
+| **96 B** | **6.93 µs** | **4.49 µs** | **13.75** | **0** | **safe, 1.07 µs of margin** |
+| 112 B | 8.03 µs | 5.20 µs | 13.87 | 0 | **over the limit** |
+| 128 B | 9.12 µs | 5.93 µs | 13.97 | 0 | **over the limit** |
+
+Perfectly linear at about 68 ns per byte plus a fixed 0.37 µs of command, address and dummy clocks.
+
+**96 bytes is confirmed as the last safe size, now by direct measurement.** Its real chip-select-low
+time is 6.93 µs rather than the 6.46 µs document 40 quotes, and 112 bytes — which that table never
+tested — is already over at 8.03. The shipped configuration was right and its margin is thinner than
+it was believed to be.
+
+Retention at 96 bytes: **zero wrong immediately and after 10, 20 and 30 seconds of idle.** That row is
+the only evidence that matters here, because a burst past the refresh limit returns correct bytes and
+quietly loses the rows left alone — the one failure mode in this project that every other test is blind
+to.
+
+The 26 errors at a 32-byte burst are worth a note rather than a chase. A short burst pays the most
+overhead per byte and switches the data lines between output and input most often, so it has the most
+direction changes per byte delivered, and 26 in 262,144 is the only place that shows.
+
+### And a bug of mine in the first run of it
+
+The first version reported 130,000 and 261,000 wrong bytes for every burst length that does not divide
+the 8 kB block. Those numbers were entirely my own: the last burst of each block ran past the end of
+the buffer and corrupted the test's own state. The clamp is three lines. The **timing** column was
+unaffected and correct throughout, which is why it is worth separating what a test measures from what it
+concludes — the measurement was sound while the verdict beside it was nonsense.
+
+---
+
 ## And one optimisation that turns out not to exist
 
 Every speed figure in documents 40 to 43 is read as a property of the wiring: the bus needs about

@@ -322,3 +322,32 @@ single-bank rate is now 17x that, and the honest seven-bank batch-1 rate is 2.1x
 Both boards dropped off USB at the end of this session and need a physical check. The external chips still
 cannot be read in quad, and that remains a wiring question, not a firmware one -- the two chips on the
 Teensy's own pads have never produced a wrong byte.
+
+---
+
+## 09:05 — no measurement this cycle: both boards are off the USB bus
+
+| | |
+|---|---|
+| Teensy (VID 0x16C0) | not enumerated |
+| Luckfox (adb af9c5305363b077e) | not enumerated |
+| serial loggers running | 0 |
+
+Neither board has returned since the end of the previous cycle, so there are no new soak bounds, no
+per-bank throughput and no escalations to record. Nothing was flashed and nothing was benchmarked: a
+number produced without the hardware answering would be a fabrication, and the last thing this log needs
+is another figure that turns out to have been measured over something other than what it claimed.
+
+The last verified state, from `e4637d7`, stands as the current one:
+
+| | |
+|---|---|
+| banks usable | 7 of 8, 56 MB (Y4 intermittent) |
+| 4-bit, 7 banks | 8.34 MMAC/s |
+| 2-bit, 7 banks | 16.22 MMAC/s |
+| 1-bit, 7 banks | 30.63 MMAC/s |
+| 1-bit, batch 32, CS0 | 253.93 MMAC/s |
+| drift | 0 of 20 rounds over 438 MB at three widths |
+
+What the hardware needs is a physical check of whatever both boards share — they went together, which
+points at the hub or the rail rather than at either board.

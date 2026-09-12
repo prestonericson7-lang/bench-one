@@ -33,21 +33,43 @@ PSRAM is a sixth of a second. So the host sends the **rule** that generates the 
 and the Teensy materialises them at bus speed. Link latency then shows up as a constant near 80 ms a
 pass rather than as a bandwidth ceiling.
 
-## The headline: two bits a weight is 1.96× four bits
+## The headline: narrower weights, then reading them once
 
-| bit width | weights a byte | MMAC/s over 7 banks | MB/s |
+Every halving of the weight is a doubling of the arithmetic, because the bus moves bytes and a byte costs
+the same whatever is packed into it. All three kernels cost the same 1.25 instructions a weight, so the
+rate follows the packing exactly:
+
+| bit width | weights a byte | MMAC/s over 7 banks | against 4-bit |
 |---|---|---|---|
-| 4-bit | 2 | 7.41 | 3.71 |
-| 2-bit | 4 | 14.48 | 3.62 |
+| 4-bit | 2 | 8.34 | — |
+| 2-bit | 4 | 16.22 | 1.95× |
+| 1-bit | 8 | 30.63 | 3.67× |
 
-*(First measured at 6.56 and 12.84; docs/48 records the read-command change and the compiler-unrolling
-fault that together took it to these figures.)*
+The extraction is the same shape at every width. For a 32-bit word `v`, lane `j` is `(v >> jw) & mask`,
+which selects one field out of all four bytes at once; `SXTB16` of that gives one pair of weights and the
+`ror #8` form gives the other, because `SXTB16` takes bytes 0 and 2 while the rotate takes 1 and 3. At one
+bit a set bit means +1 rather than 1, so the answer is twice the set-bit sum less the sum of all
+activations — one subtraction per wrap, not per weight.
 
-The bus moves bytes, and a byte costs the same whatever is packed into it, so the only lever left after
-the clock, the burst and the instruction count have all been exhausted is weights per byte. The 2-bit
-kernel extracts four weights from each byte for the same 1.25 instructions a weight as the 4-bit one:
-for a word `v`, lane `j` is `(v >> 2j) & 0x03030303`, `SXTB16` of that gives weights `{j, 8+j}` and the
-rotated form gives `{4+j, 12+j}`. Four lanes, eight `SMLAD`s, sixteen weights.
+### And then the much larger one: batching
+
+A byte takes about 185 cycles to arrive on a single-bit bank and the 1-bit kernel spends roughly ten of
+them on it. The other 175 are the processor waiting for the bus. So the weights are read once and scored
+against several activation vectors out of the same bytes: the bus does identical work and the answer count
+multiplies, until the arithmetic catches up and becomes the limit instead.
+
+| batch | CS0 (quad) MMAC/s | ×1 | Y0 (single-bit) MMAC/s | ×1 |
+|---|---|---|---|---|
+| 1 | 55.94 | 1.00× | 24.44 | 1.00× |
+| 2 | 93.83 | 1.68× | 45.09 | 1.84× |
+| 4 | 141.37 | 2.53× | 77.92 | 3.19× |
+| 8 | 189.32 | 3.38× | 122.52 | 5.01× |
+| 16 | 228.00 | 4.08× | 171.64 | **7.02×** |
+| 32 | **253.93** | **4.54×** | — | — |
+
+The answer is bit-stable at every batch size on both bank types. The slow bank climbs hardest, which is
+the whole point: batching converts exactly the time the bus was wasting, and the slower the bank the more
+of it there is to convert.
 
 **Both kernels are verified, not assumed.** The host computes the expected partial sum in Python on its
 own ARM core and compares. Integer arithmetic, so a correct kernel is bit-identical and there is no
@@ -58,12 +80,17 @@ tolerance to argue about:
 2-bit: teensy -16384       python -16384       MATCH
 ```
 
-Across ten rounds of 7.3 MB a pass — 146 MB of weights read under sustained load — every partial sum
-and every timing was identical to the digit.
+Across twenty rounds of 7.3 MB a pass at all three widths — 438 MB of weights read under sustained load —
+every partial sum and every timing was identical to the digit. Getting there took finding that the drift
+had never been the memory: `say()` echoed every link line to USB, and an unguarded `Serial.print` on this
+core blocks for seconds when its buffer fills with no host draining it. One round stalled for 198 seconds
+and replies came back with bytes missing out of the middle, which a `M <sum>` reply cannot survive.
+docs/48 has the four hardware hypotheses that were tested and refuted before the firmware was suspected.
 
-What two bits costs in accuracy is not measured here and is not free: four levels against sixteen is a
-perplexity question for the model, not a throughput question for this bench. This measures the ceiling
-it buys.
+What narrow weights cost in accuracy is not measured here and is not free: four levels against sixteen,
+and two against four, are perplexity questions for the model rather than throughput questions for this
+bench. This measures the ceiling they buy. Binary and ternary networks are a real line of work, so the
+one-bit figure is not academic, but nothing here says a particular model survives the squeeze.
 
 ## Six banks were returning garbage, and had been for some time
 
@@ -99,16 +126,20 @@ whole bank runs single-bit and is never given the `0x35` that enters quad mode. 
 turn worth recording: a single-bit read issued to a chip still in quad mode returns garbage from every
 bank, including the two that are perfect, which looks exactly like the new path not working.
 
-With both directions single-bit, **seven of eight banks verify clean over a full megabyte.** Only Y4 is
-dead in every mode.
+With both directions single-bit, **seven of eight banks verify clean over a full megabyte.** Y4 is the one
+that does not hold: it qualifies on some runs and then returns a different answer, so a stability gate
+leaves it out rather than counting it as working memory.
 
-| bank | mode | read MB/s |
+Every figure below comes from the one twenty-round run that finished with zero drift, so they are
+internally consistent rather than stitched from several.
+
+| bank | mode | read MB/s at 4 bits |
 |---|---|---|
-| CS0 | quad | 10.17 |
-| CS1 | quad | 8.91 |
-| Y0, Y1, Y2 | single-bit 0x0B | 2.91 |
-| Y3, Y5 | single-bit 0x0B | 3.06–3.11 |
-| Y4 | — | does not read in any mode |
+| CS0 | quad | 10.44 |
+| CS1 | quad | 9.37 |
+| Y0, Y1, Y2 | single-bit 0x0B | 3.27 |
+| Y3, Y5 | single-bit 0x0B | 3.47 |
+| Y4 | — | gated out for an unrepeatable answer |
 
 56 MB addressable instead of 16. One bit a clock is a quarter of the bits, and a quarter of the bits
 over 48 MB is worth more than all of the bits over nothing, because capacity is what this machine is
@@ -121,19 +152,20 @@ the average. Filling the fast banks first and stopping is worth a factor of thre
 
 | model size | banks used | seconds a pass | effective MB/s |
 |---|---|---|---|
-| 8 MB | 1 | 0.79 | 10.17 |
-| 16 MB | 2 | 1.68 | 9.50 |
-| 24 MB | 3 | 4.26 | 5.64 |
-| 32 MB | 4 | 6.87 | 4.65 |
-| 40 MB | 5 | 9.62 | 4.16 |
-| 48 MB | 6 | 12.37 | 3.88 |
-| 56 MB | 7 | 15.11 | 3.71 |
+| 8 MB | 1 | 0.77 | 10.44 |
+| 16 MB | 2 | 1.62 | 9.87 |
+| 24 MB | 3 | 3.93 | 6.11 |
+| 32 MB | 4 | 6.23 | 5.14 |
+| 40 MB | 5 | 8.54 | 4.69 |
+| 48 MB | 6 | 10.99 | 4.37 |
+| 56 MB | 7 | 13.43 | 4.17 |
 
 This is the same load-balance result this project already measured on the render fleet, arriving from a
 different direction: equal shares waste the fast nodes.
 
-At 16 MB in quad mode the rate is **19.00 MMAC/s at 4 bits and 35.78 MMAC/s at 2 bits** — also verified
-bit-identical. So there are two operating points and the model size picks between them.
+At 16 MB in quad mode the rate is **19.74 MMAC/s at 4 bits**, and at one bit with a batch of 32 those same
+two banks reach roughly **480 MMAC/s between them**. So the model size picks the operating point, and the
+batch size picks how much of the bus wait gets converted into answers.
 
 ## Two bugs worth keeping on the record
 

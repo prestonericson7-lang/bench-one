@@ -75,26 +75,71 @@ patterns.
 
 ---
 
-## The bottleneck has moved, and that is the more useful finding
+## Where the time actually goes, measured rather than estimated
 
 Document 42 measured a bare 4-bit kernel — constant zero point, integer output — at **2.07 cycles per
-weight**. Q4_K now runs at 61.97 MB/s, which is 5.4 cycles per weight.
+weight**. Q4_K runs at 5.57. I estimated the difference was mostly the per-sub-block double arithmetic
+and put it at 61% of the time.
 
-So roughly **3.3 cycles per weight, about 61% of the time, is no longer the nibbles.** It is
-`gguf_q4k_scale_min` unpacking eight 6-bit scales and eight 6-bit minimums out of twelve asymmetrically
-packed bytes, and then three double multiplies, a double subtract and a double add per 32 weights.
+**That estimate was wrong, and measuring it took one instrumented entry point.**
+`gguf_dot_q4k_stage` runs the same kernel with one stage removed at a time, so subtracting two timings
+attributes cost to exactly one stage:
 
-That figure is inferred from two measurements rather than measured directly, and it should be read as
-an estimate. The direction is not in doubt, though: the comment above the double accumulator says one
-double add per 32 weights is "free against the integer multiply-accumulate underneath it", and that was
-true when the integer part cost 8.6 cycles a weight. It is not true now.
+| what is running | MB/s | cycles per weight |
+|---|---|---|
+| everything | 60.64 | 5.57 |
+| no float or double arithmetic | 75.59 | 4.47 |
+| nor the 6-bit scale unpack | 92.81 | 3.64 |
 
-**The double accumulator should not simply be removed.** It is there because a float running total over
-344 sub-block contributions lost 3.5 × 10⁻⁴ of relative accuracy on `ffn_down` and read as a kernel
-bug. The precision problem was cancellation in the *sum*, not error in the terms — so computing each
-sub-block term in float and accumulating into a double would likely keep the accuracy and remove most
-of the cost. It would also change the result bits, so it is a numerics change that needs the float
-reference in `tests/fast_path.c` to adjudicate it, not a free win. It is the next thing to try.
+| stage | cycles per weight | share |
+|---|---|---|
+| the nibble loop | 3.64 | **65%** |
+| the 6-bit scale unpack | 0.83 | 15% |
+| the float and double arithmetic | 1.10 | **20%** |
+
+So the double arithmetic is a fifth of the cost, not three fifths, and moving it out of double — which
+would change the result bits and need the float reference to adjudicate — is worth much less than it
+looked. **The nibble loop is still where the time is**, at 3.64 cycles per weight against the bare
+kernel's 2.07.
+
+### And the reason for that gap is a sum that does not belong in the loop
+
+Q4_K has a per-block minimum, so its inner loop computes the sum of the activations alongside the dot
+product: two extra `SMLAD` for every four weights, which is most of the difference from 2.07.
+
+**In a matrix-vector product that sum is the same for every row.** The activation vector is quantized
+once and then every row of the weight matrix is dotted against it, so the per-32 activation sums could be
+computed once per vector instead of once per row — and they are integers, so removing them from the loop
+is bit-identical, not a numerics change.
+
+It is now implemented and measured. `gguf_act_sums` computes the n/32 sums once, and
+`gguf_dot_q4k_presum` takes them:
+
+| Q4_K | MB/s | cycles per weight |
+|---|---|---|
+| DSP path, sums recomputed per row | 60.68 | 5.56 |
+| **DSP path, sums hoisted out** | **66.97** | **5.04** |
+
+**1.10×, bit-identical** — `0x430F608D` either way, because the sums are the same integers and the float
+arithmetic downstream never sees a difference. The nibble loop goes from 3.63 to 3.11 cycles per weight,
+which also includes moving it to eight bytes an iteration.
+
+It does not reach the bare kernel's 2.07, and that residue is real: the bare kernel has one scale for
+everything and folds its zero point into a closed form, where Q4_K has eight scales and eight minimums
+per 256 weights and has to visit each sub-block separately. That structure is the format, not the code.
+
+So the whole arithmetic result for the session, all of it bit-identical to the reference:
+
+| | scalar | best | |
+|---|---|---|---|
+| Q4_K | 42.70 MB/s | 66.97 MB/s | 1.57× |
+| Q6_K | 40.91 MB/s | 67.69 MB/s | 1.65× |
+| **the real 69/31 mix** | 42.13 MB/s | **67.2 MB/s** | **1.60×** |
+
+A note on the unrolling, since document 41 is about exactly that going wrong: this is compute-only code
+with no timing specification attached to it, so a different instruction sequence changes the speed and
+nothing else. The PSRAM case was different in kind — there the no-op count *was* the specification, and
+changing the surrounding loop changed what the number meant.
 
 **Q6_K got a path too, and gains more than Q4_K: 1.66×.** Its six-bit value is split across two arrays
 and biased by −32, which needs one instruction Q4_K does not. The bias cannot be applied with an ordinary
@@ -116,8 +161,8 @@ against 60 ms of Q4_K arithmetic; making the arithmetic 1.45× faster takes that
 goes from 212 ms to 193 ms — 9% — and the bus still dominates by nearly four to one. The ordering of
 priorities is unchanged: bus rate, then capacity, then nodes, then arithmetic.
 
-It does change what the FPGA comparison should quote. A Cortex-M7 does **110.2 million Q4_K weights per
-second**, not 75.9 million, and on the real 69/31 mix it is 1.51× the figure the project's record carries.
+It does change what the FPGA comparison should quote. A Cortex-M7 does **119.1 million Q4_K weights per
+second**, not 75.9 million, and on the real 69/31 mix it is 1.60× the figure the project's record carries.
 The gap to a fabric lane is that much narrower.
 
 ---

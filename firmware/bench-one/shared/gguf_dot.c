@@ -146,6 +146,37 @@
       uint32_t r; __asm__("ssub8 %0, %1, %2" : "=r"(r) : "r"(a), "r"(b)); return r;
   }
 
+  /* The same 32-weight sub-block WITHOUT the running sum of activations.
+   *
+   * Q4_K needs that sum because of its per-block minimum, and computing it costs two more SMLAD for
+   * every four weights -- which the staged measurement showed is most of why this loop runs at 3.64
+   * cycles a weight where a kernel without it does 2.07.
+   *
+   * In a matrix-vector product the sum does not belong in here at all: the activation vector is
+   * quantized once and every row of the weight matrix is dotted against the same one, so the per-32
+   * sums are identical for every row and can be computed once per vector. They are integers, so
+   * hoisting them out changes nothing about the result.
+   *
+   * Eight bytes an iteration rather than four, with two accumulators, because the loop overhead is
+   * then paid half as often and the SMLAD chains do not serialise. Unrolling is safe here in a way it
+   * was not on the PSRAM bus: this is compute with no timing specification attached, so a different
+   * instruction sequence changes the speed and nothing else. */
+  static inline int32_t gd_dot32_nosum(const uint8_t *q, const int8_t *x, uint32_t shift)
+  {
+      int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+      for (int l = 0; l < 32; l += 8) {
+          const uint32_t q0 = (gd_ld32(q + l)     >> shift) & 0x0F0F0F0Fu;
+          const uint32_t q1 = (gd_ld32(q + l + 4) >> shift) & 0x0F0F0F0Fu;
+          const uint32_t x0 = gd_ld32(x + l);
+          const uint32_t x1 = gd_ld32(x + l + 4);
+          a0 = gd_smlad(gd_sxtb16(q0),   gd_sxtb16(x0),   a0);
+          a1 = gd_smlad(gd_sxtb16r8(q0), gd_sxtb16r8(x0), a1);
+          a2 = gd_smlad(gd_sxtb16(q1),   gd_sxtb16(x1),   a2);
+          a3 = gd_smlad(gd_sxtb16r8(q1), gd_sxtb16r8(x1), a3);
+      }
+      return (a0 + a1) + (a2 + a3);
+  }
+
   /* Q6_K, one 16-weight scale group.
    *
    * A Q6_K value is six bits split across two arrays: four bits in ql and two in qh, then biased by
@@ -493,6 +524,164 @@ static float dot_q4_k_m7(const uint8_t *raw, const int8_t *xq, const float *xs, 
     return (float)total;
 }
 #endif
+
+/* ---------------------------------------------------------------------------------------------
+ *  Q4_K with the activation sums supplied rather than recomputed
+ *
+ *  The staged measurement attributes 3.64 of Q4_K's 5.57 cycles per weight to the nibble loop, against
+ *  2.07 for a kernel that does the same multiply-accumulates without also summing the activations. Q4_K
+ *  sums them because of its per-block minimum: the weight is d*sc*q - dmin*m, so the minimum's
+ *  contribution over a sub-block is dmin*m times the sum of the activations in it.
+ *
+ *  That sum does not depend on the weights. In a matrix-vector product -- which is every use of this
+ *  kernel -- one activation vector is dotted against every row of a matrix, so the per-32 sums are
+ *  computed once per vector instead of once per row. There are n/32 of them and they are int32, so
+ *  hoisting them out is exact: the double arithmetic downstream sees the same integers it saw before,
+ *  and the result is bit-identical to gguf_dot_q rather than merely close.
+ *
+ *  Q6_K is not here because it has no per-block minimum and never needed the sum.
+ * ------------------------------------------------------------------------------------------ */
+void gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum)
+{
+    const uint64_t ng = n / ABLK;
+    for (uint64_t g = 0; g < ng; g++) {
+        int32_t t = 0;
+        for (int l = 0; l < ABLK; l++) t += xq[g * ABLK + l];
+        xsum[g] = t;
+    }
+}
+
+float gguf_dot_q4k_presum(const void *raw_, const int8_t *xq, const float *xs,
+                          const int32_t *xsum, uint64_t n)
+{
+    const uint8_t *raw = (const uint8_t *)raw_;
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 144u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4;
+        const uint8_t *q      = blk + 16;
+        const int8_t  *x  = xq   + b * QK_K;
+        const float   *sx = xs   + b * (QK_K / ABLK);
+        const int32_t *sm = xsum + b * (QK_K / ABLK);
+
+        int is = 0;
+        for (int j = 0; j < QK_K; j += 64) {
+            uint8_t sc, m;
+            int32_t dot;
+
+            gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+#if GGUF_HAVE_M7DSP
+            dot = gd_dot32_nosum(q, x + j, 0);
+#else
+            dot = 0;
+            for (int l = 0; l < 32; l++) dot += (int32_t)(q[l] & 0x0F) * (int32_t)x[j + l];
+#endif
+            total += (double)sx[is + 0] *
+                     ((double)d * sc * dot - (double)dmin * m * sm[is + 0]);
+
+            gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+#if GGUF_HAVE_M7DSP
+            dot = gd_dot32_nosum(q, x + j + 32, 4);
+#else
+            dot = 0;
+            for (int l = 0; l < 32; l++) dot += (int32_t)(q[l] >> 4) * (int32_t)x[j + 32 + l];
+#endif
+            total += (double)sx[is + 1] *
+                     ((double)d * sc * dot - (double)dmin * m * sm[is + 1]);
+
+            q += 32;
+            is += 2;
+        }
+    }
+    return (float)total;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ *  INSTRUMENTATION, not a kernel anybody should call for a result
+ *
+ *  With the DSP path in, Q4_K runs at 5.4 cycles per weight while the bare 4-bit kernel in
+ *  psram_matrix does 2.07. So roughly 3.3 cycles a weight is no longer the nibbles, and it is worth
+ *  knowing which of two things it is before deciding what to do about it:
+ *
+ *      gguf_q4k_scale_min       eight 6-bit scales and eight 6-bit minimums out of twelve
+ *                               asymmetrically packed bytes, per 256 weights
+ *      the float combination    three double multiplies, a double subtract and a double add per 32
+ *                               weights, plus two fp16 conversions per block
+ *
+ *  The distinction decides the cost of the repair. A faster scale unpack produces the same integers
+ *  and stays bit-identical, so it can simply be adopted. Moving the combination out of double changes
+ *  the result bits, so it has to be argued against the float reference and may not be adoptable at
+ *  all -- the double is there because a float running total over 344 sub-block contributions lost
+ *  3.5e-4 of relative accuracy on ffn_down and read as a kernel bug.
+ *
+ *  So this runs the same kernel with stages removed and returns a value nobody should use, purely so
+ *  the difference in TIME can be measured. Stage 2 in particular returns arithmetic nonsense and says
+ *  so in its name. Subtracting timings of variants that differ by exactly one stage is the only way to
+ *  attribute cost without guessing, and guessing is what produced the 61% estimate this replaces.
+ * ------------------------------------------------------------------------------------------ */
+float gguf_dot_q4k_stage(const void *raw_, const int8_t *xq, const float *xs, uint64_t n, int stage)
+{
+    const uint8_t *raw = (const uint8_t *)raw_;
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+    int64_t itotal = 0;
+
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 144u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4;
+        const uint8_t *q      = blk + 16;
+        const int8_t  *x  = xq + b * QK_K;
+        const float   *sx = xs + b * (QK_K / ABLK);
+
+        int is = 0;
+        for (int j = 0; j < QK_K; j += 64) {
+            uint8_t sc = 1, m = 0;
+            int32_t dot, sum;
+
+#if GGUF_HAVE_M7DSP
+            gd_dot32_m7(q, x + j, 0, &dot, &sum);
+#else
+            dot = 0; sum = 0;
+            for (int l = 0; l < 32; l++) { const int32_t xv = x[j + l];
+                dot += (int32_t)(q[l] & 0x0F) * xv; sum += xv; }
+#endif
+            if (stage < 2) gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+            if (stage < 1) total += (double)sx[is + 0] *
+                                    ((double)d * sc * dot - (double)dmin * m * sum);
+            else           itotal += (int64_t)dot * sc - (int64_t)sum * m;
+
+#if GGUF_HAVE_M7DSP
+            gd_dot32_m7(q, x + j + 32, 4, &dot, &sum);
+#else
+            dot = 0; sum = 0;
+            for (int l = 0; l < 32; l++) { const int32_t xv = x[j + 32 + l];
+                dot += (int32_t)(q[l] >> 4) * xv; sum += xv; }
+#endif
+            if (stage < 2) gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+            if (stage < 1) total += (double)sx[is + 1] *
+                                    ((double)d * sc * dot - (double)dmin * m * sum);
+            else           itotal += (int64_t)dot * sc - (int64_t)sum * m;
+
+            q += 32;
+            is += 2;
+        }
+    }
+    /* stage 0 is the real answer; 1 and 2 return something the compiler cannot discard, so the loops
+     * survive, and nothing else. The caller is timing, not computing. */
+    return stage == 0 ? (float)total : (float)(double)itotal;
+}
 
 static float dot_q4_k(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
 {

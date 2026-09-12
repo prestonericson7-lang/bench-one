@@ -53,6 +53,10 @@ float gguf_dot_q(uint32_t type, const void *raw, const int8_t *xq, const float *
  * one binary run both and compare. */
 const char *gguf_dot_kernel(void);
 void  gguf_dot_force_scalar(int on);
+float gguf_dot_q4k_stage(const void *raw, const int8_t *xq, const float *xs, uint64_t n, int stage);
+void  gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum);
+float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
+                          const int32_t *xsum, uint64_t n);
 int   gguf_dequant(uint32_t type, const void *raw, uint64_t n, float *out);
 void  gguf_quantize_act(const float *x, uint64_t n, int8_t *xq, float *xs);
 }
@@ -292,6 +296,70 @@ static void report()
     Serial.print(F(" MB/s   fast ")); Serial.print(fast_q6, 2);
     Serial.print(F(" MB/s   "));      Serial.print(fast_q6 / ref_q6, 2);
     Serial.println(F("x"));
+
+    /* ---- where the remaining time actually goes ---------------------------------------------- *
+     * Q4_K is 5.4 cycles a weight against 2.07 for a bare 4-bit kernel, so most of it is no longer
+     * the nibbles. Two candidates: the 6-bit scale unpack, and the per-sub-block double arithmetic.
+     * Timing the kernel with each stage removed attributes the cost instead of estimating it, and
+     * the answer decides what the repair costs -- a faster scale unpack stays bit-identical, moving
+     * the combination out of double does not. */
+    {
+        volatile float keep = 0.0f;
+        float t[3];
+        for (int st = 0; st < 3; st++) {
+            const uint32_t c0 = ARM_DWT_CYCCNT;
+            for (uint32_t b = 0; b < INT_BLOCKS; b++)
+                keep += gguf_dot_q4k_stage(int_buf + (size_t)b * Q4K_BYTES, xq, xs, QK_K, st);
+            const uint32_t c1 = ARM_DWT_CYCCNT;
+            t[st] = (float)(c1 - c0) / (float)F_CPU_ACTUAL;
+        }
+        if (keep == 12345.6789f) Serial.print(' ');
+        const float mb = (float)(INT_BLOCKS * Q4K_BYTES);
+        const float wt = (float)(INT_BLOCKS * QK_K);
+        Serial.println();
+        Serial.println(F("  where Q4_K time goes, by removing one stage at a time"));
+        Serial.print(F("    everything            ")); Serial.print(mb / t[0] / 1e6f, 2);
+        Serial.print(F(" MB/s   ")); Serial.print((float)F_CPU_ACTUAL * t[0] / wt, 2);
+        Serial.println(F(" cycles/weight"));
+        Serial.print(F("    no float arithmetic   ")); Serial.print(mb / t[1] / 1e6f, 2);
+        Serial.print(F(" MB/s   ")); Serial.print((float)F_CPU_ACTUAL * t[1] / wt, 2);
+        Serial.println(F(" cycles/weight"));
+        Serial.print(F("    nor the scale unpack  ")); Serial.print(mb / t[2] / 1e6f, 2);
+        Serial.print(F(" MB/s   ")); Serial.print((float)F_CPU_ACTUAL * t[2] / wt, 2);
+        Serial.println(F(" cycles/weight"));
+        const float cw0 = (float)F_CPU_ACTUAL * t[0] / wt;
+        const float cw1 = (float)F_CPU_ACTUAL * t[1] / wt;
+        const float cw2 = (float)F_CPU_ACTUAL * t[2] / wt;
+        Serial.print(F("    so: nibbles ")); Serial.print(cw2, 2);
+        Serial.print(F(", scale unpack ")); Serial.print(cw1 - cw2, 2);
+        Serial.print(F(", float/double ")); Serial.print(cw0 - cw1, 2);
+        Serial.println(F(" cycles per weight"));
+        /* the optimisation the decomposition pointed at: hoist the activation sums out of the row
+         * loop, where they do not belong, and check the answer is still bit-identical */
+        static int32_t xsum[QK_K / 32];
+        gguf_act_sums(xq, QK_K, xsum);
+        volatile float k2 = 0.0f;
+        const uint32_t p0 = ARM_DWT_CYCCNT;
+        for (uint32_t b = 0; b < INT_BLOCKS; b++)
+            k2 += gguf_dot_q4k_presum(int_buf + (size_t)b * Q4K_BYTES, xq, xs, xsum, QK_K);
+        const float tp = (float)(ARM_DWT_CYCCNT - p0) / (float)F_CPU_ACTUAL;
+        if (k2 == 12345.6789f) Serial.print(' ');
+        const float pv = gguf_dot_q4k_presum(int_buf, xq, xs, xsum, QK_K);
+        const float nv = gguf_dot_q(GGML_Q4_K, int_buf, xq, xs, QK_K);
+        uint32_t pb2, nb2;
+        memcpy(&pb2, &pv, 4); memcpy(&nb2, &nv, 4);
+        Serial.print(F("    sums hoisted out     ")); Serial.print(mb / tp / 1e6f, 2);
+        Serial.print(F(" MB/s   ")); Serial.print((float)F_CPU_ACTUAL * tp / wt, 2);
+        Serial.print(F(" cycles/weight   0x")); Serial.print(pb2, HEX);
+        Serial.println(pb2 == nb2 ? F("  bit-identical") : F("  DIFFERENT -- wrong"));
+        Serial.print(F("    that is "));
+        Serial.print(t[0] / tp, 2);
+        Serial.println(F("x the full kernel, and costs nothing in accuracy"));
+
+        Serial.print(F("    the double arithmetic is "));
+        Serial.print(100.0f * (cw0 - cw1) / cw0, 0);
+        Serial.println(F("% of Q4_K, and changing it changes the result bits"));
+    }
 
     const float mix_ref  = 1.0f / (0.69f / ref_q4  + 0.31f / ref_q6);
     const float mix_fast = 1.0f / (0.69f / fast_q4 + 0.31f / fast_q6);

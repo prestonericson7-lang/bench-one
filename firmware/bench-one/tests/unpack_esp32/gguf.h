@@ -189,6 +189,30 @@ void gguf_dot_force_scalar(int on);
 /* Which kernel this build will actually use, for reporting. */
 const char *gguf_dot_kernel(void);
 
+/* Per-ABLK sums of a quantized activation vector. `xsum` holds n/ABLK int32 values.
+ *
+ * Q4_K's per-block minimum needs the sum of the activations in each sub-block, and its inner loop has
+ * been recomputing them for every row of every matrix. They do not depend on the weights, so in a
+ * matrix-vector product they are the same for every row: compute them once here and pass them to
+ * gguf_dot_q4k_presum. Measured at 3.64 of 5.57 cycles per weight in the nibble loop, most of it this. */
+void gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum);
+
+/* Q4_K with those sums supplied. BIT-IDENTICAL to gguf_dot_q, not merely close: the sums are the same
+ * integers either way, so the float arithmetic downstream is unchanged. */
+float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
+                          const int32_t *xsum, uint64_t n);
+
+/* Q4_K with stages removed, for attributing cost. NOT a kernel to call for a result.
+ *
+ *   stage 0   the real thing, identical to gguf_dot_q
+ *   stage 1   integer dots and the 6-bit scale unpack, no float or double arithmetic
+ *   stage 2   integer dots only
+ *
+ * Stages 1 and 2 return a number that is not the dot product. They exist so that subtracting two
+ * timings attributes time to exactly one stage, which is the only way to tell a slow scale unpack
+ * (fixable while staying bit-identical) from slow double arithmetic (a numerics change). */
+float gguf_dot_q4k_stage(const void *raw, const int8_t *xq, const float *xs, uint64_t n, int stage);
+
 /* Q4_K packs eight 6-bit scales and eight 6-bit minimums into twelve bytes, asymmetrically. Exposed
  * because both the dequantizer and the fused dot need it and a second copy of this bit arithmetic
  * would drift from the first. */

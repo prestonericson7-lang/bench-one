@@ -1,0 +1,142 @@
+
+==================================================================
+  perfboard bring-up. Flash this first; it assumes nothing.
+==================================================================
+  the Teensy core found 0 MB on the QSPI footprints at boot
+  -- 0 means the core's own probe found nothing there either.
+
+[1] what is actually wired
+    select        identity     
+    CS0  pin 48  0D 5D        bank 0
+    CS1  pin 51  0D 5D        bank 1
+    dec Y0       0D 5D        bank 2
+    dec Y1       0D 5D        bank 3
+    dec Y2       0D 5D        bank 4
+    dec Y3       0D 5D        bank 5
+    dec Y4       0D 5D        bank 6
+    dec Y5       0D 5D        bank 7
+    dec Y6       --  (got 0 0)
+    dec Y7       --  (got 0 0)
+    found 8 chips = 64 MB
+    The decoder replies to pin 5, so the enable has its own pin and the
+    8 MB cap is gone. Stage 2 checks the banks really are separate chips.
+
+[2] are the banks independent
+    bank   wrong of 65536
+      0      35416
+      1      3850
+      2      65300
+      3      65297
+      4      65278
+      5      65280
+      6      65280
+      7      65280
+    0 of 8 banks hold their own data
+    A bank that does not is sharing a chip select with another one.
+
+[3] timing, per bank. 20.2 ns/nibble is the FlexSPI threshold.
+    bank  write       read        W MB/s   R MB/s   ns/nib  controller?
+          (edge->used) (edge->used)   -- PROVISIONAL. stage 6 qualifies these.
+      0      4->4        14->16      24.42    10.32    48.4       too slow
+      1      4->4        14->16      24.42    10.32    48.4       too slow
+      bank 2 never verified clean; running it at write 24/read 24 anyway
+      2      --->24        --->24      8.77    7.67    65.2       -- never came clean
+      bank 3 never verified clean; running it at write 24/read 24 anyway
+      3      --->24        --->24      8.77    7.67    65.2       -- never came clean
+      bank 4 never verified clean; running it at write 24/read 24 anyway
+      4      --->24        --->24      8.77    7.67    65.2       -- never came clean
+      bank 5 never verified clean; running it at write 24/read 24 anyway
+      5      --->24        --->24      8.77    7.67    65.2       -- never came clean
+      bank 6 never verified clean; running it at write 24/read 24 anyway
+      6      --->24        --->24      8.77    7.67    65.2       -- never came clean
+      bank 7 never verified clean; running it at write 24/read 24 anyway
+      7      --->24        --->24      8.77    7.67    65.2       -- never came clean
+
+[4] chip select low per burst, against the 8 us refresh limit
+    bank   burst   read      write
+      0      64 B    6.27 us   2.69 us   safe
+      1      64 B    6.27 us   2.69 us   safe
+      2      48 B    6.32 us   5.55 us   safe
+      3      48 B    6.31 us   5.55 us   safe
+      4      48 B    6.32 us   5.55 us   safe
+      5      48 B    6.31 us   5.55 us   safe
+      6      48 B    6.32 us   5.55 us   safe
+      7      48 B    6.31 us   5.55 us   safe
+
+[M] sharded matrix-vector: every bank does its own partial sum
+    loading 1024 kB of 4-bit weights into each bank
+    reference pass at the slowest setting, to have an answer to compare to
+    bank   fastest that still agrees   MB/s     MMAC/s     ms
+      0          read 12              10.33    20.65    101.5   ANSWER CHANGED
+      1          read 14              9.53    19.05    110.1   ok
+      2          read 24              6.87    13.73    152.7   ANSWER CHANGED
+      3          read 24              6.87    13.73    152.7   ANSWER CHANGED
+      4          read 24              6.87    13.73    152.7   ANSWER CHANGED
+      5          read 24              6.87    13.73    152.7   ANSWER CHANGED
+      6          read 24              6.87    13.73    152.7   ANSWER CHANGED
+      7          read 24              6.87    13.73    152.7   ANSWER CHANGED
+    now the same bytes at 2 bits a weight
+      2-bit: 7.43 MB/s, 29.72 MMAC/s, sum 9609756
+    combined sum over all 8 banks: 33369316
+    aggregate 4-bit 7.44 MB/s, 14.87 MMAC/s
+    what that is for a model, 24 layers:
+      hidden size 256   512 kB/layer   70.5 ms   0.591 tokens/s
+      hidden size 512   2048 kB/layer   282.0 ms   0.148 tokens/s
+      hidden size 1024   8192 kB/layer   1127.9 ms   0.037 tokens/s
+    capacity 64 MB = 32 layers at hidden size 512
+
+--- what you built ---
+  8 chips, 64 MB usable.
+  fastest bank: 48.4 ns per nibble. The FlexSPI threshold is 20.2.
+  banks under that threshold: 0/8
+  None under 20.2 yet, so the bit-banged driver is the path for now. The
+  lever is a ground return beside the data lines, not the pad drive:
+  psram_pads measured all eight drive and slew settings as identical.
+
+  Bring-up complete, but stage 3's settings are PROVISIONAL: they were chosen
+  in seconds and this bus loses margin over minutes as it warms. Soaking every
+  bank from here on, stepping any that fails and resetting its count, until the
+  settings are ones that survive being run hard. That is the real answer.
+  bank 0: 4372527 errors under load at write 4/read 12, burst 64 -- stepping to write 4/read 14, burst 64, counters reset
+  bank 1: 3601658 errors under load at write 4/read 14, burst 64 -- stepping to write 4/read 16, burst 64, counters reset
+  bank 2: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 3: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 4: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 5: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 6: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 7: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+
+==================================================================
+  soak, 0 min, 1 passes of each of 8 banks
+==================================================================
+    bank   W/R     burst   steps   MB tested   errors   worst   rate
+      0      4/14     64B    1          0      0      0      under inf per billion so far
+      1      4/16     64B    1          0      0      0      under inf per billion so far
+      2     24/24     48B    0          0      0      0      under inf per billion so far
+      3     24/24     48B    0          0      0      0      under inf per billion so far
+      4     24/24     48B    0          0      0      0      under inf per billion so far
+      5     24/24     48B    0          0      0      0      under inf per billion so far
+      6     24/24     48B    0          0      0      0      under inf per billion so far
+      7     24/24     48B    0          0      0      0      under inf per billion so far
+  W/R is the setting being soaked right now and steps is how many times this
+  bank has had to slow down to get there. A bank with no errors yet is bounded,
+  not proven, and the bound falls as this runs. One that errors steps slower and
+  starts its count again, so the settings converge on what survives sustained
+  load rather than on what looked fine while the board was still cold.
+  bank 0: 64 errors under load at write 4/read 14, burst 64 -- stepping to write 4/read 16, burst 64, counters reset
+  bank 2: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 3: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 4: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 5: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.
+  bank 6: errors at the slowest setting in the table. Slowing down is not
+    the fix here -- run psram_addr_fault to tell a wire from timing.

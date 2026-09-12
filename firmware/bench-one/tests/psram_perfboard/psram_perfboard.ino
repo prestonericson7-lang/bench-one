@@ -457,6 +457,49 @@ static void build_xpack(void)
     for (int i = 0; i < 2048; i++) xsum_all += xvec[i];
 }
 
+/* the 2-bit activation table: eight packed words per group of sixteen, in the order SXTB16 produces */
+static uint32_t xpack2[128 * 8];
+
+static void build_xpack2(void)
+{
+    for (uint32_t g = 0; g < 128; g++) {
+        const int8_t *a = &xvec[g * 16];
+        for (int j = 0; j < 4; j++) {
+            xpack2[g*8 + 2*j + 0] = ((uint32_t)(a[0 + j] & 0xFFFF))
+                                  | ((uint32_t)(a[8 + j] & 0xFFFF) << 16);
+            xpack2[g*8 + 2*j + 1] = ((uint32_t)(a[4 + j] & 0xFFFF))
+                                  | ((uint32_t)(a[12 + j] & 0xFFFF) << 16);
+        }
+    }
+}
+
+/* Four weights to the byte. Same instructions per weight as the 4-bit kernel, half the bytes across
+ * the bus, so at a bus-limited rate this is twice the multiply-accumulates per second. */
+static inline int32_t mac_block2(const uint8_t *w, uint32_t nbytes)
+{
+    int32_t a0 = 0, a1 = 0;
+    uint32_t g = 0;
+    for (uint32_t i = 0; i + 4 <= nbytes; i += 4) {
+        const uint32_t *P = &xpack2[g * 8];
+        const uint32_t v = *(const uint32_t *)(w + i);
+        const uint32_t l0 = v & 0x03030303u;
+        const uint32_t l1 = (v >> 2) & 0x03030303u;
+        const uint32_t l2 = (v >> 4) & 0x03030303u;
+        const uint32_t l3 = (v >> 6) & 0x03030303u;
+        a0 = smlad_(sxtb16(l0),   P[0], a0);
+        a1 = smlad_(sxtb16r8(l0), P[1], a1);
+        a0 = smlad_(sxtb16(l1),   P[2], a0);
+        a1 = smlad_(sxtb16r8(l1), P[3], a1);
+        a0 = smlad_(sxtb16(l2),   P[4], a0);
+        a1 = smlad_(sxtb16r8(l2), P[5], a1);
+        a0 = smlad_(sxtb16(l3),   P[6], a0);
+        a1 = smlad_(sxtb16r8(l3), P[7], a1);
+        g = (g + 1) & 127u;
+    }
+    /* zero point is 2 for a 2-bit field, applied once rather than per weight */
+    return a0 + a1 - 2 * (int32_t)(nbytes / 512u) * xsum_all;
+}
+
 static inline int32_t mac_block(const uint8_t *w, uint32_t nbytes)
 {
     int32_t a0 = 0, a1 = 0;
@@ -525,6 +568,7 @@ void setup()
 
     for (int i = 0; i < 2048; i++) xvec[i] = (int8_t)(((i * 37) & 0x7F) - 64);
     build_xpack();
+    build_xpack2();
 
     Serial2.begin(1000000);          /* UART3 to the Luckfox, pins 7 and 8 */
 }
@@ -1024,11 +1068,33 @@ static void stage_matrix(void)
         Serial.println(part == refpart[b] ? F("   ok") : F("   ANSWER CHANGED"));
     }
 
+    /* the same bytes, read the same way, with four weights taken from each one instead of two */
+    Serial.println(F("    now the same bytes at 2 bits a weight"));
+    uint64_t cyc2 = 0;
+    int64_t tot2 = 0;
+    for (int b = 0; b < g_nbank; b++) {
+        use_bank(b);
+        g_burst = g_bn[b];
+        const uint32_t t0 = ARM_DWT_CYCCNT;
+        for (uint32_t off = 0; off < PER; off += BLK) {
+            RF[g_ri[b]](off, buf, BLK);
+            tot2 += mac_block2(buf, BLK);
+        }
+        cyc2 += ARM_DWT_CYCCNT - t0;
+    }
+    {
+        const float s2 = (float)(double)cyc2 / (float)F_CPU_ACTUAL;
+        const float by = (float)PER * (float)g_nbank;
+        Serial.print(F("      2-bit: ")); Serial.print(by / s2 / 1e6f, 2);
+        Serial.print(F(" MB/s, ")); Serial.print(by * 4.0f / s2 / 1e6f, 2);
+        Serial.print(F(" MMAC/s, sum ")); Serial.println((int32_t)tot2);
+    }
+
     const float secs  = (float)(double)all_cyc / (float)F_CPU_ACTUAL;
     const float bytes = (float)PER * (float)g_nbank;
     Serial.print(F("    combined sum over all ")); Serial.print(g_nbank);
     Serial.print(F(" banks: ")); Serial.println((int32_t)total);
-    Serial.print(F("    aggregate ")); Serial.print(bytes / secs / 1e6f, 2);
+    Serial.print(F("    aggregate 4-bit ")); Serial.print(bytes / secs / 1e6f, 2);
     Serial.print(F(" MB/s, ")); Serial.print(bytes * 2.0f / secs / 1e6f, 2);
     Serial.println(F(" MMAC/s"));
 

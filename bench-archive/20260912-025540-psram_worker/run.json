@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-025540",
+  "sketch": "psram_worker",
+  "git": "89b0acd",
+  "git_dirty": true,
+  "seconds": 10,
+  "note": "chip-select setup delay, sweepable from the host",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 224760
+}

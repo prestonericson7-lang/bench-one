@@ -11,10 +11,32 @@
 # Install an OSS CAD Suite here and point OSS_CAD at it; see the README.
 tools/
 
+# The bench harness lives in the ROOT tools directory, and it is source, not toolchain. bench_run.py is
+# what enforces the rule that nothing is flashed until the exact image about to be flashed has been
+# archived; listen.py is what captures what the board said. Losing either loses the ability to reproduce
+# a measurement, so both are committed.
+#
+# Four lines rather than one, because of how git reads these. A pattern cannot re-include a file whose
+# parent directory is excluded, so the root directory has to be un-excluded before anything inside it can
+# be; and every pattern here is anchored with a leading slash so that the nested tools directories under
+# firmware/ keep the behaviour they have always had, which is to be ignored.
+!/tools/
+/tools/*
+!/tools/*.py
+
 # --- compiled output ------------------------------------------------------------------------
 build/
 *.exe
 *.hex
+# THE ARCHIVE IS THE EXCEPTION, AND IT IS THE WHOLE POINT OF THE ARCHIVE.
+#
+# A .hex is normally a build product and regenerable. The ones under bench-archive/ are not: each is the
+# exact image that produced the serial log sitting beside it, and the rule on this bench is that any
+# state the board has ever been in can be returned to by flashing one file. A backup that exists only on
+# one disk is one disk away from not existing, so these are committed. The .elf, .lst, .sym and .eep
+# that arduino-cli writes alongside are excluded in bench-archive/.gitignore -- they are 95% of the
+# bytes and none of them is needed to put the board back.
+!bench-archive/**/*.hex
 *.elf
 *.bin
 *.o

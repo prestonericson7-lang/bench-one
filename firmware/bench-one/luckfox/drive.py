@@ -1,0 +1,485 @@
+#!/usr/bin/env python3
+"""
+drive.py -- the Luckfox owns everything except the arithmetic.
+
+THE DIVISION OF LABOUR
+----------------------
+    the Teensy      64 MB of weights on a bus it drives itself, and a multiply-accumulate kernel at
+                    2.07 cycles a weight. It takes orders and returns numbers.
+    this board      a Cortex-A7 with NEON, 33 MB of DDR2 at roughly 930 MB/s, and an operating system.
+                    It finds the banks, chooses their bus mode and timing, issues the work, checks the
+                    answers and keeps the log.
+
+Every decision lives here. Which selects exist, whether a bank runs four bits to the clock or one, how
+fast it can be clocked, how long a burst may be before chip select has been low past the refresh window,
+what to measure and what counts as correct. The Teensy has no opinion about any of those, which is the
+point: changing a policy means editing this file rather than reflashing a microcontroller, and a worker
+that holds no policy cannot drift between runs.
+
+WHY THE WEIGHTS NEVER CROSS THE WIRE
+------------------------------------
+A megabyte at 1 Mbaud is eight seconds; the same megabyte out of PSRAM is a sixth of a second. So this
+end sends the RULE that generates the weights, one F command, and the Teensy materialises them at bus
+speed. The link carries commands and answers only, which is why its latency shows up as a constant
+rather than as a bandwidth ceiling.
+
+QUANTISATION IS THE LEVER
+-------------------------
+Nothing aimed at the clock, the burst or the instruction count has moved the aggregate. It will not: the
+bus moves BYTES, and a byte costs the same whatever is packed into it. So the measurement that matters
+is weights per byte.
+
+    4 bits     2 weights a byte     the baseline
+    2 bits     4 weights a byte     the same bytes, twice the weights
+
+The kernel costs the same 1.25 instructions a weight either way, so at a bus-limited rate two bits is
+twice the multiply-accumulates a second. This measures that instead of asserting it, and checks both
+kernels against arithmetic done here in Python before believing either number.
+
+TWO BUS MODES, CHOSEN PER BANK
+------------------------------
+Six of the eight chips take a quad write perfectly and return wrong nibbles to a quad read -- errors
+spread evenly across all four data lines, shuffling between runs, unchanged by the clock from 10.7 MHz
+down to 2.3, by bursts from 8 bytes to 64, by the wait-cycle count, the sample instant, the bus keeper,
+the hysteresis or the drive strength. Every one of them reads correctly when the chip drives ONE line
+instead of four. So each bank is offered quad first and falls back to single-bit, which costs a quarter
+of the bits a clock and is the difference between 16 MB of usable memory and 56.
+
+    ./drive.py [kilobytes-per-bank] [rounds]
+
+Link: UART3 at /dev/ttyS3, 1 Mbaud, to the Teensy's Serial2 on pins 7 and 8.
+"""
+
+import os
+import sys
+import time
+
+NL = chr(10)
+
+try:
+    import serial
+except ImportError:
+    sys.exit("pyserial missing. It ships with the stock Luckfox image; check the PATH.")
+
+PORT = "/dev/ttyS3"
+BAUD = 1000000
+LOGDIR = "/root/bench-logs"
+
+# The worker's timing table, in the worker's order: no-op counts inside the nibble loop, so a bigger
+# number is a slower clock. Everything past index 9 exists only to have proved that slowing down is not
+# the answer to a bank that will not read.
+NOPS = [4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 32, 48, 64, 96, 128]
+USABLE = 10                      # indices past this are diagnostic, never chosen for real work
+
+# tCEM. The PSRAM is DRAM inside and refreshes only while chip select is HIGH, so a burst is bounded by
+# how long it holds chip select low and not by anything about the clock. 8 us is the datasheet limit and
+# 7 is the margin this project uses.
+#
+# This is the number that bit back once: slowing the clock LENGTHENS chip-select-low, so a bank that
+# errors does not improve by going slower unless the burst shrinks with it. Both ends of that trade are
+# computed here, together, from one measurement.
+CS_LOW_BUDGET_US = 7.0
+
+# Inside the refresh window at every setting in the table, in both directions and both bus modes, so a
+# slow candidate can never fail because the sweep lengthened chip-select-low.
+SAFE_BURST = 16
+
+# Chip-select setup: no-ops between select falling and the first clock edge. Asserting select and
+# clocking immediately leaves the 74LVC138A about three to seven nanoseconds to propagate an enable it
+# is specified to take up to six for. The two chips soldered to the Teensy have no decoder in the path
+# and do not care. 16 no-ops is 27 nanoseconds, so it is tried second and only kept if it earns it.
+SETUPS = [0, 16]
+
+MODES = [(0, "quad"), (1, "single")]
+
+SEL_CS0, SEL_CS1, SEL_DEC = 0, 1, 2
+ROUTES = [(SEL_CS0, 0, "CS0"), (SEL_CS1, 0, "CS1")] + \
+         [(SEL_DEC, y, "Y%d" % y) for y in range(8)]
+
+
+class Link(object):
+    def __init__(self, port, baud, log, verbose=True):
+        self.ser = serial.Serial(port, baud, timeout=0.5)
+        self.log = log
+        self.verbose = verbose
+        time.sleep(0.2)
+        self.ser.reset_input_buffer()
+
+    def ask(self, cmd, timeout=120.0):
+        """One line out, one line back. Neither end keeps state between requests, so a reply that
+        arrives late cannot be mistaken for the answer to the next question.
+
+        read_until stops at the newline. A plain read(n) blocks for the whole timeout unless n bytes
+        arrive, which made every exchange look like it cost half a second -- a measurement of the
+        timeout argument rather than of the link."""
+        self.ser.reset_input_buffer()
+        self.ser.write((cmd + "\n").encode())
+        self.ser.flush()
+        t0 = time.time()
+        deadline = t0 + timeout
+        buf = b""
+        while time.time() < deadline:
+            self.ser.timeout = min(0.5, max(0.05, deadline - time.time()))
+            buf += self.ser.read_until(b"\n")
+            if b"\n" in buf:
+                line = buf.split(b"\n")[0].decode(errors="replace").strip()
+                if self.verbose:
+                    self.log("    %-26s -> %-36s %6.1f ms"
+                             % (cmd, line, (time.time() - t0) * 1000.0))
+                return line
+        self.log("    %-26s -> TIMEOUT after %.1f s" % (cmd, timeout))
+        return None
+
+    def close(self):
+        self.ser.close()
+
+
+# ------------------------------------------------------------------------------------------------
+#  the weights, and what the answer should be
+#
+#  Both kernels are checked against arithmetic done here before any throughput number is reported. A
+#  2-bit kernel that is fast and wrong is worth nothing, and the only way to know which it is without
+#  trusting the board that computed it is to compute it somewhere else.
+# ------------------------------------------------------------------------------------------------
+def pattern(addr, n):
+    return bytearray(((addr + i) * 0x9D + 0x3B) & 0xFF for i in range(n))
+
+
+def activations():
+    return [((i * 37) & 0x7F) - 64 for i in range(2048)]
+
+
+def reference_mac(w, bits, xv):
+    """What the kernel must produce for these bytes.
+
+    4-bit: byte j holds weights 2j (low nibble) and 2j+1 (high nibble), zero point 8.
+    2-bit: byte j holds weights 4j..4j+3, field f at bit 2f, zero point 2.
+    The activation index wraps every 2048 weights, which is every 1024 bytes at 4 bits and every 512 at
+    2 -- both whole divisors of the 8 kB block, so no chunk boundary lands mid-wrap."""
+    total = 0
+    if bits == 4:
+        for j, b in enumerate(w):
+            total += ((b & 0x0F) - 8) * xv[(2 * j) % 2048]
+            total += ((b >> 4) - 8) * xv[(2 * j + 1) % 2048]
+    else:
+        for j, b in enumerate(w):
+            for f in range(4):
+                total += (((b >> (2 * f)) & 3) - 2) * xv[(4 * j + f) % 2048]
+    total &= 0xFFFFFFFF                       # the kernel accumulates in int32 and wraps
+    return total - 0x100000000 if total >= 0x80000000 else total
+
+
+# ------------------------------------------------------------------------------------------------
+#  the decisions
+# ------------------------------------------------------------------------------------------------
+def discover(link, say):
+    """Ask all ten possible selects who is there. A real ESP-PSRAM64H answers 0x0D then 0x5D and an open
+    bus cannot, so this separates a chip from a wire."""
+    say("\n  discovery: asking all ten selects for an identity")
+    found = []
+    for kind, y, name in ROUTES:
+        r = link.ask("P %d %d" % (kind, y), timeout=30.0)
+        if not r or not r.startswith("P "):
+            say("    %-4s no reply" % name)
+            continue
+        f = r.split()
+        ok = f[1] == "1"
+        say("    %-4s %s  id %s %s" % (name, "PRESENT" if ok else "absent ", f[2], f[3]))
+        if ok:
+            found.append((kind, y, name))
+    say("  %d banks present" % len(found))
+    return found
+
+
+def select(link, kind, y, setting):
+    """Put a bank in force. The bus mode is set BEFORE the select, because the select is what decides
+    whether the chip is given the command that puts it into quad mode."""
+    mode, wi, ri, nb, su = setting
+    link.ask("Q %d" % mode, timeout=30.0)
+    link.ask("U %d" % su, timeout=30.0)
+    link.ask("B %d %d" % (kind, y), timeout=30.0)
+    link.ask("T %d %d %d" % (wi, ri, nb), timeout=30.0)
+
+
+def burst_bound(link, letter):
+    """Two timed bursts give the fixed overhead and the per-byte cost, so the longest burst that keeps
+    chip select inside the refresh window is arithmetic rather than a sweep."""
+    a = link.ask("%s 96" % letter, timeout=30.0)
+    b = link.ask("%s 32" % letter, timeout=30.0)
+    if not a or not b:
+        return SAFE_BURST, 0.0, 0.0
+    c96, c32 = int(a.split()[2]), int(b.split()[2])
+    per = (c96 - c32) / 64.0
+    fix = c96 - per * 96.0
+    if per <= 0:
+        return SAFE_BURST, fix, per
+    n = int((CS_LOW_BUDGET_US * 1e-6 * FCPU - fix) / per)
+    return max(8, min(96, (n // 8) * 8)), fix, per
+
+
+def pick_burst(link, say):
+    """BOTH directions, and the smaller wins.
+
+    Computing it from the read alone and using it for the write as well is the mistake that cost the
+    first run six banks: at a slow write setting the write is the slower direction per byte, so a burst
+    comfortable for the read holds chip select low past the refresh window on the write. The data never
+    lands, and then every read setting looks broken because there was nothing correct to read."""
+    nr, fr, pr = burst_bound(link, "R")
+    nw, fw, pw = burst_bound(link, "W")
+    n = min(nr, nw)
+    say("        burst: read %.0f+%.1f/byte -> %d, write %.0f+%.1f/byte -> %d, taking %d"
+        % (fr, pr, nr, fw, pw, nw, n))
+    return n
+
+
+def sweep(link, say, kind, y, mode, setup, probe):
+    """The fastest write and read this bank verifies at, at a burst that cannot be the reason.
+
+    The read is qualified first against a slow write, because a bad write poisons every read after it
+    and the blame then lands in the wrong place. Then the write is pushed against the read just found."""
+    WHOLD = 7                                   # 16 no-ops: generous, and inside tCEM at burst 16
+    select(link, kind, y, (mode, WHOLD, USABLE - 1, SAFE_BURST, setup))
+
+    ri_ok = None
+    for ri in range(USABLE):
+        link.ask("T %d %d %d" % (WHOLD, ri, SAFE_BURST), timeout=30.0)
+        if not link.ask("F 0 %d" % probe, timeout=300.0):
+            continue
+        v = link.ask("V 0 %d" % probe, timeout=300.0)
+        if v and v.startswith("V ") and int(v.split()[1]) == 0:
+            ri_ok = ri
+            break
+    if ri_ok is None:
+        return None
+
+    wi_ok = WHOLD
+    for wi in range(USABLE):
+        link.ask("T %d %d %d" % (wi, ri_ok, SAFE_BURST), timeout=30.0)
+        if not link.ask("F 0 %d" % probe, timeout=300.0):
+            continue
+        v = link.ask("V 0 %d" % probe, timeout=300.0)
+        if v and v.startswith("V ") and int(v.split()[1]) == 0:
+            wi_ok = wi
+            break
+
+    link.ask("T %d %d %d" % (wi_ok, ri_ok, SAFE_BURST), timeout=30.0)
+    nb = pick_burst(link, say)
+    return (mode, wi_ok, ri_ok, nb, setup)
+
+
+def confirm(link, say, kind, y, setting, span):
+    """A SWEEP IS NOT A QUALIFICATION.
+
+    Thirty-two kilobytes of silence bounds the error rate below roughly one in thirty thousand, and the
+    fault that bit this project ran at about one in six hundred thousand. The sweep finds the shape of
+    the cliff; only a full pass says where to stand. So the chosen setting has to survive the span the
+    benchmark will really read, and is stepped back until it does -- read first, then write, with the
+    burst recomputed after every step, because slowing down lengthens chip-select-low."""
+    mode, wi, ri, nb, su = setting
+    for _ in range(8):
+        select(link, kind, y, (mode, wi, ri, nb, su))
+        link.ask("F 0 %d" % span, timeout=900.0)
+        v = link.ask("V 0 %d" % span, timeout=900.0)
+        bad = int(v.split()[1]) if v and v.startswith("V ") else -1
+        if bad == 0:
+            return (mode, wi, ri, nb, su)
+        say("        %d wrong over %d kB at write %d read %d burst %d"
+            % (bad, span // 1024, NOPS[wi], NOPS[ri], nb))
+        if ri + 1 < USABLE:
+            ri += 1
+        elif wi + 1 < USABLE:
+            wi += 1
+        else:
+            return None
+        link.ask("T %d %d %d" % (wi, ri, SAFE_BURST), timeout=30.0)
+        nb = pick_burst(link, say)
+    return None
+
+
+def qualify(link, say, kind, y, name, span, probe=32768):
+    """Quad first because it is four times the bits a clock; single-bit second because it works."""
+    say("    %s" % name)
+    for mode, mlabel in MODES:
+        for su in SETUPS:
+            s = sweep(link, say, kind, y, mode, su, probe)
+            if not s:
+                continue
+            c = confirm(link, say, kind, y, s, span)
+            if c:
+                say("      %s: %s, write %d read %d burst %d setup %d, clean over %d kB"
+                    % (name, mlabel, NOPS[c[1]], NOPS[c[2]], c[3], c[4], span // 1024))
+                return c
+        say("      %s: no %s setting survives %d kB" % (name, mlabel, span // 1024))
+    return None
+
+
+def check_kernels(link, say, xv):
+    """Prove both kernels before trusting either throughput figure. One 8 kB block, filled with the
+    known pattern, computed here in Python and there in assembly. Integer arithmetic, so a correct
+    kernel is bit-identical and there is no tolerance to argue about."""
+    say("\n  checking both kernels against arithmetic done on this board")
+    n = 8192
+    w = pattern(0, n)
+    ok = True
+    for bits in (4, 2):
+        want = reference_mac(w, bits, xv)
+        r = link.ask("M 0 %d %d" % (n, bits), timeout=300.0)
+        got = int(r.split()[1]) if r and r.startswith("M ") else None
+        good = (got == want)
+        ok = ok and good
+        say("    %d-bit: teensy %-12s python %-12s %s"
+            % (bits, got, want, "MATCH" if good else "MISMATCH"))
+    return ok
+
+
+def bench(link, say, banks, settings, span, rounds):
+    say("\n  %d kB a bank, %.1f MB a pass, %d rounds"
+        % (span // 1024, span * len(banks) / 1e6, rounds))
+    say("\n  round  bits   partial sum       teensy ms     MB/s    MMAC/s    link ms")
+    best = {4: 0.0, 2: 0.0}
+    per_bank = {}
+    for r in range(rounds):
+        for bits in (4, 2):
+            total_cyc = 0
+            total_bytes = 0
+            partial = 0
+            wall = 0.0
+            for (kind, y, name) in banks:
+                select(link, kind, y, settings[name])
+                t0 = time.time()
+                m = link.ask("M 0 %d %d" % (span, bits), timeout=900.0)
+                wall += time.time() - t0
+                if not m or not m.startswith("M "):
+                    continue
+                f = m.split()
+                partial += int(f[1])
+                cyc = int(f[2])
+                total_cyc += cyc
+                total_bytes += span
+                if r == 0:
+                    per_bank.setdefault(name, {})[bits] = span / (cyc / FCPU) / 1e6
+            if total_cyc == 0:
+                continue
+            secs = total_cyc / FCPU
+            mbps = total_bytes / secs / 1e6
+            macs = total_bytes * (8.0 / bits) / secs / 1e6
+            best[bits] = max(best[bits], macs)
+            say("  %5d  %4d   %-15d   %8.1f   %6.2f   %7.2f    %6.1f"
+                % (r, bits, partial, secs * 1000.0, mbps, macs,
+                   wall * 1000.0 - secs * 1000.0))
+    return best, per_bank
+
+
+def main():
+    global FCPU
+    kb = int(sys.argv[1]) if len(sys.argv) > 1 else 1024
+    rounds = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+    span = kb * 1024
+    span -= span % 8192                       # whole 8 kB blocks; the kernels assume it
+    span = max(8192, span)
+
+    try:
+        os.makedirs(LOGDIR)
+    except OSError:
+        pass
+    logpath = os.path.join(LOGDIR, "drive-%s.log" % time.strftime("%Y%m%d-%H%M%S"))
+    logfile = open(logpath, "w")
+
+    def say(msg):
+        print(msg)
+        sys.stdout.flush()
+        logfile.write(msg + "\n")
+        logfile.flush()
+
+    say("bench one -- the Luckfox driving the Teensy")
+    say("  log: %s" % logpath)
+
+    link = Link(PORT, BAUD, say)
+    info = link.ask("I", timeout=60.0)
+    if not info or not info.startswith("I "):
+        sys.exit("no reply on %s. Check the two signal wires and that both boards share a ground."
+                 % PORT)
+    say("  teensy: %s" % info)
+    f = info.split()
+    FCPU = float(f[f.index("fcpu") + 1])
+
+    banks = discover(link, say)
+    if not banks:
+        sys.exit("no banks answered")
+
+    say("\n  qualifying: quad first, then single-bit, each confirmed over the full span")
+    settings = {}
+    live = []
+    for (kind, y, name) in banks:
+        s = qualify(link, say, kind, y, name, span)
+        if s:
+            settings[name] = s
+            live.append((kind, y, name))
+
+    dead = [n for (_, _, n) in banks if n not in settings]
+    if dead:
+        say("\n  not usable: %s" % ", ".join(dead))
+    if not live:
+        sys.exit("no bank held a setting over the full span")
+
+    nq = sum(1 for (_, _, n) in live if settings[n][0] == 0)
+    say("  usable: %d banks, %.0f MB -- %d quad, %d single-bit"
+        % (len(live), len(live) * 8.0, nq, len(live) - nq))
+
+    xv = activations()
+    kind, y, name = live[0]
+    select(link, kind, y, settings[name])
+    link.ask("F 0 8192", timeout=300.0)
+    kernels_ok = check_kernels(link, say, xv)
+
+    say("\n  loading weights")
+    for (kind, y, name) in live:
+        select(link, kind, y, settings[name])
+        r = link.ask("F 0 %d" % span, timeout=900.0)
+        if r and r.startswith("F "):
+            say("    %-4s %5.2f MB/s write" % (name, span / (int(r.split()[1]) / FCPU) / 1e6))
+
+    best, per_bank = bench(link, say, live, settings, span, rounds)
+
+    say("\n  per bank, read plus multiply-accumulate")
+    say("    bank   mode     4-bit MB/s   2-bit MB/s")
+    for (kind, y, name) in live:
+        p = per_bank.get(name, {})
+        say("    %-5s  %-7s  %10.2f   %10.2f"
+            % (name, MODES[settings[name][0]][1], p.get(4, 0.0), p.get(2, 0.0)))
+
+    # WHERE TO PUT A MODEL, GIVEN BANKS THAT ARE NOT THE SAME SPEED.
+    #
+    # Reading every bank equally gives the harmonic mean of their rates, and with two banks at 9.7 MB/s
+    # and five at 2.59 the harmonic mean sits near the slow end. The banks are not interchangeable, so a
+    # model smaller than the total capacity should not be spread evenly across them: it should fill the
+    # fast ones first and stop. That is the same load-balance result this project already measured on the
+    # render fleet, where equal shares wasted a third of the machine.
+    rates = sorted(((per_bank.get(n, {}).get(4, 0.0), n) for (_, _, n) in live), reverse=True)
+    say(NL + "  where to put a model, fastest bank first")
+    say("    size MB   banks used   seconds a pass   effective MB/s")
+    cum_t, cum_b, used = 0.0, 0.0, []
+    for rate, nm in rates:
+        if rate <= 0:
+            continue
+        used.append(nm)
+        cum_b += 8.0
+        cum_t += 8.0 / rate
+        say("    %7.0f   %10d   %14.2f   %14.2f" % (cum_b, len(used), cum_t, cum_b / cum_t))
+    say("    Spreading a model that would fit in the fast banks over all of them costs real time:")
+    say("    a sequential pass is the SUM of the per-bank times, so the slow banks set its length.")
+
+    say("\n  RESULT over %d banks, %.1f MB of weights a pass, %.0f MB addressable"
+        % (len(live), span * len(live) / 1e6, len(live) * 8.0))
+    say("    4-bit  %6.2f MMAC/s" % best[4])
+    say("    2-bit  %6.2f MMAC/s" % best[2])
+    if best[4] > 0:
+        say("    2-bit is %.2fx the 4-bit rate over the same bytes" % (best[2] / best[4]))
+    say("    kernels verified against this board's own arithmetic: %s"
+        % ("yes" if kernels_ok else "NO -- the figures above are throughput, not results"))
+    link.close()
+    logfile.close()
+
+
+if __name__ == "__main__":
+    main()

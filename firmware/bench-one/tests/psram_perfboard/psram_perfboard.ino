@@ -118,36 +118,23 @@ static void enter_quad(void)
     delay(2); cmd_single(0x35); delayMicroseconds(50);
 }
 /* ===========================================================================================
- *  THE TOPOLOGY THIS EXPECTS, AND WHY IT IS THIS ONE
+ *  WHAT THIS EXPECTS TO FIND, WHICH IS NOTHING IN PARTICULAR
  *
- *  The breadboard build is capped at 8 MB of 48 because the decoder's enable shares a wire with the
- *  onboard chip's chip select, so selecting any bank also selects the onboard chip and both drive the
- *  data lines. On the perfboard the enable gets a pin of its own and the cap goes away.
+ *  Ten places a chip can be selected from, and it probes all ten:
  *
- *      pin 48   CS0, the Teensy's own QSPI select   -> onboard chip A's CE#, already wired, untouched
- *      pin 5    GPIO9 bit 8, free                   -> decoder G2A, the enable, active low
- *      pins 2/3/4                                   -> decoder A, B, C, already wired
- *      Y0                                           -> onboard chip B's CE#
- *      Y1 .. Y6                                     -> the six new chips
- *      Y7                                           -> spare, for a ninth chip later
+ *      pin 48   CS0, the Teensy's own QSPI select
+ *      pin 51   CS1, its second one
+ *      pin 5    drives the 74LVC138A enable, so its eight outputs are eight more
  *
- *  Eight chips, 64 MB. Parking does not need a spare output any more -- with a dedicated enable, "no
- *  chip selected" is just the enable deasserted, so Y7 is genuinely free rather than burnt as a
- *  parking place the way it was on the breadboard.
+ *  Whatever answers is a bank. Two chips or ten, on the board or off it, in any order -- the
+ *  report is a list of what replied, not a check against a layout written down somewhere.
  *
- *  None of that count is baked in. This probes all ten possible selects and reports what answered, so
- *  eight, nine or five all work without an edit.
+ *  That is deliberate. The bench has been rebuilt from scratch, and a sketch that assumes last
+ *  week's topology will confidently mis-describe this week's.
  *
- *  Pin 5 is not an arbitrary choice. teensy_pinmap asked the core rather than the pinout card and
- *  found it free and in GPIO9, the same register as the clock and the four data lines, which the bus
- *  driver writes whole once per edge. A select in another register would cost a second store on every
- *  burst boundary. Pin 33 is the alternative if pin 5 is awkward to reach; it is GPIO9 bit 7.
- *
- *  The enable must be ACTIVE LOW, so it goes to G2A or G2B and not to G1. That is deduced, not
- *  assumed: on the breadboard the enable is driven by a chip select, which is active low, and all six
- *  chips do answer -- had it been on the active-high G1 input, asserting CS0 would have DISABLED the
- *  decoder and nothing behind it could ever have replied.
- *
+ *  The decoder enable has to be ACTIVE LOW, so it belongs on G2A or G2B with G1 tied high and
+ *  the other G2 grounded. On G1 instead -- which is active high -- the decoder is held off
+ *  permanently and every bank behind it is invisible no matter what else is right.
  *
  *  WHAT THIS SKETCH IS FOR
  *  -----------------------
@@ -406,6 +393,31 @@ static void enter_quad_here(void)
     GPIO9_DR = b4; s_byte<10>(b4, 0x35); GPIO9_DR = idle; delayMicroseconds(50);
 }
 
+/* The largest burst that keeps chip select low inside 7 us AT THE GIVEN READ SETTING.
+ *
+ * Two measured points give the fixed overhead and the per-byte cost, so this is arithmetic rather
+ * than a sweep. It exists as one function because stage 3 and stage 6 both have to do it and the bug
+ * that made this necessary was the two of them disagreeing. */
+static uint16_t choose_burst(int ri)
+{
+    const uint32_t save = g_burst;
+    g_burst = 96;
+    uint32_t t = ARM_DWT_CYCCNT; RF[ri](0, buf, 96);
+    const float u96 = 1e6f * (float)(ARM_DWT_CYCCNT - t) / (float)F_CPU_ACTUAL;
+    g_burst = 32;
+    t = ARM_DWT_CYCCNT;          RF[ri](0, buf, 32);
+    const float u32 = 1e6f * (float)(ARM_DWT_CYCCNT - t) / (float)F_CPU_ACTUAL;
+    g_burst = save;
+
+    const float per = (u96 - u32) / 64.0f;
+    const float fix = u96 - per * 96.0f;
+    int nmax = (per > 0.0f) ? (int)((7.0f - fix) / per) : 96;
+    nmax = (nmax / 16) * 16;
+    if (nmax > 96) nmax = 96;
+    if (nmax < 16) nmax = 16;
+    return (uint16_t)nmax;
+}
+
 static inline uint8_t pat(uint8_t bank, uint32_t i)
 {
     return (uint8_t)(i * 0x9Du + 0x3Bu + (uint32_t)bank * 0x57u);
@@ -413,9 +425,34 @@ static inline uint8_t pat(uint8_t bank, uint32_t i)
 
 /* ======================================================================================== */
 
+extern "C" uint8_t external_psram_size;
+
+/* Stop FlexSPI2 and hand its pads back as GPIO. See the long note above setup(). */
+static void flexspi2_release(void)
+{
+    FLEXSPI2_MCR0 |= FLEXSPI_MCR0_MDIS;            /* halt the module before touching the mux */
+    FLEXSPI2_MCR0 |= FLEXSPI_MCR0_SWRESET;
+    uint32_t guard = 0;
+    while ((FLEXSPI2_MCR0 & FLEXSPI_MCR0_SWRESET) && ++guard < 1000000) { }
+    FLEXSPI2_MCR0 |= FLEXSPI_MCR0_MDIS;
+    __asm__ volatile("dsb");
+
+    /* ALT5 is GPIO on every one of these pads */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_22 = 5;         /* 51, CS1  */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_24 = 5;         /* 48, CS0  */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_25 = 5;         /* 53, SCLK */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_26 = 5;         /* 52, SIO0 */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_27 = 5;         /* 49, SIO1 */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_28 = 5;         /* 50, SIO2 */
+    IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_29 = 5;         /* 54, SIO3 */
+    __asm__ volatile("dsb");
+    delayMicroseconds(100);
+}
+
 void setup()
 {
     Serial.begin(115200);
+    flexspi2_release();
     pinMode(PIN_A, OUTPUT); pinMode(PIN_B, OUTPUT); pinMode(PIN_C, OUTPUT);
     pinMode(PIN_DEC, OUTPUT); digitalWriteFast(PIN_DEC, HIGH);
     for (int p = 48; p <= 54; p++) pinMode(p, OUTPUT);
@@ -434,6 +471,17 @@ static void stage1_discover(void)
         "CS0  pin 48", "CS1  pin 51",
         "dec Y0", "dec Y1", "dec Y2", "dec Y3", "dec Y4", "dec Y5", "dec Y6", "dec Y7"
     };
+
+    /* The core talked to the onboard chips at full speed before this sketch existed. Whatever it
+     * found is the cleanest evidence available about the chips and the traces to them. */
+    Serial.print(F("  the Teensy core found "));
+    Serial.print(external_psram_size);
+    Serial.println(F(" MB on the QSPI footprints at boot"));
+    if (external_psram_size)
+        Serial.println(F("  -- so those chips and their wiring are good, at controller speed."));
+    else
+        Serial.println(F("  -- 0 means the core's own probe found nothing there either."));
+    Serial.println();
 
     Serial.println(F("[1] what is actually wired"));
 
@@ -600,21 +648,8 @@ static void stage3_timing(void)
         /* Now fix the burst for this bank. The timing was chosen for margin and that lengthens a
          * burst, so the refresh limit has to be re-checked against the setting actually chosen
          * rather than against the one the burst was picked for. */
-        g_burst = 96;
-        for (uint32_t i = 0; i < 96; i++) ref[i] = pat((uint8_t)b, i);
-        uint32_t t0 = ARM_DWT_CYCCNT; RF[rsafe_final](0, buf, 96); const float u96 =
-            1e6f * (float)(ARM_DWT_CYCCNT - t0) / (float)F_CPU_ACTUAL;
-        g_burst = 32;
-        t0 = ARM_DWT_CYCCNT;          RF[rsafe_final](0, buf, 32); const float u32 =
-            1e6f * (float)(ARM_DWT_CYCCNT - t0) / (float)F_CPU_ACTUAL;
-        const float per = (u96 - u32) / 64.0f;                 /* us per payload byte */
-        const float fix = u96 - per * 96.0f;                   /* us of command and dummy clocks */
-        int nmax = (per > 0.0f) ? (int)((7.0f - fix) / per) : 96;
-        nmax = (nmax / 16) * 16;                               /* a tidy multiple */
-        if (nmax > 96) nmax = 96;
-        if (nmax < 16) nmax = 16;
-        g_bn[b] = (uint16_t)nmax;
-        g_burst = (uint32_t)nmax;
+        g_bn[b] = choose_burst(rsafe_final);
+        g_burst = g_bn[b];
 
         /* measure the chosen pair */
         uint32_t wc = 0, rc = 0, bad = 0;
@@ -729,6 +764,7 @@ static uint64_t sk_bytes[MAXBANK];
 static uint64_t sk_errs[MAXBANK];
 static uint32_t sk_pass;
 static uint32_t sk_worst[MAXBANK];
+static uint16_t sk_steps[MAXBANK];       /* how many times this bank has had to slow down */
 
 static void stage6_soak(void)
 {
@@ -760,16 +796,38 @@ static void stage6_soak(void)
          * throw away the statistics gathered at the old setting -- they describe a configuration that
          * no longer exists -- and say so, so the change is visible rather than silent. */
         if (bad) {
-            uint8_t ow = g_wi[b], orr = g_ri[b];
-            if (g_wi[b] + 1 < (uint8_t)NSET)      g_wi[b]++;
-            else if (g_ri[b] + 1 < (uint8_t)NSET) g_ri[b]++;
+            const uint8_t ow = g_wi[b], orr = g_ri[b];
+            const uint16_t ob = g_bn[b];
+
+            /* READ first. On this bus the read is the path that needs margin -- it has to get a value
+             * out of GPIO9_PSR between edges and pays bus latency the write never does. */
+            if (g_ri[b] + 1 < (uint8_t)NSET)      g_ri[b]++;
+            else if (g_wi[b] + 1 < (uint8_t)NSET) g_wi[b]++;
+            else {
+                Serial.print(F("  bank ")); Serial.print(b);
+                Serial.println(F(": errors at the slowest setting in the table. Slowing down is not"));
+                Serial.println(F("    the fix here -- run psram_addr_fault to tell a wire from timing."));
+                sk_bytes[b] = 0; sk_errs[b] = 0; sk_worst[b] = 0;
+                continue;
+            }
+
+            /* AND RECOMPUTE THE BURST. A slower nibble lengthens a fixed burst, and past 8 us of
+             * chip-select-low these parts stop refreshing -- so escalating the timing alone makes the
+             * refresh margin worse, which was the runaway this replaces. */
+            use_bank(b);
+            g_bn[b] = choose_burst(g_ri[b]);
+            g_burst = g_bn[b];
+
             sk_bytes[b] = 0; sk_errs[b] = 0; sk_worst[b] = 0;
+            sk_steps[b]++;
             Serial.print(F("  bank ")); Serial.print(b);
             Serial.print(F(": ")); Serial.print(bad);
             Serial.print(F(" errors under load at write ")); Serial.print(NOPS[ow]);
             Serial.print(F("/read ")); Serial.print(NOPS[orr]);
+            Serial.print(F(", burst ")); Serial.print(ob);
             Serial.print(F(" -- stepping to write ")); Serial.print(NOPS[g_wi[b]]);
             Serial.print(F("/read ")); Serial.print(NOPS[g_ri[b]]);
+            Serial.print(F(", burst ")); Serial.print(g_bn[b]);
             Serial.println(F(", counters reset"));
         }
     }
@@ -781,18 +839,25 @@ static void stage6_soak(void)
     Serial.print(F(" passes of each of ")); Serial.print(g_nbank);
     Serial.println(F(" banks"));
     Serial.println(F("=================================================================="));
-    Serial.println(F("    bank   MB tested   errors   worst pass   rate"));
+    Serial.println(F("    bank   W/R     burst   steps   MB tested   errors   worst   rate"));
     for (int b = 0; b < g_nbank; b++) {
         const uint32_t mb = (uint32_t)(sk_bytes[b] >> 20);
         Serial.print(F("      ")); Serial.print(b);
-        Serial.print(F("      "));
+        Serial.print(F("     "));
+        if (NOPS[g_wi[b]] < 10) Serial.print(' ');
+        Serial.print(NOPS[g_wi[b]]); Serial.print('/');
+        Serial.print(NOPS[g_ri[b]]);
+        if (NOPS[g_ri[b]] < 10) Serial.print(' ');
+        Serial.print(F("     "));
+        Serial.print(g_bn[b]);                  Serial.print(F("B    "));
+        Serial.print(sk_steps[b]);              Serial.print(F("      "));
         if (mb < 10000) Serial.print(' ');
         if (mb < 1000)  Serial.print(' ');
         if (mb < 100)   Serial.print(' ');
         if (mb < 10)    Serial.print(' ');
         Serial.print(mb);                      Serial.print(F("      "));
-        Serial.print((uint32_t)sk_errs[b]);     Serial.print(F("        "));
-        Serial.print(sk_worst[b]);              Serial.print(F("        "));
+        Serial.print((uint32_t)sk_errs[b]);     Serial.print(F("      "));
+        Serial.print(sk_worst[b]);              Serial.print(F("      "));
         if (sk_errs[b]) {
             Serial.print(1e9f * (float)(double)sk_errs[b] / (float)(double)sk_bytes[b], 2);
             Serial.println(F(" per billion"));
@@ -802,10 +867,11 @@ static void stage6_soak(void)
             Serial.println(F(" per billion so far"));
         }
     }
-    Serial.println(F("  A bank with no errors yet is bounded, not proven, and the bound falls as"));
-    Serial.println(F("  this runs. A bank that errors steps slower and starts its count again, so"));
-    Serial.println(F("  the settings converge on what survives sustained load rather than on what"));
-    Serial.println(F("  looked fine while the board was still cold. Leave it running."));
+    Serial.println(F("  W/R is the setting being soaked right now and steps is how many times this"));
+    Serial.println(F("  bank has had to slow down to get there. A bank with no errors yet is bounded,"));
+    Serial.println(F("  not proven, and the bound falls as this runs. One that errors steps slower and"));
+    Serial.println(F("  starts its count again, so the settings converge on what survives sustained"));
+    Serial.println(F("  load rather than on what looked fine while the board was still cold."));
 }
 
 static bool done_once = false;

@@ -281,7 +281,11 @@ static void layer_q4k(uint32_t d)
 
     if (bytes > 8u * 1024u * 1024u) {
         Serial.print(F("\n  hidden size ")); Serial.print(d);
-        Serial.println(F(" in Q4_K needs more than the 8 MB the bank can hold"));
+        Serial.println(F(" in Q4_K needs more than 8 MB, which is one bank."));
+        Serial.println(F("    This sketch measures one bank deliberately: per-layer cost is what it"));
+        Serial.println(F("    is after, and that does not change when there are more banks -- only"));
+        Serial.println(F("    how many layers fit does. On the nine-chip perfboard that is 72 MB, so"));
+        Serial.println(F("    a 24-layer model at hidden size 512 is 55 MB and fits whole. docs/47."));
         return;
     }
 

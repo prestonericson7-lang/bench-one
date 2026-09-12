@@ -1,0 +1,718 @@
+<title>Nine PSRAM Perfboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --bg:        #EDEFF1;
+  --panel:     #F7F8F9;
+  --ink:       #1A1D21;
+  --muted:     #5E6670;
+  --rule:      #CBD2D8;
+  --rule-soft: #DFE4E8;
+
+  /* the palette IS the wire colours: these are the reels you pick up */
+  --w-gnd:   #24282D;
+  --w-pwr:   #C23B2E;
+  --w-clk:   #D6891C;
+  --w-dat:   #2C6CA6;
+  --w-sel:   #3E8A5E;
+  --w-en:    #6B4FA8;   /* the enable. One wire, and the whole repair. */
+
+  --pwr-soft: #F6E2DF;
+  --clk-soft: #F8EBD6;
+  --dat-soft: #DFE9F3;
+  --sel-soft: #E0EFE6;
+  --en-soft:  #E9E3F4;
+
+  --font-head: "Archivo Narrow", "Arial Narrow", Helvetica, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #15181B;
+    --panel:     #1D2125;
+    --ink:       #E6E9EC;
+    --muted:     #9AA3AD;
+    --rule:      #333A41;
+    --rule-soft: #272D33;
+
+    --w-gnd:   #8B949E;
+    --w-pwr:   #E8685A;
+    --w-clk:   #EBA845;
+    --w-dat:   #5E9BD1;
+    --w-sel:   #63B385;
+    --w-en:    #A98FDC;
+
+    --pwr-soft: #3A221F;
+    --clk-soft: #3A2D18;
+    --dat-soft: #1C2C3A;
+    --sel-soft: #1C2F24;
+    --en-soft:  #2A2338;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:        #15181B;
+  --panel:     #1D2125;
+  --ink:       #E6E9EC;
+  --muted:     #9AA3AD;
+  --rule:      #333A41;
+  --rule-soft: #272D33;
+
+  --w-gnd:   #8B949E;
+  --w-pwr:   #E8685A;
+  --w-clk:   #EBA845;
+  --w-dat:   #5E9BD1;
+  --w-sel:   #63B385;
+  --w-en:    #A98FDC;
+
+  --pwr-soft: #3A221F;
+  --clk-soft: #3A2D18;
+  --dat-soft: #1C2C3A;
+  --sel-soft: #1C2F24;
+  --en-soft:  #2A2338;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+
+/* ---- masthead ------------------------------------------------------------ */
+header {
+  padding: 56px 0 28px;
+  border-bottom: 3px solid var(--ink);
+}
+h1 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(38px, 7vw, 68px);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+.standfirst {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin-top: 26px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.facts div { display: flex; flex-direction: column; gap: 2px; }
+.facts b { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.facts span { color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-size: 10px; }
+
+/* ---- the legend, pinned so the key is always on screen ------------------- */
+.legend {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.legend i {
+  display: inline-block;
+  width: 22px; height: 4px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.legend em { font-style: normal; color: var(--muted); }
+
+/* ---- stations ------------------------------------------------------------ */
+section { margin-top: 56px; }
+.station {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--ink);
+  width: 26px; height: 26px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+h2 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: clamp(24px, 3.4vw, 34px);
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+.sub { color: var(--muted); margin: 4px 0 22px 40px; max-width: 64ch; }
+
+h3 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 19px;
+  margin: 30px 0 10px;
+  letter-spacing: 0.01em;
+}
+
+p { max-width: 66ch; }
+
+/* ---- tables -------------------------------------------------------------- */
+.scroll { overflow-x: auto; margin: 14px 0 4px; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 460px;
+  font-size: 14.5px;
+}
+caption {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  padding-bottom: 8px;
+}
+th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--rule);
+  padding: 7px 12px 7px 0;
+  white-space: nowrap;
+}
+td {
+  border-bottom: 1px solid var(--rule-soft);
+  padding: 9px 12px 9px 0;
+  vertical-align: top;
+}
+td.pin, td.dest { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 500; }
+td.pin { white-space: nowrap; }
+tr.hi td { background: var(--en-soft); }
+
+.chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.c-pwr { background: var(--pwr-soft); color: var(--w-pwr); }
+.c-gnd { background: var(--rule-soft); color: var(--ink); }
+.c-clk { background: var(--clk-soft); color: var(--w-clk); }
+.c-dat { background: var(--dat-soft); color: var(--w-dat); }
+.c-sel { background: var(--sel-soft); color: var(--w-sel); }
+.c-en  { background: var(--en-soft);  color: var(--w-en); }
+
+/* ---- call-outs ----------------------------------------------------------- */
+.note {
+  border-left: 4px solid var(--w-en);
+  background: var(--panel);
+  padding: 16px 20px;
+  margin: 22px 0;
+  border-radius: 0 5px 5px 0;
+}
+.note b { font-weight: 600; }
+.warn { border-left-color: var(--w-pwr); }
+.note p { margin: 0 0 9px; }
+.note p:last-child { margin-bottom: 0; }
+
+figure { margin: 20px 0 6px; }
+figcaption {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 10px;
+  letter-spacing: 0.02em;
+}
+svg { display: block; height: auto; max-width: 100%; }
+
+ol.steps, ul.plain { padding-left: 22px; max-width: 66ch; }
+ol.steps li, ul.plain li { margin-bottom: 11px; }
+ol.steps b, ul.plain b { font-weight: 600; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.91em;
+  background: var(--rule-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.target {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 2px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 22px 0;
+}
+.target > div { background: var(--panel); padding: 16px 18px; }
+.target dt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.target dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+.target small { display: block; font-family: var(--font-body); font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; font-weight: 400; }
+.target .bad dd { color: var(--w-pwr); }
+.target .goal dd { color: var(--w-en); }
+
+footer {
+  margin-top: 72px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .sub { margin-left: 0; }
+  .facts { gap: 10px 18px; }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1>Nine PSRAM<br>Perfboard</h1>
+  <p class="standfirst">Every wire for a nine-chip, 72 MB bank on one Teensy 4.1. Keyed by PSRAM
+  pin number, because that is what you are looking at with the iron in your hand. Eight of the nine
+  wires per chip are identical; only the chip select differs.</p>
+  <div class="facts">
+    <div><b>9</b><span>chips</span></div>
+    <div><b>72 MB</b><span>usable</span></div>
+    <div><b>7</b><span>wires per chip</span></div>
+    <div><b>1</b><span>wire that removes the cap</span></div>
+  </div>
+</header>
+
+<div class="legend">
+  <span><i style="background:var(--w-gnd)"></i>GND <em>PSRAM 4</em></span>
+  <span><i style="background:var(--w-pwr)"></i>3V3 <em>PSRAM 8</em></span>
+  <span><i style="background:var(--w-clk)"></i>SCLK <em>PSRAM 6</em></span>
+  <span><i style="background:var(--w-dat)"></i>SIO0–3 <em>PSRAM 5 2 3 7</em></span>
+  <span><i style="background:var(--w-sel)"></i>CE# <em>PSRAM 1</em></span>
+  <span><i style="background:var(--w-en)"></i>ENABLE <em>Teensy 5</em></span>
+</div>
+
+<!-- =================================================================== -->
+<section>
+  <div class="station"><span class="num">1</span><h2>The seven wires every chip gets</h2></div>
+  <p class="sub">Identical on all nine chips. Solder these first, as one daisy chain past each chip
+  in turn, and the board is most of the way done.</p>
+
+  <figure>
+    <svg viewBox="0 0 1080 560" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="One PSRAM chip with all eight pins labelled, showing which Teensy pad each of its seven shared wires goes to.">
+      <!-- Teensy -->
+      <rect x="24" y="96" width="178" height="368" rx="7"
+            fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+      <text x="113" y="128" text-anchor="middle" font-family="var(--font-head)" font-size="21"
+            font-weight="700" fill="var(--ink)">TEENSY 4.1</text>
+      <text x="113" y="148" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
+            fill="var(--muted)">underside QSPI pads</text>
+
+      <!-- pad stubs on the Teensy, in bus order top to bottom -->
+      <g font-family="var(--font-mono)" font-size="14" font-weight="600">
+        <text x="186" y="191" text-anchor="end" fill="var(--w-clk)">53</text>
+        <text x="186" y="228" text-anchor="end" fill="var(--w-dat)">52</text>
+        <text x="186" y="265" text-anchor="end" fill="var(--w-dat)">49</text>
+        <text x="186" y="302" text-anchor="end" fill="var(--w-dat)">50</text>
+        <text x="186" y="339" text-anchor="end" fill="var(--w-dat)">54</text>
+        <text x="186" y="392" text-anchor="end" fill="var(--w-pwr)">3V3</text>
+        <text x="186" y="429" text-anchor="end" fill="var(--w-gnd)">GND</text>
+      </g>
+
+      <!-- the bus spine -->
+      <g stroke-width="3.5" fill="none" stroke-linecap="round">
+        <path d="M202 186 H 700" stroke="var(--w-clk)"/>
+        <path d="M202 223 H 700" stroke="var(--w-dat)"/>
+        <path d="M202 260 H 700" stroke="var(--w-dat)"/>
+        <path d="M202 297 H 700" stroke="var(--w-dat)"/>
+        <path d="M202 334 H 700" stroke="var(--w-dat)"/>
+        <path d="M202 387 H 700" stroke="var(--w-pwr)"/>
+      </g>
+      <!-- the ground return: heavier, because it is the point of the board -->
+      <path d="M202 424 H 700" stroke="var(--w-gnd)" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <text x="212" y="447" font-family="var(--font-mono)" font-size="11.5" fill="var(--w-gnd)"
+            font-weight="600">GROUND RETURN — beside all five signals, bonded both ends</text>
+
+      <!-- bus labels -->
+      <g font-family="var(--font-mono)" font-size="12" font-weight="500">
+        <text x="300" y="178" fill="var(--w-clk)">SCLK</text>
+        <text x="300" y="215" fill="var(--w-dat)">SIO0</text>
+        <text x="300" y="252" fill="var(--w-dat)">SIO1</text>
+        <text x="300" y="289" fill="var(--w-dat)">SIO2</text>
+        <text x="300" y="326" fill="var(--w-dat)">SIO3</text>
+        <text x="300" y="379" fill="var(--w-pwr)">3.3 V</text>
+      </g>
+
+      <!-- the chip -->
+      <rect x="700" y="150" width="260" height="296" rx="7"
+            fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+      <text x="830" y="182" text-anchor="middle" font-family="var(--font-head)" font-size="20"
+            font-weight="700" fill="var(--ink)">ESP-PSRAM64H</text>
+      <text x="830" y="202" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
+            fill="var(--muted)">any of the nine</text>
+
+      <!-- chip pin rows, aligned to the spine lines -->
+      <g font-family="var(--font-mono)" font-size="13.5" font-weight="600">
+        <text x="716" y="191" fill="var(--w-clk)">6  SCLK</text>
+        <text x="716" y="228" fill="var(--w-dat)">5  SIO0</text>
+        <text x="716" y="265" fill="var(--w-dat)">2  SIO1</text>
+        <text x="716" y="302" fill="var(--w-dat)">3  SIO2</text>
+        <text x="716" y="339" fill="var(--w-dat)">7  SIO3</text>
+        <text x="716" y="392" fill="var(--w-pwr)">8  VCC</text>
+        <text x="716" y="429" fill="var(--w-gnd)">4  VSS</text>
+      </g>
+
+      <!-- the one wire that differs -->
+      <path d="M830 130 V 150" stroke="var(--w-sel)" stroke-width="2.5" stroke-dasharray="5 4" fill="none"/>
+      <rect x="700" y="78" width="260" height="52" rx="6"
+            fill="var(--sel-soft)" stroke="var(--w-sel)" stroke-width="2.5" stroke-dasharray="7 5"/>
+      <text x="830" y="101" text-anchor="middle" font-family="var(--font-mono)" font-size="13"
+            font-weight="600" fill="var(--w-sel)">1  CE#  — the only unique wire</text>
+      <text x="830" y="120" text-anchor="middle" font-family="var(--font-mono)" font-size="11.5"
+            fill="var(--w-sel)">station 2 decides where this one goes</text>
+
+      <!-- decoupling cap -->
+      <g stroke="var(--w-pwr)" stroke-width="2.5" fill="none">
+        <path d="M986 387 H 1016"/>
+        <path d="M1016 374 V 400"/>
+        <path d="M1028 374 V 400"/>
+        <path d="M1028 387 H 1032 V 424 H 986"/>
+      </g>
+      <path d="M960 387 H 986" stroke="var(--w-pwr)" stroke-width="3" fill="none"/>
+      <path d="M960 424 H 986" stroke="var(--w-gnd)" stroke-width="3" fill="none"/>
+      <text x="1006" y="356" text-anchor="middle" font-family="var(--font-mono)" font-size="12"
+            font-weight="600" fill="var(--w-pwr)">100 nF</text>
+      <text x="1006" y="448" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5"
+            fill="var(--muted)">shortest loop</text>
+      <text x="1006" y="462" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5"
+            fill="var(--muted)">you can make</text>
+
+      <!-- scale note -->
+      <text x="24" y="516" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
+        Chips 2 to 9 hang off the same six signal lines and the same ground return, in a chain — not a star.</text>
+      <text x="24" y="536" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
+        Keep each chip's stub off the main run under about 15 mm.</text>
+    </svg>
+    <figcaption>Pin 53 is the clock, not pin 52. Verified twice from the Teensy core itself: once
+    from its pin table, once from the IOMUXC setup the hardware controller uses.</figcaption>
+  </figure>
+
+  <div class="scroll">
+    <table>
+      <caption>The seven shared wires — identical on all nine chips</caption>
+      <thead><tr><th>PSRAM pin</th><th>signal</th><th>goes to</th></tr></thead>
+      <tbody>
+        <tr><td class="pin">6</td><td><span class="chip c-clk">SCLK</span></td><td class="dest">Teensy pad 53</td></tr>
+        <tr><td class="pin">5</td><td><span class="chip c-dat">SIO0</span></td><td class="dest">Teensy pad 52</td></tr>
+        <tr><td class="pin">2</td><td><span class="chip c-dat">SIO1</span></td><td class="dest">Teensy pad 49</td></tr>
+        <tr><td class="pin">3</td><td><span class="chip c-dat">SIO2</span></td><td class="dest">Teensy pad 50</td></tr>
+        <tr><td class="pin">7</td><td><span class="chip c-dat">SIO3</span></td><td class="dest">Teensy pad 54</td></tr>
+        <tr><td class="pin">8</td><td><span class="chip c-pwr">VCC</span></td><td class="dest">3.3 V</td></tr>
+        <tr><td class="pin">4</td><td><span class="chip c-gnd">VSS</span></td><td class="dest">GND</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px"><b>Plus a 100 nF between pins 8 and 4 at every chip</b>, with the
+  smallest loop you can physically make. Already fitted on the breadboard chips and not optional.</p>
+</section>
+
+<!-- =================================================================== -->
+<section>
+  <div class="station"><span class="num">2</span><h2>The nine chip selects</h2></div>
+  <p class="sub">PSRAM pin 1 is the only wire that differs between chips. One goes to the Teensy
+  directly; the other eight go to the decoder.</p>
+
+  <figure>
+    <svg viewBox="0 0 1080 720" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="The 74LVC138A decoder with its address, enable and eight outputs, each output labelled with the chip it selects.">
+      <!-- Teensy stub -->
+      <rect x="24" y="40" width="168" height="150" rx="7"
+            fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+      <text x="108" y="70" text-anchor="middle" font-family="var(--font-head)" font-size="18"
+            font-weight="700" fill="var(--ink)">TEENSY</text>
+      <g font-family="var(--font-mono)" font-size="13.5" font-weight="600">
+        <text x="176" y="104" text-anchor="end" fill="var(--w-sel)">48</text>
+        <text x="176" y="134" text-anchor="end" fill="var(--w-en)">5</text>
+        <text x="176" y="164" text-anchor="end" fill="var(--ink)">2 3 4</text>
+      </g>
+
+      <!-- chip A, straight off pad 48 -->
+      <path d="M192 99 H 420" stroke="var(--w-sel)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <rect x="420" y="72" width="300" height="54" rx="6"
+            fill="var(--sel-soft)" stroke="var(--w-sel)" stroke-width="2.5"/>
+      <text x="570" y="95" text-anchor="middle" font-family="var(--font-mono)" font-size="13"
+            font-weight="600" fill="var(--w-sel)">onboard chip A — pin 1 to pad 48</text>
+      <text x="570" y="114" text-anchor="middle" font-family="var(--font-mono)" font-size="11.5"
+            fill="var(--w-sel)">already wired. Leave it alone.</text>
+
+      <!-- enable into the decoder -->
+      <path d="M192 129 H 300 V 246" stroke="var(--w-en)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <text x="310" y="176" font-family="var(--font-mono)" font-size="13" font-weight="600"
+            fill="var(--w-en)">THE ONE WIRE THAT REMOVES THE 8 MB CAP</text>
+      <text x="310" y="195" font-family="var(--font-mono)" font-size="11.5" fill="var(--w-en)">
+        Teensy pin 5 → decoder pin 4 (G2A)</text>
+
+      <!-- address into the decoder -->
+      <path d="M192 159 H 264 V 246" stroke="var(--ink)" stroke-width="3" fill="none"
+            stroke-linecap="round" stroke-dasharray="6 4"/>
+
+      <!-- the decoder -->
+      <rect x="208" y="246" width="212" height="330" rx="7"
+            fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+      <text x="314" y="276" text-anchor="middle" font-family="var(--font-head)" font-size="19"
+            font-weight="700" fill="var(--ink)">74LVC138A</text>
+      <g font-family="var(--font-mono)" font-size="12" font-weight="500">
+        <text x="224" y="302" fill="var(--ink)">1 A ← pin 2</text>
+        <text x="224" y="320" fill="var(--ink)">2 B ← pin 3</text>
+        <text x="224" y="338" fill="var(--ink)">3 C ← pin 4</text>
+        <text x="224" y="360" fill="var(--w-en)" font-weight="600">4 G2A ← pin 5</text>
+        <text x="224" y="378" fill="var(--w-gnd)">5 G2B → GND</text>
+        <text x="224" y="396" fill="var(--w-pwr)">6 G1 → 3.3 V</text>
+        <text x="224" y="418" fill="var(--w-gnd)">8 GND → GND</text>
+        <text x="224" y="436" fill="var(--w-pwr)">16 VCC → 3.3 V</text>
+      </g>
+      <text x="314" y="466" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
+            fill="var(--muted)">outputs active only when</text>
+      <text x="314" y="482" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
+            fill="var(--muted)">G1 high AND both G2 low</text>
+      <text x="314" y="510" text-anchor="middle" font-family="var(--font-mono)" font-size="11.5"
+            fill="var(--w-pwr)" font-weight="600">G1 on the enable instead</text>
+      <text x="314" y="526" text-anchor="middle" font-family="var(--font-mono)" font-size="11.5"
+            fill="var(--w-pwr)" font-weight="600">holds it off for ever</text>
+
+      <!-- the eight outputs -->
+      <g stroke="var(--w-sel)" stroke-width="3" fill="none" stroke-linecap="round">
+        <path d="M420 262 H 470"/><path d="M420 300 H 470"/>
+        <path d="M420 338 H 470"/><path d="M420 376 H 470"/>
+        <path d="M420 414 H 470"/><path d="M420 452 H 470"/>
+        <path d="M420 490 H 470"/><path d="M420 528 H 470"/>
+      </g>
+      <g font-family="var(--font-mono)" font-size="13" font-weight="600" fill="var(--w-sel)">
+        <text x="478" y="267">Y0  pin 15  →  onboard chip B</text>
+        <text x="478" y="305">Y1  pin 14  →  new chip 1</text>
+        <text x="478" y="343">Y2  pin 13  →  new chip 2</text>
+        <text x="478" y="381">Y3  pin 12  →  new chip 3</text>
+        <text x="478" y="419">Y4  pin 11  →  new chip 4</text>
+        <text x="478" y="457">Y5  pin 10  →  new chip 5</text>
+        <text x="478" y="495">Y6  pin 9   →  new chip 6</text>
+        <text x="478" y="533">Y7  pin 7   →  new chip 7</text>
+      </g>
+
+      <text x="24" y="620" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
+        All eight outputs carry a chip. With a dedicated enable, "nothing selected" is just the enable high,</text>
+      <text x="24" y="640" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">
+        so no output has to be wasted as a parking place the way Y7 was on the breadboard.</text>
+      <text x="24" y="672" font-family="var(--font-mono)" font-size="12.5" fill="var(--w-en)" font-weight="600">
+        Onboard chip B already has a flying wire on its pin 1, because that pad tore off during the first build.</text>
+      <text x="24" y="692" font-family="var(--font-mono)" font-size="12.5" fill="var(--w-en)" font-weight="600">
+        Its far end moves from chip A's select to decoder Y0. That is the only thing to un-do rather than add.</text>
+    </svg>
+    <figcaption>Teensy pin 5 is not arbitrary. The core reports it free and in GPIO9, the same
+    register as the clock and the four data lines, which the driver writes whole once per clock edge.
+    Pin 33 is the alternative; it is GPIO9 bit 7.</figcaption>
+  </figure>
+
+  <div class="scroll">
+    <table>
+      <caption>PSRAM pin 1 — the unique wire, one row per chip</caption>
+      <thead><tr><th>chip</th><th>pin 1 goes to</th><th>decoder pin</th></tr></thead>
+      <tbody>
+        <tr><td>onboard chip A, RAM footprint</td><td class="dest">Teensy pad 48</td><td class="dest">—</td></tr>
+        <tr class="hi"><td>onboard chip B, second footprint</td><td class="dest">Y0</td><td class="dest">15</td></tr>
+        <tr><td>new chip 1</td><td class="dest">Y1</td><td class="dest">14</td></tr>
+        <tr><td>new chip 2</td><td class="dest">Y2</td><td class="dest">13</td></tr>
+        <tr><td>new chip 3</td><td class="dest">Y3</td><td class="dest">12</td></tr>
+        <tr><td>new chip 4</td><td class="dest">Y4</td><td class="dest">11</td></tr>
+        <tr><td>new chip 5</td><td class="dest">Y5</td><td class="dest">10</td></tr>
+        <tr><td>new chip 6</td><td class="dest">Y6</td><td class="dest">9</td></tr>
+        <tr><td>new chip 7</td><td class="dest">Y7</td><td class="dest">7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <p><b>Why the enable must be active low, and how that is known rather than guessed.</b></p>
+    <p>On the breadboard the enable is driven by a chip select, which is active low, and all six chips
+    do answer. Had it been on the active-high G1 input, asserting the select would have <em>disabled</em>
+    the decoder and nothing behind it could ever have replied. So it goes to G2A, G1 is tied high, and
+    G2B is grounded.</p>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<section>
+  <div class="station"><span class="num">3</span><h2>The part that decides whether it was worth building</h2></div>
+  <p class="sub">Everything above is connectivity and it will work. The reason to leave the
+  breadboard is the ground return, and it is the one thing a breadboard cannot give.</p>
+
+  <div class="target">
+    <div class="bad"><dt>breadboard needs</dt><dd>40.3 ns</dd><small>per nibble, measured. The bus
+      corrupts above this.</small></div>
+    <div class="goal"><dt>FlexSPI2 floor</dt><dd>20.2 ns</dd><small>its slowest possible clock from
+      its slowest source.</small></div>
+    <div><dt>so the controller is</dt><dd>1.85×</dd><small>too fast for that wiring, with no setting
+      that works. That is why every clock sweep came back silent.</small></div>
+  </div>
+
+  <p>It was never a software problem, and it is not the pad drive either. A sweep of drive strength,
+  slew rate and input hysteresis — eight combinations — gave <b>the same 14.53 MB/s every time</b>.
+  The wiring is the limit, measured rather than assumed.</p>
+
+  <h3>In order of how much each is worth</h3>
+  <ol class="steps">
+    <li><b>A ground wire beside the five bus signals, the whole length of the chain, bonded to Teensy
+      ground at both ends.</b> Every switching data line needs a return path. On a breadboard the
+      return goes the long way through the power rails, and that loop is what sets 40 ns. This is the
+      change that can buy the factor of two.</li>
+    <li><b>A chain, not a star.</b> One run past each chip in turn, each chip's stub under about
+      15 mm. A star makes every branch a reflection.</li>
+    <li><b>Shortest total run to the furthest chip.</b> Close to linear, so every centimetre counts.</li>
+    <li><b>10 µF bulk at the 3.3 V entry to the group, and another at the far end.</b> The 100 nF at
+      each chip handles the fast edge; the bulk handles the group. Worth fitting, and <em>not</em>
+      what limits the speed: at a failing edge rate, changing burst length from 4 to 32 bytes and
+      adding idle gaps from 0 to 50 µs moved the error count only between 666 and 691 of 1024.
+      Charge is not the problem. Signal return is.</li>
+  </ol>
+
+  <div class="note">
+    <p><b>Even short of 20.2 ns, nanoseconds are linear throughput.</b> Going from 40 to 30 ns is a
+    third more read bandwidth with no other change. There is no cliff to clear before the work pays.</p>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<section>
+  <div class="station"><span class="num">4</span><h2>Flash this when it is done</h2></div>
+  <p class="sub">One sketch. It assumes nothing about what got soldered, and it has already been run
+  end to end against the existing breadboard, so its own logic is not in question.</p>
+
+  <p><code>firmware/bench-one/tests/psram_perfboard/</code></p>
+
+  <div class="scroll">
+    <table>
+      <caption>Six stages, then it keeps going</caption>
+      <thead><tr><th>stage</th><th>what it answers</th></tr></thead>
+      <tbody>
+        <tr><td class="pin">1</td><td>which of the ten possible chip selects has a chip on it, by identity command at 250 kHz</td></tr>
+        <tr><td class="pin">2</td><td>are those banks separate chips, or does one answer on several selects</td></tr>
+        <tr><td class="pin">3</td><td>each bank's own clean timing window, and <b>nanoseconds per nibble against 20.2</b></td></tr>
+        <tr><td class="pin">4</td><td>chip select low per burst against the 8 µs refresh limit, and the burst chosen to fit it</td></tr>
+        <tr><td class="pin">5</td><td>the whole flat address space across every bank, written and verified</td></tr>
+        <tr><td class="pin">6</td><td>then soaks every bank indefinitely, printing the error-rate bound as it falls</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>What to look at, in order</h3>
+  <ul class="plain">
+    <li><b>Stage 1 should list nine chips.</b> If no decoder bank answers, the enable wire is the
+      suspect and the sketch says so by name. If nothing at all answers, it prints the four likely
+      causes in order, with pin 53 first.</li>
+    <li><b>Stage 3's ns/nibble column is the number this board exists for.</b> Under 20.2 and the
+      hardware controller becomes reachable, which brings memory mapping and about 33 MB/s. Then run
+      <code>psram_clock_sweep</code>.</li>
+    <li><b>Stage 4 choosing a burst shorter than 96 bytes is correct, not a fault.</b> Timing margin
+      and refresh margin trade against each other: stepping one setting slower for timing lengthens a
+      burst, and on the breadboard that took chip select low from 6.93 µs to 7.71 and produced one
+      wrong byte in 8 MB. Shortening the burst to 80 gave 6.52 µs and zero. The sketch does that
+      arithmetic per bank.</li>
+    <li><b>Stage 6's bound is the qualification.</b> A bank with no errors yet is bounded, not proven.
+      Leave it running. On the breadboard the bound reached 0.7 per billion after 1.3 GB per
+      configuration.</li>
+  </ul>
+</section>
+
+<!-- =================================================================== -->
+<section>
+  <div class="station"><span class="num">5</span><h2>What 72 megabytes changes</h2></div>
+  <p class="sub">Capacity is not speed, and it decides something speed does not: whether a model has
+  to be split across boards at all.</p>
+
+  <div class="target">
+    <div><dt>one layer, d=512, Q4_K</dt><dd>2.30 MB</dd></div>
+    <div><dt>layers that fit in 8 MB</dt><dd>3</dd></div>
+    <div class="goal"><dt>layers that fit in 72 MB</dt><dd>31</dd></div>
+  </div>
+
+  <p>A 24-layer model at hidden size 512 is <b>55 MB of weights. That fits on one Teensy with room
+  over.</b> The pipeline, the hop cost, the vocabulary split and the load balancing all exist because
+  models did not fit on one node — and for this size, after this board, they do. Distribution becomes
+  a throughput choice rather than a necessity.</p>
+
+  <p>At hidden size 1024 a layer is 9 MB, so eight fit and splitting is still required. The boundary
+  moves; it does not vanish.</p>
+
+  <div class="note warn">
+    <p><b>One thing the controller still cannot do.</b> If the board gets under 20.2 ns, FlexSPI2
+    becomes usable — for the chip on pad 48 only.</p>
+    <p>The controller asserts its own chip select as part of a transfer and it has exactly two, pads
+    48 and 51. Pad 51 is the one that tore off. So it can reach onboard chip A and nothing else, while
+    the eight decoder banks stay on the hand-driven driver. Making it reach all eight would mean
+    putting the enable on pad 48 and lifting chip A's pin 1 off it — the upgrade path, not the build.</p>
+    <p>So the honest expectation is <b>8 MB at controller speed and 64 MB at bit-bang speed</b>, with
+    the bit-bang speed itself improved by whatever the ground return buys.</p>
+  </div>
+</section>
+
+<footer>
+  Every figure here was measured on a Teensy 4.1 with six ESP-PSRAM64H, never on a desktop. The
+  breadboard this replaces verified 8,388,608 bytes with zero errors at 21.31 MB/s write and
+  13.80 read, and soaked 7.9 GB without a single wrong byte. Full record in <code>docs/40</code>
+  through <code>docs/47</code>.
+</footer>
+
+</div>

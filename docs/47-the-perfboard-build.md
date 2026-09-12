@@ -2,6 +2,8 @@
 
 Date: 2026-09-11. Status: **the targets are measured; the board is not built yet.**
 
+Bench wiring sheet, with both diagrams: https://claude.ai/code/artifact/5f2a27ee-8a0f-429a-8259-c239a69c23f5
+
 The breadboard build works and is capped twice over. 8 MB of 48 usable because the decoder's enable
 shares a wire with a chip select, and 13.8 MB/s because five jumper wires cannot carry an edge faster
 than 37 ns per nibble. The perfboard fixes both, and this is the sheet to build it from.

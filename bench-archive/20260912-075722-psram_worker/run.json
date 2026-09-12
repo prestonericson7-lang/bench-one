@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-075722",
+  "sketch": "psram_worker",
+  "git": "36f11b6",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "pad control rebuilt from the core field macros",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 282360
+}

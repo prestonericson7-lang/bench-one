@@ -126,7 +126,10 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *                            hold and a read that returns somebody else is visible
  *    F <addr> <len>          fill with the pattern. -> "F <cycles>". The host never sends weights
  *                            over the UART: it sends the rule that generates them.
- *    M <addr> <len> <bits>   read and multiply-accumulate. bits is 4, 2 or 1. -> "M <sum> <cycles>"
+ *    M <addr> <len> <bits> [batch]
+ *                            read and multiply-accumulate. bits is 4, 2 or 1. batch defaults to 1 and
+ *                            may go to 8 at one bit: the weights are read ONCE and scored against that
+ *                            many activation vectors. -> "M <sum> <cycles>"
  *    R <nbytes>              time ONE read burst of this length. -> "R <nbytes> <cycles>"
  *    W <nbytes>              time ONE write burst of this length. -> "W <nbytes> <cycles>"
  *    X <addr> <n>            read n bytes and hand them back as hex, n <= 24. -> "X <hex...>"
@@ -611,6 +614,28 @@ static int8_t   xvec[2048];
 static uint32_t xpack4[256 * 4];
 static uint32_t xpack2[128 * 8];
 static uint32_t xpack1[64 * 16];
+
+/* BATCHING: THE WEIGHTS COME OFF THE BUS ONCE AND SERVE MANY TOKENS.
+ *
+ * At batch one a transformer reads every weight for every token, and on this machine that is the whole
+ * cost -- a full pass over 64 MB takes 16.5 seconds and 88% of it is the six single-bit banks. Nothing
+ * about that pass changes if it scores more than one activation vector on the way past, because the
+ * expensive part is moving the bytes, not multiplying them.
+ *
+ * There is measured room for it. On a single-bit bank a byte takes about 185 cycles to arrive and the
+ * one-bit kernel spends about 10 cycles on it: the 4-bit kernel runs at 3.46 MB/s and the 1-bit kernel,
+ * doing four times the multiply-accumulates per byte, runs at 3.24 -- six percent slower for four times
+ * the arithmetic. That is not a compute-bound loop, it is a loop idling in the shadow of the bus, and
+ * the shadow is deep enough for roughly sixteen activation vectors before the arithmetic becomes the
+ * limit. On the two quad banks it is deep enough for about seven.
+ *
+ * So the weights are read once into a buffer in tightly-coupled memory and scored B times out of it.
+ * The bus does the same work; the answer count multiplies. Slot k uses the activation vector rotated by
+ * 17k, which is deterministic and cheap for the host to reproduce, so every slot stays verifiable. */
+/* 32 slots is 128 kB of activation packs against 362 kB free, checked in the build report rather
+ * than assumed. Y1 was still gaining at 8 -- 1.85, 3.21, 4.25, 5.07 -- so the knee is past it. */
+#define MAXBATCH 32
+static uint32_t xpack1b[MAXBATCH][64 * 16];
 static int32_t  xsum_all;
 
 static inline uint32_t sxtb16(uint32_t x)
@@ -657,6 +682,20 @@ static void build_packs(void)
                                    | ((uint32_t)(a[16 + j] & 0xFFFF) << 16);
             xpack1[g*16 + 2*j + 1] = ((uint32_t)(a[8 + j] & 0xFFFF))
                                    | ((uint32_t)(a[24 + j] & 0xFFFF) << 16);
+        }
+    }
+    for (int k = 0; k < MAXBATCH; k++) {
+        for (uint32_t g = 0; g < 64; g++) {
+            for (int j = 0; j < 8; j++) {
+                const int b0 = xvec[(g * 32 +  0 + j + 17 * k) & 2047];
+                const int b1 = xvec[(g * 32 + 16 + j + 17 * k) & 2047];
+                const int b2 = xvec[(g * 32 +  8 + j + 17 * k) & 2047];
+                const int b3 = xvec[(g * 32 + 24 + j + 17 * k) & 2047];
+                xpack1b[k][g*16 + 2*j + 0] = ((uint32_t)(b0 & 0xFFFF))
+                                           | ((uint32_t)(b1 & 0xFFFF) << 16);
+                xpack1b[k][g*16 + 2*j + 1] = ((uint32_t)(b2 & 0xFFFF))
+                                           | ((uint32_t)(b3 & 0xFFFF) << 16);
+            }
         }
     }
     xsum_all = 0;
@@ -728,6 +767,44 @@ static uint8_t g_tag;
 
 /* Thirty-two weights from four bytes. 2048 weights is 256 bytes, so that is where the wrap lands, and
  * 256 divides the 8 kB block, so no chunk boundary can fall mid-wrap. */
+/* One slot of the batch. Identical to mac1 but reading its own activation pack, so B of these over the
+ * same buffer is B tokens for one trip across the bus. */
+static inline int32_t mac1_slot(const uint8_t *w, uint32_t nbytes, const uint32_t *pack, int32_t xs)
+{
+    int32_t a0 = 0, a1 = 0;
+    uint32_t g = 0;
+    for (uint32_t i = 0; i + 4 <= nbytes; i += 4) {
+        const uint32_t *P = &pack[g * 16];
+        const uint32_t v = *(const uint32_t *)(w + i);
+        const uint32_t l0 = v & 0x01010101u;
+        const uint32_t l1 = (v >> 1) & 0x01010101u;
+        const uint32_t l2 = (v >> 2) & 0x01010101u;
+        const uint32_t l3 = (v >> 3) & 0x01010101u;
+        const uint32_t l4 = (v >> 4) & 0x01010101u;
+        const uint32_t l5 = (v >> 5) & 0x01010101u;
+        const uint32_t l6 = (v >> 6) & 0x01010101u;
+        const uint32_t l7 = (v >> 7) & 0x01010101u;
+        a0 = smlad_(sxtb16(l0),   P[0],  a0);
+        a1 = smlad_(sxtb16r8(l0), P[1],  a1);
+        a0 = smlad_(sxtb16(l1),   P[2],  a0);
+        a1 = smlad_(sxtb16r8(l1), P[3],  a1);
+        a0 = smlad_(sxtb16(l2),   P[4],  a0);
+        a1 = smlad_(sxtb16r8(l2), P[5],  a1);
+        a0 = smlad_(sxtb16(l3),   P[6],  a0);
+        a1 = smlad_(sxtb16r8(l3), P[7],  a1);
+        a0 = smlad_(sxtb16(l4),   P[8],  a0);
+        a1 = smlad_(sxtb16r8(l4), P[9],  a1);
+        a0 = smlad_(sxtb16(l5),   P[10], a0);
+        a1 = smlad_(sxtb16r8(l5), P[11], a1);
+        a0 = smlad_(sxtb16(l6),   P[12], a0);
+        a1 = smlad_(sxtb16r8(l6), P[13], a1);
+        a0 = smlad_(sxtb16(l7),   P[14], a0);
+        a1 = smlad_(sxtb16r8(l7), P[15], a1);
+        g = (g + 1) & 63u;
+    }
+    return 2 * (a0 + a1) - (int32_t)(nbytes / 256u) * xs;
+}
+
 static inline int32_t mac1(const uint8_t *w, uint32_t nbytes)
 {
     int32_t a0 = 0, a1 = 0;
@@ -813,15 +890,43 @@ static long arg(const char *s, int which)
 
 static char out[96];
 
+/* THE USB ECHO ONLY HAPPENS IF SOMEONE IS LISTENING.
+ *
+ * An unguarded Serial.print on this core blocks when its buffer is full and no host is draining it, for
+ * seconds at a time, and keeps the USB interrupt busy trying. That turned one benchmark round into a
+ * 198-second stall and desynced the link for every round after it, and it was added for logging.
+ *
+ * "if (Serial)" is true only while a host has the port open, and availableForWrite keeps it from blocking
+ * even then. So the echo is free when nobody is watching and harmless when somebody is. */
+static inline bool usb_listening(int need)
+{
+    return (bool)Serial && Serial.availableForWrite() > need;
+}
+
 static void say(const char *s)
 {
     Serial2.println(s);
-    Serial.print(F("< ")); Serial.println(s);
+    if (usb_listening((int)strlen(s) + 4)) {
+        Serial.print(F("< ")); Serial.println(s);
+    }
+}
+
+/* Nothing queued on either port before a run of masked bursts.
+ *
+ * Interrupts are off for the length of each burst, so anything still waiting to be transmitted cannot be
+ * transmitted until the whole operation finishes -- fourteen thousand bursts later. Draining first costs
+ * microseconds and removes the interaction entirely. */
+static inline void quiet_ports(void)
+{
+    Serial2.flush();
+    if ((bool)Serial) Serial.flush();
 }
 
 static void handle(const char *c)
 {
-    Serial.print(F("> ")); Serial.println(c);
+    if (usb_listening((int)strlen(c) + 4)) {
+        Serial.print(F("> ")); Serial.println(c);
+    }
     const uint32_t t0 = ARM_DWT_CYCCNT;
     switch (c[0]) {
     case 'I': case 'i':
@@ -951,6 +1056,7 @@ static void handle(const char *c)
     }
 
     case 'F': case 'f': {
+        quiet_ports();
         const uint32_t a = (uint32_t)arg(c, 1), len = (uint32_t)arg(c, 2);
         for (uint32_t off = 0; off < len; off += BLK) {
             const uint32_t n = (len - off > BLK) ? BLK : (len - off);
@@ -963,16 +1069,26 @@ static void handle(const char *c)
     }
 
     case 'M': case 'm': {
+        quiet_ports();
         const uint32_t a = (uint32_t)arg(c, 1), len = (uint32_t)arg(c, 2);
         const long bits = arg(c, 3);
+        long batch = arg(c, 4);
+        if (batch < 1) batch = 1;
+        if (batch > MAXBATCH) batch = MAXBATCH;
         int32_t sum = 0;
         const uint32_t s0 = ARM_DWT_CYCCNT;
         for (uint32_t off = 0; off < len; off += BLK) {
             const uint32_t n = (len - off > BLK) ? BLK : (len - off);
             do_read(a + off, buf, n);
-            sum += (bits == 1) ? mac1(buf, n)
-                 : (bits == 2) ? mac2(buf, n)
-                 : mac4(buf, n);
+            if (bits == 1 && batch > 1) {
+                /* one trip across the bus, `batch` answers out of it */
+                for (long k = 0; k < batch; k++)
+                    sum += mac1_slot(buf, n, xpack1b[k], xsum_all);
+            } else {
+                sum += (bits == 1) ? mac1(buf, n)
+                     : (bits == 2) ? mac2(buf, n)
+                     : mac4(buf, n);
+            }
         }
         const uint32_t cyc = ARM_DWT_CYCCNT - s0;
         snprintf(out, sizeof(out), "M %ld %lu", (long)sum, (unsigned long)cyc);
@@ -1143,6 +1259,7 @@ static void handle(const char *c)
     }
 
     case 'L': case 'l': {
+        quiet_ports();
         /* WHICH LINE, counted over a real span instead of a handful of bytes.
          *
          * One bad wire puts all of its errors in one bit position, because a nibble travels on four
@@ -1176,6 +1293,7 @@ static void handle(const char *c)
     }
 
     case 'V': case 'v': {
+        quiet_ports();
         const uint32_t a = (uint32_t)arg(c, 1), len = (uint32_t)arg(c, 2);
         uint32_t bad = 0;
         for (uint32_t off = 0; off < len; off += BLK) {

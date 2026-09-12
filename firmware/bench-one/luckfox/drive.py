@@ -64,7 +64,27 @@ except ImportError:
 
 PORT = "/dev/ttyS3"
 BAUD = 1000000
-LOGDIR = "/root/bench-logs"
+# THE LOG GOES ON THE SD CARD, NOT ON THE ROOT FILESYSTEM.
+#
+# Root here is 67 MB of UBI flash. A verbose run writes about 300 kB, and thirty-odd runs filled it to
+# 100% and killed a benchmark mid-round with ENOSPC -- which looked like a crash in the driver and was
+# actually my own logging eating the operating system. The SD card is 3.7 GB with nothing on it.
+def _logdir():
+    for d in ("/mnt/sdcard/bench-logs", "/root/bench-logs"):
+        try:
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            probe = os.path.join(d, ".w")
+            with open(probe, "w") as f:
+                f.write("x")
+            os.remove(probe)
+            return d
+        except OSError:
+            continue
+    return "/tmp"
+
+
+LOGDIR = None                    # resolved at startup by _logdir()
 
 # The worker's timing table, in the worker's order: no-op counts inside the nibble loop, so a bigger
 # number is a slower clock. Everything past index 9 exists only to have proved that slowing down is not
@@ -128,8 +148,34 @@ MODES = [(0, "quad"), (1, "single 0x03"), (2, "single 0x0B")]
 
 # The weight widths to measure, widest first so the comparisons read as gains.
 WIDTHS = (4, 2, 1)
+
+# HOW MANY TOKENS ONE TRIP ACROSS THE BUS CARRIES.
+#
+# At batch one every token pays for a full pass over the weights, and that pass is essentially the whole
+# cost of this machine. But the banks are not compute-bound: a byte takes about 185 cycles to arrive on a
+# single-bit bank and the one-bit kernel spends about ten on it, which is why the 1-bit kernel does four
+# times the multiply-accumulates of the 4-bit one for six percent more time.
+#
+# So the weights are read once into tightly-coupled memory and scored against BATCH activation vectors
+# out of it. The bus does identical work and the answer count multiplies. Measured on the hardware, at
+# batch 32 the quad bank reaches 4.54x its single-token rate and the single-bit bank keeps climbing past
+# that, because its bus shadow is deeper. Batching only applies at one bit, where the kernel and the
+# tables exist for it.
+BATCH = 1
 WAITS_0B = 8                    # the datasheet value for 0x0B; swept and confirmed on the hardware
 WAITS_QUAD = 6                  # the datasheet value for 0xEB, and the only one the good banks accept
+
+# Pad configuration for the four data lines, and this one was a real bug for a long time.
+#
+# 2 is a Schmitt input plus fast slew plus full pad bandwidth. pinMode(OUTPUT) writes drive strength and
+# nothing else, so every read before this used a plain threshold, which is the worst input for a weak
+# driver at the end of ribbon: one slow edge crosses a fixed threshold several times and reads as several
+# transitions. Measured over 256 kB on the single-bit path it took Y5 from completely broken to zero wrong
+# bytes and Y0 from 297 to zero, with no bank made worse.
+#
+# An earlier test reported this as making no difference. That test put the bandwidth field on top of the
+# drive-strength field, so it ran with the pad crippled and its answer meant nothing.
+PAD_MODE = 2
 
 SEL_CS0, SEL_CS1, SEL_DEC = 0, 1, 2
 ROUTES = [(SEL_CS0, 0, "CS0"), (SEL_CS1, 0, "CS1")] + \
@@ -142,6 +188,19 @@ class Link(object):
         self.log = log
         self.verbose = verbose
         time.sleep(0.2)
+        # DRAIN WHATEVER IS STILL IN FLIGHT BEFORE ASKING ANYTHING.
+        #
+        # reset_input_buffer clears what this end has already received; it does nothing about bytes the
+        # Teensy is still transmitting. A diagnostic script that exits without reading its last reply
+        # leaves those in the wire, and then the first command of the next run consumes somebody else's
+        # answer and reports the board as dead. That cost a run and looked like a hardware failure.
+        quiet = 0
+        while quiet < 3:
+            self.ser.timeout = 0.1
+            if self.ser.read(4096):
+                quiet = 0
+            else:
+                quiet += 1
         self.ser.reset_input_buffer()
 
     def ask(self, cmd, timeout=120.0):
@@ -157,11 +216,15 @@ class Link(object):
         t0 = time.time()
         deadline = t0 + timeout
         buf = b""
+        want = cmd[0].upper()
         while time.time() < deadline:
             self.ser.timeout = min(0.5, max(0.05, deadline - time.time()))
             buf += self.ser.read_until(b"\n")
-            if b"\n" in buf:
-                line = buf.split(b"\n")[0].decode(errors="replace").strip()
+            while b"\n" in buf:
+                line, _, buf = buf.partition(b"\n")
+                line = line.decode(errors="replace").strip()
+                if line[:1].upper() != want:
+                    continue
                 if self.verbose:
                     self.log("    %-26s -> %-36s %6.1f ms"
                              % (cmd, line, (time.time() - t0) * 1000.0))
@@ -278,6 +341,7 @@ def select(link, kind, y, setting, rearm=False):
     # MMAC/s instead of 31.12. The whole point of this split is that the worker remembers nothing the host
     # did not tell it, and a default is something it remembers.
     link.ask("D %d" % WAITS_QUAD, timeout=30.0)
+    link.ask("K %d" % PAD_MODE, timeout=30.0)
     if mode == 2:
         link.ask("J %d" % WAITS_0B, timeout=30.0)
     link.ask("U %d" % su, timeout=30.0)
@@ -288,6 +352,7 @@ def select(link, kind, y, setting, rearm=False):
         ARMED[key] = mode
     else:
         link.ask("E %d %d" % (kind, y), timeout=30.0)
+    link.ask("K %d" % PAD_MODE, timeout=30.0)      # B and E both go through pinMode, which rewrites it
     link.ask("T %d %d %d" % (wi, ri, nb), timeout=30.0)
 
 
@@ -504,7 +569,8 @@ def bench(link, say, banks, settings, span, rounds):
             for (kind, y, name) in banks:
                 select(link, kind, y, settings[name])
                 t0 = time.time()
-                m = link.ask("M 0 %d %d" % (span, bits), timeout=900.0)
+                nb_arg = (" %d" % BATCH) if (bits == 1 and BATCH > 1) else ""
+                m = link.ask("M 0 %d %d%s" % (span, bits, nb_arg), timeout=900.0)
                 wall += time.time() - t0
                 if not m or not m.startswith("M "):
                     continue
@@ -519,7 +585,8 @@ def bench(link, say, banks, settings, span, rounds):
                 continue
             secs = total_cyc / FCPU
             mbps = total_bytes / secs / 1e6
-            macs = total_bytes * (8.0 / bits) / secs / 1e6
+            per_byte = (8.0 / bits) * (BATCH if bits == 1 else 1)
+            macs = total_bytes * per_byte / secs / 1e6
             if bits not in seen:
                 seen[bits] = partial
                 mark = "first"
@@ -552,15 +619,14 @@ def main():
         GAP_NOPS = int(sys.argv[4])
     if len(sys.argv) > 5:
         RESET_EVERY_SWITCH = bool(int(sys.argv[5]))
+    if len(sys.argv) > 6:
+        globals()["BATCH"] = int(sys.argv[6])
     span = kb * 1024
     span -= span % 8192                       # whole 8 kB blocks; the kernels assume it
     span = max(8192, span)
 
-    try:
-        os.makedirs(LOGDIR)
-    except OSError:
-        pass
-    logpath = os.path.join(LOGDIR, "drive-%s.log" % time.strftime("%Y%m%d-%H%M%S"))
+    logdir = _logdir()
+    logpath = os.path.join(logdir, "drive-%s.log" % time.strftime("%Y%m%d-%H%M%S"))
     logfile = open(logpath, "w")
 
     def say(msg):
@@ -570,8 +636,8 @@ def main():
         logfile.flush()
 
     say("bench one -- the Luckfox driving the Teensy")
-    say("  chip-select budget %.1f us, inter-burst gap %d no-ops, reset every switch %s"
-        % (CS_LOW_BUDGET_US, GAP_NOPS, RESET_EVERY_SWITCH))
+    say("  chip-select budget %.1f us, inter-burst gap %d no-ops, reset every switch %s, batch %d"
+        % (CS_LOW_BUDGET_US, GAP_NOPS, RESET_EVERY_SWITCH, BATCH))
     say("  log: %s" % logpath)
 
     link = Link(PORT, BAUD, say)
@@ -669,6 +735,16 @@ def main():
                "" if b == WIDTHS[0] or best[WIDTHS[0]] <= 0
                else "   %.2fx the %d-bit rate over the same bytes"
                     % (best[b] / best[WIDTHS[0]], WIDTHS[0])))
+    if BATCH > 1 and best.get(1, 0) > 0:
+        secs_pass = sum(8.0 / per_bank.get(nm, {}).get(1, 1e9) for (_, _, nm) in live)
+        say(NL + "  what that is as a model, at one bit a weight")
+        say("    %d banks hold %.0f MB = %.0f million parameters"
+            % (len(live), len(live) * 8.0, len(live) * 8.0 * 8))
+        say("    one pass over all of them: %.2f s" % secs_pass)
+        say("    at batch %d that pass yields %d tokens -> %.3f tokens/s"
+            % (BATCH, BATCH, BATCH / secs_pass))
+        say("    at batch 1 the same weights give %.3f tokens/s" % (1.0 / secs_pass))
+
     say("    kernels verified against this board's own arithmetic: %s"
         % ("yes" if kernels_ok else "NO -- the figures above are throughput, not results"))
     say("    answer identical in every round: %s"

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-081732",
+  "sketch": "psram_worker",
+  "git": "36f11b6",
+  "git_dirty": true,
+  "seconds": 6,
+  "note": "USB echo only when a host is listening; ports drained before masked bursts",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 282360
+}

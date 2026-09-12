@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-075705",
+  "sketch": "psram_worker",
+  "git": "36f11b6",
+  "git_dirty": true,
+  "seconds": 6,
+  "note": "pad control fields fixed: hysteresis was never actually tested",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 282360
+}

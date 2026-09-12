@@ -30,3 +30,11 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-041041 | psram_worker | 9b66374+dirty | 133 | inter-burst refresh gap, sweepable |
 | 20260912-073808 | psram_worker | 4c51aac+dirty | 133 | one-bit kernel: eight weights a byte |
 | 20260912-074219 | psram_worker | 4c51aac+dirty | 133 | quad wait cycles sweepable to 96 |
+| 20260912-075705 | psram_worker | 36f11b6+dirty | 133 | pad control fields fixed: hysteresis was never actually tested |
+| 20260912-075722 | psram_worker | 36f11b6+dirty | 133 | pad control rebuilt from the core field macros |
+| 20260912-080127 | psram_worker | 36f11b6+dirty | 133 | interrupts masked for the duration of every burst |
+| 20260912-080354 | psram_worker | 36f11b6+dirty | 133 | interrupts off for the duration of a burst |
+| 20260912-081340 | psram_worker | 36f11b6+dirty | 133 | batched 1-bit kernel: weights read once, scored many times |
+| 20260912-081732 | psram_worker | 36f11b6+dirty | 133 | USB echo only when a host is listening; ports drained before masked bursts |
+| 20260912-081830 | psram_worker | 36f11b6+dirty | 133 | batch cap 32 |
+| 20260912-081953 | psram_worker | 36f11b6+dirty | 133 | USB echo guarded, no interrupt masking |

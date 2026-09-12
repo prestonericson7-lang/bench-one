@@ -196,7 +196,19 @@ ROUTES = [(SEL_CS0, 0, "CS0"), (SEL_CS1, 0, "CS1")] + \
 
 class Link(object):
     def __init__(self, port, baud, log, verbose=True):
-        self.ser = serial.Serial(port, baud, timeout=0.5)
+        # BENCH_PORT=stub swaps in tools/fake_worker.py, which speaks the protocol and owns no hardware.
+        # It exists because three benchmark windows were spent finding driver bugs -- a patch that silently
+        # did not apply, a fragment in the wire reported as a dead board, logging that filled the root
+        # filesystem, a pass killed by the kernel -- and hardware windows here are too scarce to spend on
+        # faults that have nothing to do with the hardware. Nothing it returns is a measurement.
+        if port == "stub":
+            import sys as _sys
+            _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                             "..", "..", "..", "tools"))
+            from fake_worker import open_stub
+            self.ser = open_stub(port, baud, timeout=0.5)
+        else:
+            self.ser = serial.Serial(port, baud, timeout=0.5)
         self.log = log
         self.verbose = verbose
         time.sleep(0.2)
@@ -700,12 +712,19 @@ def main():
     #
     # Qualification is the expensive, hardened part of this driver and there is no reason for a second
     # program to repeat it. One line a bank: route, bus mode, timing, burst, chip-select setup.
-    with open("/root/banks.txt", "w") as bf:
-        for (kind, y, name) in live:
-            mode, wi, ri, nb, su = settings[name][:5]
-            bf.write("%d %d %s %d %d %d %d %d%s"
-                     % (kind, y, name, mode, wi, ri, nb, su, NL))
-    say("  settings written to /root/banks.txt for the concurrent runner")
+    # The path is not hardcoded to the Luckfox, because the driver does not always run there. An absolute
+    # /root/... write crashed the whole run the first time it was exercised anywhere else, after the
+    # qualification had already been done and thrown away.
+    banks_path = os.path.join(logdir, "banks.txt")
+    try:
+        with open(banks_path, "w") as bf:
+            for (kind, y, name) in live:
+                mode, wi, ri, nb, su = settings[name][:5]
+                bf.write("%d %d %s %d %d %d %d %d%s"
+                         % (kind, y, name, mode, wi, ri, nb, su, NL))
+        say("  settings written to %s for the concurrent runner" % banks_path)
+    except OSError as e:
+        say("  could not write the settings file (%s); continuing, the run does not depend on it" % e)
 
     xv = activations()
     kind, y, name = live[0]
@@ -752,21 +771,35 @@ def main():
 
     say("\n  RESULT over %d banks, %.1f MB of weights a pass, %.0f MB addressable"
         % (len(live), span * len(live) / 1e6, len(live) * 8.0))
+    # A BATCHED FIGURE IS NEVER REPORTED AS A QUANTISATION GAIN.
+    #
+    # Batching only applies at one bit, so when it is on the 1-bit number counts BATCH answers per pass
+    # while the 4-bit number counts one. Dividing them produced "54.58x the 4-bit rate over the same
+    # bytes", which is two effects multiplied together wearing the name of one of them -- the same species
+    # of claim as the old 7.38 MB/s headline that turned out to be throughput over bytes nobody had
+    # written. The ratio is only printed where it means what it says.
     for b in WIDTHS:
-        say("    %d-bit  %7.2f MMAC/s%s"
-            % (b, best[b],
-               "" if b == WIDTHS[0] or best[WIDTHS[0]] <= 0
-               else "   %.2fx the %d-bit rate over the same bytes"
-                    % (best[b] / best[WIDTHS[0]], WIDTHS[0])))
+        batched = (b == 1 and BATCH > 1)
+        note = ""
+        if batched:
+            note = "   includes a batch of %d, so not comparable to the widths above" % BATCH
+        elif b != WIDTHS[0] and best[WIDTHS[0]] > 0:
+            note = ("   %.2fx the %d-bit rate over the same bytes"
+                    % (best[b] / best[WIDTHS[0]], WIDTHS[0]))
+        say("    %d-bit  %7.2f MMAC/s%s" % (b, best[b], note))
+    if BATCH > 1 and best.get(1, 0) > 0:
+        say("    the like-for-like quantisation comparison needs a batch-1 run; this is not one")
     if BATCH > 1 and best.get(1, 0) > 0:
         secs_pass = sum(8.0 / per_bank.get(nm, {}).get(1, 1e9) for (_, _, nm) in live)
         say(NL + "  what that is as a model, at one bit a weight")
         say("    %d banks hold %.0f MB = %.0f million parameters"
             % (len(live), len(live) * 8.0, len(live) * 8.0 * 8))
         say("    one pass over all of them: %.2f s" % secs_pass)
-        say("    at batch %d that pass yields %d tokens -> %.3f tokens/s"
+        say("    at batch %d that pass yields %d answers -> %.3f tokens/s"
             % (BATCH, BATCH, BATCH / secs_pass))
-        say("    at batch 1 the same weights give %.3f tokens/s" % (1.0 / secs_pass))
+        say("    the same pass at batch 1 would give %.3f tokens/s, so batching is worth %.1fx here"
+            % (1.0 / secs_pass, float(BATCH)))
+        say("    one pass is the whole model once, so this is a decode rate and not a prefill rate")
 
     say("    kernels verified against this board's own arithmetic: %s"
         % ("yes" if kernels_ok else "NO -- the figures above are throughput, not results"))

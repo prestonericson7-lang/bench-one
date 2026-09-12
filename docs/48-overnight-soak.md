@@ -393,3 +393,50 @@ An interrupted upload can leave the board in its bootloader, which is harmless b
 until it is flashed again. Reflash from `bench-archive/20260912-095331-psram_worker/` first, then the
 missing measurement is the seven-bank aggregate at batch 32 — the only attempt at it so far was killed by
 the Luckfox running out of memory.
+
+---
+
+## 10:30 — third cycle with no hardware, so the driver was made testable without it
+
+Neither board has enumerated. Rather than write a third outage note, this cycle went at the thing that has
+been costing more than the outages: **three benchmark windows were spent finding driver faults, not
+hardware faults.**
+
+| what was wrong | how it was found |
+|---|---|
+| a link-layer patch silently failed to apply | noticed by reading the file two cycles later |
+| a fragment left in the wire reported as "no reply, check the two signal wires" | the board answered a direct probe seconds later on the same port |
+| the driver's own logging filled a 67 MB root filesystem | `ENOSPC` mid-round |
+| the batch-32 pass killed by the kernel | never produced the number it was run for |
+
+Every one of those was found by spending working hardware on it, and hardware windows here are scarce.
+
+### tools/fake_worker.py
+
+A Teensy that does not exist. It speaks the worker's protocol well enough to exercise discovery,
+qualification across all three bus modes, the full-span confirm, the stability gate, the benchmark at any
+batch size, and the report. `BENCH_PORT=stub` selects it.
+
+The bank behaviour it models is the board's measured behaviour, so the fallback paths get exercised: two
+banks read in quad, five only one bit at a time, and one answers and then refuses to repeat itself.
+
+**Nothing it returns is a measurement.** Its sums come from the same rules the host checks against, so the
+kernel check passes by construction and means nothing. It proves the driver runs and decides sensibly, and
+proves nothing whatever about the bus, the timing, the chips or the arithmetic.
+
+### Two real bugs it found immediately
+
+**A hardcoded `/root/banks.txt`.** The driver writes the chosen settings out so a second program need not
+repeat the expensive qualification. The path was absolute and tied to the Luckfox, so running anywhere
+else crashed the whole run *after* the qualification had been done and thrown away. It now writes beside
+the log, and a failure there is a warning rather than the end of the run.
+
+**A batched figure presented as a quantisation gain.** Batching only applies at one bit, so with it on the
+1-bit number counts 32 answers a pass while the 4-bit number counts one. Dividing them printed *"1-bit
+277.48 MMAC/s, 54.58x the 4-bit rate over the same bytes"* — two effects multiplied together wearing the
+name of one of them, which is the same species of claim as the 7.38 MB/s headline that turned out to be
+throughput over bytes nobody had written. A batched width is now labelled as not comparable, and the report
+says outright that the like-for-like comparison needs a batch-1 run.
+
+Both fixes are verified against the stub at batch 1 and batch 32. Neither is a performance change and
+neither has seen hardware.

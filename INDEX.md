@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**464 tracked files.** This page exists so you never have to guess which directory something is in.
+**465 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -22,6 +22,7 @@ If you know what you want, use the table. If you do not, start at
 | Read one number correctly | [docs/41](docs/41-the-tuned-settings-were-a-cliff-edge.md) — why the settings in 40 stopped working the same day, and the six rules that came out of it |
 | See it do arithmetic | [docs/42](docs/42-matrix-arithmetic-on-the-teensy.md) — 499 MFLOP/s GEMM, 24 Mverts/s, and 234 MMAC/s on 4-bit weights |
 | Know which kernel ran | [docs/45](docs/45-the-teensy-had-been-running-the-scalar-kernel.md) — the Teensy is a Cortex-M7 with no NEON, so the headline figure was the scalar fallback; a DSP path is 1.45x and bit-identical |
+| Read one day end to end | [docs/46](docs/46-session-log-2026-09-11.md) — the session log: every number measured on 2026-09-11 and every claim of mine it overturned |
 | Know the token rate | [docs/43](docs/43-one-layer-in-tokens-per-second.md) — one token a second, measured end to end, and where the next order of magnitude is |
 | Understand the point of the whole project | [docs/20](docs/20-the-actual-thesis.md), then [docs/27](docs/27-the-machine-as-measured.md) |
 | Put 256 MB of DDR3 on a microcontroller | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) |
@@ -41,7 +42,7 @@ If you know what you want, use the table. If you do not, start at
 ## The six compartments
 
 ```
-docs/         42 numbered documents + 11 research files    the engineering record
+docs/         43 numbered documents + 11 research files    the engineering record
 firmware/     349 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
@@ -58,7 +59,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **42 numbered documents**, 01 to 45 | the record itself |
+| **43 numbered documents**, 01 to 46 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |

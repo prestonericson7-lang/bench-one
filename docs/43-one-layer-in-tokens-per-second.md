@@ -89,6 +89,21 @@ That is worth stating plainly because the opposite was the natural assumption. T
 record has unpacking as the binding constraint on a general-purpose processor, and at these sizes,
 behind this bus, it is not even close.
 
+**With the real quantisation format the margin narrows but the conclusion holds.** This kernel has a
+constant zero point; `gguf_dot_q` over genuine Q4_K blocks measures 39.3 MB/s of packed bytes, which is
+69.9 million weights per second against this kernel's 291 million — 4.2× slower, because of the
+per-sub-block scales and the float conversion rather than the nibbles. Substituting it at hidden size
+512:
+
+| | compute | read | layer |
+|---|---|---|---|
+| bare 4-bit kernel | 14 ms | 152 ms | 166 ms |
+| Q4_K, fused dot | 60 ms | 152 ms | 212 ms |
+
+So the arithmetic goes from eleven times faster than the bus to about two and a half times faster, and
+the layer gets 28% slower. Still bus-bound, still the same ordering of priorities, and the honest figure
+for a real model is the second row.
+
 ---
 
 ## What it means for the machine
@@ -108,4 +123,6 @@ It also says where the next order of magnitude is, and it is not in the arithmet
    problem, not a design one. Capacity, not rate, but it decides which models fit at all.
 3. **More nodes.** The per-layer cost is independent, so layers split across boards multiply
    throughput directly. This is the cheapest axis and the reason the machine is a fleet.
-4. **The arithmetic.** Already eleven times faster than needed. Nothing here.
+4. **The arithmetic.** Eleven times faster than needed on a bare kernel, two and a half times on real
+   Q4_K. Nothing here until the bus moves — but the 4.2× the format costs over the raw nibbles is
+   unexplored, and `SXTB16`/`SMLAD` have not been pointed at Q4_K's scales yet.

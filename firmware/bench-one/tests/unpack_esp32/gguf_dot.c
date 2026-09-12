@@ -91,6 +91,82 @@
   #define GGUF_HAVE_NEON 0
 #endif
 
+/* Cortex-M7, which is every Teensy in the machine and has no NEON.
+ *
+ * The block above covers the Cortex-A parts. The Teensy 4.1 is a Cortex-M7: ARMv7E-M, no NEON, and
+ * therefore it has been running the scalar reference this whole time. That is where this project's
+ * headline 39.3 MB/s comes from, and it is the figure the FPGA argument is built on, so it is worth
+ * knowing what the part can actually do.
+ *
+ * It has the DSP extensions, and they fit this kernel unusually well. SXTB16 takes a word and spreads
+ * two of its four bytes into two sign-extended 16-bit lanes -- bytes 0 and 2 plainly, bytes 1 and 3
+ * with a rotate folded into the same instruction. SMLAD then multiplies two such lanes pairwise and
+ * adds both products to an accumulator in one instruction.
+ *
+ * The reason it fits so well is that BOTH operands get the same treatment. A word of four packed
+ * nibbles and a word of four int8 activations, each split by SXTB16, come out paired correctly with no
+ * shuffling and no precomputed activation table: lanes {0,2} of the weights meet lanes {0,2} of the
+ * activations. Four weights, four multiply-accumulates, two instructions.
+ *
+ * The high nibbles need no separate extraction path either. Shifting the whole word right by four
+ * moves each byte's high nibble into its own low-nibble position -- the bits that cross the byte
+ * boundary land in the high nibble of the byte below and are removed by the same 0x0F0F0F0F mask that
+ * the low-nibble case uses. One shift serves all four.
+ *
+ * BIT-IDENTICAL, and not by luck. dot and sum are sums of int32 products, integer addition is exact
+ * and associative, so reordering them changes nothing. Everything outside the two inner loops --
+ * including the double accumulator and the order of the per-sub-block float arithmetic -- is the
+ * reference's, untouched. gguf_dot_force_scalar(1) switches the reference back on at runtime so the
+ * two can be compared on the board rather than assumed equal. */
+#if !GGUF_HAVE_AVX2 && !GGUF_HAVE_NEON && defined(__ARM_FEATURE_DSP)
+  #define GGUF_HAVE_M7DSP 1
+
+  /* alignment-safe: q is blk+16 and blk is a multiple of 144, so both are 4-aligned when the caller's
+   * buffer is, but a kernel in shared code should not depend on a caller's luck. GCC turns this into
+   * a single LDR, which on a Cortex-M7 handles an unaligned address by itself. */
+  static inline uint32_t gd_ld32(const void *p)
+  {
+      uint32_t v; __builtin_memcpy(&v, p, 4); return v;
+  }
+  static inline uint32_t gd_sxtb16(uint32_t x)
+  {
+      uint32_t r; __asm__("sxtb16 %0, %1" : "=r"(r) : "r"(x)); return r;
+  }
+  static inline uint32_t gd_sxtb16r8(uint32_t x)
+  {
+      uint32_t r; __asm__("sxtb16 %0, %1, ror #8" : "=r"(r) : "r"(x)); return r;
+  }
+  static inline int32_t gd_smlad(uint32_t a, uint32_t b, int32_t acc)
+  {
+      int32_t r; __asm__("smlad %0, %1, %2, %3" : "=r"(r) : "r"(a), "r"(b), "r"(acc)); return r;
+  }
+
+  /* One 32-weight sub-block. shift is 0 for the low nibbles and 4 for the high ones.
+   *
+   * Two accumulators per quantity rather than one, so the SMLAD chain does not serialise on a single
+   * register: the M7 issues these back to back only if consecutive instructions do not depend on each
+   * other. The sums are combined at the end, which is free and still exact. */
+  static inline void gd_dot32_m7(const uint8_t *q, const int8_t *x, uint32_t shift,
+                                 int32_t *dot, int32_t *sum)
+  {
+      int32_t d0 = 0, d1 = 0, s0 = 0, s1 = 0;
+      for (int l = 0; l < 32; l += 4) {
+          const uint32_t qv = (gd_ld32(q + l) >> shift) & 0x0F0F0F0Fu;
+          const uint32_t xv = gd_ld32(x + l);
+          const uint32_t qa = gd_sxtb16(qv), qb = gd_sxtb16r8(qv);
+          const uint32_t xa = gd_sxtb16(xv), xb = gd_sxtb16r8(xv);
+          d0 = gd_smlad(qa, xa, d0);
+          d1 = gd_smlad(qb, xb, d1);
+          s0 = gd_smlad(xa, 0x00010001u, s0);   /* sum of activations, same split, times one */
+          s1 = gd_smlad(xb, 0x00010001u, s1);
+      }
+      *dot = d0 + d1;
+      *sum = s0 + s1;
+  }
+#else
+  #define GGUF_HAVE_M7DSP 0
+#endif
+
 static int g_force_scalar = 0;
 void gguf_dot_force_scalar(int on) { g_force_scalar = on ? 1 : 0; }
 
@@ -100,6 +176,8 @@ const char *gguf_dot_kernel(void)
     return g_force_scalar ? "scalar (AVX2 available, forced off)" : "AVX2";
 #elif GGUF_HAVE_NEON
     return g_force_scalar ? "scalar (NEON available, forced off)" : "NEON";
+#elif GGUF_HAVE_M7DSP
+    return g_force_scalar ? "scalar (Cortex-M7 DSP available, forced off)" : "Cortex-M7 DSP";
 #else
     return "scalar";
 #endif
@@ -243,7 +321,10 @@ static float dot_q4_k_ref(const uint8_t *raw, const int8_t *xq, const float *xs,
 /* The same kernel with the two inner 32-element loops replaced by four instructions each.
  *
  * Everything outside those loops is untouched, including the double accumulator, so this produces
- * bit-identical output to dot_q4_k_ref. gguf_dot_check proves it rather than assuming it. */
+ * bit-identical output to dot_q4_k_ref. There is no gguf_dot_check -- that name was in this
+ * comment and never in the code. The real mechanism is gguf_dot_force_scalar(1), which
+ * switches the reference back on at runtime so a caller can run both over the same bytes and
+ * compare. tests/fast_path.c does that on the host; unpack_teensy does it on the board. */
 static float dot_q4_k_avx2(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
 {
     const uint64_t nb = n / QK_K;
@@ -332,12 +413,55 @@ static float dot_q4_k_neon(const uint8_t *raw, const int8_t *xq, const float *xs
 }
 #endif
 
+#if GGUF_HAVE_M7DSP
+/* The reference with its two inner 32-element loops replaced by eight instructions per four weights.
+ * Everything else is copied from it unchanged, deliberately, including the double accumulator. */
+static float dot_q4_k_m7(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
+{
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 144u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4;
+        const uint8_t *q      = blk + 16;
+        const int8_t  *x  = xq + b * QK_K;
+        const float   *sx = xs + b * (QK_K / ABLK);
+
+        int is = 0;
+        for (int j = 0; j < QK_K; j += 64) {
+            uint8_t sc, m;
+            int32_t dot, sum;
+
+            gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+            gd_dot32_m7(q, x + j, 0, &dot, &sum);
+            total += (double)sx[is + 0] * ((double)d * sc * dot - (double)dmin * m * sum);
+
+            gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+            gd_dot32_m7(q, x + j + 32, 4, &dot, &sum);
+            total += (double)sx[is + 1] * ((double)d * sc * dot - (double)dmin * m * sum);
+
+            q += 32;
+            is += 2;
+        }
+    }
+    return (float)total;
+}
+#endif
+
 static float dot_q4_k(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
 {
 #if GGUF_HAVE_AVX2
     if (!g_force_scalar) return dot_q4_k_avx2(raw, xq, xs, n);
 #elif GGUF_HAVE_NEON
     if (!g_force_scalar) return dot_q4_k_neon(raw, xq, xs, n);
+#elif GGUF_HAVE_M7DSP
+    if (!g_force_scalar) return dot_q4_k_m7(raw, xq, xs, n);
 #endif
     return dot_q4_k_ref(raw, xq, xs, n);
 }

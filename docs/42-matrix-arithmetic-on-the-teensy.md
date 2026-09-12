@@ -107,8 +107,33 @@ byte2}` then `{byte1, byte3}` rather than consecutive — which is done once at 
 
 Bit-identical throughout.
 
-**So the honest figure for a Teensy 4.1 on 4-bit weights is 234 MMAC/s, not 150.** Anything in this
-project that compares a microcontroller against an FPGA lane should use the larger number.
+**So the honest figure for a Teensy 4.1 on a bare 4-bit kernel is 234 MMAC/s, not 150.**
+
+### Which is not the same thing as the project's 39.3 MB/s, and the difference is the point
+
+That distinction matters enough to state before the number gets quoted anywhere. This kernel has a
+**constant zero point of eight** and produces an integer. The 39.3 MB/s recorded in documents 24, 27 and
+28 is `gguf_dot_q` over **real Q4_K blocks**: 256 weights in 144 bytes, a float scale and a float
+minimum per block, six-bit scales per 32-weight sub-block, and float output.
+
+Converting to a common unit, because megabytes per second of packed bytes and multiply-accumulates per
+second are not comparable as written:
+
+| | weights per second |
+|---|---|
+| Q4_K, fused dot, measured at 39.3 MB/s of packed bytes | 69.9 million |
+| this bare 4-bit kernel, plain C | 150 million |
+| this bare 4-bit kernel, SMLAD | **291 million** |
+
+**The bare kernel is 4.2× faster than the real format, and the gap is the format's metadata, not the
+nibble unpacking.** Per-sub-block scales, the block scale and minimum, and the conversion to float cost
+more than four times what extracting the nibbles and multiplying them costs.
+
+So this does not replace the 39.3 MB/s figure and nothing that quotes Q4_K should switch to 291. What it
+does is relocate the problem: the project's record says unpacking binds a general-purpose processor, and
+on the evidence here the unpacking is the cheap part. Applying `SXTB16` and `SMLAD` to Q4_K's actual
+layout, scales and all, is an unmeasured and probably large win, and it is now the obvious next thing to
+try on the arithmetic.
 
 And 2.57 cycles is close to the floor for this instruction set. Eight weights need one load, four
 `SXTB16` and four `SMLAD`, and their activations need four loads: thirteen instructions for sixteen

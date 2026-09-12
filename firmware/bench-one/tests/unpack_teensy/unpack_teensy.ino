@@ -48,6 +48,11 @@
  * disagrees with the header the linker says so. */
 extern "C" {
 float gguf_dot_q(uint32_t type, const void *raw, const int8_t *xq, const float *xs, uint64_t n);
+/* Added when the Cortex-M7 DSP path went in: this sketch produced the project's headline unpacking
+ * figure and could not say which of the kernels it had measured. These two make it say so, and let
+ * one binary run both and compare. */
+const char *gguf_dot_kernel(void);
+void  gguf_dot_force_scalar(int on);
 int   gguf_dequant(uint32_t type, const void *raw, uint64_t n, float *out);
 void  gguf_quantize_act(const float *x, uint64_t n, int8_t *xq, float *xs);
 }
@@ -238,6 +243,34 @@ static void report()
     Serial.print(F("    nine of these boards together: "));
     Serial.print(r_fmac * 9.0f, 2);
     Serial.println(F(" G MAC/s in float"));
+
+    /* ---- which kernel is actually running, and is it the same arithmetic ------------------- *
+     * This sketch produced the 39.3 MB/s that the whole FPGA argument is built on, and it never
+     * said which code path it measured. A Teensy 4.1 is a Cortex-M7: no NEON, so the NEON path
+     * written for the Cortex-A parts never applied, and it has been measuring the scalar reference
+     * all along. The DSP path added to shared/gguf_dot.c changes that, and the first thing to
+     * establish is not that it is faster but that it computes the same number. */
+    Serial.print(F("\n  kernel path: "));
+    Serial.println(gguf_dot_kernel());
+
+    gguf_dot_force_scalar(0);
+    const float fast_q4 = bench_fused(int_buf, INT_BLOCKS, GGML_Q4_K, Q4K_BYTES);
+    const float fast_val = gguf_dot_q(GGML_Q4_K, int_buf, xq, xs, QK_K);
+    gguf_dot_force_scalar(1);
+    const float ref_q4 = bench_fused(int_buf, INT_BLOCKS, GGML_Q4_K, Q4K_BYTES);
+    const float ref_val = gguf_dot_q(GGML_Q4_K, int_buf, xq, xs, QK_K);
+    gguf_dot_force_scalar(0);
+
+    uint32_t fb, rb;
+    memcpy(&fb, &fast_val, 4);
+    memcpy(&rb, &ref_val, 4);
+    Serial.print(F("    Q4_K one block: fast 0x")); Serial.print(fb, HEX);
+    Serial.print(F("  reference 0x"));              Serial.print(rb, HEX);
+    Serial.println(fb == rb ? F("   bit-identical") : F("   DIFFERENT -- the fast path is wrong"));
+    Serial.print(F("    Q4_K fused dot   scalar ")); Serial.print(ref_q4, 2);
+    Serial.print(F(" MB/s   fast ")); Serial.print(fast_q4, 2);
+    Serial.print(F(" MB/s   "));      Serial.print(fast_q4 / ref_q4, 2);
+    Serial.println(F("x"));
 
     Serial.println(F("\n  FROM INTERNAL RAM -- the processor's own unpacking rate"));
     Serial.print(F("    Q4_K fused dot   "));

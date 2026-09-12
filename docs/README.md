@@ -107,6 +107,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [42 — Matrix arithmetic on the Teensy](42-matrix-arithmetic-on-the-teensy.md) | 499 MFLOP/s of float GEMM and 24 million vertex transforms a second from on-chip memory, 234 MMAC/s on 4-bit weights which revises the figure this project's FPGA argument uses, and what the bit-banged bus costs |
 | [43 — One layer in tokens per second](43-one-layer-in-tokens-per-second.md) | the first end-to-end figure in the project: one token a second for a 24-layer model at hidden size 256. Read and compute ADD on a bit-banged bus, measured at 0.997 of the sum, so overlapping buys 8% and widening the bus buys 2.4x |
 | [44 — 48 MB from one moved wire](44-forty-eight-megabytes-from-one-wire.md) | the 8 MB cap needs no chip desoldered, just the decoder enable on a pin of its own; and the pin map verified twice from the core rather than the pinout card, which confirms the wiring is FlexSPI-compatible. **Corrects 40** |
+| [45 — The Teensy had been running the scalar kernel](45-the-teensy-had-been-running-the-scalar-kernel.md) | the project's headline 39.3 MB/s was the portable fallback, because a Teensy 4.1 is a Cortex-M7 and the hand-written vector path was NEON. A Cortex-M7 DSP path is 1.45x and bit-identical, and the bottleneck moves from the nibbles to the per-sub-block double arithmetic |
 
 ## Reference
 

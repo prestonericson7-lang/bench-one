@@ -117,11 +117,21 @@ the rate in parts per billion, and for a configuration that has not failed yet, 
 stands in for a rate and falls as the soak runs. There is no such thing as a measured zero, only a
 bound that has not been beaten.
 
-| | |
+| | bound on the error rate |
 |---|---|
 | 8 MB clean | under 120 errors per billion bytes |
 | 264 MB clean | under 3.8 per billion |
-| what the driver was doing | about 240 per billion |
+| **1,312 MB per configuration, measured** | **under 0.7 per billion** |
+| what the driver was doing before the fix | about 240 per billion |
+
+The soak ran 164 passes of each of six configurations — **7.9 GB of traffic, zero wrong bytes** — which
+is the qualification the shipped settings now rest on. Every one of the six is still unbeaten, so the
+fastest is chosen on speed rather than on being the only survivor, which is the opposite of how the
+original setting was picked.
+
+One operational note from that run, worth keeping for the next unattended one: the serial listener died
+partway through while the board carried on soaking. A dead listener looks exactly like a dead test in the
+log and is not one. Reattaching showed the pass count had more than doubled in the interval.
 
 ---
 

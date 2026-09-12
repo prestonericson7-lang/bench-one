@@ -106,6 +106,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [41 — The tuned settings were a cliff edge](41-the-tuned-settings-were-a-cliff-edge.md) | the settings in 40 were the fast edge of their window and stopped passing the same day; the driver was also running hand-unrolled loops the tests never qualified. Four wrong answers, each with the test that disproved it, and the rules that earned. **Corrects 40** |
 | [42 — Matrix arithmetic on the Teensy](42-matrix-arithmetic-on-the-teensy.md) | 499 MFLOP/s of float GEMM and 24 million vertex transforms a second from on-chip memory, 234 MMAC/s on 4-bit weights which revises the figure this project's FPGA argument uses, and what the bit-banged bus costs |
 | [43 — One layer in tokens per second](43-one-layer-in-tokens-per-second.md) | the first end-to-end figure in the project: one token a second for a 24-layer model at hidden size 256. Read and compute ADD on a bit-banged bus, measured at 0.997 of the sum, so overlapping buys 8% and widening the bus buys 2.4x |
+| [44 — 48 MB from one moved wire](44-forty-eight-megabytes-from-one-wire.md) | the 8 MB cap needs no chip desoldered, just the decoder enable on a pin of its own; and the pin map verified twice from the core rather than the pinout card, which confirms the wiring is FlexSPI-compatible. **Corrects 40** |
 
 ## Reference
 

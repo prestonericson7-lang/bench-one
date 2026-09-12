@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**453 tracked files.** This page exists so you never have to guess which directory something is in.
+**457 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -40,8 +40,8 @@ If you know what you want, use the table. If you do not, start at
 ## The six compartments
 
 ```
-docs/         40 numbered documents + 11 research files    the engineering record
-firmware/     342 files                                    everything that runs on a board
+docs/         41 numbered documents + 11 research files    the engineering record
+firmware/     344 files                                    everything that runs on a board
 hardware/     4 files                                      enclosure and wiring drawings
 run/          34 files                                     bench scripts
 evidence/     1 file                                       a build log kept as provenance
@@ -57,7 +57,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **40 numbered documents**, 01 to 43 | the record itself |
+| **41 numbered documents**, 01 to 44 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -86,10 +86,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 176 files
+### `bench-one/tests/` — 178 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **36 experiment directories, 36 C programs, 69 result logs.**
+cross-compiled programs. **38 experiment directories, 36 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
@@ -100,6 +100,8 @@ cross-compiled programs. **36 experiment directories, 36 C programs, 69 result l
 | **`psram_driver/`** | **the working PSRAM bank driver.** 8 MB verified over eleven consecutive rounds at 21.3 MB/s write, 13.8 read, on a breadboard, driven by GPIO. Settings corrected in docs/41 |
 | **`psram_matrix/`** | **can it compute?** 4x4 vertex transforms, int8 and 4-bit matrix-vector and a float GEMM, in each of the three memory tiers, with checksums that must match across tiers. 499 MFLOP/s and 234 MMAC/s on chip |
 | **`psram_layer/`** | **one decoder layer in tokens per second.** Read, compute and both, timed separately, which settles whether the two costs add or overlap. 0.997 of the sum: they add |
+| **`psram_bank6/`** | **8 MB or 48?** Writes a different pattern to every bank before reading any, which detects whether the decoder enable has its own pin yet. Reports the repair when it does not |
+| `teensy_pinmap/` | asks the core which GPIO register and bit each pin is, because the pinout card has been wrong here before. Drives nothing |
 | `psram_margin/`, `psram_pair/`, `psram_write_margin/` | where the clean timing window begins and ends, one direction at a time and then both together |
 | `psram_addr_fault/`, `psram_pattern/` | is a wrong byte an address line or a timing fault, and does the error rate depend on how hard the data switches |
 | `psram_coldstart/`, `psram_settle/`, `psram_idle/` | cold reads against warm ones. `psram_settle` is kept because its control line is the clearest ordering artefact in the tree |
@@ -195,6 +197,14 @@ OSS_CAD=/path/to/oss-cad-suite sh firmware/bench-one/fpga/ddr3_ice40/build.sh
 
 **The index is checked, not trusted.** `sh .claude/verify-index.sh` compares every count in this file
 against the tree and every relative link against the filesystem. It exits non-zero when stale.
+
+**The bus layer is checked too.** `python .claude/verify-psram-bus.py` compares the PSRAM bus code --
+`put_nib`, `get_nib`, `s_byte`, `addr_out` and both transfer loops -- across all fifteen `psram_*`
+sketches, normalising away the no-op counts the sweeps legitimately vary. A no-op count is a timing
+specification for one exact instruction sequence, so a sketch that shares a number must share the code.
+It exists because an unrolled write loop in the driver, qualified by tests that used a plain one, cost
+an afternoon (`docs/41`). A sketch that genuinely needs a different bus layer declares it with a
+`/* BUS-VARIANT: reason */` comment.
 
 **Negative results stay in.** 29 refuted claims are in `docs/research/VERIFICATION.md` rather than
 deleted, and a document that turned out wrong gets a correction beside it instead of a quiet edit.

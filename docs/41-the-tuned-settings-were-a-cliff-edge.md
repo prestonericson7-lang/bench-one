@@ -157,3 +157,8 @@ that answered two questions at once and could not tell which had failed.
    the bytes beside it.
 6. **When two tests of the same thing disagree, diff the code before theorising about the hardware.**
    The 4.4% rate discrepancy was visible in the first run and went unread for four hypotheses.
+
+Rule 2 is now mechanical rather than remembered. `python .claude/verify-psram-bus.py` compares the bus
+layer across every `psram_*` sketch with the no-op counts normalised away, so a sketch that shares a
+number has to share the instruction sequence that number describes. Planting the original unrolled loop
+back into a copy of the driver makes it fail, which is the only way to know a checker works.

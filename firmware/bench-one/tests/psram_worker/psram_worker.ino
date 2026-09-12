@@ -902,6 +902,18 @@ void setup()
 
     Serial2.begin(1000000);          /* upstream: the Luckfox, or the node in front of me */
     Serial1.begin(1000000);          /* downstream: pins 0 and 1 to the next node's Serial2 */
+    /* 4 kB each way. A node inside a four-second multiply-accumulate cannot pump, so every command for
+     * the nodes behind it and every answer coming back has to survive in a buffer until it can. Fifteen
+     * nodes is several hundred bytes each way and the core default is 64, which silently loses the far
+     * end of the chain and makes the fleet look shorter than it is. */
+    static uint8_t up_rx[4096], up_tx[4096], dn_rx[4096], dn_tx[4096], lf_rx[2048], lf_tx[2048];
+    Serial2.addMemoryForRead(up_rx, sizeof(up_rx));
+    Serial2.addMemoryForWrite(up_tx, sizeof(up_tx));
+    Serial1.addMemoryForRead(dn_rx, sizeof(dn_rx));
+    Serial1.addMemoryForWrite(dn_tx, sizeof(dn_tx));
+    Serial3.addMemoryForRead(lf_rx, sizeof(lf_rx));
+    Serial3.addMemoryForWrite(lf_tx, sizeof(lf_tx));
+
     Serial3.begin(1000000);          /* leaf: pins 15 and 14 to this node's Luckfox, UART3 */
     Serial.begin(115200);            /* USB, for a human watching. Never used for control. */
     delay(300);
@@ -1041,13 +1053,11 @@ static void handle(const char *c)
             c = sp + 1;                       /* mine: fall through with the prefix removed */
         } else if (g_leaf && want == (long)g_leaf) {
             Serial3.println(c);               /* my Luckfox */
-            relay_from(Serial3, 600000ul);
-            return;
+            return;                       /* handed over; this node does not wait on it */
         } else {
             Serial1.println(c);
             Serial.print(F("> down ")); Serial.println(c);
-            relay_from(Serial1, 600000ul);
-            return;
+            return;                       /* handed over; this node does not wait on it */
         }
     }
 
@@ -1077,7 +1087,6 @@ static void handle(const char *c)
             return;
         }
         Serial1.println(c);                  /* already numbered: pass the offer along */
-        relay_from(Serial1, 5000ul);
         return;
     }
 
@@ -1489,4 +1498,17 @@ void loop()
             uline[un++] = ch;
         }
     }
+
+    /* NOTHING HERE WAITS, OR THE FLEET IS A QUEUE.
+     *
+     * Everything arriving from downstream or from the leaf goes straight out upstream, unread and
+     * unaltered, one byte at a time. The reply belongs to the host and a node in the middle is a
+     * wire with a buffer.
+     *
+     * The earlier version forwarded a command and then blocked until its answer came back, which is
+     * correct and useless: while node 1 waited on node 9 it could not accept its own next command,
+     * so fifteen processors took turns. The whole reason for fifteen of them is that they run at
+     * once. */
+    while (Serial1.available()) Serial2.write((uint8_t)Serial1.read());
+    while (Serial3.available()) Serial2.write((uint8_t)Serial3.read());
 }

@@ -623,6 +623,17 @@ def bench(link, say, banks, settings, span, rounds):
             say("  %5d  %4d   %-15d   %8.1f   %6.2f   %7.2f    %6.1f   %s"
                 % (r, bits, partial, secs * 1000.0, mbps, macs,
                    wall * 1000.0 - secs * 1000.0, mark))
+        # THE RESULT SO FAR, WRITTEN AFTER EVERY ROUND.
+        #
+        # The batch-32 pass -- the one number that whole session was run for -- was killed by the kernel
+        # partway through and left nothing behind, because the summary only printed at the end. Every round
+        # had already measured what was wanted and all of it went in the bin. A flushed line per round
+        # costs nothing and means a run that dies still hands over what it had.
+        say("  after round %d: %s%s"
+            % (r, ", ".join("%d-bit %.2f MMAC/s" % (b, best[b]) for b in WIDTHS),
+               "" if not any(drift.values()) else
+               "   (%d answers changed, so these are throughput and not results)"
+               % sum(drift.values())))
     if any(drift.values()):
         say("  of %d repeat rounds, answers changed: %s"
             % (rounds - 1, ", ".join("%d at %d bits" % (drift[b], b) for b in WIDTHS)))

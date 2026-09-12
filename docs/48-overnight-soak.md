@@ -440,3 +440,26 @@ says outright that the like-for-like comparison needs a batch-1 run.
 
 Both fixes are verified against the stub at batch 1 and batch 32. Neither is a performance change and
 neither has seen hardware.
+
+---
+
+## 11:05 — fourth cycle with no hardware; a killed run now leaves its numbers behind
+
+Neither board enumerates. One change, aimed squarely at the loss that still stings: the batch-32 pass, the
+only thing that session was run for, was killed by the kernel partway through and left **nothing**, because
+the summary printed only at the end. Every round had already measured exactly what was wanted.
+
+The result so far is now written after every round. Verified by killing a run with the same signal that
+killed the real one:
+
+```
+exit after SIGKILL: 137
+  after round 0: 4-bit 5.08 MMAC/s, 2-bit 10.06 MMAC/s, 1-bit 277.48 MMAC/s
+  after round 1: ...
+  after round 2: ...
+```
+
+Three rounds of numbers survived where previously there would have been none. If a round's answers drifted,
+the checkpoint line says so on the line itself, so a partial result cannot be mistaken for a clean one.
+
+Those figures are the stub's fiction. No hardware was involved and this is not a performance change.

@@ -900,6 +900,28 @@ void setup()
 static char line[96];
 static uint8_t ln;
 
+/* USB IS A SECOND PLACE A COMMAND MAY COME FROM, AND NOTHING ELSE CHANGES.
+ *
+ * The Luckfox is the orchestrator and UART3 is the link; that is settled and this does not touch it. But
+ * the Luckfox can be absent -- it dropped off the bus for a whole cycle while the Teensy, the bus and the
+ * 64 MB were all sitting there working -- and with no way to issue a command there was no way to measure
+ * anything. A bench that can only be driven by a board that is missing is a bench that is down.
+ *
+ * So a command may also arrive over USB, on its own line buffer so a half-received line on one port cannot
+ * corrupt the other. The reply goes back to whichever port asked. When the asker is UART3 the USB echo
+ * still happens, decorated, for a human watching; when the asker is USB the reply goes back undecorated
+ * and alone, because something is parsing it.
+ *
+ * The numbers are unaffected by who asks. Every timing reported comes from the cycle counter around the
+ * bus work itself, and an idle USB CDC connection raises no device interrupts -- the fault found earlier
+ * was a BLOCKING Serial.print with a full buffer, not the port existing. Luckfox-driven runs stay the
+ * reference; this exists so the hardware is never idle waiting for its driver.
+ */
+static char uline[96];
+static uint8_t un;
+static Print *g_reply;
+static bool g_from_usb;
+
 /* 0 means "not yet numbered", and an unnumbered node still answers unaddressed commands so a bench of
  * one behaves the way it always has. */
 static uint8_t g_addr;
@@ -956,6 +978,10 @@ static inline bool usb_listening(int need)
 
 static void say(const char *s)
 {
+    if (g_from_usb) {
+        Serial.println(s);
+        return;
+    }
     Serial2.println(s);
     if (usb_listening((int)strlen(s) + 4)) {
         Serial.print(F("< ")); Serial.println(s);
@@ -1012,7 +1038,7 @@ static void handle(const char *c)
         return;
     }
 
-    if (usb_listening((int)strlen(c) + 4)) {
+    if (!g_from_usb && usb_listening((int)strlen(c) + 4)) {
         Serial.print(F("> ")); Serial.println(c);
     }
     const uint32_t t0 = ARM_DWT_CYCCNT;
@@ -1406,9 +1432,17 @@ void loop()
     while (Serial2.available()) {
         const char ch = (char)Serial2.read();
         if (ch == '\n' || ch == '\r') {
-            if (ln) { line[ln] = 0; handle(line); ln = 0; }
+            if (ln) { line[ln] = 0; g_from_usb = false; handle(line); ln = 0; }
         } else if (ln < sizeof(line) - 1) {
             line[ln++] = ch;
+        }
+    }
+    while (Serial.available()) {
+        const char ch = (char)Serial.read();
+        if (ch == '\n' || ch == '\r') {
+            if (un) { uline[un] = 0; g_from_usb = true; handle(uline); g_from_usb = false; un = 0; }
+        } else if (un < sizeof(uline) - 1) {
+            uline[un++] = ch;
         }
     }
 }

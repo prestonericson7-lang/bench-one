@@ -1,0 +1,10 @@
+{
+  "stamp": "20260912-095331",
+  "sketch": "psram_worker",
+  "git": "9900f25",
+  "git_dirty": true,
+  "seconds": 6,
+  "note": "USB accepted as a second command source",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 288120
+}

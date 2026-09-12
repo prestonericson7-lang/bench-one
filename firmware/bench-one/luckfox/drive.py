@@ -62,7 +62,15 @@ try:
 except ImportError:
     sys.exit("pyserial missing. It ships with the stock Luckfox image; check the PATH.")
 
-PORT = "/dev/ttyS3"
+# ONE DRIVER, EITHER TRANSPORT.
+#
+# UART3 to the Luckfox is the link and the Luckfox is the orchestrator; that is settled. But when the
+# Luckfox is off the bus the Teensy, its bus and its 64 MB are all still there, and a bench that can only
+# be driven by a board that is missing is a bench that is down. BENCH_PORT points the same driver at the
+# Teensy's USB port instead, so the logic, the qualification and the arithmetic checks are identical and
+# the numbers stay comparable -- every timing reported comes from the cycle counter around the bus work,
+# not from anything the asker does.
+PORT = os.environ.get("BENCH_PORT", "/dev/ttyS3")
 BAUD = 1000000
 # THE LOG GOES ON THE SD CARD, NOT ON THE ROOT FILESYSTEM.
 #
@@ -70,7 +78,11 @@ BAUD = 1000000
 # 100% and killed a benchmark mid-round with ENOSPC -- which looked like a crash in the driver and was
 # actually my own logging eating the operating system. The SD card is 3.7 GB with nothing on it.
 def _logdir():
-    for d in ("/mnt/sdcard/bench-logs", "/root/bench-logs"):
+    cands = []
+    if os.environ.get("BENCH_LOGDIR"):
+        cands.append(os.environ["BENCH_LOGDIR"])
+    cands += ["/mnt/sdcard/bench-logs", "/root/bench-logs"]
+    for d in cands:
         try:
             if not os.path.isdir(d):
                 os.makedirs(d)
@@ -81,7 +93,7 @@ def _logdir():
             return d
         except OSError:
             continue
-    return "/tmp"
+    return os.path.abspath(".")
 
 
 LOGDIR = None                    # resolved at startup by _logdir()

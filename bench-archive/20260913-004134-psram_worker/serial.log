@@ -1,0 +1,4 @@
+psram_worker up. math only; the Luckfox decides everything else.
+chain: upstream Serial2 pins 7/8, downstream Serial1 pins 0/1,
+       leaf Serial3 pins 15/14 for a Luckfox. Address unset until A arrives.
+link echo is off; send O 1 over USB to watch the UART traffic here.

@@ -539,3 +539,31 @@ Worth testing deliberately rather than by accident: fewer chips per bus, more bu
 pins for a second decoder and a second set of data lines, and two buses of four chips should each clock
 far closer to four no-ops than one bus of eight ever will. That is a wiring experiment, not a firmware
 one, and it is a much better use of the external chips than the shared bus they are on now.
+
+### The echo wedged the board, and it is off now
+
+Between the two runs above the Teensy stopped answering entirely and needed reflashing. The cause was the
+USB echo for the third time. Guarding it on "is the port open" and "is there room" is not enough, because
+the guard is not atomic with the write: the port is open and has room, the driver finishes its run and
+closes the port, the buffer stops draining, and the write already committed never returns. The firmware was
+dead until reflashed.
+
+A debugging convenience has no business being able to wedge the machine. The echo is off by default now and
+turned on with `O 1` when somebody is actually watching. A command arriving over USB still gets its reply
+over USB, because that is a reply and not an echo. Verified: the board now answers immediately after a run
+closes the port and another opens it.
+
+### Sustained, with the echo off
+
+Two banks, 16 MB, driven over USB, every answer identical in every round, all three kernels bit-identical:
+
+| | MMAC/s |
+|---|---|
+| 4-bit | 31.00 |
+| 2-bit | 55.87 (1.80x) |
+| 1-bit | 93.28 (3.01x) |
+| 1-bit, batch 32 | 269.21 |
+
+At batch 32 one pass over 16 MB of one-bit weights — 128 million parameters — yields 32 answers in 15.2 s,
+which is **2.10 tokens a second**. The same pass at batch 1 gives 0.066. That is a decode rate over the
+whole model, not a prefill rate.

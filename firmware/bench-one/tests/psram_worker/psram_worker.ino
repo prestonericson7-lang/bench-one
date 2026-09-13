@@ -140,6 +140,8 @@ template <int S> static inline void addr_out(uint32_t b, uint32_t a)
  *    B <kind> <y>            select a bank AND set its bus mode, which resets the chip
  *    E <kind> <y>            select a bank without touching it: route only, no reset
  *    Y <nops>                chip-select HIGH time between bursts, which is when the chip refreshes
+ *    O <0|1>                 echo the link to USB for a human watching. Off by default, because an echo
+ *                            that can block is an echo that can wedge the board.
  *    T <wi> <ri> <burst>     set write index, read index and burst for the selected bank
  *    U <nops>                chip-select setup: no-ops between asserting select and the first clock
  *    D <n>                   wait cycles after the read address, before the first data nibble
@@ -920,7 +922,7 @@ void setup()
     Serial.println(F("psram_worker up. math only; the Luckfox decides everything else."));
     Serial.println(F("chain: upstream Serial2 pins 7/8, downstream Serial1 pins 0/1,"));
     Serial.println(F("       leaf Serial3 pins 15/14 for a Luckfox. Address unset until A arrives."));
-    Serial.println(F("every line in and out of the link is echoed here, > in and < out."));
+    Serial.println(F("link echo is off; send O 1 over USB to watch the UART traffic here."));
 }
 
 static char line[96];
@@ -1010,9 +1012,24 @@ static char out[96];
  *
  * "if (Serial)" is true only while a host has the port open, and availableForWrite keeps it from blocking
  * even then. So the echo is free when nobody is watching and harmless when somebody is. */
+/* THE USB ECHO IS OFF UNTIL SOMEBODY ASKS FOR IT.
+ *
+ * It has now cost two hangs. First an unguarded Serial.print blocked for seconds with a full buffer and no
+ * host draining it, stalling a benchmark round for 198 seconds and mangling replies mid-line. Guarding it
+ * on "is the port open" and "is there room" fixed that, and then the board hung outright the moment a run
+ * finished and closed the port -- because the guard is not atomic with the write. The port is open and has
+ * room, the host closes, the buffer stops draining, and the write that was already committed never
+ * returns. The firmware was dead until it was reflashed.
+ *
+ * A debugging convenience has no business being able to wedge the machine. It is off by default now and
+ * turned on with "O 1" when somebody is actually watching, which is the only time it was ever any use. A
+ * command arriving over USB still gets its reply over USB regardless -- that is a reply, not an echo.
+ */
+static bool g_echo;
+
 static inline bool usb_listening(int need)
 {
-    return (bool)Serial && Serial.availableForWrite() > need;
+    return g_echo && (bool)Serial && Serial.availableForWrite() > need;
 }
 
 static void say(const char *s)
@@ -1136,6 +1153,13 @@ static void handle(const char *c)
          * but the chip-select lines and the decoder address. */
         select_route((uint8_t)arg(c, 1), (uint8_t)arg(c, 2));
         say("E ok");
+        break;
+    }
+
+    case 'O': case 'o': {
+        g_echo = arg(c, 1) ? true : false;
+        snprintf(out, sizeof(out), "O %d", g_echo ? 1 : 0);
+        say(out);
         break;
     }
 

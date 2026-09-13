@@ -42,3 +42,5 @@ been in can be returned to by flashing one file. Newest last.
 | 20260912-095331 | psram_worker | 9900f25+dirty | 0 | USB accepted as a second command source |
 | 20260912-102304 | psram_worker | fdb5088+dirty | 0 | chain firmware: non-blocking relay, leaf port, 4kB buffers |
 | 20260913-003630 | psram_worker | 2a6917a+dirty | 275 | board returned on COM41; USB-driven run |
+| 20260913-003956 | psram_worker | b483a9e+dirty | 275 | reflash after the board stopped answering mid-soak |
+| 20260913-004134 | psram_worker | b483a9e+dirty | 277 | USB echo off by default; it wedged the board twice |

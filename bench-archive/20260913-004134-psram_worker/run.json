@@ -1,0 +1,10 @@
+{
+  "stamp": "20260913-004134",
+  "sketch": "psram_worker",
+  "git": "b483a9e",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "USB echo off by default; it wedged the board twice",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 288120
+}

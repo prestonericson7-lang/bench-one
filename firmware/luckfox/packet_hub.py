@@ -26,6 +26,7 @@ LOGDIR  = os.environ.get("HUB_LOGDIR", "/mnt/sdcard/lora")
 SDDEV   = os.environ.get("HUB_SDDEV", "/dev/mmcblk1p1")
 SDMOUNT = os.environ.get("HUB_SDMOUNT", "/mnt/sdcard")
 MAXPKTS = 400   # ring buffer kept in RAM for the web view (the SD log keeps everything)
+LEDPATH = os.environ.get("HUB_LED", "")   # /sys/class/leds/<name>; blank = auto-detect (heartbeat blink so you can see the board is on)
 
 # ---------------- packet / telemetry parsing ----------------
 def parse_line(line):
@@ -123,6 +124,48 @@ class Store:
                 "log": {"path": self.logpath, "count": self.logcount},
                 "warn": self.warn,
             }
+
+# ---------------- onboard LED heartbeat (so you can tell the board is powered/running) ----------------
+def start_heartbeat(store):
+    base = LEDPATH
+    try:
+        if not base:
+            leds = "/sys/class/leds"
+            if os.path.isdir(leds):
+                names = sorted(os.listdir(leds))
+                pref = [n for n in names if any(k in n.lower() for k in ("work", "user", "green", "act", "led"))]
+                pick = pref or names
+                if pick:
+                    base = os.path.join(leds, pick[0])
+        if not base or not os.path.isdir(base):
+            store.warn = (store.warn + " | " if store.warn else "") + "no LED found for heartbeat"
+            return None
+        trig = os.path.join(base, "trigger")
+        bright = os.path.join(base, "brightness")
+        # preferred: hand the LED to the kernel's heartbeat trigger (blinks forever, load-weighted)
+        if os.path.exists(trig):
+            try:
+                with open(trig, "w") as f:
+                    f.write("heartbeat")
+                return base
+            except OSError:
+                pass
+        # fallback: toggle brightness ourselves at ~1 Hz
+        def blink():
+            on = False
+            while True:
+                on = not on
+                try:
+                    with open(bright, "w") as f:
+                        f.write("255" if on else "0")
+                except OSError:
+                    return
+                time.sleep(0.5)
+        threading.Thread(target=blink, daemon=True).start()
+        return base
+    except Exception as e:
+        store.warn = (store.warn + " | " if store.warn else "") + ("LED heartbeat failed: %s" % e)
+        return None
 
 # ---------------- serial (lazy termios; only runs on the board) ----------------
 def open_serial(dev, baud):
@@ -285,6 +328,8 @@ def main():
     try_mount_sd()
     store = Store(LOGDIR)
     store.open_log()
+    led = start_heartbeat(store)
+    if led: print("heartbeat LED: %s" % led)
     cmdq = queue.Queue()
     fd = None
     try:

@@ -44,3 +44,4 @@ been in can be returned to by flashing one file. Newest last.
 | 20260913-003630 | psram_worker | 2a6917a+dirty | 275 | board returned on COM41; USB-driven run |
 | 20260913-003956 | psram_worker | b483a9e+dirty | 275 | reflash after the board stopped answering mid-soak |
 | 20260913-004134 | psram_worker | b483a9e+dirty | 277 | USB echo off by default; it wedged the board twice |
+| 20260913-005234 | psram_worker | 2d8366b+dirty | 277 | timing table extended down to zero no-ops |

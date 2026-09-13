@@ -1,0 +1,10 @@
+{
+  "stamp": "20260913-005234",
+  "sketch": "psram_worker",
+  "git": "2d8366b",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "timing table extended down to zero no-ops",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 314040
+}

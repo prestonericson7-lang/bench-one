@@ -109,8 +109,11 @@ LOGDIR = None                    # resolved at startup by _logdir()
 # rescue a bank that will not read, and it cost 25 template instantiations -- which on this target is a
 # timing change, because GCC stops unrolling the payload loop when the file grows and the unrolled form
 # is 21% faster. Every entry in this table is paid for in the speed of every other one.
-NOPS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24]
-USABLE = 15
+# Zero is in here because with six chips off the shared bus the two good banks qualified at 4 no-ops, which
+# was the fastest entry there was -- a bank on the fastest entry is a bank limited by this list rather than
+# by its hardware. Zero leaves a nibble near 54 MHz, inside the part's 84 MHz rating.
+NOPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24]
+USABLE = 19
 
 # tCEM, MEASURED RATHER THAN QUOTED.
 #
@@ -416,7 +419,7 @@ def sweep(link, say, kind, y, mode, setup, probe):
 
     The read is qualified first against a slow write, because a bad write poisons every read after it
     and the blame then lands in the wrong place. Then the write is pushed against the read just found."""
-    WHOLD = 11                                  # 16 no-ops: generous, and inside tCEM at burst 16
+    WHOLD = 15                                  # 16 no-ops: generous, and inside tCEM at burst 16
     select(link, kind, y, (mode, WHOLD, USABLE - 1, SAFE_BURST, setup), rearm=True)
 
     ri_ok = None

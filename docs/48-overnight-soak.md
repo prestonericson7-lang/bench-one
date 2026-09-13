@@ -567,3 +567,40 @@ Two banks, 16 MB, driven over USB, every answer identical in every round, all th
 At batch 32 one pass over 16 MB of one-bit weights — 128 million parameters — yields 32 answers in 15.2 s,
 which is **2.10 tokens a second**. The same pass at batch 1 gives 0.066. That is a decode rate over the
 whole model, not a prefill rate.
+
+### 00:55 — a different board appeared on the worker's port, and the harness would have flashed over it
+
+The port that had been the PSRAM worker all night came back answering:
+
+```
+STATUS radio=FAIL osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0
+```
+
+A different Teensy, serial 20548360, running a LoRa project, in the same socket. It is the only PJRC device
+on the bus, so the worker is unplugged. The flash at 00:52:34 did reach the worker — its boot banner is in
+that run's log — so the swap happened in the couple of minutes after.
+
+`bench_run.py` uploads to a fixed USB location, so the next turn of an unattended loop would have written
+`psram_worker` straight over that LoRa firmware. Flashing is not reversible from this side: what was there
+is gone, and only its owner knows how to put it back.
+
+The harness now asks before it writes. A worker answers `I bench-one`; a board in the bootloader or freshly
+flashed answers nothing, which is also fine because silence is what an unprogrammed board looks like.
+Anything else stops the run. Verified against the LoRa board actually on the bus:
+
+```
+  COM41 answered: STATUS radio=FAIL osc=XTAL mode=0 freq=915.0 ...
+  That is not the bench-one worker. REFUSING TO FLASH.
+```
+
+### The optimisation attempt this cycle is unmeasured
+
+With six chips off the bus the two good banks qualified at 4 no-ops, the fastest entry the table had. A bank
+sitting on the fastest entry is limited by the table and not by its hardware, so the table was extended down
+to zero — a nibble near 54 MHz, inside the part's 84 MHz rating, and self-qualifying because the host sweeps
+and verifies every setting against a read-back.
+
+It compiles and `bread<8>` is still emitted at 0x2b4, so the existing settings remain the sequence they were
+measured on. **It has not been measured**, because the worker left the bus before the run could start. It is
+committed as-is rather than reverted: nothing in it changes a setting the board has already qualified, and
+the host requalifies from scratch every run.

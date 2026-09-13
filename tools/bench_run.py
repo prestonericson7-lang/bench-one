@@ -49,6 +49,65 @@ def sh(cmd, **kw):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True, **kw)
 
 
+def identify(timeout=3.0):
+    """Ask whoever is on the PJRC port what they are, before writing flash over them.
+
+    THIS EXISTS BECAUSE IT NEARLY HAPPENED. The port that had been the PSRAM worker all night came back
+    answering "STATUS radio=FAIL osc=XTAL mode=0 freq=915.0 ..." -- a different Teensy, running somebody
+    else's LoRa project, plugged into the same socket. The upload path here is a fixed USB location, so the
+    next cycle of an unattended loop would have written psram_worker straight over it.
+
+    Flashing is not reversible from this side: the firmware that was there is gone and only its owner knows
+    how to put it back. So the board gets asked first. A worker answers "I bench-one", and a board fresh out
+    of the bootloader answers nothing at all, which is also fine -- silence is what an unprogrammed or
+    just-flashed board looks like. Anything that answers as something else stops the run.
+    """
+    try:
+        import serial as pyserial
+        from serial.tools import list_ports
+    except ImportError:
+        return None, "pyserial missing, cannot identify the board"
+
+    port = None
+    for p in list_ports.comports():
+        if getattr(p, "vid", None) == 0x16C0:
+            port = p.device
+            break
+    if port is None:
+        return None, "no PJRC device on the bus"
+
+    try:
+        link = pyserial.Serial(port, 115200, timeout=timeout)
+        time.sleep(0.4)
+        link.reset_input_buffer()
+        link.write(b"I\n")
+        link.flush()
+        reply = link.readline().decode(errors="replace").strip()
+        link.close()
+    except Exception as e:
+        return port, "could not be asked (%s)" % e
+    return port, reply
+
+
+def confirm_target():
+    """Refuse to flash anything that identifies as a different project."""
+    port, reply = identify()
+    if port is None:
+        print("  %s; flashing blind" % reply)
+        return True
+    if not reply:
+        print("  %s is silent, which is what a bootloader or a fresh board looks like" % port)
+        return True
+    if reply.startswith("I bench-one"):
+        print("  %s is the worker: %s" % (port, reply[:70]))
+        return True
+    print("  %s answered: %s" % (port, reply[:100]))
+    print("  That is not the bench-one worker. REFUSING TO FLASH.")
+    print("  Flashing would destroy whatever firmware is on that board, and only its owner knows how to")
+    print("  put it back. Unplug the other board, or plug the worker in, and run this again.")
+    return False
+
+
 def git_head():
     r = sh("git -C \"%s\" rev-parse --short HEAD" % ROOT)
     return r.stdout.strip() or "unknown"
@@ -118,6 +177,8 @@ def main():
        '| Where-Object { $_.CommandLine -like \'*listen.py*\' } '
        '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"')
     time.sleep(1.5)
+    if not confirm_target():
+        sys.exit("refused: the board on the bus is not the bench-one worker")
     print("flashing")
     r = sh('arduino-cli upload -b %s -p %s --input-dir "%s" "%s"' % (FQBN, PORT, outdir, sketch))
     if r.returncode != 0:

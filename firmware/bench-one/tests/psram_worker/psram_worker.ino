@@ -371,6 +371,24 @@ template <int S> static void bread(uint32_t a, uint8_t *d, uint32_t len)
     }
 }
 
+/* THE TABLE NOW STARTS AT ZERO, BECAUSE THE CHIPS STOPPED BEING THE LIMIT.
+ *
+ * With six chips off the shared bus the two on the Teensy's own pads qualified at 4 no-ops -- the fastest
+ * entry there was -- and read 49% faster than they did with eight chips loading the lines. A bank sitting
+ * on the fastest entry in the table is a bank whose speed is being set by the table rather than by the
+ * hardware, which is the one situation where adding entries is the whole experiment.
+ *
+ * Zero no-ops leaves a nibble at roughly eleven cycles, about 54 MHz, which is inside the part's 84 MHz
+ * rating -- so this asks the chips for nothing they are not specified to do. Correctness is decided the
+ * way it always is here, by filling a span and reading it back, and the host requalifies every run, so a
+ * setting the chips cannot hold simply does not get chosen.
+ *
+ * The cost is twenty more template instantiations, and on this target that is a timing change in itself:
+ * GCC stops unrolling the payload loop when the translation unit grows, which once cost 21% on a setting
+ * that had not moved. So the emitted size of bread<8> is checked against the build these numbers were
+ * measured on, and the measurement is what decides whether this stays.
+ */
+
 /* The table runs far past anything usable on purpose. 24 no-ops is about 10.7 MHz and is the slowest
  * setting any bank has ever needed; 128 is about 2.3 MHz and exists only to answer one question. The
  * six external banks take a quad write correctly and return wrong nibbles to a quad read, spread over
@@ -479,27 +497,32 @@ template <int S> static void bread1(uint32_t a, uint8_t *d, uint32_t len)
     }
 }
 
-static const int NOPS[] = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24 };
+static const int NOPS[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24 };
 #define NSET (sizeof(NOPS) / sizeof(NOPS[0]))
 static void (*const WF[NSET])(uint32_t, const uint8_t *, uint32_t) = {
+    bwrite<0>, bwrite<1>, bwrite<2>, bwrite<3>,
     bwrite<4>, bwrite<5>, bwrite<6>, bwrite<7>, bwrite<8>, bwrite<9>, bwrite<10>,
     bwrite<11>, bwrite<12>, bwrite<13>, bwrite<14>, bwrite<16>, bwrite<18>,
     bwrite<20>, bwrite<24> };
 static void (*const RQ[NSET])(uint32_t, uint8_t *, uint32_t) = {
+    bread<0>, bread<1>, bread<2>, bread<3>,
     bread<4>, bread<5>, bread<6>, bread<7>, bread<8>, bread<9>, bread<10>,
     bread<11>, bread<12>, bread<13>, bread<14>, bread<16>, bread<18>,
     bread<20>, bread<24> };
 static void (*const R1[NSET])(uint32_t, uint8_t *, uint32_t) = {
+    bread1<0>, bread1<1>, bread1<2>, bread1<3>,
     bread1<4>, bread1<5>, bread1<6>, bread1<7>, bread1<8>, bread1<9>, bread1<10>,
     bread1<11>, bread1<12>, bread1<13>, bread1<14>, bread1<16>, bread1<18>,
     bread1<20>, bread1<24> };
 
 static void (*const W1[NSET])(uint32_t, const uint8_t *, uint32_t) = {
+    bwrite1<0>, bwrite1<1>, bwrite1<2>, bwrite1<3>,
     bwrite1<4>, bwrite1<5>, bwrite1<6>, bwrite1<7>, bwrite1<8>, bwrite1<9>, bwrite1<10>,
     bwrite1<11>, bwrite1<12>, bwrite1<13>, bwrite1<14>, bwrite1<16>, bwrite1<18>,
     bwrite1<20>, bwrite1<24> };
 
 static void (*const RZ[NSET])(uint32_t, uint8_t *, uint32_t) = {
+    bread1f<0>, bread1f<1>, bread1f<2>, bread1f<3>,
     bread1f<4>, bread1f<5>, bread1f<6>, bread1f<7>, bread1f<8>, bread1f<9>, bread1f<10>,
     bread1f<11>, bread1f<12>, bread1f<13>, bread1f<14>, bread1f<16>, bread1f<18>,
     bread1f<20>, bread1f<24> };

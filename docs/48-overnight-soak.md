@@ -492,3 +492,50 @@ build that failed before producing anything. Benign, but it made the index claim
 from the genuinely alarming case of logs with no image.
 
 No hardware, no measurement, no performance change.
+
+---
+
+## 2026-09-13 00:40 — the board came back with six chips off the bus, and it is 49% faster
+
+The Teensy returned on COM41 after most of a day absent. The Luckfox did not, so this was driven over the
+Teensy's USB port through `BENCH_PORT`, which is exactly why that fallback exists. The six external chips
+are electrically absent — all six decoder routes answer the identity probe with zeroes, so the ribbon is
+off, not merely marginal.
+
+That is an accident, and it is the most useful measurement of the whole exercise.
+
+### Two chips on the bus instead of eight
+
+| | eight chips on the bus | two chips on the bus |
+|---|---|---|
+| read setting CS0 and CS1 qualify at | 20 no-ops, burst 72 | **4 no-ops, burst 96** |
+| read rate per bank, 4-bit | 10.44 MB/s | **15.52 MB/s** |
+
+Four no-ops is the **fastest entry in the table**. With eight chips hanging off the shared data lines the
+same two chips needed a clock five times slower, and gave up 49% of their throughput for it.
+
+So the six external chips were never only failing on their own account. They were loading the bus and
+taking a third of the speed off the two that worked. Chips per bus is a first-order design parameter on a
+bit-banged bus, and eight on one is well past the point where it pays.
+
+### What that does to the rate
+
+Two banks, 16 MB, answers identical in every round, all three kernels verified bit-identical against
+arithmetic the host computes itself:
+
+| | MMAC/s | against 4-bit |
+|---|---|---|
+| 4-bit | 31.05 | — |
+| 2-bit | 55.95 | 1.80x |
+| 1-bit | 92.94 | 2.99x |
+| 1-bit, batch 32 | **269.23** | not comparable; includes the batch |
+
+Yesterday the same two banks gave 19.74 MMAC/s at four bits. This is **+57%** on identical firmware and
+identical settings logic, from nothing but taking six chips off the wire.
+
+### What this suggests for the build
+
+Worth testing deliberately rather than by accident: fewer chips per bus, more buses. The Teensy has the
+pins for a second decoder and a second set of data lines, and two buses of four chips should each clock
+far closer to four no-ops than one bus of eight ever will. That is a wiring experiment, not a firmware
+one, and it is a much better use of the external chips than the shared bus they are on now.

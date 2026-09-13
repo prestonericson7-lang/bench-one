@@ -142,22 +142,19 @@ def start_heartbeat(store):
             return None
         trig = os.path.join(base, "trigger")
         bright = os.path.join(base, "brightness")
-        # preferred: hand the LED to the kernel's heartbeat trigger (blinks forever, load-weighted)
-        if os.path.exists(trig):
-            try:
-                with open(trig, "w") as f:
-                    f.write("heartbeat")
-                return base
-            except OSError:
-                pass
-        # fallback: toggle brightness ourselves at ~1 Hz
+        # release any kernel trigger (this RV110x kernel has no 'heartbeat' trigger), then blink ourselves
+        try:
+            with open(trig, "w") as f:
+                f.write("none")
+        except OSError:
+            pass
         def blink():
             on = False
             while True:
                 on = not on
                 try:
                     with open(bright, "w") as f:
-                        f.write("255" if on else "0")
+                        f.write("1" if on else "0")
                 except OSError:
                     return
                 time.sleep(0.5)

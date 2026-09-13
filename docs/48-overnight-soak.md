@@ -604,3 +604,26 @@ It compiles and `bread<8>` is still emitted at 0x2b4, so the existing settings r
 measured on. **It has not been measured**, because the worker left the bus before the run could start. It is
 committed as-is rather than reverted: nothing in it changes a setting the board has already qualified, and
 the host requalifies from scratch every run.
+
+### 01:10 — the foreign board went silent, and silence nearly reopened the hole
+
+The LoRa board in the worker's socket answered as a LoRa board on one cycle and answered **nothing at all**
+on the next — same serial number, 20548360, same socket, fifteen minutes apart. The guard added last cycle
+treats silence as "bootloader or blank, safe to flash", so it would have destroyed that firmware on this
+turn.
+
+Silence is not proof of a blank board. Firmware that simply is not listening on USB looks exactly like a
+bootloader from this side.
+
+So serial numbers are remembered in `.claude/board-identity.json`. A board that has ever answered as
+something other than the worker is never flashed again, whatever it says or does not say later; a board that
+has answered as the worker is recorded as such and may be flashed even when silent. Verified against the
+silent LoRa board actually on the bus:
+
+```
+  COM41 (serial 20548360) is silent, but this board answered as something else before:
+    STATUS radio=FAIL osc=XTAL mode=0 freq=915.0 sf=9 bw=125 ...
+  Silence is not proof of a blank board. REFUSING TO FLASH.
+```
+
+No worker, so no measurement. The table extension from the previous cycle is still unmeasured.

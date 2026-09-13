@@ -49,6 +49,39 @@ def sh(cmd, **kw):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True, **kw)
 
 
+# Which physical boards are which, remembered across runs by USB serial number.
+#
+# Asking the board what it is covers the case where it answers. It does not cover silence, and silence is
+# the dangerous case: a board in the bootloader is silent, and so is a board whose firmware simply is not
+# listening on USB. The LoRa board that turned up in the worker's socket answered as a LoRa board on one
+# cycle and answered nothing at all on the next -- same serial number, same socket, fifteen minutes apart.
+# Treating that silence as "blank, safe to flash" would have destroyed it.
+#
+# So serial numbers are recorded. A board that has ever identified as something other than the worker is
+# never flashed, whatever it does or does not say later.
+IDENTITY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        ".claude", "board-identity.json")
+
+
+def load_identity():
+    try:
+        with open(IDENTITY) as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        d = {}
+    d.setdefault("worker", [])
+    d.setdefault("foreign", {})
+    return d
+
+
+def save_identity(d):
+    try:
+        with open(IDENTITY, "w") as f:
+            json.dump(d, f, indent=2, sort_keys=True)
+    except OSError:
+        pass
+
+
 def identify(timeout=3.0):
     """Ask whoever is on the PJRC port what they are, before writing flash over them.
 
@@ -69,12 +102,14 @@ def identify(timeout=3.0):
         return None, "pyserial missing, cannot identify the board"
 
     port = None
+    serial_no = None
     for p in list_ports.comports():
         if getattr(p, "vid", None) == 0x16C0:
             port = p.device
+            serial_no = getattr(p, "serial_number", None)
             break
     if port is None:
-        return None, "no PJRC device on the bus"
+        return None, None, "no PJRC device on the bus"
 
     try:
         link = pyserial.Serial(port, 115200, timeout=timeout)
@@ -85,27 +120,54 @@ def identify(timeout=3.0):
         reply = link.readline().decode(errors="replace").strip()
         link.close()
     except Exception as e:
-        return port, "could not be asked (%s)" % e
-    return port, reply
+        return port, serial_no, "could not be asked (%s)" % e
+    return port, serial_no, reply
 
 
 def confirm_target():
-    """Refuse to flash anything that identifies as a different project."""
-    port, reply = identify()
+    """Refuse to flash anything that is not known to be the worker."""
+    port, serial_no, reply = identify()
     if port is None:
         print("  %s; flashing blind" % reply)
         return True
-    if not reply:
-        print("  %s is silent, which is what a bootloader or a fresh board looks like" % port)
-        return True
+
+    known = load_identity()
+
     if reply.startswith("I bench-one"):
-        print("  %s is the worker: %s" % (port, reply[:70]))
+        if serial_no and serial_no not in known["worker"]:
+            known["worker"].append(serial_no)
+            known["foreign"].pop(serial_no, None)
+            save_identity(known)
+            print("  %s (serial %s) identified as the worker; remembered" % (port, serial_no))
+        else:
+            print("  %s is the worker: %s" % (port, reply[:70]))
         return True
-    print("  %s answered: %s" % (port, reply[:100]))
-    print("  That is not the bench-one worker. REFUSING TO FLASH.")
-    print("  Flashing would destroy whatever firmware is on that board, and only its owner knows how to")
-    print("  put it back. Unplug the other board, or plug the worker in, and run this again.")
-    return False
+
+    if reply:
+        if serial_no:
+            known["foreign"][serial_no] = reply[:120]
+            save_identity(known)
+        print("  %s (serial %s) answered: %s" % (port, serial_no, reply[:100]))
+        print("  That is not the bench-one worker. REFUSING TO FLASH.")
+        print("  Flashing would destroy whatever firmware is on that board, and only its owner knows how")
+        print("  to put it back. Unplug it, or plug the worker in, and run this again.")
+        return False
+
+    # Silence. Safe only if this board has never answered as something else.
+    if serial_no and serial_no in known["foreign"]:
+        print("  %s (serial %s) is silent, but this board answered as something else before:"
+              % (port, serial_no))
+        print("    %s" % known["foreign"][serial_no])
+        print("  Silence is not proof of a blank board -- firmware that is not listening on USB looks")
+        print("  exactly like a bootloader. REFUSING TO FLASH.")
+        return False
+    if serial_no and serial_no in known["worker"]:
+        print("  %s (serial %s) is silent but is the known worker; flashing" % (port, serial_no))
+        return True
+    print("  %s (serial %s) is silent and unrecognised, which is what a bootloader or a board with no"
+          % (port, serial_no))
+    print("  firmware looks like; flashing")
+    return True
 
 
 def git_head():

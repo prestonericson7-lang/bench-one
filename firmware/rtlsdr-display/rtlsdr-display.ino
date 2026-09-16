@@ -25,7 +25,9 @@
 #include <TFT_eSPI.h>
 #include "link_proto.h"
 
-// ---- FFT-size bounds echoed from the Teensy engine's config.h ----
+// ---- identity + FFT-size bounds echoed from the Teensy engine's config.h ----
+#define FW_MAJOR 1
+#define FW_MINOR 0
 #define SDR_DEF_FFT_LOG2 10
 #define SDR_MIN_FFT_LOG2 8
 #define SDR_MAX_FFT_LOG2 11
@@ -135,6 +137,7 @@ static int   detN = 0, detHead = 0;
 // captures browser
 struct CapItem { char name[16]; uint32_t bytes; };
 #define CAP_MAX 48
+#define CAP_ACTIONS 2                 // the two capture-control rows above the file list
 static CapItem caps[CAP_MAX];
 static int  capN = 0, capSel = 0;
 static bool capListPending = false;
@@ -176,14 +179,17 @@ static const int BAND_N = sizeof(BANDS)/sizeof(BANDS[0]);
 static int bandSel = 0;
 
 // config editor
-enum CfgField { CF_FREQ=0, CF_SR, CF_GAINMODE, CF_GAIN, CF_PPM, CF_BIAS, CF_DIRECT, CF_FFT, CF_SQUELCH, CF_DEMOD, CF_COUNT };
+enum CfgField { CF_FREQ=0, CF_SR, CF_GAINMODE, CF_GAIN, CF_PPM, CF_BIAS, CF_DIRECT, CF_FFT,
+                CF_SQUELCH, CF_DEMOD, CF_SWSTART, CF_SWSTOP, CF_SWSTEP, CF_COUNT };
 static int cfgSel = 0;
 static int cfgFft = SDR_DEF_FFT_LOG2;   // local echo, applied on change
 static int cfgSquelchT = -350;
+// sweep range (display owns these; sent to the Teensy on change)
+static uint32_t cfgSwStart = 400000000UL, cfgSwStop = 900000000UL, cfgSwStep = 2000000UL;
 static const char* DEMOD_NAMES[] = { "Off","NBFM","WBFM","AM","USB","LSB" };
 
 // settings editor
-enum SetField { SF_BL=0, SF_AVG, SF_COUNT };
+enum SetField { SF_BL=0, SF_AVG, SF_REINIT, SF_COUNT };
 static int setSel = 0;
 static int setAvg = 2;
 
@@ -415,24 +421,39 @@ static void cfgValue(int f, char* out) {
     case CF_FFT:    snprintf(out,20,"%d pts", 1<<cfgFft); break;
     case CF_SQUELCH:snprintf(out,20,"%d.%d dB", cfgSquelchT/10, abs(cfgSquelchT%10)); break;
     case CF_DEMOD:  snprintf(out,20,"%s", DEMOD_NAMES[tlm.demod<6?tlm.demod:0]); break;
+    case CF_SWSTART:snprintf(out,20,"%.1f MHz", cfgSwStart/1e6); break;
+    case CF_SWSTOP: snprintf(out,20,"%.1f MHz", cfgSwStop/1e6); break;
+    case CF_SWSTEP: snprintf(out,20,"%.2f MHz", cfgSwStep/1e6); break;
     default: out[0]=0;
   }
 }
 static const char* CFG_LABELS[CF_COUNT] = {
-  "Frequency","Sample rate","Gain mode","Gain","PPM corr","Bias tee","Direct samp","FFT size","Squelch","Demod"
+  "Frequency","Sample rate","Gain mode","Gain","PPM corr","Bias tee","Direct samp","FFT size",
+  "Squelch","Demod","Sweep start","Sweep stop","Sweep step"
 };
+static void sendSetSweep() {
+  uint8_t a[12]; lp_put32(&a[0],cfgSwStart); lp_put32(&a[4],cfgSwStop); lp_put32(&a[8],cfgSwStep);
+  sendCmd(CMD_SET_SWEEP, a, 12);
+}
 static void renderConfig(bool full) {
   if (full) { tft.fillScreen(C_BG); drawTopBar(); }
-  int y0=30, rh=26;
-  for (int i=0;i<CF_COUNT;i++){
-    int y=y0+i*rh;
+  const int y0=28, rh=21;
+  int rows=(FOOT_Y - y0)/rh;                         // fits without hitting the footer
+  int first = (cfgSel >= rows) ? (cfgSel - rows + 1) : 0;   // scroll to keep sel visible
+  tft.fillRect(0, y0, SCR_W, FOOT_Y - y0, C_BG);
+  for (int k=0;k<rows && (first+k)<CF_COUNT;k++){
+    int i = first+k;
+    int y=y0+k*rh;
     tft.fillRect(0,y,SCR_W,rh, i==cfgSel?C_SELBG:C_BG);
     tft.setTextFont(2);
     tft.setTextColor(i==cfgSel?C_INK:C_DIM, i==cfgSel?C_SELBG:C_BG);
-    tft.setCursor(16,y+5); tft.print(CFG_LABELS[i]);
+    tft.setCursor(16,y+3); tft.print(CFG_LABELS[i]);
     char v[24]; cfgValue(i,v);
-    tft.setCursor(230,y+5); tft.print(v);
+    tft.setCursor(230,y+3); tft.print(v);
   }
+  // scroll indicator
+  if (CF_COUNT > rows) { tft.setTextColor(C_DIM,C_BG); tft.setCursor(SCR_W-40,y0);
+                         tft.printf("%d/%d", cfgSel+1, (int)CF_COUNT); }
   drawFooter("U/D field  L/R change  BACK menu");
 }
 
@@ -483,17 +504,40 @@ static void renderCaptures(bool full) {
     }
     drawFooter("U/D scroll   BACK list");
   } else {
-    if (capN==0){ tft.setTextColor(C_DIM,C_BG); tft.setCursor(16,40); tft.print(capListPending?"loading...":"no captures"); }
-    int rows=(SCR_H-60)/18;
-    int first = (capSel >= rows) ? (capSel - rows + 1) : 0;         // scroll to keep sel visible
-    for (int k=0;k<rows && (first+k)<capN;k++){
+    // The list is 2 capture ACTIONS followed by the saved files, so this screen
+    // both starts/stops/saves captures and browses them. capSel indexes the whole
+    // combined list (0,1 = actions; 2.. = files).
+    int total = CAP_ACTIONS + capN;
+    int rows = (SCR_H - 54) / 18;
+    int first = (capSel >= rows) ? (capSel - rows + 1) : 0;
+    char label[40];
+    for (int k=0;k<rows && (first+k)<total;k++){
       int i = first+k;
-      int y=30+k*18;
-      tft.fillRect(0,y,SCR_W,18, i==capSel?C_SELBG:C_BG);
-      tft.setTextColor(i==capSel?C_INK:C_DIM, i==capSel?C_SELBG:C_BG);
-      tft.setCursor(12,y+2); tft.printf("%-14s %lu B", caps[i].name, (unsigned long)caps[i].bytes);
+      int y = 30 + k*18;
+      bool sel = (i==capSel);
+      bool isAction = (i < CAP_ACTIONS);
+      tft.fillRect(0,y,SCR_W,18, sel?C_SELBG:C_BG);
+      uint16_t fg = sel ? C_INK : (isAction ? C_ACC : C_DIM);
+      tft.setTextColor(fg, sel?C_SELBG:C_BG);
+      tft.setCursor(12,y+2);
+      if (isAction) {
+        if (tlm.capActive) {
+          if (i==0) snprintf(label,40,"[STOP + SAVE]  %lu recs", (unsigned long)tlm.capCount);
+          else      snprintf(label,40,"[DISCARD capture]");
+        } else {
+          if (i==0) snprintf(label,40,"+ New EVENT capture");
+          else      snprintf(label,40,"+ New IQ snapshot");
+        }
+        tft.print(label);
+      } else {
+        int fi = i - CAP_ACTIONS;
+        tft.printf("%-14s %lu B", caps[fi].name, (unsigned long)caps[fi].bytes);
+      }
     }
-    drawFooter("U/D sel  OK view  R delete  BACK menu");
+    if (capN==0){ tft.setTextColor(C_DIM,C_BG); tft.setCursor(12, 30 + CAP_ACTIONS*18 + 4);
+                  tft.print(capListPending?"loading files...":"(no saved captures yet)"); }
+    drawFooter(tlm.capActive ? "REC... U/D sel  OK do  BACK menu"
+                             : "U/D sel  OK start/view  R del  BACK menu");
   }
 }
 
@@ -501,17 +545,19 @@ static void renderSettings(bool full) {
   if (full) { tft.fillScreen(C_BG); drawTopBar(); }
   int y0=40, rh=30;
   char v[24];
-  const char* labels[SF_COUNT] = { "Backlight", "Averaging" };
+  const char* labels[SF_COUNT] = { "Backlight", "Averaging", "Re-init SDR" };
   for (int i=0;i<SF_COUNT;i++){
     int y=y0+i*rh;
     tft.fillRect(0,y,SCR_W,rh, i==setSel?C_SELBG:C_BG);
     tft.setTextFont(4); tft.setTextColor(i==setSel?C_INK:C_DIM, i==setSel?C_SELBG:C_BG);
     tft.setCursor(20,y+3); tft.print(labels[i]);
-    if (i==SF_BL) snprintf(v,24,"%u%%",(backlight*100)/255);
-    else snprintf(v,24,"1/%d", 1<<setAvg);
+    if      (i==SF_BL)     snprintf(v,24,"%u%%",(backlight*100)/255);
+    else if (i==SF_AVG)    snprintf(v,24,"1/%d", 1<<setAvg);
+    else                   snprintf(v,24,"[OK]");
     tft.setCursor(300,y+3); tft.print(v);
   }
-  drawFooter("U/D field  L/R change  BACK menu");
+  drawFooter(setSel==SF_REINIT ? "OK re-enumerate the dongle  BACK menu"
+                               : "U/D field  L/R change  BACK menu");
 }
 
 static void render(bool full) {
@@ -555,6 +601,9 @@ static void changeConfig(int f, int dir) {
     case CF_FFT:    { cfgFft+=dir; if(cfgFft<SDR_MIN_FFT_LOG2)cfgFft=SDR_MIN_FFT_LOG2; if(cfgFft>SDR_MAX_FFT_LOG2)cfgFft=SDR_MAX_FFT_LOG2; sendSetFft((uint8_t)cfgFft,0,(uint8_t)setAvg); } break;
     case CF_SQUELCH:{ cfgSquelchT += dir*10; if(cfgSquelchT<-800)cfgSquelchT=-800; if(cfgSquelchT>0)cfgSquelchT=0; cmdI16(CMD_SET_SQUELCH,(int16_t)cfgSquelchT); } break;
     case CF_DEMOD:  { int d=tlm.demod+dir; if(d<0)d=0; if(d>5)d=5; cmdU8(CMD_SET_DEMOD,(uint8_t)d); } break;
+    case CF_SWSTART:{ int64_t v=(int64_t)cfgSwStart+dir*5000000LL; if(v<1000000)v=1000000; if(v>=(int64_t)cfgSwStop)v=cfgSwStop-5000000; cfgSwStart=(uint32_t)v; sendSetSweep(); } break;
+    case CF_SWSTOP: { int64_t v=(int64_t)cfgSwStop +dir*5000000LL; if(v<=(int64_t)cfgSwStart)v=cfgSwStart+5000000; if(v>1766000000LL)v=1766000000LL; cfgSwStop=(uint32_t)v; sendSetSweep(); } break;
+    case CF_SWSTEP: { int64_t v=(int64_t)cfgSwStep +dir*500000LL; if(v<100000)v=100000; if(v>10000000)v=10000000; cfgSwStep=(uint32_t)v; sendSetSweep(); } break;
   }
 }
 
@@ -604,10 +653,32 @@ static void onButton(uint8_t btn, uint8_t edge) {
         if (btn==BTN_UP)   { if(capRecSel>0)capRecSel--; render(false); }
         if (btn==BTN_DOWN) { if(capRecSel<capRecN-1)capRecSel++; render(false); }
       } else {
+        int total = CAP_ACTIONS + capN;
         if (btn==BTN_UP)   { if(capSel>0)capSel--; render(false); }
-        if (btn==BTN_DOWN) { if(capSel<capN-1)capSel++; render(false); }
-        if (btn==BTN_OK && !rep && capN>0) { uint8_t a[16]; memcpy(a,caps[capSel].name,16); capRecN=0; capRecSel=0; inCapView=true; sendCmd(CMD_CAP_VIEW,a,16); needFull=true; render(true); }
-        if (btn==BTN_RIGHT && !rep && capN>0) { uint8_t a[16]; memcpy(a,caps[capSel].name,16); sendCmd(CMD_CAP_DELETE,a,16); snprintf(toast,40,"deleted"); toastMs=millis(); capN=0; capSel=0; capListPending=true; sendCmd(CMD_CAP_LIST); }
+        if (btn==BTN_DOWN) { if(capSel<total-1)capSel++; render(false); }
+        if (btn==BTN_OK && !rep) {
+          if (capSel < CAP_ACTIONS) {                 // capture-control actions
+            if (tlm.capActive) {
+              if (capSel==0) { sendCmd(CMD_CAP_SAVE); snprintf(toast,40,"saving..."); }
+              else           { sendCmd(CMD_CAP_DISCARD); snprintf(toast,40,"discarded"); }
+            } else {
+              uint8_t kind = (capSel==0) ? 0 : 1;      // 0 events, 1 IQ snapshot
+              cmdU8(CMD_CAP_START, kind);
+              snprintf(toast,40, kind? "IQ capture started":"event capture started");
+            }
+            toastMs=millis(); sendReq(REQ_TELEMETRY); render(false);
+          } else if (capN>0) {                         // view a saved file
+            int fi = capSel - CAP_ACTIONS;
+            uint8_t a[16]; memcpy(a,caps[fi].name,16);
+            capRecN=0; capRecSel=0; inCapView=true; sendCmd(CMD_CAP_VIEW,a,16); needFull=true; render(true);
+          }
+        }
+        if (btn==BTN_RIGHT && !rep && capSel>=CAP_ACTIONS && capN>0) {
+          int fi = capSel - CAP_ACTIONS;
+          uint8_t a[16]; memcpy(a,caps[fi].name,16); sendCmd(CMD_CAP_DELETE,a,16);
+          snprintf(toast,40,"deleted"); toastMs=millis();
+          capN=0; capSel=CAP_ACTIONS; capListPending=true; sendCmd(CMD_CAP_LIST);
+        }
       }
       break;
     case SCR_SETTINGS:
@@ -616,9 +687,10 @@ static void onButton(uint8_t btn, uint8_t edge) {
       if (btn==BTN_LEFT || btn==BTN_RIGHT) {
         int dir = (btn==BTN_RIGHT)?1:-1;
         if (setSel==SF_BL) { int b=backlight + dir*16; if(b<16)b=16; if(b>255)b=255; backlight=b; ledcWrite(PIN_LCD_BL, backlight); }
-        else { setAvg += dir; if(setAvg<0)setAvg=0; if(setAvg>6)setAvg=6; sendSetFft((uint8_t)cfgFft,0,(uint8_t)setAvg); }
+        else if (setSel==SF_AVG) { setAvg += dir; if(setAvg<0)setAvg=0; if(setAvg>6)setAvg=6; sendSetFft((uint8_t)cfgFft,0,(uint8_t)setAvg); }
         render(false);
       }
+      if (btn==BTN_OK && !rep && setSel==SF_REINIT) { sendCmd(CMD_REBOOT_SDR); snprintf(toast,40,"re-initialising SDR..."); toastMs=millis(); render(false); }
       break;
     default: break;
   }
@@ -705,6 +777,40 @@ static void linkRx() {
   }
 }
 
+// ======================================================================= boot splash
+static uint16_t heat565(uint8_t v){ uint8_t r,g,b; heatRGB(v,r,g,b); return tft.color565(r,g,b); }
+
+static void bootSplash() {
+  tft.fillScreen(C_BG);
+  tft.setTextFont(4); tft.setTextColor(C_ACC, C_BG);
+  tft.setCursor(96, 34); tft.print("RTL-SDR");
+  tft.setCursor(120, 72); tft.print("PENTEST");
+  tft.setTextFont(2); tft.setTextColor(C_DIM, C_BG);
+  tft.setCursor(112, 112); tft.print("handheld spectrum scanner");
+  tft.setCursor(214, 296); tft.printf("v%d.%d", FW_MAJOR, FW_MINOR);
+
+  const int baseY = 250, topY = 150;
+  uint32_t lcg = 0xC0FFEE;
+  for (int f = 0; f <= SCR_W; f += 10) {
+    for (int x = (f-10 < 0 ? 0 : f-10); x < f && x < SCR_W; x++) {
+      // synthetic spectrum: noise floor + two peaks, revealed left-to-right
+      float m = 6.0f
+              + 70.0f * expf(-((x-150.0f)*(x-150.0f)) / 900.0f)
+              + 46.0f * expf(-((x-330.0f)*(x-330.0f)) / 380.0f);
+      lcg = lcg*1664525u + 1013904223u;
+      m += (float)((lcg >> 27) & 0x0F);
+      int h = (int)m; if (h > (baseY-topY)) h = baseY-topY;
+      int y = baseY - h;
+      uint8_t idx = (uint8_t)(h * 255 / (baseY-topY));
+      tft.drawFastVLine(x, y, baseY - y, heat565(idx));
+    }
+    tft.fillRect(20, 284, f * (SCR_W-40) / SCR_W, 5, C_OK);   // progress bar
+    delay(16);
+  }
+  tft.setTextColor(C_OK, C_BG); tft.setCursor(20, 300); tft.print("ready");
+  delay(350);
+}
+
 // ======================================================================= setup / loop
 void setup() {
   Serial.begin(115200);   // CH340 console on UART0, independent of the link
@@ -722,6 +828,8 @@ void setup() {
   buildPalette();
   wfInit();
   ledcWrite(PIN_LCD_BL, backlight);
+
+  bootSplash();                 // animated intro before the UI comes up
 
   memset(&tlm,0,sizeof(tlm));
 

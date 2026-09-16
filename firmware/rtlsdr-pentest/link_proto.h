@@ -156,9 +156,11 @@ static inline int32_t lp_geti32(const uint8_t *p){ return (int32_t)lp_get32(p); 
 //   33 u8   sdOk  | 34 u8 capActive | 35 u8 capKind
 //   36 u32  capCount (records held) | 40 u32 capBytes (RAM used)
 //   44 u32  sdFreeMB | 48 u32 sdTotalMB
-//   52 u16  sweepStartMhzX10? -> use u32 fields instead:
-//   (kept simple: sweep params travel with the SPECTRUM/DETECT frames)
-#define TLM_LEN 52u
+//   ---- GPS (GT-U7) ----
+//   52 u8   gpsValid | 53 u8 gpsSats
+//   54 i32  latE7 (lat * 1e7) | 58 i32 lonE7 | 62 i16 altM
+//   64 u8   hh | 65 u8 mm | 66 u8 ss   (UTC)
+#define TLM_LEN 67u
 
 // MSG_SPECTRUM payload:
 //   0  u32 centreHz

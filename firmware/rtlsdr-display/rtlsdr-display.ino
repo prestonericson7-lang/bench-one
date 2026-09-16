@@ -116,6 +116,10 @@ struct Telemetry {
   int16_t  dieTenthC;
   uint8_t  fanDuty, sdOk, capActive, capKind;
   uint32_t capCount, capBytes, sdFreeMB, sdTotalMB;
+  uint8_t  gpsValid, gpsSats;
+  int32_t  latE7, lonE7;
+  int16_t  altM;
+  uint8_t  hh, mm, ss;
   bool     valid;
 } tlm;
 
@@ -461,7 +465,7 @@ static void renderSystem(bool full) {
   if (full) { tft.fillScreen(C_BG); }
   drawTopBar();
   tft.fillRect(0,26,SCR_W,SCR_H-26-20,C_BG);
-  tft.setTextFont(2); int y=32; const int rh=20;
+  tft.setTextFont(2); int y=28; const int rh=18;
   auto line=[&](const char* k, const char* v, uint16_t c){
     tft.setTextColor(C_DIM,C_BG); tft.setCursor(16,y); tft.print(k);
     tft.setTextColor(c,C_BG); tft.setCursor(210,y); tft.print(v); y+=rh;
@@ -482,6 +486,13 @@ static void renderSystem(bool full) {
   snprintf(b,32,"%s  %lu/%lu MB", tlm.sdOk?"ok":"no card",(unsigned long)tlm.sdFreeMB,(unsigned long)tlm.sdTotalMB);
   line("SD", b, tlm.sdOk?C_OK:C_WARN);
   snprintf(b,32,"fw %u.%u", fwMajor, fwMinor); line("Teensy", b, C_DIM);
+  if (tlm.gpsValid) {
+    snprintf(b,32,"%u sats, fix", tlm.gpsSats); line("GPS", b, C_OK);
+    snprintf(b,32,"%.5f %.5f", tlm.latE7/1e7, tlm.lonE7/1e7); line("Position", b, C_ACC);
+    snprintf(b,32,"%02u:%02u:%02u UTC", tlm.hh, tlm.mm, tlm.ss); line("Time", b, C_INK);
+  } else {
+    snprintf(b,32,"no fix (%u sats)", tlm.gpsSats); line("GPS", b, C_WARN);
+  }
   drawFooter("BACK menu");
 }
 
@@ -716,6 +727,9 @@ static void onFrame(uint8_t msg, const uint8_t* p, uint16_t len) {
         tlm.capActive=p[34]; tlm.capKind=p[35];
         tlm.capCount=lp_get32(&p[36]); tlm.capBytes=lp_get32(&p[40]);
         tlm.sdFreeMB=lp_get32(&p[44]); tlm.sdTotalMB=lp_get32(&p[48]);
+        tlm.gpsValid=p[52]; tlm.gpsSats=p[53];
+        tlm.latE7=lp_geti32(&p[54]); tlm.lonE7=lp_geti32(&p[58]);
+        tlm.altM=lp_geti16(&p[62]); tlm.hh=p[64]; tlm.mm=p[65]; tlm.ss=p[66];
         tlm.valid=true;
       }
       break;

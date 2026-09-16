@@ -20,7 +20,7 @@ from urllib.parse import urlparse, parse_qs
 
 # ---------------- config (env overrides) ----------------
 DEV     = os.environ.get("HUB_DEV",  "/dev/ttyS3")     # Teensy is on the Luckfox UART3 (pins per WIRING.md)
-BAUD    = int(os.environ.get("HUB_BAUD", "1000000"))   # matches LINK_BAUD in config.h
+BAUD    = int(os.environ.get("HUB_BAUD", "921600"))    # matches LINK_BAUD in config.h (bench-one proven-exact rate)
 PORT    = int(os.environ.get("HUB_PORT", "8080"))
 LOGDIR  = os.environ.get("HUB_LOGDIR", "/mnt/sdcard/lora")
 SDDEV   = os.environ.get("HUB_SDDEV", "/dev/mmcblk1p1")

@@ -1,0 +1,15 @@
+INA219 detected
+  [rb] present...
+  [rb] present OK (10 ms)
+  [rb] radio.begin(tcxo=0.0)...
+  [rb] radio.begin -> 0  (26 ms)
+  [rb] setDio2AsRfSwitch(false) -> 0
+  [rb] setCurrentLimit -> 0
+  [rb] rxBoostedGain -> 0
+  [rb] deviceErrors=0x0000 status=A2
+  [rb] READY (26 ms)
+radio init -> 0 (OK)
+SD not present -- CAPTURE/REPLAY disabled
+SD FAIL (no card / init error)  free=0MB tot=0MB  caps=0
+STATUS radio=OK osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=42.3C fan=217/255 ina=ok V=4.99 A=0.000 W=0.00
+  sd=NODET free=0MB tot=0MB

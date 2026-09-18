@@ -1,0 +1,10 @@
+{
+  "stamp": "20260913-012201",
+  "sketch": "psram_worker",
+  "git": "23981a8",
+  "git_dirty": true,
+  "seconds": 5,
+  "note": "guard test: silent foreign board must be refused",
+  "hex": "psram_worker.ino.hex",
+  "hex_bytes": 314040
+}

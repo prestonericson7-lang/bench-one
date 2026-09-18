@@ -1,0 +1,42 @@
+# opened COM41 at 2026-09-13 12:59:39
+  2.093 >> sent '?'
+  2.094 i=status m=menu 1-7=mode t=txtest f=fantest c=colortest v=flipinvert
+  4.171 >> sent 'i'
+  4.173 STATUS radio=OK osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.0C fan=0/255
+  7.079 >> sent '1'
+  7.079 -> mode 1
+  9.187 >> sent 'i'
+  9.188 STATUS radio=OK osc=XTAL mode=1 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=42.3C fan=0/255
+ 12.099 >> sent '2'
+ 12.121 -> mode 2
+ 15.209 >> sent '3'
+ 15.209 -> mode 3
+ 18.141 >> sent '4'
+ 18.141 -> mode 4
+ 20.203 >> sent 'i'
+ 20.204 STATUS radio=OK osc=XTAL mode=4 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.0C fan=0/255
+ 23.130 >> sent '5'
+ 23.130 -> mode 5
+ 26.035 >> sent 'i'
+ 26.037 STATUS radio=OK osc=XTAL mode=5 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.0C fan=0/255
+ 29.141 >> sent '6'
+ 29.274 -> mode 6
+ 31.112 >> sent 'i'
+ 31.113 STATUS radio=OK osc=XTAL mode=6 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.7C fan=0/255
+ 34.187 >> sent '7'
+ 34.187 -> mode 7
+ 36.031 >> sent 'i'
+ 36.033 STATUS radio=OK osc=XTAL mode=7 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.0C fan=0/255
+ 39.162 >> sent 't'
+ 39.313 TXTEST st=0 (OK)
+ 42.042 >> sent 'c'
+ 42.183 color test drawn -- report what each labeled bar LOOKS like
+ 45.060 >> sent 'v'
+ 45.201 invert now ON
+ 48.141 >> sent 'f'
+ 48.141 FAN TEST: full blast 3s (listen/watch for spin) then back to auto...
+ 51.141 fan test done; die temp=44.3C
+ 53.188 >> sent 'm'
+ 53.188 -> MENU
+ 56.059 >> sent 'i'
+ 56.061 STATUS radio=OK osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=43.7C fan=0/255

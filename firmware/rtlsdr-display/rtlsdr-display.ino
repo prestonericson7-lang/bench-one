@@ -23,6 +23,9 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
+#include <WiFi.h>          // ESP-NOW bridge to the S3 AMOLED watch (see bridge block below)
+#include <esp_now.h>
+#include <esp_wifi.h>
 #include "link_proto.h"
 
 // ---- identity + FFT-size bounds echoed from the Teensy engine's config.h ----
@@ -81,13 +84,18 @@ static uint32_t lastHelloMs = 0;
 // ======================================================================= screens
 enum Screen {
   SCR_MENU = 0, SCR_SPECTRUM, SCR_BANDS, SCR_SWEEP, SCR_DETECT, SCR_DEMOD,
-  SCR_CONFIG, SCR_CAPTURES, SCR_SYSTEM, SCR_SETTINGS, SCR_COUNT
+  SCR_CONFIG, SCR_CAPTURES, SCR_SYSTEM, SCR_SETTINGS, SCR_BIGTUNE, SCR_COUNT
 };
 static const char* SCREEN_NAMES[SCR_COUNT] = {
-  "MENU","SPECTRUM","BANDS","SWEEP","DETECT","DEMOD","CONFIG","CAPTURES","SYSTEM","SETTINGS"
+  "MENU","SPECTRUM","BANDS","SWEEP","DETECT","DEMOD","CONFIG","CAPTURES","SYSTEM","SETTINGS","TUNED"
 };
-static Screen scr = SCR_MENU;
+static Screen scr = SCR_SYSTEM;      // boot into a data screen; no menu/input needed
 static bool   needFull = true;
+
+// Display policy: the E32R40T needs no local input. It auto-follows the SDR mode,
+// and the watch can force a specific screen via CMD_DISP_SCREEN. dispForced < 0 = auto.
+static int    dispForced = -1;
+static void applyDisplayPolicy();
 
 // menu entries (screen id + optional mode to request)
 struct MenuItem { const char* label; Screen target; int mode; };
@@ -120,6 +128,8 @@ struct Telemetry {
   int32_t  latE7, lonE7;
   int16_t  altM;
   uint8_t  hh, mm, ss;
+  uint8_t  txActive;
+  uint16_t fanRpm;
   bool     valid;
 } tlm;
 
@@ -221,6 +231,115 @@ static void tuneToBand(int i) {
   cmdU32(CMD_SET_SR, BANDS[i].sr);
   cmdU32(CMD_SET_FREQ, BANDS[i].hz);
   cmdU8(CMD_SET_DEMOD, BANDS[i].demod);
+}
+
+// ============================================================ ESP-NOW bridge -> S3 watch
+// This board is the BRIDGE between the wired Teensy link and the wireless S3
+// AMOLED "watch". It renders the UI locally (unchanged) AND:
+//   * mirrors the Teensy's data frames (spectrum/telemetry/detections/...) up to
+//     the watch over ESP-NOW, and
+//   * relays the watch's control commands DOWN to the Teensy as ordinary
+//     DISPLAY-channel frames, so the engine never needs to know the watch exists.
+// ESP-NOW packet = [4-byte MAGIC][one lp-frame], <= 250 B. Both ends pin
+// LINK_ENOW_CHANNEL with no AP and no hopping. Broadcast peer -> no MAC pairing.
+static const uint8_t ENOW_BCAST[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+static bool       enowUp = false;
+#define WRX_SZ 2048                                  // watch->teensy byte ring (power of two)
+static volatile uint16_t wrxHead = 0, wrxTail = 0;
+static uint8_t    wrxBuf[WRX_SZ];
+static LinkParser watchParser;                       // parses relayed watch frames
+static uint8_t    enowTx[LINK_ENOW_MAX_PAY];         // [magic|lp], built in loop context only
+
+// RX callback (runs on the Wi-Fi task): validate the magic, copy the lp bytes
+// into the ring. No parsing / no LVGL / no UART here -- the loop drains it.
+static void onEnowRecv(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
+  (void)info;
+  if (len <= (int)LINK_ENOW_MAGIC_LEN) return;
+  if (data[0]!=LINK_ENOW_MAGIC0 || data[1]!=LINK_ENOW_MAGIC1 ||
+      data[2]!=LINK_ENOW_MAGIC2 || data[3]!=LINK_ENOW_MAGIC3) return;
+  for (int i=(int)LINK_ENOW_MAGIC_LEN; i<len; i++) {
+    uint16_t nh = (uint16_t)((wrxHead + 1) & (WRX_SZ - 1));
+    if (nh == wrxTail) break;                         // ring full: drop rest, loop catches up
+    wrxBuf[wrxHead] = data[i];
+    wrxHead = nh;
+  }
+}
+
+static void bridgeBegin() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();                                  // never associate to an AP (would move channel)
+  delay(100);
+  esp_wifi_set_ps(WIFI_PS_NONE);                      // no power-save: lowest latency, never sleep-miss
+  esp_wifi_set_promiscuous(false);
+  esp_wifi_set_channel(LINK_ENOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  if (esp_now_init() != ESP_OK) { Serial.println("[bridge] esp_now_init FAILED"); return; }
+  esp_now_register_recv_cb(onEnowRecv);
+  esp_now_peer_info_t peer; memset(&peer, 0, sizeof(peer));
+  memcpy(peer.peer_addr, ENOW_BCAST, 6);
+  peer.channel = 0;                                   // 0 = use the STA's current channel
+  peer.ifidx   = WIFI_IF_STA;
+  peer.encrypt = false;
+  esp_now_add_peer(&peer);
+  watchParser.reset();
+  enowUp = true;
+  Serial.printf("[bridge] ESP-NOW up on ch %u (watch link)\n", (unsigned)LINK_ENOW_CHANNEL);
+}
+
+// Forward one small data frame up to the watch (loop context only).
+static void bridgeToWatch(uint8_t msg, const uint8_t* pay, uint16_t plen) {
+  if (!enowUp) return;
+  const uint16_t maxLp = LINK_ENOW_MAX_PAY - LINK_ENOW_MAGIC_LEN;   // 246
+  if ((uint16_t)(9u + plen) > maxLp) plen = maxLp - 9u;            // clamp (spectrum handled below)
+  enowTx[0]=LINK_ENOW_MAGIC0; enowTx[1]=LINK_ENOW_MAGIC1;
+  enowTx[2]=LINK_ENOW_MAGIC2; enowTx[3]=LINK_ENOW_MAGIC3;
+  uint32_t n = lp_encode(&enowTx[LINK_ENOW_MAGIC_LEN], seq++, 0, LINK_CHAN_WATCH, msg, pay, plen);
+  esp_now_send(ENOW_BCAST, enowTx, (size_t)(LINK_ENOW_MAGIC_LEN + n));
+}
+
+// Spectrum can be up to 1024 bins -> too big for one ESP-NOW packet. Peak-hold
+// decimate to LINK_WATCH_SPEC_BINS so narrow signals survive, then forward.
+static void bridgeToWatchSpectrum(const uint8_t* p, uint16_t len) {
+  if (!enowUp || len < SPEC_HDR) return;
+  uint16_t nb = lp_get16(&p[8]);
+  uint16_t avail = (uint16_t)(len - SPEC_HDR); if (avail < nb) nb = avail;
+  uint16_t outN = nb; if (outN > LINK_WATCH_SPEC_BINS) outN = LINK_WATCH_SPEC_BINS;
+  static uint8_t sp[SPEC_HDR + LINK_WATCH_SPEC_BINS];
+  memcpy(sp, p, SPEC_HDR);
+  lp_put16(&sp[8], outN);                             // corrected bin count for the watch
+  if (outN == nb) {
+    memcpy(&sp[SPEC_HDR], &p[SPEC_HDR], outN);
+  } else {
+    for (uint16_t i=0;i<outN;i++){
+      uint32_t a=(uint32_t)i*nb/outN, b=(uint32_t)(i+1)*nb/outN;
+      if (b<=a) b=a+1; if (b>nb) b=nb;
+      uint8_t mx=0; for (uint32_t k=a;k<b;k++){ uint8_t v=p[SPEC_HDR+k]; if (v>mx) mx=v; }
+      sp[SPEC_HDR+i]=mx;
+    }
+  }
+  bridgeToWatch(MSG_SPECTRUM, sp, (uint16_t)(SPEC_HDR + outN));
+}
+
+// Drain the watch->teensy ring and relay control frames down (loop context).
+static void bridgePoll() {
+  if (!enowUp) return;
+  uint8_t oseq,oflags,ochan,omsg; const uint8_t* opay; uint16_t oplen;
+  int budget = WRX_SZ;
+  while (wrxTail != wrxHead && budget-- > 0) {
+    uint8_t c = wrxBuf[wrxTail];
+    wrxTail = (uint16_t)((wrxTail + 1) & (WRX_SZ - 1));
+    if (watchParser.feed(c, oseq, oflags, ochan, omsg, opay, oplen)) {
+      if (omsg==MSG_CMD && oplen>=1 && opay[0]==CMD_DISP_SCREEN) {
+        uint8_t s = (oplen>=2) ? opay[1] : DISP_AUTO;   // LOCAL to the E32R40T; not sent to the Teensy
+        dispForced = (s==DISP_SPECTRUM) ? SCR_SPECTRUM :
+                     (s==DISP_DETECT)   ? SCR_DETECT   :
+                     (s==DISP_TELEMETRY)? SCR_SYSTEM   :
+                     (s==DISP_BIGTUNE)  ? SCR_BIGTUNE  : -1;   // DISP_AUTO -> auto-follow
+        applyDisplayPolicy();
+      } else if (omsg==MSG_CMD || omsg==MSG_REQ || omsg==MSG_HELLO_DISP || omsg==MSG_PING) {
+        linkSend(omsg, opay, oplen);                 // re-framed to DISPLAY chan for the engine
+      }
+    }
+  }
 }
 
 // ======================================================================= palette / waterfall
@@ -482,7 +601,7 @@ static void renderSystem(bool full) {
   snprintf(b,32,"%d mA", tlm.curMa); line("Current", b, C_INK);
   snprintf(b,32,"%u.%02u W", tlm.powCw/100, tlm.powCw%100); line("Power", b, C_INK);
   snprintf(b,32,"%d.%d C", tlm.dieTenthC/10, abs(tlm.dieTenthC%10)); line("Die temp", b, tlm.dieTenthC>700?C_WARN:C_INK);
-  snprintf(b,32,"%u%%", (tlm.fanDuty*100)/255); line("Fan", b, C_INK);
+  snprintf(b,32,"%u%%  %u rpm", (tlm.fanDuty*100)/255, tlm.fanRpm); line("Fan", b, (tlm.fanDuty>100&&tlm.fanRpm==0)?C_WARN:C_INK);
   snprintf(b,32,"%s  %lu/%lu MB", tlm.sdOk?"ok":"no card",(unsigned long)tlm.sdFreeMB,(unsigned long)tlm.sdTotalMB);
   line("SD", b, tlm.sdOk?C_OK:C_WARN);
   snprintf(b,32,"fw %u.%u", fwMajor, fwMinor); line("Teensy", b, C_DIM);
@@ -571,6 +690,26 @@ static void renderSettings(bool full) {
                                : "U/D field  L/R change  BACK menu");
 }
 
+// Big, glanceable tuned-frequency readout (watch-selectable display).
+static void renderBigTune(bool full) {
+  if (full) { tft.fillScreen(C_BG); drawTopBar(); }
+  tft.fillRect(0, TOPBAR_H+1, SCR_W, FOOT_Y-(TOPBAR_H+1), C_BG);
+  char b[24];
+  snprintf(b, sizeof(b), "%.4f", tlm.tunedHz / 1e6);
+  tft.setTextColor(C_ACC, C_BG);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(2);
+  tft.drawString(b, SCR_W/2, 120, 4);           // font 4 x2 = large digits (font 7 isn't loaded)
+  tft.setTextSize(1);
+  tft.drawString("MHz", SCR_W/2, 172, 4);
+  static const char* DEMODN[] = {"off","NBFM","WBFM","AM","USB","LSB"};
+  snprintf(b, sizeof(b), "%s   %.3f MS/s", DEMODN[tlm.demod<6?tlm.demod:0], tlm.sampleRateHz/1e6);
+  tft.setTextColor(C_DIM, C_BG);
+  tft.drawString(b, SCR_W/2, 225, 2);
+  tft.setTextDatum(TL_DATUM);
+  drawFooter(tlm.txActive ? "TX ACTIVE" : "watch controls this display");
+}
+
 static void render(bool full) {
   switch(scr){
     case SCR_MENU:     renderMenu(full); break;
@@ -583,8 +722,27 @@ static void render(bool full) {
     case SCR_CAPTURES: renderCaptures(full); break;
     case SCR_SYSTEM:   renderSystem(full); break;
     case SCR_SETTINGS: renderSettings(full); break;
+    case SCR_BIGTUNE:  renderBigTune(full); break;
     default: break;
   }
+}
+
+// Decide which screen the E32R40T shows: a watch override (dispForced) wins;
+// otherwise auto-follow whatever mode the SDR engine reports in telemetry.
+static void applyDisplayPolicy() {
+  Screen want;
+  if (dispForced >= 0) {
+    want = (Screen)dispForced;
+  } else {
+    switch (tlm.mode) {
+      case LMODE_SPECTRUM:
+      case LMODE_SWEEP:
+      case LMODE_DEMOD:   want = SCR_SPECTRUM; break;
+      case LMODE_DETECT:  want = SCR_DETECT;   break;
+      default:            want = SCR_SYSTEM;   break;   // idle -> telemetry
+    }
+  }
+  if (want != scr) { scr = want; needFull = true; render(true); needFull = false; }
 }
 
 // ======================================================================= navigation
@@ -730,6 +888,7 @@ static void onFrame(uint8_t msg, const uint8_t* p, uint16_t len) {
         tlm.gpsValid=p[52]; tlm.gpsSats=p[53];
         tlm.latE7=lp_geti32(&p[54]); tlm.lonE7=lp_geti32(&p[58]);
         tlm.altM=lp_geti16(&p[62]); tlm.hh=p[64]; tlm.mm=p[65]; tlm.ss=p[66];
+        tlm.txActive=p[67]; tlm.fanRpm=lp_get16(&p[73]);
         tlm.valid=true;
       }
       break;
@@ -774,6 +933,19 @@ static void onFrame(uint8_t msg, const uint8_t* p, uint16_t len) {
       }
       break;
     case MSG_PING: { uint8_t e[4]={0,0,0,0}; for(int i=0;i<4&&i<len;i++)e[i]=p[i]; linkSend(MSG_PONG,e,4);} break;
+    default: break;
+  }
+
+  // mirror the useful frames up to the S3 AMOLED watch over ESP-NOW
+  switch (msg) {
+    case MSG_SPECTRUM:     bridgeToWatchSpectrum(p, len); break;
+    case MSG_TELEMETRY:
+    case MSG_DETECT:
+    case MSG_ACK:
+    case MSG_LOG:
+    case MSG_HELLO_TEENSY:
+    case MSG_CAP_ITEM:
+    case MSG_CAP_REC:      bridgeToWatch(msg, p, len); break;
     default: break;
   }
 }
@@ -853,6 +1025,8 @@ void setup() {
   LinkSerial.begin(LINK_BAUD, SERIAL_8N1, LINK_RX, LINK_TX);
   parser.reset();
 
+  bridgeBegin();                // bring up the ESP-NOW link to the S3 watch
+
   render(true);
   sendHelloDisp();
   sendReq(REQ_HELLO);
@@ -860,6 +1034,8 @@ void setup() {
 
 void loop() {
   linkRx();
+  bridgePoll();               // relay the watch's commands down to the Teensy
+  applyDisplayPolicy();       // auto-follow the SDR mode (or a watch-forced screen)
 
   // push a waterfall row + refresh trace when new spectrum arrived and we're on a spectrum-ish screen
   if (specNew) {
@@ -878,6 +1054,7 @@ void loop() {
     else if (scr==SCR_DETECT||scr==SCR_SWEEP){ drawTopBar(); drawHud(); renderDetList(WF_Y, WF_H); }
     else if (scr==SCR_DEMOD){ renderDemod(false); }
     else if (scr==SCR_SYSTEM){ renderSystem(false); }
+    else if (scr==SCR_BIGTUNE){ renderBigTune(false); }
     else if (scr==SCR_MENU){ drawTopBar(); }
     if (toast[0] && (now-toastMs<2600)) { /* footer shows toast via render paths */ }
   }

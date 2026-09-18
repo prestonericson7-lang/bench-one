@@ -1,0 +1,17 @@
+# opened COM41 at 2026-09-13 11:34:58
+  3.096 >> sent 't'
+  3.102 TXTEST st=-707 (SPI CMD FAILED (try TCXO flip))
+  6.188 >> sent 'i'
+  6.190 STATUS radio=OK osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=41.7C fan=0/255
+  9.103 >> sent '2'
+ 10.404 -> mode 2
+ 13.077 >> sent 'i'
+ 13.079 STATUS radio=OK osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=41.0C fan=0/255
+ 16.173 >> sent '6'
+ 16.173 -> mode 6
+ 20.081 >> sent 'i'
+ 20.083 STATUS radio=OK osc=XTAL mode=6 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=41.7C fan=0/255
+ 24.001 >> sent 't'
+ 24.007 TXTEST st=-707 (SPI CMD FAILED (try TCXO flip))
+ 27.087 >> sent 'i'
+ 27.088 STATUS radio=OK osc=XTAL mode=6 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0 temp=41.0C fan=0/255

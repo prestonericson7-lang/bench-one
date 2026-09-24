@@ -34,12 +34,12 @@ chroot "$ROOT" bash -c "echo root:$ROOTPW | chpasswd"
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' "$ROOT/etc/ssh/sshd_config"
 chroot "$ROOT" systemctl enable serial-getty@ttyPS0.service ssh >/dev/null 2>&1 || true
 echo "en_US.UTF-8 UTF-8" > "$ROOT/etc/locale.gen"; chroot "$ROOT" locale-gen >/dev/null 2>&1 || true
-mkdir -p "$ROOT/boot" "$ROOT/lib/firmware"
+mkdir -p "$ROOT/boot" "$ROOT/usr/lib/firmware"   # /lib -> usr/lib on bookworm; a real /lib dir hides the ELF loader
 # kernel modules from build_kernel.sh
-[ -f "$OUT/modules.tar.gz" ] && tar xzf "$OUT/modules.tar.gz" -C "$ROOT/"
+[ -f "$OUT/modules.tar.gz" ] && tar --keep-directory-symlink -xzf "$OUT/modules.tar.gz" -C "$ROOT/"
 # PL bitstreams the fpga_manager can load at runtime: /sys/class/fpga_manager/fpga0/firmware
 for b in "$REPO"/hardware/pz7020-starlite/fan/build/fan_top.bit "$REPO"/firmware/rtlsdr-pentest/fpga/openxc7/build/sdr_accel_zynq_top.bit; do
-  [ -f "$b" ] && python3 "$REPO/hardware/pz7020-starlite/linux/bit2bin.py" "$b" "$ROOT/lib/firmware/$(basename "${b%.bit}").bin"
+  [ -f "$b" ] && python3 "$REPO/hardware/pz7020-starlite/linux/bit2bin.py" "$b" "$ROOT/usr/lib/firmware/$(basename "${b%.bit}").bin"
 done
 rm -f "$ROOT/usr/bin/qemu-arm-static"
 du -sh "$ROOT"

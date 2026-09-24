@@ -45,6 +45,12 @@ kernel and DTB.
   [SYSTEM-INTEGRATION.md](SYSTEM-INTEGRATION.md) §4 once each finished).
 - ✅ `ps7_init` symbols present in the SPL (checked by `nm` in `build_uboot.sh`).
 - ✅ DTS compiles under both U-Boot's and Linux's dtc.
+- ✅ **QEMU dry run boots to the login prompt** (`linux/qemu_test.sh`, 2026-09-24): our DTB, the 6.12
+  kernel, the ext4 rootfs and systemd all work together; ttyPS0 is the console, root is `/dev/mmcblk0p2`.
+- ⚠️ One real bug was found and fixed by that run: GNU tar replaces the merged-usr `/lib -> usr/lib`
+  symlink with a directory when it extracts `lib/modules`, which hides `/lib/ld-linux-armhf.so.3` from
+  every binary ("No working init found"). The scripts now use `tar --keep-directory-symlink` and put
+  firmware under `usr/lib/firmware`; `linux/repair_rootfs_lib.sh` undoes the clobber on an existing tree.
 - ❌ **Not booted on the board yet** — the board was not attached. The first boot will tell whether
   the PHY needs `rgmii` instead of `rgmii-id` (change one line in the DTS if `eth0` gets no link).
 - ⚠️ The PL-side Ethernet (`eth1`) needs AMD's GMII-to-RGMII IP in the fabric — Vivado only. Not

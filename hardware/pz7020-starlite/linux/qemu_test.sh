@@ -16,6 +16,7 @@ TIMEOUT=${TIMEOUT:-180}
 
 [ -f "$IMG" ] || { echo "no SD image at $IMG (run mk_sd_image.sh)"; exit 1; }
 cp "$IMG" /root/zynq/qemu-sd.img            # QEMU writes to it; keep the master pristine
+truncate -s 2G /root/zynq/qemu-sd.img       # QEMU insists an SD card is a power-of-two size; padding past p2 is harmless
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic \
   -serial mon:stdio \
   -kernel "$OUT/zImage" -dtb "$OUT/$DT.dtb" \

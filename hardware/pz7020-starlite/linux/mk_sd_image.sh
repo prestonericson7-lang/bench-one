@@ -25,10 +25,10 @@ for f in boot.bin u-boot.img boot.scr zImage $DT.dtb; do mcopy -i "$W/p1.img" "$
 [ -f "$PL_BIT" ] && mcopy -i "$W/p1.img" "$PL_BIT" ::/pl.bit && echo "pl.bit = $PL_BIT"
 mdir -i "$W/p1.img" ::/
 # --- kernel modules into the rootfs (build_kernel.sh may have finished after build_rootfs.sh) ---
-[ -f "$OUT/modules.tar.gz" ] && tar xzf "$OUT/modules.tar.gz" -C "$ROOT/" && echo "modules: $(ls "$ROOT/lib/modules")"
-mkdir -p "$ROOT/lib/firmware"
+[ -f "$OUT/modules.tar.gz" ] && tar --keep-directory-symlink -xzf "$OUT/modules.tar.gz" -C "$ROOT/" && echo "modules: $(ls "$ROOT/lib/modules")"
+mkdir -p "$ROOT/usr/lib/firmware"   # /lib is a symlink to usr/lib (merged-usr); never create a real /lib
 for b in "$REPO"/hardware/pz7020-starlite/fan/build/fan_top.bit "$REPO"/hardware/pz7020-starlite/ps7-axi/build/pz7020_ps7_top.bit "$REPO"/firmware/rtlsdr-pentest/fpga/openxc7/build/sdr_accel_zynq_top.bit; do
-  [ -f "$b" ] && python3 "$REPO/hardware/pz7020-starlite/linux/bit2bin.py" "$b" "$ROOT/lib/firmware/$(basename "${b%.bit}").bin"
+  [ -f "$b" ] && python3 "$REPO/hardware/pz7020-starlite/linux/bit2bin.py" "$b" "$ROOT/usr/lib/firmware/$(basename "${b%.bit}").bin"
 done
 # --- the Zynq's telemetry agent (talks to the Pi hub) + its systemd unit ---
 install -D -m 0755 "$REPO/firmware/telemetry-hub/zynq_agent.py" "$ROOT/usr/local/bin/zynq_agent.py"

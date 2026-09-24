@@ -89,6 +89,7 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | Zynq ↔ Pi software link | ✅ `firmware/telemetry-hub/zynq_agent.py` (runs on the Zynq, XADC temp / PL state / memory as KEY=value on :8091) + `hub.py --zynq` TcpSource; both selftests pass, fault raised when the Zynq drops |
 | Linux for the PS, built here | ✅ 2026-09-24: kernel 6.12 `zImage` 11,846,144 B + DTB + 10 MB modules; Debian bookworm armhf rootfs 425 MB (python 3.11, ssh, agent as a systemd unit); SD image assembled by `linux/mk_sd_image.sh` — [PS-LINUX.md](PS-LINUX.md) |
 | PS ↔ PL register link | ✅ `ps7-axi/` bitstream with the PS7 placed; `pl_regs.v` verified by an AXI-Lite BFM testbench; `pl_regs.py` + agent selftests pass — [OPEN-TOOLCHAIN.md §4b](OPEN-TOOLCHAIN.md) |
+| Kernel + DTB + rootfs boot (emulated) | ✅ `linux/qemu_test.sh` on QEMU `xilinx-zynq-a9`: machine model "Puzhi PZ7020-StarLite", 512 MB, ttyPS0 console, SD p1/p2, ext4 root mounted, **systemd 252 / Debian 12 up, hostname `zynq`, login prompt reached**. Not the board: no ps7_init/DDR PHY, no real PHY, no PL |
 | Which physical header is JM1 | ❌ owner repo P-11 |
 
 ## 5. What is in the vendor bundle, and what is missing

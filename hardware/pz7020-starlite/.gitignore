@@ -1,0 +1,8 @@
+build/
+out/
+*.bit
+*.bin
+*.frames
+*.fasm
+*_routed.json
+*.vvp

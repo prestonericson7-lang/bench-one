@@ -62,8 +62,9 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
    which physical connector is JM1 (no silkscreen; the pinout sheet's square-pad rule helps).
 4. **Teensy link** — 5 wires per `sdr_accel.xdc`; LED2 lights on CS. The Teensy driver and
    the RTL were verified bit-exact in simulation; this is the first hardware run.
-5. **PS boot from SD** — PS7 from `ps7_starlite.tcl` (after the DDR chip count), FSBL,
-   U-Boot, kernel; console on the CH340 port; `eth0` up → `BOOT-SD-runbook.md`.
+5. **PS boot from SD** — no Vivado needed: U-Boot SPL carries the validated `ps7/ps7_init_gpl.c`,
+   then mainline Linux from the SD image built by `linux/` ([PS-LINUX.md](PS-LINUX.md)); console on
+   the CH340 port at 115200; `eth0` via GEM0 → `BOOT-SD-runbook.md`.
 6. **Second Ethernet** — GEM1/EMIO + GMII-to-RGMII, `phy-mode rgmii-id` first.
 7. Only then the benchmarks the owner repo lists as P-05…P-10.
 
@@ -76,12 +77,15 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | Both PHYs RTL8211F-CG, addresses 1 (PS) and 2 (PL) | ✅ DOC (schematic sheets 15/16) |
 | MIO map: QSPI 1–6, UART0 10/11, GEM0 16–27 + 52/53, USB0 28–39 + rst 46, SD0 40–45 | ✅ DOC |
 | Bank 0 = 3.3 V, bank 1 = 1.8 V (straps) | ✅ DOC (sheet 5) |
-| DRAM: one ×16 chip / 16-bit / 512 MB (schematic) **vs** 1 GB (manual table) | ⚠️ **contradiction — count the chips** |
-| DDR rail 1.35 V vs 1.5 V | ⚠️ measure TP3 |
+| DRAM: **16-bit bus, 512 MB, DDR3L** | ✅ settled 2026-09-24: the hardware-validated PetaLinux build for this board (`Hiroto-Nakano/PZ7020StarLite`) uses `16 Bit`, HIGHADDR 0x1FFFFFFF, `DDR 3 (Low Voltage)` — and records that the 1.5 V setting fails `DDR_INIT_FAIL`. Matches schematic V1.0. The manual's "1 GB" is wrong for this board |
+| DDR rail | ✅ 1.35 V (DDR3L) — see above |
+| JTAG bridge | ✅ DOC: FT232H (U17) + 93LC56B EEPROM (U18), schematic sheet 19 → USB 0403:6014, `openFPGALoader -c digilent_hs2` |
 | PL PHY RGMII delay mode | ⚠️ straps NC — determine at bring-up |
 | BANK13 (MIPI) VCCO | ⚠️ not in the manual |
-| Any throughput, timing closure, utilisation on the real chip | ❌ none — Vivado not installed |
+| Utilisation / Fmax on the real xc7z020 | ✅ **measured with the open toolchain** (nextpnr-xilinx + Project X-Ray, no Vivado): fan_top 174 LUT, Fmax 243 MHz; SDR accelerator 1,056 LUT / 445 FF / 4 DSP48 / 7 RAMB18, Fmax 82 MHz at a 50 MHz target — [OPEN-TOOLCHAIN.md](OPEN-TOOLCHAIN.md) |
 | XDC transcription: `pz7020_starlite_board.xdc` (113 PACKAGE_PIN lines) and `sdr_accel.xdc` (7) checked ball-by-ball against the vendor xlsx/manual by `tools/check_xdc.py` | ✅ all OK (2026-09-24); owner-repo `fan_jm1.xdc` balls H16/H17/R19/G14/U18 all present in the vendor tables |
+| U-Boot SPL for this board, no FSBL | ✅ built 2026-09-24: `boot.bin` 131,192 B with a valid Zynq BootROM header (XNLX magic, checksum OK), `ps7_init`/`ps7_post_config` from the validated `ps7_init_gpl.c` linked into the SPL (`nm`), `u-boot.img` 1,328,712 B, board DTB carries every node — [PS-LINUX.md](PS-LINUX.md) |
+| Zynq ↔ Pi software link | ✅ `firmware/telemetry-hub/zynq_agent.py` (runs on the Zynq, XADC temp / PL state / memory as KEY=value on :8091) + `hub.py --zynq` TcpSource; both selftests pass, fault raised when the Zynq drops |
 | Which physical header is JM1 | ❌ owner repo P-11 |
 
 ## 5. What is in the vendor bundle, and what is missing

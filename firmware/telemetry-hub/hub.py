@@ -138,6 +138,51 @@ class SerialSource(threading.Thread):
                 time.sleep(2)
 
 
+class TcpSource(threading.Thread):
+    """Reads 'KEY=value' lines from a TCP line server -- the Zynq's zynq_agent.py.
+
+    Same contract as SerialSource: connect lazily, reconnect forever, never block the hub.
+    Values arrive with the Zynq's own keys (ZYNQ_TEMP, PL_STATE, ...) and get the same
+    age/staleness treatment as everything else, so a dead Zynq shows up as stale, not frozen.
+    """
+
+    daemon = True
+
+    def __init__(self, store, host, port, name="zynq", prefix=""):
+        super().__init__()
+        self.store, self.host, self.port = store, host, int(port)
+        self.name_, self.prefix = name, prefix
+        self.stop_flag = False
+
+    def run(self):
+        import socket
+        while not self.stop_flag:
+            try:
+                with socket.create_connection((self.host, self.port), timeout=5) as s:
+                    s.settimeout(5)
+                    self.store.fault(self.name_, None)
+                    buf = b""
+                    while not self.stop_flag:
+                        chunk = s.recv(4096)
+                        if not chunk:
+                            raise ConnectionError("closed")
+                        buf += chunk
+                        while b"\n" in buf:
+                            line, buf = buf.split(b"\n", 1)
+                            line = line.decode("ascii", "replace").strip()
+                            if "=" not in line:
+                                continue
+                            k, _, v = line.partition("=")
+                            try:
+                                v2 = float(v)
+                            except ValueError:
+                                v2 = v
+                            self.store.set(self.prefix + k.strip().upper(), v2)
+            except Exception as e:       # noqa: BLE001 - a dead source must not kill the hub
+                self.store.fault(self.name_, str(e))
+                time.sleep(2)
+
+
 class DisplayWriter(threading.Thread):
     """Pushes the display keys out to the vent Teensy at a fixed rate."""
 
@@ -242,7 +287,35 @@ def selftest():
     else:
         print("   ok: fault cleared -> healthy")
 
-    print("4) snapshot shape")
+    print("4) TcpSource ingests a zynq_agent stream and reports faults when it drops")
+    import socket, socketserver
+    class H(socketserver.StreamRequestHandler):
+        def handle(self):
+            self.wfile.write(b"ZYNQ_TEMP=46.9\nPL_STATE=operating\nnot a kv line\n")
+    class S(socketserver.TCPServer):
+        allow_reuse_address = True
+    srv = S(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    src = TcpSource(st, "127.0.0.1", srv.server_address[1], name="zynq")
+    src.start()
+    t0 = time.monotonic()
+    while st.get("ZYNQ_TEMP") is None and time.monotonic() - t0 < 3:
+        time.sleep(0.02)
+    if st.get("ZYNQ_TEMP") != 46.9 or st.get("PL_STATE") != "operating":
+        print(f"   FAIL: got {st.get('ZYNQ_TEMP')} / {st.get('PL_STATE')}"); ok = False
+    else:
+        print("   ok: ZYNQ_TEMP=46.9 PL_STATE=operating ingested; malformed line ignored")
+    srv.shutdown(); srv.server_close()
+    t0 = time.monotonic()
+    while "zynq" not in st.snapshot()["faults"] and time.monotonic() - t0 < 4:
+        time.sleep(0.05)
+    if "zynq" not in st.snapshot()["faults"]:
+        print("   FAIL: no fault raised after the Zynq went away"); ok = False
+    else:
+        print(f"   ok: fault raised: {st.snapshot()['faults']['zynq']}")
+    src.stop_flag = True
+
+    print("5) snapshot shape")
     snap = st.snapshot()
     assert "values" in snap and "faults" in snap
     print(f"   ok: {len(snap['values'])} keys, json-serialisable "
@@ -257,6 +330,7 @@ def main():
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--climate", help="serial device of the ESP32 climate node")
     ap.add_argument("--display", help="serial device of the vent display Teensy")
+    ap.add_argument("--zynq", help="host:port of zynq_agent.py on the PZ7020-StarLite (default port 8091)")
     ap.add_argument("--port", type=int, default=HTTP_PORT)
     a = ap.parse_args()
 
@@ -268,6 +342,9 @@ def main():
         SerialSource(store, a.climate, 115200, "climate").start()
     if a.display:
         DisplayWriter(store, a.display).start()
+    if a.zynq:
+        h, _, p = a.zynq.partition(":")
+        TcpSource(store, h, p or 8091, "zynq").start()
 
     srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(store))
     print(f"hub: http://0.0.0.0:{a.port}/api")

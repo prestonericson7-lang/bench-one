@@ -9,7 +9,13 @@ User Manual V1.0 Parts 3.2–3.12; Micron `MT41K256M16TW-107` datasheet (all in 
 
 ---
 
-## 1. The one thing to check on the board before building the FSBL — DDR width
+## 1. DDR width — SETTLED 2026-09-24 (16-bit, 512 MB, DDR3L)
+
+> A working PetaLinux 2024.1 build for this exact board (`Hiroto-Nakano/PZ7020StarLite`, MIT; files
+> in [ps7/](ps7/)) uses **`16 Bit`, `DDR 3 (Low Voltage)`, HIGHADDR 0x1FFFFFFF = 512 MB**, and records
+> that the 1.5 V `DDR 3` setting fails with `DDR_INIT_FAIL`. That matches schematic V1.0 below and
+> makes the manual's "1 GB" wrong for this board. The physical check is no longer needed; the
+> analysis is kept for the record.
 
 | | Schematic V1.0 says | Manual table says |
 |---|---|---|
@@ -84,7 +90,13 @@ device tree, `phy-mode` to `rgmii-id` first (the PHY's TX/RX delay straps R144/R
 NC, so the delay mode is not fixed by the schematic — try `rgmii` if `rgmii-id` gives no link).
 Result: `eth0` = PS PHY, `eth1` = PL PHY, both driven by the Linux `macb` driver.
 
-## 6. Vivado on this PC
+## 6. Vivado on this PC — and why it is no longer on the critical path
+
+The PL is built with the open toolchain and the PS with U-Boot SPL + `ps7/ps7_init_gpl.c`
+([OPEN-TOOLCHAIN.md](OPEN-TOOLCHAIN.md), [PS-LINUX.md](PS-LINUX.md)). Vivado is still the only way
+to get AMD's IP (GMII-to-RGMII for `eth1`, AXI DMA) and sign-off timing.
+
+### Vivado status
 
 Not installed (searched C:, D:, P:, registry, Start Menu, PATH — 2026-09-24). Installing needs
 an AMD account to download the Unified Installer, and **C: has 43 GB free — too small**; install

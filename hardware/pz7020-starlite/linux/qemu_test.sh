@@ -20,7 +20,7 @@ truncate -s 2G /root/zynq/qemu-sd.img       # QEMU insists an SD card is a power
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic \
   -serial mon:stdio \
   -kernel "$OUT/zImage" -dtb "$OUT/$DT.dtb" \
-  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait" \
+  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0" \
   -drive file=/root/zynq/qemu-sd.img,if=sd,format=raw </dev/null >"$LOG" 2>&1
 rc=$?
 echo "qemu exit $rc (124 = timeout, expected: we never log in)"

@@ -124,7 +124,7 @@ internal, **plus 16 MB Flash + 32 MB SDRAM + EEPROM + SD** external. Board **55 
 
 ## 6. Open questions
 - [ ] Switch choice: needs to be **12 V native** (not a 5 V wall-wart unit) and tolerate the thermal range.
-- [ ] Whether the Zynq's **PL-side** GbE is usable from Linux on the PS, or needs a PL MAC design.
+- [x] The Zynq's **PL-side** GbE is a plain RGMII PHY (RTL8211F, address 2, BANK34): Linux on the PS drives it as `eth1` through GEM1-over-EMIO + the GMII-to-RGMII IP — no PL MAC. See `hardware/pz7020-starlite/PS-CONFIG.md` §5.
 - [ ] Addressing plan: static IPs vs DHCP from the Pi (static is better for a fixed fleet).
 
 ## Sources

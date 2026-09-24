@@ -97,12 +97,18 @@ around an invented limit.
 ---
 
 ## 5. What we can do now vs what's blocked
-**Blocked on the AITH Dropbox bundle** (board files):
-- Any bitstream that touches I/O — needs the `.xdc` mapping header pins to `PACKAGE_PIN`.
-- The fan PWM pin (README §5).
-- A safe FSBL — needs the board's DDR3/PS configuration.
+**The vendor bundle arrived 2026-09-24** (manual, schematic, pin/length xlsx, datasheets — the
+course-demo RAR is truncated, see SYSTEM-INTEGRATION.md §5). What it unblocked:
+- `.xdc` with every documented ball: [constraints/pz7020_starlite_board.xdc](constraints/pz7020_starlite_board.xdc);
+  the RTL-SDR accelerator's `sdr_accel.xdc` has real pins (JM1 9/11/13/15, U18, R19/V13).
+- Fan pins H16/H17 confirmed (owner repo `fan_jm1.xdc`).
+- PS7 configuration from the schematic straps and MIO map: [PS-CONFIG.md](PS-CONFIG.md) +
+  [constraints/ps7_starlite.tcl](constraints/ps7_starlite.tcl). One open physical check: DDR chip count.
 
-**Doable now, without the board or the bundle:**
+**Still blocked: Vivado is not installed on this PC** (C: too small; install to D:/P:). Nothing below
+has been synthesised; utilisation and timing remain 📐 until it is.
+
+**Doable now, without Vivado:**
 - Write and **simulate** RTL with iverilog (AEC, beamformer, FFT, timestamping).
 - Install Vivado (Zynq-7000 only, ~60 GB) so it's ready.
 - Design the block architecture: which blocks sit on GP vs HP vs ACP.
@@ -111,7 +117,7 @@ around an invented limit.
 
 ## 6. Open questions
 - [ ] Exact PS-PL port counts + widths — confirm in **UG585** (Zynq-7000 TRM).
-- [ ] Does the StarLite's PL-side GbE PHY have a usable MAC path, or is the PL-side ethernet wired for PS use?
+- [x] PL-side GbE: a plain RTL8211F RGMII PHY (address 2) on BANK34 → GEM1 over EMIO + GMII-to-RGMII IP gives Linux `eth1` (PS-CONFIG.md §5). No PL MAC needed.
 - [ ] Real DSP48 utilisation for the audio chain — settle by synthesis, replacing my 📐 estimate.
 - [ ] Achievable PL clock for the audio pipeline (affects the MAC/s headroom above).
 

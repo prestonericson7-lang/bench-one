@@ -1,155 +1,152 @@
-# PZ7020-StarLite (Puzhi) — board reference & fan wiring
+# PZ7020-StarLite (Puzhi) — board reference, pinout & fan wiring
 
-Plain-English reference for the **Puzhi PZ7020-StarLite** Zynq-7000 board, and how to
-wire a fan to it. Written so the next person doesn't have to re-derive any of this.
-
-> **Legend for every fact below**
-> - ✅ **VERIFIED** — from Puzhi's own 2025 product guide or the SoC datasheet (sourced at the bottom).
-> - ⚠️ **VERIFY ON BOARD** — likely true but must be checked against *your* board's silkscreen or the Puzhi board file before you trust it with hardware.
-> - ⛔ **NOT PUBLIC** — only in the Puzhi doc bundle that ships with the board (Google Drive/Yandex/Dropbox link from their customer service).
+Plain-English reference for the **Puzhi PZ7020-StarLite** Zynq-7000 board, its complete
+expansion-header pinout, and how to wire a fan. Sourced from the official doc bundle:
+**User Manual**, **`Puzhi PZ-StarLite Schematic.pdf`**, and the authoritative
+**`CON Pins Signal and Equal Length.xlsx`** (04.Hardware). Written so the next person
+doesn't re-derive any of it.
 
 ---
 
-## 1. What this board is
+## 1. Board at a glance
 
-| Item | Value | Status |
-|------|-------|--------|
-| Board | PZ7020-StarLite, by Puzhi (SCFPGA / PuZhi) | ✅ |
-| SoC | Xilinx **Zynq XC7Z020-CLG400** (dual Cortex-A9 @ 766 MHz PS + Artix-7 PL) | ✅ |
-| PL fabric | 85K logic cells, 53,200 LUT, 106,400 FF, **220 DSP48**, ~4.9 Mb BRAM | ✅ |
-| DDR3 (on carrier) | **1 GB** | ✅ confirmed on the physical board by the owner (PZ7020-SL-C variant; Puzhi's generic 2025 guide lists 512 MB/16-bit for the base StarLite, so this variant is upgraded) |
-| Boot / storage | 128 Mb QSPI flash, 64 Kbit E²PROM, microSD slot | ✅ |
-| Networking | **2× Gigabit Ethernet** (one PS-side, one PL-side) | ✅ |
-| Other I/O | USB 2.0 host, HDMI out, MIPI CSI (2-lane), JTAG+UART over Type-C | ✅ |
-| Power | **5 V / 1 A** via Type-C (that port is power **and** JTAG) | ✅ |
-| Controls | 2 user LEDs, 2 user KEYs, NRST, boot-mode jumper (JTAG/QSPI/SD) | ✅ |
-| Size | 90 × 60 mm | ✅ |
-| Toolchain | **AMD/Xilinx Vivado** (not the repo's yosys/nextpnr — those are iCE40/ECP5 only) | ✅ |
-
----
-
-## 2. The two 40-pin headers (JM1 / JM2)
-
-- ✅ **Both are PL-side I/O breakout.** Together they expose **64 single-ended signals (= 32 differential pairs)**, plus power and ground.
-- ✅ They are **"optional solder"** — the headers may not be populated on your board. Check; you may need to solder the 2×20 connectors on.
-- ✅ **PL bank voltage is adjustable 1.8 / 2.5 / 3.3 V, default 3.3 V.** For a fan PWM you want a pin on a bank set to **3.3 V (LVCMOS33)**.
-- ⚠️ **Power/ground pins per header:** board photos indicate each header carries **5 V, 3.3 V, and ~6 GND** among its 40 positions. Confirm exact positions on the silkscreen — do **not** assume.
-- ⛔ **Exact header-pin → FPGA-ball (`PACKAGE_PIN`) map:** not published anywhere online (searched). It is in the Puzhi doc bundle.
-
-### How to get the real pin map (do this once, then fill §5)
-1. Get the doc bundle: email **support@aithtech.com** (the address on the card shipped with this board), quote your order — they reply with a **Dropbox link + password**.
-2. In it, open the **example `.xdc` constraints file** (or the schematic). Every line like
-   `set_property PACKAGE_PIN <ball> [get_ports <net>]` maps one header net to one FPGA ball.
-3. Copy those into the table in §5. That table then *is* your pinout sheet.
+| Item | Value |
+|------|-------|
+| Board | PZ7020-StarLite (variant PZ7020-SL-C), Puzhi |
+| SoC | Xilinx **Zynq XC7Z020-CLG400** — dual Cortex-A9 PS @766 MHz + Artix-7 PL |
+| PL fabric | 85K logic cells, 53,200 LUT, 106,400 FF, **220 DSP48**, ~4.9 Mb BRAM |
+| DDR3 | Micron **MT41K256M16TW-107** (4 Gb ×16). **Schematic V1.0 shows ONE chip on a 16-bit bus = 512 MB**; the manual's table lists 1 GB for the 7020, which needs two chips / 32-bit. **Count the DRAM packages on the board** before configuring the PS — see [PS-CONFIG.md](PS-CONFIG.md) §1 |
+| Boot / storage | 128 Mb QSPI (W25Q128JV), 64 Kbit E²PROM (AT24C64, I²C BANK91), microSD (BANK501, 1.8 V) |
+| Clocks | PS 33.333 MHz (PS_REF_CLK); **PL 50 MHz single-ended = IO_12P_MRCC_34, ball `U18`** |
+| Networking | 2× Gigabit Ethernet (RTL8211FD; 1 PS-side, 1 PL-side) |
+| Video/other | HDMI out (BANK34), MIPI CSI 2-lane, USB 2.0 host (BANK501, 1.8 V) |
+| Power | **5 V / 1 A** — via Type-C **or** the 40P header 5 V pins |
+| Reset | nRST (active low) → PS `PS_POR_B (C7)` + PL `IO_L12N_MRCC_34 (U19)` |
+| LEDs | LED1 `R19`, LED2 `V13` (BANK34, high = on) |
+| KEYs | KEY1 `G14`, KEY2 `J15` (BANK35, low = pressed) |
+| Toolchain | **AMD/Xilinx Vivado** (repo's yosys/nextpnr are iCE40/ECP5 only) |
 
 ---
 
-## 3. Wiring a fan — the rules
+## 2. Serial console, boot, and the "is it alive?" test
 
-**A fan is never powered from an FPGA I/O pin.** An I/O sources only a few mA; a fan pulls 100–500 mA. The FPGA supplies only the **control** signal (and optionally reads RPM).
-
-### If it's a 4-wire (PC-style) fan — easiest, no extra parts
-The PWM pin drives a MOSFET *inside* the fan; it's a 25 kHz logic input, 5 V-spec but **3.3 V-compatible**.
-
-| Fan wire | Connect to | Notes |
-|----------|-----------|-------|
-| **+12V** (or +5V) | **12 V** external supply for a 12 V fan; header **5 V** pin only for a 5 V fan | The board has no 12 V rail |
-| **GND** | header **GND** | must share ground with the fan's supply |
-| **PWM** (control) | a **JM2 3.3 V PL I/O** | 25 kHz PWM from the FPGA; add a **10 kΩ pull-down** to GND |
-| **TACH** (sense) | a **3.3 V PL input** | open-collector; add a **4.7 kΩ pull-up to 3.3 V** to read RPM |
-
-### If it's a 2- or 3-wire fan — add one transistor
-The FPGA can't switch motor current, so use an **N-channel logic-level MOSFET** (e.g. AO3400, 2N7002 for tiny fans) low-side:
-
-```
-  +12V/+5V ──────────────┐
-                         (fan +)
-                        [ FAN ]
-                         (fan -)
-                          │
-              Drain ──────┘
-   FPGA PWM ──[100Ω]── Gate      N-ch MOSFET
-              Source ─────┐
-                          │
-   10kΩ Gate→GND         GND (shared with FPGA GND)
-```
-Fan speed = PWM duty on the gate. Keep the PWM in the low-kHz range for a bare MOSFET (a 4-wire fan wants 25 kHz; a MOSFET-switched 2-wire fan is happier at ~1–20 kHz).
+- **USB-UART = CH340E** → enumerates as a **CH340 COM port** (was COM31), *not* FT2232. Wired to the **PS side**: `UART_TX=MIO11 (C6)`, `UART_RX=MIO10 (E9)`, 3.3 V.
+- **The UART only transmits when the PS boots code.** Boot jumper on **JTAG with nothing loaded → PS halts → line is silent** (measured silent at all bauds). That is correct, not a fault. To get console output: boot from **SD** (bootable image) or **QSPI**, then read the CH340 port at **115200 8N1**.
+- **Factory self-test (zero risk):** a **LED-blink demo is pre-burned into QSPI Flash** (per `03.Boot Test/readme.txt`). Set the boot jumper to **QSPI**, power on → **the two user LEDs blink** = the board and PL are alive. This is the safe way to confirm the board works without touching anything.
 
 ---
 
-## 4. Is pin assignment "an FPGA perk"? — yes
+## 3. Expansion headers JM1 / JM2 — full pinout
 
-On a microcontroller, PWM only comes out of fixed timer pins. On the Zynq PL you write a
-small PWM generator in HDL and **bind it to any free 3.3 V-bank I/O** via the `.xdc`:
+- 40-pin, 2.54 mm, **"optional solder"** (may need the 2×20 headers soldered on).
+- Level per bank: **HR BANK, 1.8 / 2.5 / 3.3 V adjustable, default 3.3 V** (set by resistor position). → a fan PWM at **3.3 V LVCMOS33** works directly.
+- **JM1 is entirely BANK35. JM2 is mixed: pins 5–20 = BANK35, pins 21–40 = BANK34.**
+- Balls below are the FPGA `PACKAGE_PIN` (from the equal-length xlsx — authoritative).
 
+### JM1 (all BANK35)
+| Pin | Signal | Ball | | Pin | Signal | Ball |
+|:---:|:-------|:----:|-|:---:|:-------|:----:|
+| **1** | **5 V** | — | | **2** | **3.3 V** | — |
+| **3** | **GND** | — | | **4** | **GND** | — |
+| 5 | IO_13P_35 | H16 | | 6 | IO_3P_35 | E17 |
+| 7 | IO_13N_35 | H17 | | 8 | IO_3N_35 | D18 |
+| 9 | IO_5P_35 | E18 | | 10 | IO_6P_35 | F16 |
+| 11 | IO_5N_35 | E19 | | 12 | IO_6N_35 | F17 |
+| 13 | IO_16P_35 | G17 | | 14 | IO_2P_35 | B19 |
+| 15 | IO_16N_35 | G18 | | 16 | IO_2N_35 | A20 |
+| 17 | IO_4P_35 | D19 | | 18 | IO_1P_35 | C20 |
+| 19 | IO_4N_35 | D20 | | 20 | IO_1N_35 | B20 |
+| 21 | IO_14P_35 | J18 | | 22 | IO_10P_35 | K19 |
+| 23 | IO_14N_35 | H18 | | 24 | IO_10N_35 | J19 |
+| 25 | IO_12P_35 | K17 | | 26 | IO_8P_35 | M17 |
+| 27 | IO_12N_35 | K18 | | 28 | IO_8N_35 | M18 |
+| 29 | IO_11P_35 | L16 | | 30 | IO_15P_35 | F19 |
+| 31 | IO_11N_35 | L17 | | 32 | IO_15N_35 | F20 |
+| **33** | **GND** | — | | **34** | **GND** | — |
+| **35** | **GND** | — | | **36** | **GND** | — |
+| 37 | IO_7P_35 | M19 | | 38 | IO_9P_35 | L19 |
+| 39 | IO_7N_35 | M20 | | 40 | IO_9N_35 | L20 |
+
+### JM2 (pins 5–20 BANK35, pins 21–40 BANK34)
+| Pin | Signal | Ball | | Pin | Signal | Ball |
+|:---:|:-------|:----:|-|:---:|:-------|:----:|
+| **1** | **5 V** | — | | **2** | **3.3 V** | — |
+| **3** | **GND** | — | | **4** | **GND** | — |
+| 5 | IO_18P_35 | G19 | | 6 | IO_17P_35 | J20 |
+| 7 | IO_18N_35 | G20 | | 8 | IO_17N_35 | H20 |
+| 9 | IO_19P_35 | H15 | | 10 | IO_20P_35 | K14 |
+| 11 | IO_19N_35 | G15 | | 12 | IO_20N_35 | J14 |
+| 13 | IO_24P_35 | K16 | | 14 | IO_22P_35 | L14 |
+| 15 | IO_24N_35 | J16 | | 16 | IO_22N_35 | L15 |
+| 17 | IO_21P_35 | N15 | | 18 | IO_23P_35 | M14 |
+| 19 | IO_21N_35 | N16 | | 20 | IO_23N_35 | M15 |
+| 21 | IO_9P_34 | T16 | | 22 | IO_5P_34 | T14 |
+| 23 | IO_9N_34 | U17 | | 24 | IO_5N_34 | T15 |
+| 25 | IO_6P_34 | P14 | | 26 | IO_2P_34 | T12 |
+| 27 | IO_6N_34 | R14 | | 28 | IO_2N_34 | U12 |
+| 29 | IO_1P_34 | T11 | | 30 | IO_7P_34 | Y16 |
+| 31 | IO_1N_34 | T10 | | 32 | IO_7N_34 | Y17 |
+| **33** | **GND** | — | | **34** | **GND** | — |
+| **35** | **GND** | — | | **36** | **GND** | — |
+| 37 | IO_4P_34 | V12 | | 38 | IO_8P_34 | W14 |
+| 39 | IO_4N_34 | W13 | | 40 | IO_8N_34 | Y14 |
+
+*(Signal-to-ball wire lengths are in the xlsx if you ever need length-matching for high-speed diff pairs.)*
+
+---
+
+## 4. Wiring a fan — fully specified
+
+**Never power a fan from an FPGA I/O pin** — an I/O sources a few mA; a fan pulls 100–500 mA. The FPGA supplies only the control signal.
+
+### Exact connections (JM1, all confirmed from the pinout table)
+| Fan wire | JM1 pin | FPGA ball | Notes |
+|----------|:-------:|:---------:|-------|
+| **PWM** (control) | **pin 5** = IO_13P_35 | **H16** | 3.3 V LVCMOS33, 25 kHz; add 10 kΩ pull-down |
+| **TACH** (RPM) | **pin 7** = IO_13N_35 | **H17** | LVCMOS33 + internal PULLUP |
+| **+5 V** | **pin 1** (5 V) | — | 5 V fan only; a 12 V fan needs an external 12 V supply, GND common |
+| **GND** | **pin 3** (GND) | — | shared ground |
+
+- PWM (pin 5) and TACH (pin 7) are the two halves of the IO_13 pair — adjacent on the header and right next to the 5 V (pin 1) / GND (pin 3) power pins. Convenient wiring.
+- **4-wire fan:** all four wires as above, direct.
+- **2/3-wire fan:** the FPGA can't switch motor current — add an **N-channel logic-level MOSFET** (gate ← H16 via 100 Ω + 10 kΩ pull-down; drain → fan−; source → GND; fan+ → 5 V/12 V).
+
+### XDC (real balls — ready to use)
 ```tcl
-## Fan control — EXAMPLE. Replace <BALL> with the real PACKAGE_PIN from §5.
-set_property PACKAGE_PIN <BALL>   [get_ports fan_pwm]
+## Fan control — PZ7020-StarLite JM1, BANK35 @ 3.3 V
+set_property PACKAGE_PIN H16      [get_ports fan_pwm]    ;# JM1 pin 5
 set_property IOSTANDARD  LVCMOS33 [get_ports fan_pwm]
 
-set_property PACKAGE_PIN <BALL2>  [get_ports fan_tach]
+set_property PACKAGE_PIN H17      [get_ports fan_tach]   ;# JM1 pin 7
 set_property IOSTANDARD  LVCMOS33 [get_ports fan_tach]
 set_property PULLUP      true     [get_ports fan_tach]
 ```
-
-A 25 kHz PWM at, say, 100 MHz fabric clock is just a counter: period = 100e6 / 25e3 = **4000 ticks**; duty = compare value 0–4000. (Alternatively the PS can drive it via an AXI Timer / TTC through EMIO if you're running Linux on the ARM side — but a PL counter is simpler and jitter-free.)
-
-**You cannot finalize the `PACKAGE_PIN` until §5 is filled from the board file.** Everything else (the PWM logic, the IOSTANDARD, the pull-up) is ready.
+PL PWM off the 50 MHz clock (ball U18): period for 25 kHz = 50e6 / 25e3 = **2000 ticks**; duty = compare 0–2000. **Pin assignment is the FPGA perk** — bind the PWM to any free 3.3 V pin in the tables above; H16/H17 is just a clean, power-adjacent choice.
 
 ---
 
-## 5. Pinout sheet — FILL FROM THE PUZHI BOARD FILE
+## 5. FPGA + Orange Pi 4 Pro — what the Zynq adds
 
-> Leave a cell blank until you've confirmed it. Do **not** guess a ball — a wrong 5 V/GND
-> assignment kills the chip. `PACKAGE_PIN` comes from Puzhi's example `.xdc` (see §2).
+> Superseded in detail by [SYSTEM-INTEGRATION.md](SYSTEM-INTEGRATION.md) (pin-level links, bring-up order,
+> corrections) and [PS-CONFIG.md](PS-CONFIG.md) (PS7 settings from the schematic). Master constraints:
+> [constraints/pz7020_starlite_board.xdc](constraints/pz7020_starlite_board.xdc).
 
-### JM1 (⚠️ confirm this is a 3.3 V bank; if it's set to 1.8 V, don't put the fan PWM here)
-| Header pin | Function (power/GND/IO) | FPGA net name | PACKAGE_PIN | Bank V |
-|:----------:|:------------------------|:--------------|:-----------:|:------:|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| … | *(fill 1–40 from the board file)* |  |  |  |
+The Orange Pi 4 Pro (Allwinner **A733**: 2× A76 + 6× A55 + RISC-V, up to 16 GB LPDDR5,
+GPU **+ NPU**) already has strong graphics/AI, so the Zynq is **not** a "GPU." Its value is
+what a Linux SBC does badly: **real-time RF/DSP** (FFT/DDC/filter on 220 DSP48 at line rate),
+**hard-real-time & custom I/O** (ns triggers, protocol bit-bang, logic analysis), and
+**parallel bit-level compute** (the "matrix engine" role).
 
-### JM2 (target header for the fan — set/confirm 3.3 V)
-| Header pin | Function (power/GND/IO) | FPGA net name | PACKAGE_PIN | Bank V |
-|:----------:|:------------------------|:--------------|:-----------:|:------:|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| … | *(fill 1–40 from the board file)* |  |  |  |
-
-**Once filled**, pick one free 3.3 V IO for `fan_pwm` and one for `fan_tach`, drop their
-`PACKAGE_PIN`s into the §4 `.xdc` snippet, and you're done.
+**Linking them (highest → simplest BW):** M.2 PCIe 3.0 (heavy, needs a PL endpoint) →
+**Gigabit Ethernet** (pragmatic bulk path; Zynq has 2×) → **SPI/UART over JM1/JM2** (control
++ modest data) → MIPI CSI (feed processed data in as a "camera").
 
 ---
 
-## 6. FPGA + Orange Pi 4 Pro — what the Zynq actually adds
-
-The Orange Pi 4 Pro (Allwinner **A733**: 2× A76 + 6× A55 + RISC-V, up to 16 GB **LPDDR5**,
-**GPU + NPU with INT8/INT16/FP16/BF16**) already has strong graphics and AI. So the Zynq is
-**not** useful as a "GPU." Its value is the things a Linux SBC does badly:
-
-- **Real-time RF / DSP** — FFT / DDC / filtering on the 220 DSP48 slices at line rate (the SDR path).
-- **Hard-real-time & custom I/O** — nanosecond-precise triggers, protocol bit-banging, logic analysis — no OS jitter.
-- **Massively parallel bit-level compute** — the "matrix engine" role.
-
-**Linking the two (highest → simplest bandwidth):**
-| Link | On A733 | On Zynq | Notes |
-|------|---------|---------|-------|
-| M.2 PCIe 3.0 | ✅ M-key slot | needs a PL PCIe endpoint | highest BW, heavy to build |
-| Gigabit Ethernet | ✅ | ✅ (2×) | **pragmatic high-BW path**, standard sockets |
-| USB | ✅ USB 3.0 host | USB 2.0 host only | speed mismatch; awkward |
-| SPI / UART / GPIO | ✅ 40-pin header | ✅ JM1/JM2 | simplest for control + modest data (like the Teensy link) |
-| MIPI CSI | ✅ 2+4 lane in | — | feed processed data in as a "camera" |
-
-Recommended: **Ethernet** for bulk data Zynq→OPi, **SPI/UART over the headers** for control.
-
----
-
-## 7. Sources
-- Puzhi PZ7020-StarLite product page — https://www.en.puzhi.com/detail/374.html
-- Puzhi 2025 product guide (PDF, has the StarLite spec table) — https://macrogroup.ru/upload/iblock/5e3/o5hthn50zok4i0zuydafulso6pvlde0u/2025-PuZhi_web.pdf
+## 6. Sources
+- **ZYNQ7000 PZ-StarLite FPGA Board User Manual** — Parts 3.2/3.4/3.7/3.10/3.16/3.18.
+- **04.Hardware/** doc bundle: `Puzhi PZ-StarLite Schematic.pdf`, `CON Pins Signal and Equal Length.xlsx` (authoritative pinout), `03.Boot Test/readme.txt` (QSPI LED demo).
+- Component datasheets (01.Datasheet): DDR3 MT41K256M16TW-107, W25Q128JV, RTL8211FD, CH340E, AT24C64D, Xilinx 7-series UGs.
 - Orange Pi 4 Pro / Allwinner A733 — https://www.cnx-software.com/2025/10/25/35-orange-pi-4-pro-an-allwinner-a733-edge-ai-sbc-with-up-to-16gb-lpddr5-wifi-6/
-- 4-pin fan PWM is 25 kHz, logic-level, 3.3 V-compatible — https://projecthub.arduino.cc/tylerpeppy/25-khz-4-pin-pwm-fan-control-with-arduino-uno-29961e
-- 4-pin fan PWM drives an internal MOSFET — https://forum.allaboutcircuits.com/threads/understanding-pwm-on-a-4-pin-fan.185394/
 
-*Full schematic / exact pin map: doc bundle from the seller (support@aithtech.com — Dropbox link + password on request), not public.*
+*Seller doc/schematic contact: support@aithtech.com (Dropbox link + password).*

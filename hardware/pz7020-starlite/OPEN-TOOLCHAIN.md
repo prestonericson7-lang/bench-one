@@ -27,6 +27,7 @@ understands (`PACKAGE_PIN, IOSTANDARD, PULLUP/PULLDOWN, DRIVE, SLEW`); clocks ar
 |---|---|---|---|---|---|---|
 | `fan_top` (LED heartbeat + fan PWM/tach, [fan/](fan/)) | 174 / 106,400 | 71 | 0 | 0 | **242.8 MHz** | `fan/build/fan_top.bit` 4,045,675 B |
 | `sdr_accel_zynq_top` (256-pt FFT over SPI, RTL-SDR node) | 1,056 (1.0 %) | 445 | **4 / 220** | **7 / 280** | **82.4 MHz** | `openxc7/build/sdr_accel_zynq_top.bit` 4,045,734 B |
+| `pz7020_ps7_top` (**PS7 hard block + AXI4-Lite register file**: time master, LEDs, keys, fan — [ps7-axi/](ps7-axi/)) | 445 | 324 | 2 | 0 | **192.2 MHz** at a 100 MHz target (FCLK0) | `ps7-axi/build/pz7020_ps7_top.bit` 4,045,682 B; **PS7 placed 1/1** |
 
 What this settles: the SDR accelerator that was only ever simulated fits in 1 % of the fabric,
 uses 4 DSP slices, and closes at 50 MHz with 65 % margin — 📐 estimates in FPGA-CAPABILITY.md
@@ -62,6 +63,18 @@ The `.bit` files are built from exactly the RTL the testbenches verified bit-exa
 cd firmware/rtlsdr-pentest/fpga/rtl && export PATH="/d/espicpc/tools/oss-cad-suite/bin:/d/espicpc/tools/oss-cad-suite/lib:$PATH"
 for tb in tb_spi_loopback tb_sdr_accel_spi tb_sdr_fft_top tb_fft_engine tb_ddc; do iverilog -g2012 -o /tmp/$tb.vvp ../tb/$tb.v *.v && vvp /tmp/$tb.vvp | grep -E "PASS|FAIL"; done
 ```
+
+## 4b. PS ↔ PL without Vivado: the PS7 primitive
+
+`ps7-axi/pz7020_ps7_top.v` instantiates the Zynq PS as the `PS7` cell (yosys `cells_xtra.v`, 620
+ports; nextpnr-xilinx places it on the single PS7 site — wiring follows the openXC7
+`ps7-blinky-digilent-pynqz1` demo, same xc7z020clg400). FCLK0 (100 MHz from the PS PLL) clocks the
+fabric; M_AXI_GP0 is adapted to AXI4-Lite and lands on `pl_regs.v` at **0x4000_0000**: ID, 64-bit
+fabric time (coherent LO/HI read), LED/KEY, fan duty + tach, scratch, CLK_HZ. `tb_pl_regs.v` (an
+AXI-Lite master BFM) verifies every register, the carry across 32 bits, byte strobes, the PWM duty on
+the pin, the tach count and the unmapped-address response. On the board: `pl_regs.py` (over
+`/dev/mem`) and `zynq_agent.py` publish `PL_ID`, `PL_TIME`, `FAN_RPM`… to the Pi hub. AMD IP is not
+needed for any of this; it is only needed for GMII-to-RGMII (`eth1`) and DMA engines.
 
 ## 5. What the open flow does not give you
 

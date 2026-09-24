@@ -81,7 +81,33 @@ def snapshot(root="/"):
     mgr = os.path.join(root, FPGA_MGR.lstrip("/"))
     vals["PL_STATE"] = read_first(os.path.join(mgr, "state"), "absent")
     vals["PL_BIT"] = read_first(os.path.join(mgr, "firmware"), "-") or "-"
+    # the PL register file (pz7020_ps7_top): only believed when its ID answers
+    pl = _pl_regs(root)
+    if pl is not None:
+        vals["PL_ID"] = f"{pl.rd(0x00):#010x}"
+        vals["PL_TIME"] = round(pl.time_s(), 3)
+        vals["FAN_RPM"] = pl.rd(0x18)
+        vals["FAN_DUTY"] = pl.rd(0x14)
+        vals["PL_KEY"] = pl.rd(0x10)
     return vals
+
+
+_PL = {"obj": None, "tried": False}
+
+
+def _pl_regs(root):
+    """Open /dev/mem once (real board) or use an injected fake (selftest); None if not present."""
+    if root != "/":
+        return _PL["obj"]                      # selftest injects a PlRegs over a FakeWindow
+    if not _PL["tried"]:
+        _PL["tried"] = True
+        try:
+            import pl_regs
+            r = pl_regs.PlRegs.open()
+            _PL["obj"] = r if r.present() else None
+        except Exception:                      # noqa: BLE001 -- no /dev/mem rights, no bitstream: report nothing
+            _PL["obj"] = None
+    return _PL["obj"]
 
 
 def format_lines(vals):
@@ -138,10 +164,16 @@ def selftest():
     open(os.path.join(root, "proc/loadavg"), "w").write("0.42 0.30 0.20 1/80 900\n")
     open(os.path.join(root, "proc/meminfo"), "w").write("MemTotal: 500000 kB\nMemAvailable: 409600 kB\n")
 
-    print("1) readers against a fake sysfs")
+    import pl_regs as plr
+    fw = plr.FakeWindow(); fw.tick(); _PL["obj"] = plr.PlRegs(fw)
+
+    print("1) readers against a fake sysfs (+ a fake PL register window)")
     v = snapshot(root)
     want = {"ZYNQ_TEMP": 46.9, "ZYNQ_UP": 1234, "ZYNQ_LOAD": 0.42, "ZYNQ_MEM": 400,
-            "PL_STATE": "operating", "PL_BIT": "fan_top.bin"}
+            "PL_STATE": "operating", "PL_BIT": "fan_top.bin", "PL_ID": "0x5a702001",
+            "FAN_DUTY": 60, "FAN_RPM": 0, "PL_KEY": 0}
+    if not isinstance(v.get("PL_TIME"), float) or v["PL_TIME"] <= 0:
+        print(f"   FAIL PL_TIME: {v.get('PL_TIME')!r}"); ok = False
     for k, w in want.items():
         got = v.get(k)
         good = (abs(got - w) < 0.05) if isinstance(w, float) else (got == w)
@@ -172,6 +204,7 @@ def selftest():
         print(f"   FAIL: malformed lines {bad}"); ok = False
 
     print("3) missing sysfs degrades to absent values, never a crash")
+    _PL["obj"] = None
     v2 = snapshot(tempfile.mkdtemp())
     if v2.get("PL_STATE") != "absent" or "ZYNQ_TEMP" in v2:
         print(f"   FAIL: {v2}"); ok = False

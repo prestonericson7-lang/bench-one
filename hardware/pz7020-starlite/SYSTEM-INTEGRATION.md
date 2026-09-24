@@ -46,7 +46,8 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 | Audio front-end (beamform + AEC) | PL (DSP48) | mics on spare JM pairs → PL → result to PS DDR over S_AXI_HP0 → Pi over Ethernet |
 | Logging aggregation, timestamps | PL counter + PS | SPI frames stamped in fabric; PS batches to the Pi's NFS share over GEM0 |
 | Linux (control, networking, USB) | PS, SD boot | FSBL+U-Boot+kernel from microSD; console on the CH340 port at 115200 |
-| Fan | PL PWM on H16, tach H17 | owner repo `fan_pwm.v` / `fan_jm1.xdc` — coexists with the SPI pins (different JM1 pins) |
+| Fan | PL PWM on H16, tach H17 | `ps7-axi/pl_regs.v` (duty register + rpm readback from Linux) or the owner-repo `fan_top.v` — coexists with the SPI pins (different JM1 pins) |
+| Time master | PL 64-bit counter at FCLK0 | `pl_regs.v` TIME_LO/HI, read by `pl_regs.py`; published as `PL_TIME` by the agent |
 
 The Zynq's own DDR (512 MB or 1 GB — see PS-CONFIG §1) holds everything PL-side owns: audio
 history, capture staging, accelerator buffers. None of that ever lands in the Pi's 4 GB.
@@ -86,6 +87,8 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | XDC transcription: `pz7020_starlite_board.xdc` (113 PACKAGE_PIN lines) and `sdr_accel.xdc` (7) checked ball-by-ball against the vendor xlsx/manual by `tools/check_xdc.py` | ✅ all OK (2026-09-24); owner-repo `fan_jm1.xdc` balls H16/H17/R19/G14/U18 all present in the vendor tables |
 | U-Boot SPL for this board, no FSBL | ✅ built 2026-09-24: `boot.bin` 131,192 B with a valid Zynq BootROM header (XNLX magic, checksum OK), `ps7_init`/`ps7_post_config` from the validated `ps7_init_gpl.c` linked into the SPL (`nm`), `u-boot.img` 1,328,712 B, board DTB carries every node — [PS-LINUX.md](PS-LINUX.md) |
 | Zynq ↔ Pi software link | ✅ `firmware/telemetry-hub/zynq_agent.py` (runs on the Zynq, XADC temp / PL state / memory as KEY=value on :8091) + `hub.py --zynq` TcpSource; both selftests pass, fault raised when the Zynq drops |
+| Linux for the PS, built here | ✅ 2026-09-24: kernel 6.12 `zImage` 11,846,144 B + DTB + 10 MB modules; Debian bookworm armhf rootfs 425 MB (python 3.11, ssh, agent as a systemd unit); SD image assembled by `linux/mk_sd_image.sh` — [PS-LINUX.md](PS-LINUX.md) |
+| PS ↔ PL register link | ✅ `ps7-axi/` bitstream with the PS7 placed; `pl_regs.v` verified by an AXI-Lite BFM testbench; `pl_regs.py` + agent selftests pass — [OPEN-TOOLCHAIN.md §4b](OPEN-TOOLCHAIN.md) |
 | Which physical header is JM1 | ❌ owner repo P-11 |
 
 ## 5. What is in the vendor bundle, and what is missing

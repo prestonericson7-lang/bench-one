@@ -23,7 +23,9 @@ kernel and DTB.
 | Root filesystem | Debian bookworm armhf (systemd, ssh, python3 + serial/spidev, mtd/i2c/usb tools); hostname `zynq`, `root` / `zynq`, DHCP on eth0, serial getty on ttyPS0 | [`linux/build_rootfs.sh`](linux/build_rootfs.sh) |
 | Boot script | [`linux/boot.cmd`](linux/boot.cmd) → `boot.scr` | mkimage |
 | SD image | p1 FAT32 128 MiB (boot files + `pl.bit`), p2 ext4 (rootfs); assembled with mtools + `mke2fs -d`, no loop devices | [`linux/mk_sd_image.sh`](linux/mk_sd_image.sh) |
-| PL bitstreams at runtime | `/lib/firmware/fan_top.bin`, `/lib/firmware/sdr_accel_zynq_top.bin` (header-stripped by [`linux/bit2bin.py`](linux/bit2bin.py)) → `echo fan_top.bin > /sys/class/fpga_manager/fpga0/firmware` | — |
+| PL at boot | `pl.bit` on the FAT partition = `ps7-axi/pz7020_ps7_top.bit` (PS7 + register file: LED1 heartbeat, fan PWM, 64-bit time master at 0x40000000), loaded by U-Boot before Linux | [`linux/boot.cmd`](linux/boot.cmd) |
+| PL bitstreams at runtime | `/lib/firmware/{fan_top,pz7020_ps7_top,sdr_accel_zynq_top}.bin` (header-stripped by [`linux/bit2bin.py`](linux/bit2bin.py)) → `echo pz7020_ps7_top.bin > /sys/class/fpga_manager/fpga0/firmware` | — |
+| Talking to the PL from Linux | `pl_regs.py` (dump / `led` / `fan` / `time` over `/dev/mem`), `zynq_agent.py` publishes it to the Pi hub on :8091 | [`firmware/telemetry-hub/`](../../firmware/telemetry-hub/) |
 
 ## Writing and booting
 
@@ -32,8 +34,10 @@ kernel and DTB.
 2. Boot jumper J1 → **SD** (MIO[5:4] = 11). Card in the slot on the underside.
 3. Power via the **PWR+JTAG** Type-C; console on the **UART** Type-C (CH340, 115200 8N1).
 4. Expect on the console: `U-Boot SPL 2025.07` → DDR init → `U-Boot 2025.07` → `Loading PL bitstream pl.bit` → kernel → `zynq login:`. Log in `root` / `zynq`.
-5. LED1 (R19) blinks ~1 Hz the moment `pl.bit` (the fan/heartbeat design) is loaded by U-Boot —
-   before Linux even starts. `ip addr` shows `eth0` up on the PS PHY.
+5. LED1 (R19) blinks ~1 Hz the moment `pl.bit` is loaded by U-Boot — before Linux even starts.
+   `ip addr` shows `eth0` up on the PS PHY. `pl_regs.py` prints `ID 0x5a702001` and a running
+   `TIME`; `pl_regs.py led 3` lights LED2; `pl_regs.py fan 80` changes the fan.
+6. QEMU dry run of the same kernel + rootfs (not the board): [`linux/qemu_test.sh`](linux/qemu_test.sh).
 
 ## What is verified and what is not
 

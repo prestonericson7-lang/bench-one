@@ -17,15 +17,18 @@ TIMEOUT=${TIMEOUT:-180}
 [ -f "$IMG" ] || { echo "no SD image at $IMG (run mk_sd_image.sh)"; exit 1; }
 cp "$IMG" /root/zynq/qemu-sd.img            # QEMU writes to it; keep the master pristine
 truncate -s 2G /root/zynq/qemu-sd.img       # QEMU insists an SD card is a power-of-two size; padding past p2 is harmless
-timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic \
+MEM=${MEM:-1024M}                           # the board DTB describes 1 GB (32-bit DDR)
+# cpufreq.off=1: QEMU clocks the A9 at 666 MHz while the DTB pins the board's real 766 MHz operating
+# point; on the board the clock matches the table, so the board needs no such flag
+timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m "$MEM" -nographic \
   -serial mon:stdio \
   -kernel "$OUT/zImage" -dtb "$OUT/$DT.dtb" \
-  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0" \
+  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 cpufreq.off=1" \
   -drive file=/root/zynq/qemu-sd.img,if=sd,format=raw </dev/null >"$LOG" 2>&1
 rc=$?
 echo "qemu exit $rc (124 = timeout, expected: we never log in)"
 echo "---- boot log excerpts ----"
-grep -a -n -E "Booting Linux|Machine model|Memory:|mmc0|mmcblk0:|EXT4-fs \(mmcblk0p2\): mounted|systemd\[1\]|Welcome|login:|Kernel panic|VFS: Unable to mount|zynq-agent|ttyPS0" "$LOG" | head -30
+grep -a -n -E "e000c000|eth1|gmii|uio|Booting Linux|Machine model|Memory:|mmc0|mmcblk0:|EXT4-fs \(mmcblk0p2\): mounted|systemd\[1\]|Welcome|login:|Kernel panic|VFS: Unable to mount|zynq-agent|ttyPS0" "$LOG" | head -30
 if grep -a -q "login:" "$LOG"; then echo "QEMU BOOT: reached the login prompt"; exit 0; fi
 if grep -a -q "Kernel panic" "$LOG"; then echo "QEMU BOOT: kernel panic"; tail -15 "$LOG"; exit 2; fi
 echo "QEMU BOOT: no login prompt within ${TIMEOUT}s"; tail -15 "$LOG"; exit 3

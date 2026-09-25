@@ -21,7 +21,7 @@ make -s multi_v7_defconfig
 scripts/config --enable FPGA --enable FPGA_MGR_ZYNQ_FPGA --enable FPGA_REGION --enable OF_FPGA_REGION \
                --enable UIO --enable UIO_PDRV_GENIRQ \
                --enable USB_STORAGE --enable USB_SERIAL --enable USB_SERIAL_CH341 --enable USB_SERIAL_CP210X --enable USB_SERIAL_FTDI_SIO \
-               --enable USB_ACM --enable REALTEK_PHY --enable SPI_SPIDEV --enable I2C_CHARDEV --enable GPIO_SYSFS --enable GPIO_CDEV_V1 \
+               --enable USB_ACM --enable REALTEK_PHY --enable XILINX_GMII2RGMII --enable SPI_SPIDEV --enable I2C_CHARDEV --enable GPIO_SYSFS --enable GPIO_CDEV_V1 \
                --enable MTD_SPI_NOR --enable SPI_ZYNQ_QSPI --enable EXT4_FS --enable VFAT_FS --enable NLS_CODEPAGE_437 --enable NLS_ISO8859_1 \
                --enable NFS_FS --enable ROOT_NFS --enable CIFS --enable IKCONFIG --enable IKCONFIG_PROC
 make -s olddefconfig

@@ -49,7 +49,7 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 | Fan | PL PWM on H16, tach H17 | `ps7-axi/pl_regs.v` (duty register + rpm readback from Linux) or the owner-repo `fan_top.v` — coexists with the SPI pins (different JM1 pins) |
 | Time master | PL 64-bit counter at FCLK0 | `pl_regs.v` TIME_LO/HI, read by `pl_regs.py`; published as `PL_TIME` by the agent |
 
-The Zynq's own DDR (512 MB or 1 GB — see PS-CONFIG §1) holds everything PL-side owns: audio
+The Zynq's own 1 GB of DDR3 holds everything PL-side owns: audio
 history, capture staging, accelerator buffers. None of that ever lands in the Pi's 4 GB.
 
 ## 3. Bring-up order that never risks the board
@@ -78,11 +78,12 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | Both PHYs RTL8211F-CG, addresses 1 (PS) and 2 (PL) | ✅ DOC (schematic sheets 15/16) |
 | MIO map: QSPI 1–6, UART0 10/11, GEM0 16–27 + 52/53, USB0 28–39 + rst 46, SD0 40–45 | ✅ DOC |
 | Bank 0 = 3.3 V, bank 1 = 1.8 V (straps) | ✅ DOC (sheet 5) |
-| DRAM: **16-bit bus, 512 MB, DDR3L** | ✅ settled 2026-09-24: the hardware-validated PetaLinux build for this board (`Hiroto-Nakano/PZ7020StarLite`) uses `16 Bit`, HIGHADDR 0x1FFFFFFF, `DDR 3 (Low Voltage)` — and records that the 1.5 V setting fails `DDR_INIT_FAIL`. Matches schematic V1.0. The manual's "1 GB" is wrong for this board |
+| DRAM: **1 GB, 32-bit bus, DDR3L** | ✅ vendor spec + owner; configured by the Vivado PS7 (`0xF8006000 = 0x80`). The first boot ran a third-party 16-bit config (512 MB visible) — kept as the fallback set |
 | DDR rail | ✅ 1.35 V (DDR3L) — see above |
 | JTAG bridge | ✅ DOC: FT232H (U17) + 93LC56B EEPROM (U18), schematic sheet 19 → USB 0403:6014, `openFPGALoader -c digilent_hs2` |
 | PL PHY RGMII delay mode | ⚠️ straps NC — determine at bring-up |
 | BANK13 (MIPI) VCCO | ⚠️ not in the manual |
+| Vivado system design (PS7 + pl_regs + GMII-to-RGMII) | ✅ post-route: 634 LUT, 1,039 FF, WNS +0.198 ns, WHS +0.048 ns, 0 unclocked — [VIVADO.md](VIVADO.md) |
 | Utilisation / Fmax on the real xc7z020 | ✅ **measured with the open toolchain** (nextpnr-xilinx + Project X-Ray, no Vivado): fan_top 174 LUT, Fmax 243 MHz; SDR accelerator 1,056 LUT / 445 FF / 4 DSP48 / 7 RAMB18, Fmax 82 MHz at a 50 MHz target — [OPEN-TOOLCHAIN.md](OPEN-TOOLCHAIN.md) |
 | XDC transcription: `pz7020_starlite_board.xdc` (113 PACKAGE_PIN lines) and `sdr_accel.xdc` (7) checked ball-by-ball against the vendor xlsx/manual by `tools/check_xdc.py` | ✅ all OK (2026-09-24); owner-repo `fan_jm1.xdc` balls H16/H17/R19/G14/U18 all present in the vendor tables |
 | U-Boot SPL for this board, no FSBL | ✅ built 2026-09-24: `boot.bin` 131,192 B with a valid Zynq BootROM header (XNLX magic, checksum OK), `ps7_init`/`ps7_post_config` from the validated `ps7_init_gpl.c` linked into the SPL (`nm`), `u-boot.img` 1,328,712 B, board DTB carries every node — [PS-LINUX.md](PS-LINUX.md) |
@@ -109,7 +110,7 @@ in `Downloads\`. Text extractions (`manual.txt`, `schematic.txt`) sit beside the
 
 | Earlier claim | Now |
 |---|---|
-| "1 GB → 2 chips / 32-bit bus" (README §1) | Schematic shows **one chip, 16-bit, 512 MB**; 1 GB only if two chips are fitted — physical check required (PS-CONFIG §1) |
+| (earlier in this repo) "schematic shows one chip, the manual's 1 GB is wrong" | Withdrawn: that came from a shared schematic and a third-party 16-bit build. The board is 1 GB; the image now configures 32-bit |
 | "Blocked on the AITH Dropbox bundle: any bitstream touching I/O, the fan pin, a safe FSBL" (FPGA-CAPABILITY §5) | Bundle is here. Master XDC written, `sdr_accel.xdc` FILLMEs replaced with real balls, PS7 Tcl written. Remaining blocker is **Vivado itself** |
 | "Whether the PL-side GbE is usable from Linux on the PS" (interconnect.md open question) | Yes: plain RGMII PHY, address 2, GEM1-over-EMIO + GMII-to-RGMII IP |
 | RTL-SDR SPI link "on an expansion header, FILLME" | JM1 pins 9/11/13/15 = E18/E19/G17/G18, 3.3 V, no shifter |

@@ -1,0 +1,14 @@
+[Unit]
+Description=Print the board facts report on the serial console (read by the host watcher)
+After=network.target zynq-agent.service
+
+[Service]
+Type=oneshot
+# give DHCP a few seconds so the report can include the address
+ExecStartPre=/bin/sleep 8
+ExecStart=/usr/bin/python3 /usr/local/bin/zynq-report
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

@@ -18,18 +18,25 @@ cd "$SRC"
 # --- board files: ps7_init from the validated XSA, device tree from the repo ---
 # v2025.07: board/xilinx/zynq/Makefile sets hw-platform-y := $(DEVICE_TREE) -> the dir must be named exactly like the DT
 mkdir -p board/xilinx/zynq/$DT
-cp "$REPO/hardware/pz7020-starlite/ps7/ps7_init_gpl.c" "$REPO/hardware/pz7020-starlite/ps7/ps7_init_gpl.h" board/xilinx/zynq/$DT/
+# PS7_DIR: ps7-vivado (our Vivado design: 32-bit DDR / 1 GB, FCLK0 100 + FCLK1 200 MHz, GEM1 on EMIO)
+# is the default; ps7 (the third-party 16-bit / 512 MB set that booted the board first) is the fallback.
+DTS_SRC=${DTS_SRC:-$REPO/hardware/pz7020-starlite/linux/$DT.dts}   # override for the 512 MB fallback
+PS7_DIR=${PS7_DIR:-$REPO/hardware/pz7020-starlite/ps7-vivado}
+[ -f "$PS7_DIR/ps7_init_gpl.c" ] || PS7_DIR=$REPO/hardware/pz7020-starlite/ps7
+echo "ps7_init source: $PS7_DIR"
+cp "$PS7_DIR/ps7_init_gpl.c" "$PS7_DIR/ps7_init_gpl.h" board/xilinx/zynq/$DT/
+sed -i 's/\r$//' board/xilinx/zynq/$DT/ps7_init_gpl.c board/xilinx/zynq/$DT/ps7_init_gpl.h
 # Device tree placement is decided AFTER the defconfig (OF_UPSTREAM / vendor dir), see below.
 # --- how the Zynq board Makefile finds ps7_init_gpl.c: by the hw-platform name derived from the DT ---
 echo "board/xilinx/zynq/Makefile ps7_init rule:"; grep -n -E "ps7_init|hw-platform|hw_platform" board/xilinx/zynq/Makefile | head -8
 
 make -s mrproper
 make -s xilinx_zynq_virt_defconfig
-OFU=$(grep -E '^CONFIG_OF_UPSTREAM=y' .config || true); VENDOR=$(sed -n 's/^CONFIG_OF_UPSTREAM_VENDOR="\(.*\)"//p' .config)
+OFU=$(grep -E '^CONFIG_OF_UPSTREAM=y' .config || true); VENDOR=$(sed -n 's/^CONFIG_OF_UPSTREAM_VENDOR="\(.*\)"/\1/p' .config)
 echo "OF_UPSTREAM='$OFU' vendor='$VENDOR'"; sed -n '13,24p' dts/Makefile
 if [ -n "$OFU" ]; then DTDIR="dts/upstream/src/arm${VENDOR:+/$VENDOR}"; else DTDIR="arch/arm/dts"; fi
-mkdir -p "$DTDIR"; cp "$REPO/hardware/pz7020-starlite/linux/$DT.dts" "$DTDIR/"
-cp "$REPO/hardware/pz7020-starlite/linux/$DT.dts" arch/arm/dts/
+mkdir -p "$DTDIR"; cp "$DTS_SRC" "$DTDIR/$DT.dts"
+cp "$DTS_SRC" arch/arm/dts/$DT.dts
 grep -q "$DT.dtb" arch/arm/dts/Makefile || printf 'dtb-$(CONFIG_ARCH_ZYNQ) += %s.dtb
 ' "$DT" >> arch/arm/dts/Makefile
 echo "DT placed in $DTDIR"
@@ -46,9 +53,16 @@ ls -la spl/boot.bin u-boot.img u-boot.dtb
 # the SPL must carry OUR ps7_init: look for a DDR-controller register write unique to it
 arm-linux-gnueabihf-objdump -d spl/u-boot-spl | grep -c "ps7_init" || true
 nm spl/u-boot-spl | grep -E " ps7_init| ps7_post_config" || { echo "*** ps7_init symbols missing from SPL"; exit 1; }
+# the SPL device tree must carry the console and the SD controller (bootph-all), or the board is silent
+dtc -q -I dtb -O dts spl/u-boot-spl.dtb > /tmp/spl.dts
+for n in serial@e0000000 mmc@e0100000; do grep -q "$n" /tmp/spl.dts || { echo "*** SPL DTB lacks $n"; exit 1; }; done
+echo "SPL DTB: $(stat -c %s spl/u-boot-spl.dtb) bytes, has serial@e0000000 + mmc@e0100000"
+# which DDR width did the SPL get? DDRC ctrl reg 0xF8006000 bits[3:2]: 00 = 32-bit, 01 = 16-bit
+grep -o -i "EMIT_MASKWRITE(0XF8006000, 0x0001FFFFU ,0x[0-9A-F]*U)" board/xilinx/zynq/$DT/ps7_init_gpl.c | head -1   # 0x80 = 32-bit, 0x84 = 16-bit
 
 mkimage -A arm -T script -C none -d "$REPO/hardware/pz7020-starlite/linux/boot.cmd" boot.scr >/dev/null
 cp spl/boot.bin u-boot.img boot.scr "$OUT/"
-cp "$DTDIR/$DT.dtb" "$OUT/" 2>/dev/null || cp arch/arm/dts/$DT.dtb "$OUT/" 2>/dev/null || cp u-boot.dtb "$OUT/$DT.dtb"
+# out/$DT.dtb belongs to the KERNEL build (Linux boots with it); U-Boot's own DT is kept under its own name
+cp u-boot.dtb "$OUT/u-boot-$DT.dtb"
 sha256sum "$OUT"/boot.bin "$OUT"/u-boot.img "$OUT"/boot.scr | tee "$OUT/uboot.sha256"
 echo "U-BOOT DONE: $OUT"

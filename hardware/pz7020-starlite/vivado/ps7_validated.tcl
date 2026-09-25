@@ -1,0 +1,173 @@
+# ps7_validated.tcl -- generated from ps7/ps7_parameters_validated.json (the working PetaLinux build's PS7).
+# Every entry is applied with catch; Vivado rejects derived/read-only ones and the build logs them.
+set ps7_validated [list \
+  {PCW_APU_PERIPHERAL_FREQMHZ} {766.666666} \
+  {PCW_CLK0_FREQ} {100000000} \
+  {PCW_CLK1_FREQ} {10000000} \
+  {PCW_CLK2_FREQ} {10000000} \
+  {PCW_CLK3_FREQ} {10000000} \
+  {PCW_ENET0_ENET0_IO} {MIO 16 .. 27} \
+  {PCW_ENET0_GRP_MDIO_ENABLE} {1} \
+  {PCW_ENET0_GRP_MDIO_IO} {MIO 52 .. 53} \
+  {PCW_ENET0_PERIPHERAL_CLKSRC} {IO PLL} \
+  {PCW_ENET0_PERIPHERAL_ENABLE} {1} \
+  {PCW_ENET0_PERIPHERAL_FREQMHZ} {1000 Mbps} \
+  {PCW_EN_EMIO_ENET0} {0} \
+  {PCW_EN_EMIO_GPIO} {0} \
+  {PCW_EN_EMIO_UART0} {0} \
+  {PCW_EN_ENET0} {1} \
+  {PCW_EN_QSPI} {1} \
+  {PCW_EN_SDIO0} {1} \
+  {PCW_EN_UART0} {1} \
+  {PCW_EN_USB0} {1} \
+  {PCW_FPGA0_PERIPHERAL_FREQMHZ} {100} \
+  {PCW_FPGA_FCLK0_ENABLE} {1} \
+  {PCW_GPIO_EMIO_GPIO_ENABLE} {0} \
+  {PCW_MIO_10_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_10_PULLUP} {enabled} \
+  {PCW_MIO_10_SLEW} {slow} \
+  {PCW_MIO_11_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_11_PULLUP} {enabled} \
+  {PCW_MIO_11_SLEW} {slow} \
+  {PCW_MIO_16_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_16_PULLUP} {enabled} \
+  {PCW_MIO_16_SLEW} {slow} \
+  {PCW_MIO_17_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_17_PULLUP} {enabled} \
+  {PCW_MIO_17_SLEW} {slow} \
+  {PCW_MIO_18_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_18_PULLUP} {enabled} \
+  {PCW_MIO_18_SLEW} {slow} \
+  {PCW_MIO_19_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_19_PULLUP} {enabled} \
+  {PCW_MIO_19_SLEW} {slow} \
+  {PCW_MIO_1_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_1_PULLUP} {enabled} \
+  {PCW_MIO_1_SLEW} {slow} \
+  {PCW_MIO_20_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_20_PULLUP} {enabled} \
+  {PCW_MIO_20_SLEW} {slow} \
+  {PCW_MIO_21_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_21_PULLUP} {enabled} \
+  {PCW_MIO_21_SLEW} {slow} \
+  {PCW_MIO_22_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_22_PULLUP} {enabled} \
+  {PCW_MIO_22_SLEW} {slow} \
+  {PCW_MIO_23_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_23_PULLUP} {enabled} \
+  {PCW_MIO_23_SLEW} {slow} \
+  {PCW_MIO_24_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_24_PULLUP} {enabled} \
+  {PCW_MIO_24_SLEW} {slow} \
+  {PCW_MIO_25_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_25_PULLUP} {enabled} \
+  {PCW_MIO_25_SLEW} {slow} \
+  {PCW_MIO_26_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_26_PULLUP} {enabled} \
+  {PCW_MIO_26_SLEW} {slow} \
+  {PCW_MIO_27_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_27_PULLUP} {enabled} \
+  {PCW_MIO_27_SLEW} {slow} \
+  {PCW_MIO_28_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_28_PULLUP} {enabled} \
+  {PCW_MIO_28_SLEW} {slow} \
+  {PCW_MIO_29_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_29_PULLUP} {enabled} \
+  {PCW_MIO_29_SLEW} {slow} \
+  {PCW_MIO_2_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_2_SLEW} {slow} \
+  {PCW_MIO_30_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_30_PULLUP} {enabled} \
+  {PCW_MIO_30_SLEW} {slow} \
+  {PCW_MIO_31_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_31_PULLUP} {enabled} \
+  {PCW_MIO_31_SLEW} {slow} \
+  {PCW_MIO_32_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_32_PULLUP} {enabled} \
+  {PCW_MIO_32_SLEW} {slow} \
+  {PCW_MIO_33_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_33_PULLUP} {enabled} \
+  {PCW_MIO_33_SLEW} {slow} \
+  {PCW_MIO_34_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_34_PULLUP} {enabled} \
+  {PCW_MIO_34_SLEW} {slow} \
+  {PCW_MIO_35_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_35_PULLUP} {enabled} \
+  {PCW_MIO_35_SLEW} {slow} \
+  {PCW_MIO_36_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_36_PULLUP} {enabled} \
+  {PCW_MIO_36_SLEW} {slow} \
+  {PCW_MIO_37_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_37_PULLUP} {enabled} \
+  {PCW_MIO_37_SLEW} {slow} \
+  {PCW_MIO_38_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_38_PULLUP} {enabled} \
+  {PCW_MIO_38_SLEW} {slow} \
+  {PCW_MIO_39_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_39_PULLUP} {enabled} \
+  {PCW_MIO_39_SLEW} {slow} \
+  {PCW_MIO_3_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_3_SLEW} {slow} \
+  {PCW_MIO_40_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_40_PULLUP} {enabled} \
+  {PCW_MIO_40_SLEW} {slow} \
+  {PCW_MIO_41_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_41_PULLUP} {enabled} \
+  {PCW_MIO_41_SLEW} {slow} \
+  {PCW_MIO_42_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_42_PULLUP} {enabled} \
+  {PCW_MIO_42_SLEW} {slow} \
+  {PCW_MIO_43_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_43_PULLUP} {enabled} \
+  {PCW_MIO_43_SLEW} {slow} \
+  {PCW_MIO_44_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_44_PULLUP} {enabled} \
+  {PCW_MIO_44_SLEW} {slow} \
+  {PCW_MIO_45_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_45_PULLUP} {enabled} \
+  {PCW_MIO_45_SLEW} {slow} \
+  {PCW_MIO_4_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_4_SLEW} {slow} \
+  {PCW_MIO_52_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_52_PULLUP} {enabled} \
+  {PCW_MIO_52_SLEW} {slow} \
+  {PCW_MIO_53_IOTYPE} {LVCMOS 1.8V} \
+  {PCW_MIO_53_PULLUP} {enabled} \
+  {PCW_MIO_53_SLEW} {slow} \
+  {PCW_MIO_5_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_5_SLEW} {slow} \
+  {PCW_MIO_6_IOTYPE} {LVCMOS 3.3V} \
+  {PCW_MIO_6_SLEW} {slow} \
+  {PCW_MIO_TREE_PERIPHERALS} {['unassigned#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#unassigned#unassigned#unassigned#UART 0#UART 0#unassigned#unassigned#unassigned#unassigned#Enet', '0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#SD 0#SD 0#SD 0#SD 0#SD 0#SD', '0#unassigned#unassigned#unassigned#unassigned#unassigned#unassigned#Enet 0#Enet 0']} \
+  {PCW_MIO_TREE_SIGNALS} {unassigned#qspi0_ss_b#qspi0_io[0]#qspi0_io[1]#qspi0_io[2]#qspi0_io[3]/HOLD_B#qspi0_sclk#unassigned#unassigned#unassigned#rx#tx#unassigned#unassigned#unassigned#unassigned#tx_clk#txd[0]#txd[1]#txd[2]#txd[3]#tx_ctl#rx_clk#rxd[0]#rxd[1]#rxd[2]#rxd[3]#rx_ctl#data[4]#dir#stp#nxt#data[0]#data[1]#data[2]#data[3]#clk#data[5]#data[6]#data[7]#clk#cmd#data[0]#data[1]#data[2]#data[3]#unassigned#unassigned#unassigned#unassigned#unassigned#unassigned#mdc#mdio} \
+  {PCW_PRESET_BANK1_VOLTAGE} {LVCMOS 1.8V} \
+  {PCW_QSPI_GRP_FBCLK_ENABLE} {0} \
+  {PCW_QSPI_GRP_IO1_ENABLE} {0} \
+  {PCW_QSPI_GRP_SINGLE_SS_ENABLE} {1} \
+  {PCW_QSPI_GRP_SINGLE_SS_IO} {MIO 1 .. 6} \
+  {PCW_QSPI_GRP_SS1_ENABLE} {0} \
+  {PCW_QSPI_PERIPHERAL_ENABLE} {1} \
+  {PCW_QSPI_PERIPHERAL_FREQMHZ} {200} \
+  {PCW_QSPI_QSPI_IO} {MIO 1 .. 6} \
+  {PCW_SD0_GRP_CD_ENABLE} {0} \
+  {PCW_SD0_GRP_POW_ENABLE} {0} \
+  {PCW_SD0_GRP_WP_ENABLE} {0} \
+  {PCW_SD0_PERIPHERAL_ENABLE} {1} \
+  {PCW_SD0_SD0_IO} {MIO 40 .. 45} \
+  {PCW_SDIO_PERIPHERAL_FREQMHZ} {100} \
+  {PCW_SDIO_PERIPHERAL_VALID} {1} \
+  {PCW_SINGLE_QSPI_DATA_MODE} {x4} \
+  {PCW_UART0_GRP_FULL_ENABLE} {0} \
+  {PCW_UART0_PERIPHERAL_ENABLE} {1} \
+  {PCW_UART0_UART0_IO} {MIO 10 .. 11} \
+  {PCW_UART_PERIPHERAL_FREQMHZ} {100} \
+  {PCW_UART_PERIPHERAL_VALID} {1} \
+  {PCW_UIPARAM_ACT_DDR_FREQ_MHZ} {533.333374} \
+  {PCW_UIPARAM_DDR_BL} {8} \
+  {PCW_UIPARAM_DDR_BUS_WIDTH} {16 Bit} \
+  {PCW_UIPARAM_DDR_ECC} {Disabled} \
+  {PCW_UIPARAM_DDR_MEMORY_TYPE} {DDR 3 (Low Voltage)} \
+  {PCW_UIPARAM_DDR_PARTNO} {MT41K256M16 RE-125} \
+  {PCW_USB0_PERIPHERAL_ENABLE} {1} \
+  {PCW_USB0_USB0_IO} {MIO 28 .. 39} \
+]

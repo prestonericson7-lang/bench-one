@@ -17,13 +17,13 @@ kernel and DTB.
 
 | Piece | File | Script |
 |---|---|---|
-| Board device tree (U-Boot + Linux) | [`linux/zynq-pz7020-starlite.dts`](linux/zynq-pz7020-starlite.dts) — every node from the manual/schematic/validated PS7 (512 MB, uart0, gem0 PHY 1 rgmii-id, qspi W25Q128, sdhci0, usb0 host + MIO46 reset) | — |
+| Board device tree (U-Boot + Linux) | [`linux/zynq-pz7020-starlite.dts`](linux/zynq-pz7020-starlite.dts) — every node from the manual/schematic/Vivado PS7 (1 GB, uart0, gem0 PHY 1 rgmii-id, gem1 → GMII-to-RGMII@8 → PHY 2, pl_regs UIO, 766 MHz OPP, qspi W25Q128, sdhci0, usb0 host + MIO46 reset) | — |
 | SPL + U-Boot | `boot.bin`, `u-boot.img`, `boot.scr` | [`linux/build_uboot.sh`](linux/build_uboot.sh) |
 | Kernel | `zImage`, `zynq-pz7020-starlite.dtb`, `modules.tar.gz` (v6.12 multi_v7 + FPGA manager, UIO, USB serial, Realtek PHY, QSPI NOR, NFS/CIFS) | [`linux/build_kernel.sh`](linux/build_kernel.sh) |
 | Root filesystem | Debian bookworm armhf (systemd, ssh, python3 + serial/spidev, mtd/i2c/usb tools); hostname `zynq`, `root` / `zynq`, DHCP on eth0, serial getty on ttyPS0 | [`linux/build_rootfs.sh`](linux/build_rootfs.sh) |
 | Boot script | [`linux/boot.cmd`](linux/boot.cmd) → `boot.scr` | mkimage |
 | SD image | p1 FAT32 128 MiB (boot files + `pl.bit`), p2 ext4 (rootfs); assembled with mtools + `mke2fs -d`, no loop devices | [`linux/mk_sd_image.sh`](linux/mk_sd_image.sh) |
-| PL at boot | `pl.bit` on the FAT partition = `ps7-axi/pz7020_ps7_top.bit` (PS7 + register file: LED1 heartbeat, fan PWM, 64-bit time master at 0x40000000), loaded by U-Boot before Linux | [`linux/boot.cmd`](linux/boot.cmd) |
+| PL at boot | `pl.bit` on the FAT partition = `vivado/build/system.bit` (Vivado: PS7 + register file at 0x40000000 + GMII-to-RGMII for `eth1`), loaded by U-Boot before Linux | [`linux/boot.cmd`](linux/boot.cmd) |
 | PL bitstreams at runtime | `/lib/firmware/{fan_top,pz7020_ps7_top,sdr_accel_zynq_top}.bin` (header-stripped by [`linux/bit2bin.py`](linux/bit2bin.py)) → `echo pz7020_ps7_top.bin > /sys/class/fpga_manager/fpga0/firmware` | — |
 | Talking to the PL from Linux | `pl_regs.py` (dump / `led` / `fan` / `time` over `/dev/mem`), `zynq_agent.py` publishes it to the Pi hub on :8091 | [`firmware/telemetry-hub/`](../../firmware/telemetry-hub/) |
 
@@ -51,7 +51,11 @@ kernel and DTB.
   symlink with a directory when it extracts `lib/modules`, which hides `/lib/ld-linux-armhf.so.3` from
   every binary ("No working init found"). The scripts now use `tar --keep-directory-symlink` and put
   firmware under `usr/lib/firmware`; `linux/repair_rootfs_lib.sh` undoes the clobber on an existing tree.
-- ❌ **Not booted on the board yet** — the board was not attached. The first boot will tell whether
-  the PHY needs `rgmii` instead of `rgmii-id` (change one line in the DTS if `eth0` gets no link).
-- ⚠️ The PL-side Ethernet (`eth1`) needs AMD's GMII-to-RGMII IP in the fabric — Vivado only. Not
-  in this image.
+- ✅ **Booted on the board, 2026-09-24** (`linux/captures/boot-20260924-161853`): SPL → DDR up →
+  U-Boot → `pl.bit` loaded → kernel → panic in cpufreq (CPU at 766 MHz, not in the stock table). Fixed in
+  the DTS with a single 766666 kHz operating point. That run used the 16-bit / 512 MB PS config.
+- ⏳ **On the card now (2026-09-25), not yet booted:** the 1 GB set — SPL with the Vivado ps7_init
+  (32-bit DDR), 1 GB DTs, kernel with `XILINX_GMII2RGMII`, Vivado `system.bit` ([VIVADO.md](VIVADO.md)).
+  If it stops after the SPL banner, the 512 MB set in `linux/out/fallback-512MB/` is the known-good one.
+- ⏳ First boot will also tell whether `eth0` needs `rgmii` instead of `rgmii-id`, and whether the
+  2 ns TXC skew on `eth1` is right (RTL8211F strap defaults: TXDLY pull-down, RXDLY pull-up).

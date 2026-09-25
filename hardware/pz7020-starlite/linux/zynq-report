@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""
+zynq-report -- print verifiable facts about THIS board on the serial console, between
+'==== ZYNQ-REPORT BEGIN ====' and '==== ZYNQ-REPORT END ====' so a host watcher can lift it out.
+
+Runs once at boot (zynq-report.service -> console) and on demand from the shell. Every field is
+read from the running system; anything unavailable is printed as n/a with the reason, never guessed.
+"""
+import glob, mmap, os, struct, subprocess, time
+
+
+def sh(cmd):
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=20)
+        return (r.stdout or r.stderr).strip()
+    except Exception as e:
+        return f"error: {e}"
+
+
+def rd(path):
+    try:
+        with open(path) as f:
+            return f.read().replace("\x00", "").strip()
+    except Exception:
+        return None
+
+
+rows = []
+
+
+def row(k, v):
+    rows.append(f"{k:<13} {v}")
+
+
+up = (rd("/proc/uptime") or "? ").split()[0]
+row("time", f"{time.strftime('%Y-%m-%dT%H:%M:%S')}  uptime {up} s")
+row("model", rd("/proc/device-tree/model") or "n/a")
+row("kernel", sh("uname -r -m"))
+
+cpu = rd("/proc/cpuinfo") or ""
+ncpu = sum(1 for l in cpu.splitlines() if l.startswith("processor"))
+name = next((l.split(":", 1)[1].strip() for l in cpu.splitlines() if l.startswith("model name")), "n/a")
+bogo = sum(float(l.split(":", 1)[1]) for l in cpu.splitlines() if l.lower().startswith("bogomips"))
+row("cpus", f"{ncpu} x {name}   BogoMIPS total {bogo:.2f}")
+row("cpu_khz", rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq") or "n/a (no cpufreq driver)")
+
+mem = next((l.split()[1] for l in (rd("/proc/meminfo") or "").splitlines() if l.startswith("MemTotal")), "?")
+row("mem_total", f"{mem} kB  (what the device tree gives Linux -- not a probe of the chips)")
+
+# PL (fabric) configured?  DEVCFG INT_STS at 0xF800700C, bit 2 = PCFG_DONE.  A PS register: safe to read.
+pl_done = None
+try:
+    fd = os.open("/dev/mem", os.O_RDONLY | os.O_SYNC)
+    m = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ, offset=0xF8007000)
+    pl_done = bool(struct.unpack_from("<I", m, 0x0C)[0] & 0x4)
+    m.close()
+    os.close(fd)
+    row("pl_done", "yes -- fabric configured" if pl_done else "no -- PCFG_DONE not set")
+except Exception as e:
+    row("pl_done", f"n/a ({e})")
+if pl_done:
+    row("pl_regs", " | ".join(sh("python3 /usr/local/bin/pl_regs.py 2>&1").splitlines()[:6]) or "no output")
+else:
+    row("pl_regs", "skipped -- reading the PL window with no configured fabric can hang the bus")
+
+t = sorted(glob.glob("/sys/bus/iio/devices/iio:device*/in_temp0_raw"))
+if t:
+    d = os.path.dirname(t[0])
+    try:
+        raw, off, sc = float(rd(t[0])), float(rd(d + "/in_temp0_offset") or 0), float(rd(d + "/in_temp0_scale"))
+        row("die_temp_C", f"{(raw + off) * sc / 1000:.1f}  (Zynq XADC)")
+    except Exception as e:
+        row("die_temp_C", f"n/a ({e})")
+else:
+    row("die_temp_C", "n/a (no XADC iio device in this kernel/DT)")
+
+ip4 = next((w for l in sh("ip -4 -o addr show eth0").splitlines() for w in l.split() if "/" in w and "." in w), "none")
+row("eth0", f"ipv4 {ip4}   link {'up' if rd('/sys/class/net/eth0/carrier') == '1' else 'down'}   "
+            f"speed {rd('/sys/class/net/eth0/speed') or '?'} Mb/s   mac {rd('/sys/class/net/eth0/address') or '?'}")
+size = int(rd("/sys/block/mmcblk0/size") or 0) * 512
+row("sd_card", f"{rd('/sys/block/mmcblk0/device/name') or '?'}   {size / 2**30:.2f} GiB")
+row("rootfs", sh("df -h / | awk 'NR==2{print $2\" size, \"$3\" used, \"$5}'"))
+bt = sh("systemd-analyze time 2>&1 | head -1")
+row("boot_time", "still in progress at this report (see uptime)" if "not yet finished" in bt else bt)
+failed = sh("systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'").split()
+row("failed_units", " ".join(failed) if failed else "none")
+row("zynq-agent", sh("systemctl is-active zynq-agent"))
+
+print("==== ZYNQ-REPORT BEGIN ====")
+print("\n".join(rows))
+print("--- kernel err/warn (first 12) ---")
+print(sh("dmesg --level=err,warn 2>&1 | head -12") or "(none)")
+print("==== ZYNQ-REPORT END ====", flush=True)

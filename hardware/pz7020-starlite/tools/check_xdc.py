@@ -34,6 +34,8 @@ def check(xdc, m):
     for ln in open(xdc, encoding="utf-8"):
         s = ln.strip().lstrip("#").strip()
         mm = re.match(r"set_property\s+PACKAGE_PIN\s+([A-Z]\d{1,2})\s+\[get_ports\s+(\{[^}]+\}|[^\]]+)\]\s*(?:;#\s*(.*))?", s)
+        if not mm:   # the -dict form: set_property -dict {PACKAGE_PIN V20 IOSTANDARD ...} [get_ports x] ;# comment
+            mm = re.match(r"set_property\s+-dict\s+\{[^}]*?PACKAGE_PIN\s+([A-Z]\d{1,2})[^}]*\}\s+\[get_ports\s+(\{[^}]+\}|[^\]]+)\]\s*(?:;#\s*(.*))?", s)
         if not mm: continue
         n += 1
         ball, port, comment = mm.group(1), mm.group(2).strip("{} "), (mm.group(3) or "")

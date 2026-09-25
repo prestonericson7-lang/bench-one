@@ -1,0 +1,6 @@
+build/
+prj/
+.Xil/
+*.log
+*.jou
+probe_prj/

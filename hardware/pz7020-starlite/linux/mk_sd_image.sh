@@ -10,7 +10,7 @@ OUT=${OUT:-$REPO/hardware/pz7020-starlite/linux/out}
 ROOT=${ROOT:-/root/zynq/rootfs}
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
 DT=zynq-pz7020-starlite
-PL_BIT=${PL_BIT:-$REPO/hardware/pz7020-starlite/ps7-axi/build/pz7020_ps7_top.bit}   # first-boot PL: PS7 + register file (heartbeat, fan, time master)
+PL_BIT=${PL_BIT:-$REPO/hardware/pz7020-starlite/vivado/build/system.bit}   # Vivado system design: PS7 + register file + GMII-to-RGMII (eth1)
 BOOT_MB=128
 ROOT_MB=${ROOT_MB:-1536}
 
@@ -46,6 +46,14 @@ WantedBy=multi-user.target
 UNIT
 mkdir -p "$ROOT/etc/systemd/system/multi-user.target.wants"
 ln -sf /etc/systemd/system/zynq-agent.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-agent.service"
+# --- hands-off bring-up: the board prints its own facts report on the console at every boot, and the
+#     serial console logs in by itself, so a host watcher needs no typing (see watch_boot.ps1) ---
+L=$REPO/hardware/pz7020-starlite/linux
+install -D -m 0755 "$L/zynq-report" "$ROOT/usr/local/bin/zynq-report"
+install -D -m 0644 "$L/zynq-report.service" "$ROOT/etc/systemd/system/zynq-report.service"
+ln -sf /etc/systemd/system/zynq-report.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-report.service"
+install -D -m 0644 "$L/serial-autologin.conf" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
+sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-report" "$ROOT/etc/systemd/system/zynq-report.service" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
 # --- p2: ext4 populated from the rootfs tree (no mount needed) ---
 truncate -s ${ROOT_MB}M "$W/p2.img"
 mke2fs -q -t ext4 -L rootfs -d "$ROOT" "$W/p2.img"

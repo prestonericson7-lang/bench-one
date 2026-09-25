@@ -9,35 +9,20 @@ User Manual V1.0 Parts 3.2–3.12; Micron `MT41K256M16TW-107` datasheet (all in 
 
 ---
 
-## 1. DDR width — SETTLED 2026-09-24 (16-bit, 512 MB, DDR3L)
+## 1. DDR: 1 GB, 32-bit bus, DDR3L
 
-> A working PetaLinux 2024.1 build for this exact board (`Hiroto-Nakano/PZ7020StarLite`, MIT; files
-> in [ps7/](ps7/)) uses **`16 Bit`, `DDR 3 (Low Voltage)`, HIGHADDR 0x1FFFFFFF = 512 MB**, and records
-> that the 1.5 V `DDR 3` setting fails with `DDR_INIT_FAIL`. That matches schematic V1.0 below and
-> makes the manual's "1 GB" wrong for this board. The physical check is no longer needed; the
-> analysis is kept for the record.
+The PZ7020 is sold with **1 GB** (vendor spec) and the owner confirms 1 GB: two Micron
+`MT41K256M16TW-107` (4 Gb ×16 each) on the Zynq's 32-bit DDR bus. The Vivado design configures it
+that way (`vivado/build_system.tcl`: `PCW_UIPARAM_DDR_BUS_WIDTH = 32 Bit`, `DDR 3 (Low Voltage)`,
+`MT41K256M16 RE-125`, HIGHADDR 0x3FFFFFFF), and `ps7-vivado/ps7_init_gpl.c` carries it
+(`0xF8006000 = 0x80`, byte lanes 2-3 powered).
 
-| | Schematic V1.0 says | Manual table says |
-|---|---|---|
-| DRAM | **one** Micron `MT41K256M16TW-107IT` (U9, sheet 8): 4 Gb, ×16 | "DDR3: PZ7010 512 MB / PZ7020 1 GB" |
-| Bus | **16-bit** — only `PS_DDR3_DQ0..15`, `DQS0/1`, `DM0/1` are routed (sheet 7); the Zynq's `DQ16..31` balls are unconnected | — |
-| Capacity | **512 MB** | 1 GB |
+The first image that ran on the board used a third-party PS configuration set to **16-bit**
+(`ps7/`, `0xF8006000 = 0x84`): 16-bit mode drives one chip only, so it booted with 512 MB visible.
+That build's own notes say "2 chips, 32-bit total". It is kept as `linux/out/fallback-512MB/`.
 
-These cannot both be true of the same board. The Zynq-7000 DDRC has address lines A0–A14 only
-(sheet 7 stops at `PS_DDR_A14_502`), so a single ×16 chip is capped at 4 Gb = 512 MB; 1 GB needs
-**two** 4 Gb ×16 chips on a **32-bit** bus. The vendor may populate the 7020 differently from this
-schematic revision.
-
-**Physical check (10 s):** count the DRAM packages next to the Zynq (96-ball FBGA, ~8 × 13 mm,
-Micron marking `D9…` / `MT41K256M16`). One chip → 16-bit / 512 MB. Two → 32-bit / 1 GB.
-Then set `PCW_UIPARAM_DDR_BUS_WIDTH` accordingly (§3). A wrong width either fails DDR training
-in the FSBL or silently halves usable memory. ⚠️ The "1 GB" line in this repo's README and in the
-owner's board repo is unverified against the silicon; this check settles it.
-
-**DDR rail voltage:** the power sheet (2) sets one MP2143 to **1.35 V** (`VDD_1V35`, test point
-TP3) and the DDR sheets use `VDD_1V5`/`VTT_DDR3`/`VREF_DDR3` net names. The `MT41K…TW` is a DDR3L
-part (1.35 V nominal, 1.5 V tolerant). Measure TP3: 1.35 V → memory type **DDR 3 (Low Voltage)**;
-1.5 V → **DDR 3**. Either trains; the flag sets the DDR I/O drive calibration.
+**DDR rail:** the power sheet sets one MP2143 to **1.35 V** (`VDD_1V35`, TP3); the parts are DDR3L,
+and the working build records that the plain `DDR 3` (1.5 V) setting fails `DDR_INIT_FAIL`.
 
 ## 2. Boot straps and bank voltages (sheet 5) ✅ DOC
 
@@ -70,7 +55,7 @@ The PS reference clock is **33.333333 MHz** (Y1, `PS_CLK_500` ball E7) [M 3.2, s
 |---|---|---|
 | APU clock | 766.67 MHz | 7020-2 speed grade [M 2.2]; use 666.67 if the chip marking says -1 |
 | DDR part | `MT41K256M16 RE-125` (closest catalogue entry to TW-107; same 4 Gb ×16 organisation) | DDR clock 533.33 MHz (DDR3-1066, Zynq-7000 maximum); a -107/-125 part meets 1066 timing with margin |
-| DDR bus width | **16 Bit** per the schematic — change to **32 Bit** only if the physical check finds two chips | §1 |
+| DDR bus width | **32 Bit** (1 GB) | §1 |
 | DDR ECC | disabled | ×16 bus, no ECC lanes |
 | Bank 0 / bank 1 | LVCMOS 3.3 V / LVCMOS 1.8 V | sheet 5 straps |
 | FCLK_CLK0 | 100 MHz to the PL | general PL clock alongside the 50 MHz oscillator |

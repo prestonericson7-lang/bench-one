@@ -15,7 +15,7 @@ doesn't re-derive any of it.
 | Board | PZ7020-StarLite (variant PZ7020-SL-C), Puzhi |
 | SoC | Xilinx **Zynq XC7Z020-CLG400** — dual Cortex-A9 PS @766 MHz + Artix-7 PL |
 | PL fabric | 85K logic cells, 53,200 LUT, 106,400 FF, **220 DSP48**, ~4.9 Mb BRAM |
-| DDR3 | Micron **MT41K256M16TW-107** (4 Gb ×16). **Schematic V1.0 shows ONE chip on a 16-bit bus = 512 MB**; the manual's table lists 1 GB for the 7020, which needs two chips / 32-bit. **Count the DRAM packages on the board** before configuring the PS — see [PS-CONFIG.md](PS-CONFIG.md) §1 |
+| DDR3 | **1 GB**: 2× Micron **MT41K256M16TW-107** (4 Gb ×16) on a 32-bit bus, DDR3L 1.35 V — configured by the Vivado design ([VIVADO.md](VIVADO.md), [PS-CONFIG.md](PS-CONFIG.md) §1) |
 | Boot / storage | 128 Mb QSPI (W25Q128JV), 64 Kbit E²PROM (AT24C64, I²C BANK91), microSD (BANK501, 1.8 V) |
 | Clocks | PS 33.333 MHz (PS_REF_CLK); **PL 50 MHz single-ended = IO_12P_MRCC_34, ball `U18`** |
 | Networking | 2× Gigabit Ethernet (RTL8211FD; 1 PS-side, 1 PL-side) |

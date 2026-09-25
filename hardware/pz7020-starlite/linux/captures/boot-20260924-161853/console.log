@@ -1,0 +1,327 @@
+
+[watcher 16:19:41.860] listening on COM36 115200 8N1, DTR/RTS not asserted
+
+U-Boot SPL 2025.07-dirty (Sep 24 2026 - 15:53:16 -0700)
+Silicon version:	3
+Trying to boot from MMC1
+spl_load_image_fat_os: error reading image system.dtb, err - -2
+
+
+U-Boot 2025.07-dirty (Sep 24 2026 - 15:53:16 -0700)
+
+CPU:   Zynq 7z020
+Silicon: v3.1
+Model: Puzhi PZ7020-StarLite
+DRAM:  ECC disabled 512 MiB
+Core:  22 devices, 16 uclasses, devicetree: board
+Flash: 0 Bytes
+NAND:  0 MiB
+MMC:   mmc@e0100000: 0
+Loading Environment from FAT... *** Error - No Valid Environment Area found
+*** Warning - bad env area, using default environment
+
+In:    serial@e0000000
+Out:   serial@e0000000
+Err:   serial@e0000000
+Net:   
+ZYNQ GEM: e000b000, mdio bus e000b000, phyaddr 1, interface rgmii-id
+
+Warning: ethernet@e000b000 (eth0) using random MAC address - 5a:2e:cf:79:e1:75
+eth0: ethernet@e000b000
+Hit any key to stop autoboot:  2  1  0 
+switch to partitions #0, OK
+mmc0 is current device
+Scanning mmc 0:1...
+Found U-Boot script /boot.scr
+938 bytes read in 11 ms (83 KiB/s)
+## Executing script at 03000000
+4045682 bytes read in 238 ms (16.2 MiB/s)
+Loading PL bitstream pl.bit (3dbb72 bytes)
+  design filename = "build\pz7020_ps7_top.frames;Generator=xc7frames2bit"
+  part number = "xc7z020clg400-2"
+  date = "2026/09/24"
+  time = "09:19:04"
+  bytes in bitstream = 4045564
+zynq_align_dma_buffer: Align buffer at 10000076 to 10000040(swap 1)
+INFO:post config was not run, please run manually if needed
+11846144 bytes read in 665 ms (17 MiB/s)
+11371 bytes read in 12 ms (924.8 KiB/s)
+Kernel image @ 0x2000000 [ 0x000000 - 0xb4c200 ]
+## Flattened Device Tree blob at 01f00000
+   Booting using the fdt blob at 0x1f00000
+Working FDT set to 1f00000
+   Loading Device Tree to 1dabc000, end 1dac1c6a ... OK
+Working FDT set to 1dabc000
+
+Starting kernel ...
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.0-dirty (root@boobieJuicer9000) (arm-linux-gnueabihf-gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #1 SMP Thu Sep 24 02:19:12 PDT 2026
+[    0.000000] CPU: ARMv7 Processor [413fc090] revision 0 (ARMv7), cr=18c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Puzhi PZ7020-StarLite
+[    0.000000] earlycon: cdns0 at MMIO 0xe0000000 (options '115200n8')
+[    0.000000] printk: legacy bootconsole [cdns0] enabled
+[    0.000000] Memory policy: Data cache writealloc
+[    0.000000] efi: UEFI not found.
+[    0.000000] cma: Reserved 64 MiB at 0x19800000 on node -1
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000000000000-0x000000001fffffff]
+[    0.000000]   Normal   empty
+[    0.000000]   HighMem  empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001fffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001fffffff]
+[    0.000000] percpu: Embedded 17 pages/cpu s40844 r8192 d20596 u69632
+[    0.000000] Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0
+[    0.000000] Dentry cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 32768 (order: 5, 131072 bytes, linear)
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 131072
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=2, Nodes=1
+[    0.000000] trace event string verifier disabled
+[    0.000000] rcu: Hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=16 to nr_cpu_ids=2.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=2
+[    0.000000] NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+[    0.000000] slcr mapped to (ptrval)
+[    0.000000] L2C: platform modifies aux control register: 0x02060000 -> 0x02460000
+[    0.000000] L2C: DT/platform modifies aux control register: 0x02060000 -> 0x02460000
+[    0.000000] L2C-310 erratum 769419 enabled
+[    0.000000] L2C-310 enabling early BRESP for Cortex-A9
+[    0.000000] L2C-310 full line of zeros enabled for Cortex-A9
+[    0.000000] L2C-310 dynamic clock gating enabled, standby mode enabled
+[    0.000000] L2C-310 cache controller enabled, 8 ways, 512 kB
+[    0.000000] L2C-310: CACHE_ID 0x410000c8, AUX_CTRL 0x46460001
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] zynq_clock_init: clkc starts at (ptrval)
+[    0.000000] Zynq clock init
+[    0.000002] sched_clock: 64 bits at 192MHz, resolution 5ns, wraps every 4398046511102ns
+[    0.002640] clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x2c3446b224, max_idle_ns: 440795204367 ns
+[    0.013700] Switching to timer-based delay loop, resolution 5ns
+[    0.020471] Console: colour dummy device 80x30
+[    0.024081] Calibrating delay loop (skipped), value calculated using timer frequency.. 383.33 BogoMIPS (lpj=1916666)
+[    0.034595] CPU: Testing write buffer coherency: ok
+[    0.039436] CPU0: Spectre v2: using BPIALL workaround
+[    0.044493] pid_max: default: 32768 minimum: 301
+[    0.049216] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.056415] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.064935] CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.129864] Setting up static identity map for 0x300000 - 0x3000ac
+[    0.131032] rcu: Hierarchical SRCU implementation.
+[    0.135197] rcu: 	Max phase no-delay instances is 1000.
+[    0.140764] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.149629] EFI services will not be available.
+[    0.153283] smp: Bringing up secondary CPUs ...
+[    0.158405] CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+[    0.158428] CPU1: Spectre v2: using BPIALL workaround
+[    0.168429] smp: Brought up 1 node, 2 CPUs
+[    0.172366] SMP: Total of 2 processors activated (766.66 BogoMIPS).
+[    0.178612] CPU: All CPU(s) started in SVC mode.
+[    0.183662] Memory: 421944K/524288K available (16384K kernel code, 2610K rwdata, 7108K rodata, 2048K init, 432K bss, 35020K reserved, 65536K cma-reserved, 0K highmem)
+[    0.198608] devtmpfs: initialized
+[    0.204626] VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+[    0.209264] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[    0.218945] futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+[    0.228929] pinctrl core: initialized pinctrl subsystem
+[    0.232729] DMI not present or invalid.
+[    0.235416] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.243580] DMA: preallocated 256 KiB pool for atomic coherent allocations
+[    0.249527] thermal_sys: Registered thermal governor 'step_wise'
+[    0.249609] cpuidle: using governor menu
+[    0.260996] platform axi: Fixed dependency cycle(s) with /axi/interrupt-controller@f8f01000
+[    0.271055] platform replicator: Fixed dependency cycle(s) with /axi/etb@f8801000
+[    0.273341] amba f8801000.etb: Fixed dependency cycle(s) with /replicator
+[    0.280294] platform replicator: Fixed dependency cycle(s) with /axi/tpiu@f8803000
+[    0.287690] amba f8803000.tpiu: Fixed dependency cycle(s) with /replicator
+[    0.294743] platform replicator: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.302323] amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889d000
+[    0.309825] amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889c000
+[    0.317380] amba f8804000.funnel: Fixed dependency cycle(s) with /replicator
+[    0.324649] amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889c000
+[    0.332095] amba f889c000.ptm: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.339777] amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889d000
+[    0.347204] amba f889d000.ptm: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.355199] No ATAGs?
+[    0.357069] hw-breakpoint: found 5 (+1 reserved) breakpoint and 1 watchpoint registers.
+[    0.364984] hw-breakpoint: maximum watchpoint size is 4 bytes.
+[    0.374423] Serial: AMBA PL011 UART driver
+[    0.375612] e0000000.serial: ttyPS0 at MMIO 0xe0000000 (irq = 26, base_baud = 6249999) is a xuartps
+[    0.389632] printk: legacy console [ttyPS0] enabled
+[    0.389632] printk: legacy console [ttyPS0] enabled
+[    0.394557] printk: legacy bootconsole [cdns0] disabled
+[    0.394557] printk: legacy bootconsole [cdns0] disabled
+[    0.411383] iommu: Default domain type: Translated
+[    0.416181] iommu: DMA domain TLB invalidation policy: strict mode
+[    0.423580] SCSI subsystem initialized
+[    0.439117] usbcore: registered new interface driver usbfs
+[    0.444649] usbcore: registered new interface driver hub
+[    0.450032] usbcore: registered new device driver usb
+[    0.456083] pps_core: LinuxPPS API ver. 1 registered
+[    0.461068] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.470222] PTP clock support registered
+[    0.474270] EDAC MC: Ver: 3.0.0
+[    0.477889] scmi_core: SCMI protocol bus registered
+[    0.483708] FPGA manager framework
+[    0.488612] vgaarb: loaded
+[    0.491777] clocksource: Switched to clocksource arm_global_timer
+[    0.518443] NET: Registered PF_INET protocol family
+[    0.523521] IP idents hash table entries: 8192 (order: 4, 65536 bytes, linear)
+[    0.531899] tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+[    0.540305] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.548052] TCP established hash table entries: 4096 (order: 2, 16384 bytes, linear)
+[    0.555839] TCP bind hash table entries: 4096 (order: 4, 65536 bytes, linear)
+[    0.563098] TCP: Hash tables configured (established 4096 bind 4096)
+[    0.569532] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.576081] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.583209] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.589650] RPC: Registered named UNIX socket transport module.
+[    0.595571] RPC: Registered udp transport module.
+[    0.600294] RPC: Registered tcp transport module.
+[    0.604988] RPC: Registered tcp-with-tls transport module.
+[    0.610489] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.616931] PCI: CLS 0 bytes, default 64
+[    0.622100] Initialise system trusted keyrings
+[    0.627187] workingset: timestamp_bits=30 max_order=17 bucket_order=0
+[    0.634035] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.640272] NFS: Registering the id_resolver key type
+[    0.645375] Key type id_resolver registered
+[    0.649575] Key type id_legacy registered
+[    0.653605] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    0.660325] nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[    0.668935] Key type cifs.idmap registered
+[    0.673407] Key type asymmetric registered
+[    0.677502] Asymmetric key parser 'x509' registered
+[    0.682509] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 245)
+[    0.689920] io scheduler mq-deadline registered
+[    0.694445] io scheduler kyber registered
+[    0.698484] io scheduler bfq registered
+[    0.714354] zynq-pinctrl 700.pinctrl: zynq pinctrl initialized
+[    0.731971] ledtrig-cpu: registered to indicate activity on CPUs
+[    0.759300] dma-pl330 f8003000.dma-controller: Loaded driver for PL330 DMAC-241330
+[    0.766897] dma-pl330 f8003000.dma-controller: 	DBUFF-128x8bytes Num_Chans-8 Num_Peri-4 Num_Events-16
+[    0.843663] Serial: 8250/16550 driver, 5 ports, IRQ sharing enabled
+[    0.854886] msm_serial: driver initialized
+[    0.859304] SuperH (H)SCI(F) driver initialized
+[    0.864021] STMicroelectronics ASC driver initialized
+[    0.869216] STM32 USART driver initialized
+[    0.888713] brd: module loaded
+[    0.897913] loop: module loaded
+[    0.918636] 4 fixed-partitions partitions found on MTD device spi0.0
+[    0.925020] Creating 4 MTD partitions on "spi0.0":
+[    0.929834] 0x000000000000-0x000000500000 : "boot"
+[    0.936094] 0x000000500000-0x000000520000 : "env"
+[    0.942187] 0x000000520000-0x000000f20000 : "kernel"
+[    0.948538] 0x000000f20000-0x000001000000 : "spare"
+[    0.959571] CAN device driver interface
+[    1.239006] macb e000b000.ethernet eth0: Cadence GEM rev 0x00020118 at 0xe000b000 irq 38 (5a:2e:cf:79:e1:75)
+[    1.249316] bgmac_bcma: Broadcom 47xx GBit MAC driver loaded
+[    1.255848] e1000e: Intel(R) PRO/1000 Network Driver
+[    1.260833] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+[    1.266782] igb: Intel(R) Gigabit Ethernet Network Driver
+[    1.272203] igb: Copyright (c) 2007-2014 Intel Corporation.
+[    1.281330] pegasus: Pegasus/Pegasus II USB Ethernet driver
+[    1.286934] usbcore: registered new interface driver pegasus
+[    1.292642] usbcore: registered new interface driver asix
+[    1.298076] usbcore: registered new interface driver ax88179_178a
+[    1.304211] usbcore: registered new interface driver cdc_ether
+[    1.310080] usbcore: registered new interface driver smsc75xx
+[    1.315848] usbcore: registered new interface driver smsc95xx
+[    1.321623] usbcore: registered new interface driver net1080
+[    1.327310] usbcore: registered new interface driver cdc_subset
+[    1.333278] usbcore: registered new interface driver zaurus
+[    1.338890] usbcore: registered new interface driver cdc_ncm
+[    1.347972] usbcore: registered new interface driver cdc_acm
+[    1.353677] cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+[    1.361724] usbcore: registered new interface driver usb-storage
+[    1.367805] usbcore: registered new interface driver ch341
+[    1.373352] usbserial: USB Serial support registered for ch341-uart
+[    1.379661] usbcore: registered new interface driver cp210x
+[    1.385250] usbserial: USB Serial support registered for cp210x
+[    1.391217] usbcore: registered new interface driver ftdi_sio
+[    1.396985] usbserial: USB Serial support registered for FTDI USB Serial Device
+[    1.422514] i2c_dev: i2c /dev entries driver
+[    1.437813] cpu cpu0: _opp_config_clk_single: failed to set clock rate: -16
+[    1.444820] cpufreq: __target_index: Failed to change cpu frequency: -16
+[    1.451621] ------------[ cut here ]------------
+[    1.456235] kernel BUG at drivers/cpufreq/cpufreq.c:1522!
+[    1.461625] Internal error: Oops - BUG: 0 [#1] SMP ARM
+[    1.466756] Modules linked in:
+[    1.469814] CPU: 1 UID: 0 PID: 1 Comm: swapper/0 Not tainted 6.12.0-dirty #1
+[    1.476859] Hardware name: Xilinx Zynq Platform
+[    1.481381] PC is at cpufreq_online+0x8fc/0xa28
+[    1.485920] LR is at __wake_up+0x48/0x54
+[    1.489844] pc : [<c0f911ac>]    lr : [<c0395b78>]    psr: a0000013
+[    1.496102] sp : e0815d30  ip : 00000000  fp : c2688404
+[    1.501318] r10: 00000000  r9 : c2688520  r8 : c1d05464
+[    1.506535] r7 : c1fe2a2c  r6 : 000bb2ca  r5 : 00000000  r4 : c2688400
+[    1.513054] r3 : 00000000  r2 : 00000000  r1 : 60000013  r0 : fffffff0
+[    1.519573] Flags: NzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
+[    1.526701] Control: 18c5387d  Table: 0020404a  DAC: 00000051
+[    1.532436] Register r0 information: non-paged memory
+[    1.537488] Register r1 information: non-paged memory
+[    1.542531] Register r2 information: NULL pointer
+[    1.547227] Register r3 information: NULL pointer
+[    1.551923] Register r4 information: slab kmalloc-512 start c2688400 pointer offset 0 size 512
+[    1.560551] Register r5 information: NULL pointer
+[    1.565247] Register r6 information: non-paged memory
+[    1.570290] Register r7 information: non-slab/vmalloc memory
+[    1.575940] Register r8 information: non-slab/vmalloc memory
+[    1.581591] Register r9 information: slab kmalloc-512 start c2688400 pointer offset 288 size 512
+[    1.590393] Register r10 information: NULL pointer
+[    1.595175] Register r11 information: slab kmalloc-512 start c2688400 pointer offset 4 size 512
+[    1.603890] Register r12 information: NULL pointer
+[    1.608673] Process swapper/0 (pid: 1, stack limit = 0x(ptrval))
+[    1.614671] Stack: (0xe0815d30 to 0xe0816000)
+[    1.619022] 5d20:                                     00000000 00000001 00000001 00000000
+[    1.627192] 5d40: c1fe2a2c c1933784 c0f864fc dfbb27d0 c208ef40 00000000 dfbb27d0 c1f3fdc8
+[    1.635369] 5d60: c26c0048 c19773cc 00000000 c0f91390 c1f3fac4 c208ef40 c208ef00 dfbb27d0
+[    1.643545] 5d80: c1f3fdc8 c0bd097c c208ef58 c2137e34 00000000 4850a7a8 c1f3fe38 c1fe2a2c
+[    1.651722] 5da0: c1f3f978 c0f8e8f0 dfbb27d0 c1f3fdc8 00000010 c1f3fe30 c26c0040 c0f93f68
+[    1.659898] 5dc0: c26bf3c8 00000001 c20af000 00000000 c18b52e4 00000000 00000000 00000000
+[    1.668066] 5de0: 00000000 00000000 00000000 e0815dfc 00000000 00000000 00000000 00000000
+[    1.676234] 5e00: 00000000 4850a7a8 c26bcf80 00000000 c20af010 c1f3fddc 00000000 c26bcfb8
+[    1.684402] 5e20: c1bd2854 c19752a0 c19eebf8 c0bd49a4 c20af010 00000000 c1f3fddc c0bd202c
+[    1.692570] 5e40: c20af010 c1f3fddc c20af010 00000000 c26bcfb8 c0bd22b4 00000000 c26bcf80
+[    1.700747] 5e60: c1fdf970 c1f3fddc c20af010 00000000 c26bcfb8 c0bd2490 c20af010 c1f3fddc
+[    1.708923] 5e80: c20af054 c2094300 c26bcfb8 c0bd26fc 00000000 c1f3fddc c0bd266c c0bd02cc
+[    1.717100] 5ea0: c2094300 c2094358 c21afd34 4850a7a8 c21a8a00 c1f3fddc c26bcf80 00000000
+[    1.725267] 5ec0: c2094300 c0bd137c c1933d44 00000000 c1f3fddc c1b96ee0 c21a8a00 c20f8000
+[    1.733435] 5ee0: 00000000 c0bd35a8 c1f79900 c1b96ee0 c21a8a00 c030240c c21a8a36 00000000
+[    1.741603] 5f00: c21a8a35 c0366e00 0000001a c191ff4c 0000019d 00000000 00000000 c1b004d0
+[    1.749780] 5f20: 00000006 00000006 c2001200 c21a8a3f c21a8a4b 4850a7a8 c1d8820c 0000019d
+[    1.757948] 5f40: 00000007 4850a7a8 c1c5d6f8 00000007 c21a8a00 c1bd2834 0000019d c1b01390
+[    1.766124] 5f60: 00000006 00000006 00000000 c1b004d0 e0815f6c c1b004d0 00000000 c1d05000
+[    1.774292] 5f80: c12ca190 00000000 00000000 00000000 00000000 00000000 00000000 c12ca1ac
+[    1.782460] 5fa0: 00000000 c12ca190 00000000 c03001ac 00000000 00000000 00000000 00000000
+[    1.790627] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[    1.798795] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000 00000000 00000000
+[    1.806959] Call trace: 
+[    1.806971]  cpufreq_online from cpufreq_add_dev+0xa8/0xb8
+[    1.814988]  cpufreq_add_dev from subsys_interface_register+0xfc/0x118
+[    1.821526]  subsys_interface_register from cpufreq_register_driver+0x164/0x2fc
+[    1.828842]  cpufreq_register_driver from dt_cpufreq_probe+0x2cc/0x3f0
+[    1.835379]  dt_cpufreq_probe from platform_probe+0x5c/0xbc
+[    1.840968]  platform_probe from really_probe+0xc8/0x2c8
+[    1.846289]  really_probe from __driver_probe_device+0x88/0x19c
+[    1.852217]  __driver_probe_device from driver_probe_device+0x30/0x104
+[    1.858753]  driver_probe_device from __driver_attach+0x90/0x174
+[    1.864768]  __driver_attach from bus_for_each_dev+0x70/0xc4
+[    1.870428]  bus_for_each_dev from bus_add_driver+0xcc/0x1ec
+[    1.876087]  bus_add_driver from driver_register+0x7c/0x114
+[    1.881668]  driver_register from do_one_initcall+0x48/0x1f4
+[    1.887338]  do_one_initcall from kernel_init_freeable+0x1bc/0x220
+[    1.893527]  kernel_init_freeable from kernel_init+0x1c/0x12c
+[    1.899290]  kernel_init from ret_from_fork+0x14/0x28
+[    1.904348] Exception stack(0xe0815fb0 to 0xe0815ff8)
+[    1.909394] 5fa0:                                     00000000 00000000 00000000 00000000
+[    1.917563] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[    1.925731] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[    1.932340] Code: e3a02000 ebfff837 e3500000 0a000009 (e7f001f2) 
+[    1.938429] ---[ end trace 0000000000000000 ]---
+[    1.943036] note: swapper/0[1] exited with irqs disabled
+[    1.948397] Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b
+[    1.956129] ---[ end Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b ]---

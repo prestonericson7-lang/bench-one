@@ -12,10 +12,9 @@ The files here are lifted from its exported hardware platform `PZ7020StarLite_wr
 
 **What the working design settles** (its docs/WORKFLOW.md, confirmed by the parameter dump):
 
-- **DDR: 16-bit bus, 512 MB (HIGHADDR 0x1FFFFFFF), part `MT41K256M16 RE-125`, memory type
-  `DDR 3 (Low Voltage)`.** Their note: selecting plain `DDR 3` (1.5 V) fails with `DDR_INIT_FAIL`.
-  This agrees with schematic V1.0 (one MT41K256M16TW-107, DQ0-15 only) and settles the
-  manual's "1 GB" as wrong for this board.
+- **DDR: this set runs the bus 16-bit (512 MB visible)**, `DDR 3 (Low Voltage)`, part `MT41K256M16 RE-125`;
+  plain `DDR 3` (1.5 V) fails `DDR_INIT_FAIL`. Their own notes say the board has 2 chips / 32-bit.
+  The board is 1 GB: the primary image uses `../ps7-vivado/` (32-bit); this set is the fallback.
 - APU 766.67 MHz (ARM PLL FDIV=46 from the 33.333 MHz crystal); FCLK0 100 MHz; QSPI MIO1-6 at
   200 MHz x4; UART0 MIO10/11; GEM0 MIO16-27 + MDIO 52/53 (PHY addr 1, Realtek, DT props
   `clkout-disable`, `aldps-enable`); SD0 MIO40-45 with no CD/WP; USB0 MIO28-39.

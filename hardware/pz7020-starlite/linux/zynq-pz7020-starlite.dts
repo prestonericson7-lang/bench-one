@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Puzhi PZ7020-StarLite -- Zynq XC7Z020-CLG400-2, 512 MB DDR3L (one MT41K256M16, 16-bit)
+ * Puzhi PZ7020-StarLite -- Zynq XC7Z020-CLG400-2, 1 GB DDR3L (2x MT41K256M16, 32-bit bus)
  *
  * Every line is from the vendor documents or the hardware-validated PS configuration:
  *   User Manual V1.0 Parts 3.2 (33.333 MHz PS clock), 3.5 (GEM0 on MIO16-27, MDIO 52/53),
  *   3.6 (QSPI W25Q128JV on MIO1-6), 3.10 (UART0 MIO10/11), 3.11 (SD0 MIO40-45, no CD/WP),
  *   3.12 (USB0 ULPI MIO28-39, reset MIO46); schematic sheets 15/16 (PHY addresses 1 and 2);
- *   ps7/ps7_parameters_validated.json (DDR 16-bit, HIGHADDR 0x1FFFFFFF = 512 MB).
+ *   ps7-vivado/ps7_init_gpl.c from vivado/build_system.tcl (DDR 32-bit, HIGHADDR 0x3FFFFFFF = 1 GB).
  * Same file serves U-Boot (dts/upstream or arch/arm/dts) and Linux (arch/arm/boot/dts/xilinx).
  */
 /dts-v1/;
@@ -19,6 +19,7 @@
 
 	aliases {
 		ethernet0 = &gem0;
+		ethernet1 = &gem1;
 		serial0 = &uart0;
 		mmc0 = &sdhci0;
 		spi0 = &qspi;
@@ -27,7 +28,7 @@
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x20000000>;	/* 512 MB: PCW_DDR_RAM_HIGHADDR 0x1FFFFFFF */
+		reg = <0x0 0x40000000>;	/* 1 GB: PCW_DDR_RAM_HIGHADDR 0x3FFFFFFF (Vivado PS7, 32-bit DDR) */
 	};
 
 	chosen {
@@ -56,6 +57,41 @@
 		device_type = "ethernet-phy";
 		realtek,clkout-disable;		/* as in the validated PetaLinux build */
 		realtek,aldps-enable;
+	};
+};
+
+/* PL-side Gigabit Ethernet: GEM1 over EMIO -> AMD GMII-to-RGMII core in the fabric (MDIO address 8,
+ * vivado/build_system.tcl) -> RTL8211F-CG U16 at MDIO address 2 [schematic sheet 16].
+ * The MAC talks GMII to the converter; the converter talks RGMII to the PHY. */
+&gem1 {
+	status = "okay";
+	phy-mode = "gmii";
+	phy-handle = <&pl_phy>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pl_phy: ethernet-phy@2 {		/* PHY_AD[2:0] = 010 [sch 16] */
+			reg = <2>;
+			device_type = "ethernet-phy";
+		};
+
+		gmii_to_rgmii: gmii-to-rgmii@8 {
+			compatible = "xlnx,gmii-to-rgmii-1.0";
+			reg = <8>;
+			phy-handle = <&pl_phy>;
+		};
+	};
+};
+
+/* The PL register file (ps7-axi/pl_regs.v) on M_AXI_GP0 -- time master, LEDs, keys, fan.
+ * Exposed as UIO so user space can mmap it without /dev/mem. */
+&amba {
+	pl_regs@40000000 {
+		compatible = "generic-uio";
+		reg = <0x40000000 0x1000>;
+		status = "okay";
 	};
 };
 
@@ -92,12 +128,24 @@
 };
 
 &sdhci0 {
+	bootph-all;				/* U-Boot SPL needs this node to read BOOT partition (u-boot.img) */
 	status = "okay";			/* microSD on MIO40-45, no card-detect or write-protect line [M 3.11] */
 	broken-cd;
 	disable-wp;
 };
 
+&cpu0 {
+	/* One operating point = the real CPU clock. The validated PS config runs the APU at
+	 * 766.666666 MHz (PCW_APU_PERIPHERAL_FREQMHZ, same in ps7/ and ps7-vivado/). zynq-7000.dtsi
+	 * lists only 666667/333334 kHz, so on the first hardware boot (2026-09-24) cpufreq found the CPU
+	 * at 766666 kHz (oops r6 = 0xbb2ca), tried to change it, got -EBUSY from the clock driver and
+	 * hit BUG_ON in cpufreq_online() -> "Attempted to kill init". With this table Linux never
+	 * changes the clock ps7_init set. QEMU runs at 666667 kHz, so it cannot show this. */
+	operating-points = <766666 1000000>;
+};
+
 &uart0 {
+	bootph-all;				/* U-Boot SPL needs this node: without it the SPL has no console (as zynq-zybo-z7.dts / zynq-zc702.dts) */
 	status = "okay";			/* CH340E console, MIO10 RX / MIO11 TX, 115200 [M 3.10] */
 };
 

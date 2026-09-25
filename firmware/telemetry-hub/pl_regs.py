@@ -20,6 +20,22 @@ import time
 
 BASE = 0x4000_0000
 SPAN = 0x1000
+DEVCFG = 0xF800_7000          # PS device-configuration block (PCAP); INT_STS at +0x0C
+
+
+def pl_configured():
+    """True when the fabric holds a configuration (DEVCFG INT_STS.PCFG_DONE). False if unreadable."""
+    try:
+        fd = os.open("/dev/mem", os.O_RDONLY | os.O_SYNC)
+        try:
+            m = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ, offset=DEVCFG)
+            done = bool(struct.unpack_from("<I", m, 0x0C)[0] & 0x4)
+            m.close()
+            return done
+        finally:
+            os.close(fd)
+    except Exception:                      # noqa: BLE001 - not a Zynq / no /dev/mem rights
+        return False
 ID_EXPECTED = 0x5A70_2001
 REGS = {"ID": 0x00, "TIME_LO": 0x04, "TIME_HI": 0x08, "LED": 0x0C, "KEY": 0x10,
         "FAN_DUTY": 0x14, "FAN_RPM": 0x18, "SCRATCH": 0x1C, "CLK_HZ": 0x20}
@@ -34,6 +50,10 @@ class PlRegs:
 
     @classmethod
     def open(cls, base=BASE):
+        # Touching M_AXI_GP0 with no bitstream behind it is a bus error that kills the process, so
+        # ask the PS first: DEVCFG INT_STS (0xF800_700C) bit 2 = PCFG_DONE, a PS register, always safe.
+        if not pl_configured():
+            raise RuntimeError("PL not configured (PCFG_DONE clear): no bitstream loaded")
         fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
         m = mmap.mmap(fd, SPAN, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, offset=base)
         os.close(fd)

@@ -2,11 +2,13 @@
 # update_card.sh -- refresh the BOOT (FAT) partition of the PZ7020 SD card that is mounted in this PC.
 # Only the boot files change (SPL, U-Boot, boot script, kernel, DTB, PL bitstream); the ext4 rootfs is
 # left alone. Refuses to touch a drive that does not already look like this card's boot partition.
-#   bash update_card.sh E
+#   bash update_card.sh E                        the 32-bit / 1 GB set in linux/out
+#   bash update_card.sh E out/fallback-512MB     the 16-bit / 512 MB set, if the 1 GB DDR init fails
 set -euo pipefail
 DRV=${1:-E}
+SET=${2:-out}
 CARD=/$(echo "$DRV" | tr 'A-Z' 'a-z')
-OUT=$(cd "$(dirname "$0")/out" && pwd)
+OUT=$(cd "$(dirname "$0")/$SET" && pwd)
 FILES="boot.bin u-boot.img boot.scr zImage zynq-pz7020-starlite.dtb pl.bit"
 
 [ -d "$CARD" ] || { echo "no drive $DRV:"; exit 1; }

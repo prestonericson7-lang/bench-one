@@ -23,6 +23,14 @@
 //    Fewer dependencies = fewer things to break in a car at -10 C or +70 C.
 // ============================================================
 
+// ---------------- build guard ----------------
+// The hub reads this node over the ESP32-S3's native USB. Without CDCOnBoot=cdc, Serial is UART0 on
+// GPIO43/44 and the node runs perfectly while saying nothing on the cable. Build with:
+//   arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc vent-climate-node
+#if defined(ARDUINO_ARCH_ESP32) && !ARDUINO_USB_CDC_ON_BOOT
+#error "build with --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc -- the hub listens on native USB, not UART0"
+#endif
+
 // ---------------- pins ----------------
 #define PIN_SERVO        5      // servo signal (give the servo its OWN supply)
 #define PIN_T_AIR        1      // ADC: airstream thermistor
@@ -127,7 +135,7 @@ static void controlTick() {
       g_fault = true;
       g_state = DAMPER_CLOSED;
       servoGo(g_state);
-      Serial.println("FAULT air sensor -> damper CLOSED (fail-safe)");
+      Serial.println("# FAULT air sensor -> damper CLOSED (fail-safe)");
     }
     return;
   }
@@ -148,45 +156,74 @@ static void controlTick() {
   if (want != g_state) {
     g_state = want;
     servoGo(g_state);
-    Serial.printf("air=%.1fC case=%.1fC -> damper %s\n",
+    Serial.printf("# air %.1fC case %.1fC -> damper %s\n",
                   g_tAir, g_tCase, g_state == DAMPER_OPEN ? "OPEN" : "CLOSED");
   }
 }
 
 // ============================================================
+// Human-readable lines start with '#'. Machine lines are KEY=value, one per line -- the protocol
+// the Pi hub (firmware/telemetry-hub/hub.py) and the vent display both speak. The keys match the
+// display's: AIRT, CASET, DAMPER. A reading we don't trust is sent as "nan", never as a number.
+static bool g_manual = false;
+
 static void printStatus() {
-  Serial.printf("STATUS air=%.1fC case=%.1fC damper=%s fault=%s servo=%s\n",
+  Serial.printf("# STATUS air %.1fC case %.1fC damper %s fault %s servo %s\n",
                 g_tAir, g_tCase,
                 g_state == DAMPER_OPEN ? "OPEN" : "CLOSED",
                 g_fault ? "YES" : "no",
                 g_servoLive ? "driven" : "released");
 }
 
+static void printTelemetry() {
+  if (isnan(g_tAir))  Serial.println("AIRT=nan");  else Serial.printf("AIRT=%.1f\n", g_tAir);
+  if (isnan(g_tCase)) Serial.println("CASET=nan"); else Serial.printf("CASET=%.1f\n", g_tCase);
+  Serial.printf("DAMPER=%s\n", g_state == DAMPER_OPEN ? "OPEN" : "CLOSED");
+  Serial.printf("CLIMATE_FAULT=%d\n", g_fault ? 1 : 0);
+  Serial.printf("CLIMATE_MODE=%s\n", g_manual ? "manual" : "auto");
+}
+
 void setup() {
   Serial.begin(115200);
+#if ARDUINO_USB_CDC_ON_BOOT
+  // A host that stops reading must never stall the control loop: at the default 100 ms timeout a full
+  // USB buffer costs up to 2 s per write. Telemetry repeats every second, so dropping it costs nothing.
+  Serial.setTxTimeoutMs(0);
+#endif
   analogReadResolution(12);
 
   // Drive CLOSED before anything else can go wrong.
   servoGo(DAMPER_CLOSED);
-  Serial.println("vent-climate-node: boot state = CLOSED (fail-safe).");
-  Serial.println("  cold air -> OPEN (free cooling) | hot air -> CLOSED (protect)");
-  Serial.println("  'i' status  'o' force open  'c' force close  'a' auto");
+  Serial.println("# vent-climate-node: boot state = CLOSED (fail-safe).");
+  Serial.println("# cold air -> OPEN (free cooling) | hot air -> CLOSED (protect)");
+  Serial.println("# 'i' status  'o' force open  'c' force close  'a' auto  'ID?' identity");
 }
 
-static bool g_manual = false;
-
 void loop() {
-  static uint32_t lastCtl = 0, lastPrint = 0;
+  static uint32_t lastCtl = 0, lastPrint = 0, lastTelem = 0;
+  static char line[16];
+  static uint8_t li = 0;
 
   while (Serial.available()) {
     char ch = Serial.read();
     if (ch == 'i') printStatus();
-    else if (ch == 'o') { g_manual = true;  g_state = DAMPER_OPEN;   servoGo(g_state); Serial.println("manual OPEN"); }
-    else if (ch == 'c') { g_manual = true;  g_state = DAMPER_CLOSED; servoGo(g_state); Serial.println("manual CLOSED"); }
-    else if (ch == 'a') { g_manual = false; Serial.println("auto"); }
+    else if (ch == 'o') { g_manual = true;  g_state = DAMPER_OPEN;   servoGo(g_state); Serial.println("# manual OPEN"); }
+    else if (ch == 'c') { g_manual = true;  g_state = DAMPER_CLOSED; servoGo(g_state); Serial.println("# manual CLOSED"); }
+    else if (ch == 'a') { g_manual = false; Serial.println("# auto"); }
+    // line assembler alongside the one-letter commands: "ID?" names this node for the hub
+    if (ch == '\n' || ch == '\r') {
+      line[li] = 0;
+      if (!strcmp(line, "ID?")) Serial.println("ID=climate-node");
+      li = 0;
+    } else if (li < sizeof(line) - 1) {
+      line[li++] = ch;
+    } else {
+      li = 0;
+    }
   }
 
   if (!g_manual && millis() - lastCtl > 2000) { lastCtl = millis(); controlTick(); }
+  if (millis() - lastTelem > 1000) { lastTelem = millis(); printTelemetry(); }
   if (millis() - lastPrint > 10000) { lastPrint = millis(); printStatus(); }
 
   servoIdleCheck();

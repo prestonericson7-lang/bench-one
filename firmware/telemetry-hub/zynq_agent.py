@@ -21,6 +21,7 @@ as a stale age in the hub, never as a frozen number.
     python3 zynq_agent.py --selftest     # fake sysfs, one client, checks every key parses
 """
 import argparse
+import re
 import os
 import socket
 import socketserver
@@ -99,11 +100,14 @@ def _pl_regs(root):
     """Open /dev/mem once (real board) or use an injected fake (selftest); None if not present."""
     if root != "/":
         return _PL["obj"]                      # selftest injects a PlRegs over a FakeWindow
-    if not _PL["tried"]:
-        _PL["tried"] = True
+    # re-check every 10 s while absent: a bitstream can be loaded later through the fpga_manager
+    if _PL["obj"] is None and time.monotonic() >= _PL.get("next", 0):
+        _PL["next"] = time.monotonic() + 10
         try:
+            if "/usr/local/bin" not in sys.path:
+                sys.path.append("/usr/local/bin")   # pl_regs.py is installed beside the agent
             import pl_regs
-            r = pl_regs.PlRegs.open()
+            r = pl_regs.PlRegs.open()          # refuses (no bus error) unless PCFG_DONE is set
             _PL["obj"] = r if r.present() else None
         except Exception:                      # noqa: BLE001 -- no /dev/mem rights, no bitstream: report nothing
             _PL["obj"] = None
@@ -211,8 +215,77 @@ def selftest():
     else:
         print(f"   ok: {v2}")
 
+    print("4) beacon: the hub can find this board without knowing its address")
+    rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); rx.bind(("127.0.0.1", 0)); rx.settimeout(3)
+    b = Beacon(PORT, targets=[("127.0.0.1", rx.getsockname()[1])], period=0.1)
+    b.start()
+    try:
+        data, _ = rx.recvfrom(256)
+        parts = data.decode().split()
+        if parts[:2] != ["ZYNQ-AGENT", str(PORT)]:
+            print(f"   FAIL: {data!r}"); ok = False
+        else:
+            print(f"   ok: {data.decode()!r}")
+    except socket.timeout:
+        print("   FAIL: no beacon"); ok = False
+    b.stop_flag = True; rx.close()
+    bc = broadcast_targets("3: eth0    inet 192.168.2.77/24 brd 192.168.2.255 scope global eth0\n"
+                           "3: eth0    inet 10.20.0.2/24 brd 10.20.0.255 scope global eth0\n"
+                           "1: lo    inet 127.0.0.1/8 scope host lo\n")
+    if bc != ["192.168.2.255", "10.20.0.255", "255.255.255.255"]:
+        print(f"   FAIL: broadcast targets {bc}"); ok = False
+    else:
+        print(f"   ok: one directed broadcast per address: {bc}")
+
     print("\nPASSED" if ok else "\nFAILED")
     return ok
+
+
+# ============================================================
+#  beacon
+# ============================================================
+BEACON_PORT = 8092
+
+
+def broadcast_targets(ip_output=None):
+    """Directed broadcast address of every IPv4 address ('ip -o -4 addr'), then the global one.
+
+    A plain 255.255.255.255 leaves only via the default route -- and the car LAN has none -- so each
+    interface address gets its own directed broadcast (10.20.0.255 on the car LAN, the home LAN's
+    on the bench)."""
+    if ip_output is None:
+        try:
+            import subprocess
+            ip_output = subprocess.run(["ip", "-o", "-4", "addr", "show"], capture_output=True,
+                                       text=True, timeout=5).stdout
+        except Exception:                      # noqa: BLE001 - no iproute2 (tests on Windows)
+            ip_output = ""
+    out = [m for m in re.findall(r"\bbrd (\d+\.\d+\.\d+\.\d+)", ip_output)]
+    return list(dict.fromkeys(out)) + ["255.255.255.255"]
+
+
+class Beacon(threading.Thread):
+    """Announces 'ZYNQ-AGENT <tcp port> <hostname>' on UDP 8092 every `period` seconds."""
+
+    daemon = True
+
+    def __init__(self, tcp_port, targets=None, period=2.0):
+        super().__init__(name="beacon")
+        self.msg = f"ZYNQ-AGENT {tcp_port} {socket.gethostname()}".encode()
+        self.targets, self.period = targets, period
+        self.stop_flag = False
+
+    def run(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        while not self.stop_flag:
+            dests = self.targets or [(a, BEACON_PORT) for a in broadcast_targets()]
+            for d in dests:
+                try:
+                    s.sendto(self.msg, d)
+                except OSError:
+                    pass                           # an interface without a route: try the others
+            time.sleep(self.period)
 
 
 def main():
@@ -220,11 +293,19 @@ def main():
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--period", type=float, default=1.0)
+    ap.add_argument("--no-beacon", action="store_true")
+    ap.add_argument("--beacon-to", action="append", default=None,
+                    help="host:port to send the beacon to instead of the broadcasts (tests)")
+    ap.add_argument("--root", default="/", help="filesystem root for sysfs/procfs (tests)")
+    ap.add_argument("--bind", default="0.0.0.0")
     a = ap.parse_args()
     if a.selftest:
         sys.exit(0 if selftest() else 1)
-    srv = Server(("0.0.0.0", a.port), period=a.period)
-    print(f"zynq_agent: serving KEY=value lines on :{a.port}")
+    if not a.no_beacon:
+        tg = [(h, int(p)) for h, _, p in (x.partition(":") for x in a.beacon_to)] if a.beacon_to else None
+        Beacon(a.port, targets=tg).start()
+    srv = Server((a.bind, a.port), root=a.root, period=a.period)
+    print(f"zynq_agent: serving KEY=value lines on :{a.port}, beacon on UDP {BEACON_PORT}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

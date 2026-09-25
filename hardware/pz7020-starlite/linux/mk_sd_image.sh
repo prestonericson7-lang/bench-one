@@ -33,17 +33,34 @@ done
 # --- the Zynq's telemetry agent (talks to the Pi hub) + its systemd unit ---
 install -D -m 0755 "$REPO/firmware/telemetry-hub/zynq_agent.py" "$ROOT/usr/local/bin/zynq_agent.py"
 install -D -m 0755 "$REPO/firmware/telemetry-hub/pl_regs.py" "$ROOT/usr/local/bin/pl_regs.py"
-cat > "$ROOT/etc/systemd/system/zynq-agent.service" <<UNIT
+# An agent at /boot/overlay/zynq_agent.py (the FAT partition, writable from any PC) wins over the
+# built-in one, so the agent can be updated by copying a file onto the card -- no image rewrite.
+cat > "$ROOT/etc/systemd/system/zynq-agent.service" <<'UNIT'
 [Unit]
-Description=Zynq telemetry agent for the car hub (KEY=value lines on :8091)
-After=network.target
+Description=Zynq telemetry agent for the car hub (KEY=value lines on :8091, beacon on UDP 8092)
+After=network.target systemd-networkd.service boot.mount
 [Service]
-ExecStart=/usr/bin/python3 /usr/local/bin/zynq_agent.py
+ExecStart=/bin/sh -c 'if [ -f /boot/overlay/zynq_agent.py ]; then exec /usr/bin/python3 /boot/overlay/zynq_agent.py; else exec /usr/bin/python3 /usr/local/bin/zynq_agent.py; fi'
 Restart=always
 RestartSec=2
 [Install]
 WantedBy=multi-user.target
 UNIT
+# --- networking: systemd-networkd instead of ifupdown ---
+#   eth0 (PS PHY):  DHCP on the bench, the fixed car-LAN address 10.20.0.2/24 always, and IPv4
+#                   link-local if nothing else answers -- the hub reaches it in every setting.
+#   eth1 (PL PHY via the GMII-to-RGMII core): DHCP + link-local.
+printf 'auto lo\niface lo inet loopback\n' > "$ROOT/etc/network/interfaces"
+mkdir -p "$ROOT/etc/systemd/network"
+printf '[Match]\nName=eth0\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=ipv4\nAddress=10.20.0.2/24\n' \
+  > "$ROOT/etc/systemd/network/20-eth0.network"
+printf '[Match]\nName=eth1\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=ipv4\n' \
+  > "$ROOT/etc/systemd/network/21-eth1.network"
+mkdir -p "$ROOT/etc/systemd/system/sockets.target.wants"
+ln -sf /lib/systemd/system/systemd-networkd.service "$ROOT/etc/systemd/system/multi-user.target.wants/systemd-networkd.service"
+ln -sf /lib/systemd/system/systemd-networkd.socket  "$ROOT/etc/systemd/system/sockets.target.wants/systemd-networkd.socket"
+rm -f "$ROOT/etc/systemd/system/multi-user.target.wants/networking.service"
+[ -f "$ROOT/lib/systemd/systemd-networkd" ] && echo "networkd: present" || echo "*** networkd binary missing from the rootfs"
 mkdir -p "$ROOT/etc/systemd/system/multi-user.target.wants"
 ln -sf /etc/systemd/system/zynq-agent.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-agent.service"
 # --- hands-off bring-up: the board prints its own facts report on the console at every boot, and the

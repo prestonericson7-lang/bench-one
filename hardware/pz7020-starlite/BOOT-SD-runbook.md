@@ -4,14 +4,14 @@ Put the card in the board, plug the UART into the PC and power the board. The ca
 logs root in on the serial console by itself and prints a facts report. `linux/watch_boot.ps1` on
 the PC records the whole boot and writes the summary. Nobody types anything.
 
-## State — 2026-09-24
+## State — 2026-09-25
 
 | | Fact | How it's known |
 |---|---|---|
 | Card | 32 GB microSD (29.53 GiB physical) | Windows `Get-Disk` |
-| Contents | `linux/out/pz7020-starlite-sd.img` (1666 MiB), sha256 `f061fc58089d1b1a220255031239b461aba78c62d6643c8dd72066a33cb0418c` | hash of the decompressed `.img.xz` = `sd-image.sha256` |
-| Written | unbuffered + write-through, 16.0 MB/s (real card speed, not cache) | `linux/write_sd.py` log |
-| Verified | the first 1,746,927,616 bytes read back unbuffered (18.2 MB/s) hash **identical** to the image | same log |
+| Contents | `linux/out/pz7020-starlite-sd.img` (1666 MiB), sha256 `9375d5fb46144a94fa15f9bbe8bce6991108722e3b6a390f9d01d6dfdb81b5cc`: Vivado 32-bit / 1 GB PS init, `pl.bit` = `vivado/build/system.bit`, the beacon agent, networkd | `sd-image.sha256`; `linux/check_image_contents.sh` proves every boot file and the agent equal the repo's |
+| Written | 2026-09-25, unbuffered + write-through, 15.7 MB/s (real card speed, not cache) | `linux/write_sd.py` log |
+| Verified | the first 1,746,927,616 bytes read back unbuffered (18.1 MB/s) hash **identical** to the image | same log (`DONE rc=0`) |
 | Partition 1 | FAT32 `BOOT`, 128 MiB @ 1 MiB: `boot.bin` `u-boot.img` `boot.scr` `zImage` `zynq-pz7020-starlite.dtb` `pl.bit` | `Get-Partition` after the write + `mdir` at build |
 | Partition 2 | ext4 rootfs, 1536 MiB @ 129 MiB — Debian 12 bookworm armhf | `Get-Partition` after the write |
 | Rest of card | ~27.9 GiB unallocated (grow the rootfs from the board later if wanted) | — |
@@ -19,7 +19,8 @@ the PC records the whole boot and writes the summary. Nobody types anything.
 | Boot report | `zynq-report`: model, CPUs, memory, whether the PL is configured, PL registers, die temperature, eth0, SD size, failed units, kernel warnings. Runs at every boot (`zynq-report.service`) and on demand | QEMU: printed at uptime 83 s, `failed_units none` |
 | Watcher | `linux/watch_boot.ps1`, tested three ways: scripted U-Boot (CR in the autoboot window → typed `boot`; panic → exit 3), full Linux boot in QEMU (both reports → exit 0), board already running (one CR → report → exit 0) | `linux/qemu_serial_tcp.sh` + `watch_boot.ps1 -Tcp` |
 | Emulation limits | QEMU `xilinx-zynq-a9` skips SPL/ps7_init and has no DDR PHY, real SD timing or PL | the board run is the first test of those |
-| Login | `root` / `zynq` — hostname `zynq`, `eth0` DHCP, SSH root login on | checked against the rootfs `/etc/shadow` (yescrypt) |
+| Login | `root` / `zynq` — hostname `zynq`, SSH root login on | checked against the rootfs `/etc/shadow` (yescrypt) |
+| Network | `eth0`: DHCP **and** link-local **and** fixed `10.20.0.2/24` (the car LAN; the Pi is `10.20.0.1`). `zynq-agent` serves TCP 8091 and broadcasts `ZYNQ-AGENT 8091 <ip>` on UDP 8092 | QEMU: `linux/qemu_agent_test.sh` — the real hub reads `ZYNQ_UP`, `ZYNQ_MEM` over it |
 
 Why the card showed "32 GB but only 9 GB": it came with **one 9.34 GB FAT32 partition and 20.19 GB
 unallocated**. Windows shows partitions, not the card. Not a fault.

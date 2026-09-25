@@ -32,7 +32,7 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 | Link | Physical | Level | Facts that fix the design |
 |---|---|---|---|
 | **Teensy ↔ PL, SPI** | JM1 pins 9/11/13/15 + GND pin 3 | 3.3 V both ends — **no shifter** | BANK35 default 3.3 V [M 3.7]; pins in one header column; `sdr_accel.xdc` carries the balls |
-| **Pi ↔ PS, Ethernet** | PS RJ45 → 12 V GbE switch → Pi | — | GEM0 is hard-wired to the PS PHY via MIO; Linux `eth0` with no PL design at all |
+| **Pi ↔ PS, Ethernet** | PS RJ45 → 12 V GbE switch → Pi | — | GEM0 is hard-wired to the PS PHY via MIO; Linux `eth0` with no PL design at all. Car LAN: Zynq `10.20.0.2/24` (+ DHCP, link-local), Pi `10.20.0.1/24` (`car-lan` profile from `deploy/orangepi/install.sh`); the hub also finds the agent by its UDP 8092 beacon on any subnet |
 | **Second Ethernet** | PL RJ45 | — | PHY #2 is plain RGMII on BANK34 → GEM1-over-EMIO + GMII-to-RGMII IP gives Linux `eth1`; a dedicated link (e.g. straight to the Pi, leaving the switch for everything else) |
 | **USB device on the Zynq** | USB 2.0 host | — | ULPI on MIO — usable from Linux without PL work; the RTL-SDR can hang here if the SDR path moves to the Zynq |
 | **Power** | Type-C PWR+JTAG **or** JM 5 V pin — never both | 5 V / 1 A [M 2.2] | `VDD_5V` is one hard-paralleled net (owner repo, schematic sheets 2/18/19). Feed the Zynq from the car's 12 V→5 V converter on its own branch; share **ground only** with the Teensy and the Pi |

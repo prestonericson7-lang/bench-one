@@ -84,22 +84,34 @@ static void applyKV(const char *k, const char *v) {
   T.lastRx = millis();
 }
 
-static void pollLink() {
-  static char buf[64];
-  static uint8_t idx = 0;
-  while (LINK.available()) {
-    char c = LINK.read();
-    if (c == '\n' || c == '\r') {
-      buf[idx] = 0;
+// One line assembler per input. Telemetry is accepted on BOTH the car link (Serial1, the robust
+// async cable from the main box) and USB (the bench: the Pi drives the display straight over USB).
+// "ID?" on either answers "ID=vent-display" on that same port, so the hub can find this Teensy.
+// (plain types in the signature: the Arduino builder hoists function prototypes above any struct)
+#define LINE_MAX 64
+static char    g_linkBuf[LINE_MAX], g_usbBuf[LINE_MAX];
+static uint8_t g_linkIdx = 0,       g_usbIdx = 0;
+
+static void feedLine(char *buf, uint8_t &idx, Stream &port, char c) {
+  if (c == '\n' || c == '\r') {
+    buf[idx] = 0;
+    if (!strcmp(buf, "ID?")) {
+      port.println("ID=vent-display");
+    } else {
       char *eq = strchr(buf, '=');
       if (eq && idx > 2) { *eq = 0; applyKV(buf, eq + 1); }
-      idx = 0;
-    } else if (idx < sizeof(buf) - 1) {
-      buf[idx++] = c;
-    } else {
-      idx = 0;                   // overlong line: drop it rather than truncate
     }
+    idx = 0;
+  } else if (idx < LINE_MAX - 1) {
+    buf[idx++] = c;
+  } else {
+    idx = 0;                     // overlong line: drop it rather than truncate
   }
+}
+
+static void pollLink() {
+  while (LINK.available())   feedLine(g_linkBuf, g_linkIdx, LINK,   (char)LINK.read());
+  while (Serial.available()) feedLine(g_usbBuf,  g_usbIdx,  Serial, (char)Serial.read());
 }
 
 // ============================================================

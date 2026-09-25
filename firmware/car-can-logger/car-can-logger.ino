@@ -234,7 +234,13 @@ static void handleUSB() {
     else if (c == 'n') { drainToSD(true); logClose(); logOpen(); }
     else if (c == 'm') { s_sdOK = sdBegin(); Serial.printf("SD %s\n", s_sdOK ? "ok" : "FAIL"); }
     else if (c == 'r') { s_stream = !s_stream; Serial.printf("raw stream %s\n", s_stream ? "ON" : "OFF"); }
-    else if (c == '?') Serial.println("i=status d=census c=clear-census s=start/stop f=flush n=new-file m=remount-sd r=raw-stream");
+    // Explicit on/off for the Pi-side hub: a toggle is wrong for a program, because a hub that
+    // restarts while the stream is already on would send 'r' and switch it OFF.
+    else if (c == 'R') { s_stream = true;  Serial.println("raw stream ON"); }
+    else if (c == 'X') { s_stream = false; Serial.println("raw stream OFF"); }
+    // Identity, so the hub can tell this Teensy from the vent display (same USB VID:PID).
+    else if (c == 'I') Serial.println("ID=car-can-logger");
+    else if (c == '?') Serial.println("i=status d=census c=clear-census s=start/stop f=flush n=new-file m=remount-sd r=raw-stream(toggle) R=stream-on X=stream-off I=identity");
   }
 }
 

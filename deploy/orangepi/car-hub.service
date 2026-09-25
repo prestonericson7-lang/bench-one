@@ -1,0 +1,19 @@
+[Unit]
+Description=Car telemetry hub (Teensy CAN logger, vent display, climate node, Zynq) -- http :8090
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/car/telemetry-hub/hub.py --signals /opt/car/telemetry-hub/signals.json
+Restart=always
+RestartSec=2
+# unprivileged: serial ports through the dialout group, nothing else
+DynamicUser=yes
+SupplementaryGroups=dialout
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

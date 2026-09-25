@@ -1,0 +1,11 @@
+# Flash images are stored byte for byte. A line-ending conversion would change the bytes that
+# deploy/firmware/SHA256SUMS pins, and flash.sh / flash_windows.ps1 would (rightly) refuse them.
+deploy/firmware/*.hex -text
+deploy/firmware/*.bin -text
+deploy/firmware/SHA256SUMS text eol=lf
+# The car system's scripts and units run on Linux (the Pi, WSL, the Zynq image build): LF on any checkout.
+deploy/**/*.sh text eol=lf
+deploy/orangepi/*.service text eol=lf
+deploy/orangepi/*.rules text eol=lf
+firmware/tests/**/*.sh text eol=lf
+hardware/pz7020-starlite/linux/*.sh text eol=lf

@@ -100,8 +100,15 @@ bash "$HERE/install_zynq.sh" "$S" | sed 's/^/  /'
 bash "$HERE/install_zynq.sh" "$S" | sed 's/^/  /'
 got=$(cd "$S" && find . \( -type f -o -type l \) | sort | tr '\n' ' ')
 echo "  staged: $got"
-want="./etc/default/zynqram ./etc/nbd-server/conf.d/zynqram.conf ./etc/systemd/system/multi-user.target.wants/zynqram-prep.service ./etc/systemd/system/nbd-server.service.requires/zynqram-prep.service ./etc/systemd/system/zynqram-prep.service ./usr/local/sbin/zynqram-prep "
-expect "install_zynq.sh into a staging rootfs (run twice) gives 4 files + 2 enable links" [ "$got" = "$want" ]
+want="./etc/default/zynqram ./etc/nbd-server/conf.d/zynqram.conf ./etc/nbd-server/zynqram.allow ./etc/systemd/system/multi-user.target.wants/zynqram-prep.service ./etc/systemd/system/nbd-server.service.requires/zynqram-prep.service ./etc/systemd/system/zynqram-prep.service ./usr/local/sbin/zynqram-prep "
+expect "install_zynq.sh into a staging rootfs (run twice) gives 5 files + 2 enable links" [ "$got" = "$want" ]
+# with the package's main config present (as in the image), the listener goes IPv4-only exactly once
+S2=$(mktemp -d); mkdir -p "$S2/etc/nbd-server"
+printf '[generic]\n\tuser = nbd\n\tgroup = nbd\n\tincludedir = /etc/nbd-server/conf.d\n' > "$S2/etc/nbd-server/config"
+bash "$HERE/install_zynq.sh" "$S2" >/dev/null 2>&1; bash "$HERE/install_zynq.sh" "$S2" >/dev/null 2>&1
+expect "install_zynq.sh sets listenaddr = 0.0.0.0 in [generic], once (the allow list depends on it)" \
+  [ "$(grep -c '^[[:space:]]*listenaddr = 0.0.0.0' "$S2/etc/nbd-server/config")" = 1 ]
+rm -rf "$S2"
 expect "enable link points at /etc/systemd/system/zynqram-prep.service" \
   [ "$(readlink "$S/etc/systemd/system/nbd-server.service.requires/zynqram-prep.service")" = /etc/systemd/system/zynqram-prep.service ]
 

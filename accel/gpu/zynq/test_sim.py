@@ -870,7 +870,9 @@ def test_hw_backend():
             # pz7020_ps7_top: pl_regs decodes only the low address bits, so 0x43C00000 aliases its ID
             ("pl_regs alias at 0x43C00000", dict(pages=4, alias_id=PLATFORM_ID, regs={0x000: PLATFORM_ID}),
              "not the FPGA-GPU"),
-            ("GP0 faults", dict(pages=2), "faulted"),
+            # the same qemu-arm effect as above: the faulting probe child can outlast the 1 s limit,
+            # so under --slow either report is the correct refusal (measured: 4 of 5 runs said hang)
+            ("GP0 faults", dict(pages=2), ("faulted", "does not answer there") if ARGS.slow else "faulted"),
         ]
         for name, kw, needle in cases:
             path = os.path.join(ftmp, name.replace(" ", "_") + ".bin")
@@ -884,7 +886,7 @@ def test_hw_backend():
                 st = c.status()
                 c.close()
                 log = d.logtext()
-                check(h1[0] == E_NOPL and h2[0] == E_NOPL and st[0] == E_NOPL and d.alive() and needle in log,
+                check(h1[0] == E_NOPL and h2[0] == E_NOPL and st[0] == E_NOPL and d.alive() and (any(n in log for n in needle) if isinstance(needle, tuple) else needle in log),
                       f"{name}: GPU_ERR_NOPL, daemon alive (GP0 never touched), reason logged",
                       f"{h1[0]} {h2[0]} alive={d.alive()} log:{log[-300:]!r}")
             finally:

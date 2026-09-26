@@ -32,10 +32,14 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
    `mkdir -p ~/accel && tar -xzf accel-pi-bundle.tar.gz -C ~/accel && sudo bash ~/accel/install_pi.sh`.
 3. **Teensy** (geometry engine) on the Pi's USB: `flash-teensy-gpu`. Wire it to JM1 per [gpu/WIRING.md](gpu/WIRING.md).
 4. **Cables**: Pi Ethernet → Zynq PS RJ45; Zynq HDMI → a monitor.
-5. **Measure** (on the Pi — only these numbers count):
+5. **Measure** (on the Pi — only these numbers count). `bench-day [model.gguf]` runs all of these and saves
+   `~/accel-bench-<date>.txt`:
    - `zaccel-bench -H 10.20.0.2` — Pi alone vs Zynq alone vs both at once, every answer checked.
    - `gpu_selftest` — the GPU bit-exact against the golden model, plus frames/s.
    - `swapon --show` — `/dev/nbd0` at priority 100 is the Zynq's RAM.
+   - A real model, Pi alone vs Pi + Zynq (copy a GGUF over, e.g. the Ollama `qwen2.5-coder:3b` blob):
+     `run_model m.gguf "def fibonacci(n):" 64 --fast` then the same with `--zaccel auto` — compare
+     the `decode` and `prefill` tok/s lines, and `ppl m.gguf --fast --limit 256 [--zaccel auto]` for quality.
 
 ## The model runtime uses the matrix engine
 

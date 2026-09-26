@@ -54,6 +54,8 @@ echo "installed: /usr/local/bin/flash-teensy-gpu"
 say "the Zynq's DDR3 as swap"
 bash "$A/mem/install_pi.sh" || fail=1
 
+install -D -m 0755 "$A/bench_day.sh" /usr/local/bin/bench-day && echo "installed: /usr/local/bin/bench-day"
+
 say "what is reachable now"
 for h in 10.20.0.2 10.77.0.2; do
   ping -c1 -W1 "$h" >/dev/null 2>&1 && echo "Zynq answers at $h" || echo "no answer from $h (fine if the Zynq is off)"

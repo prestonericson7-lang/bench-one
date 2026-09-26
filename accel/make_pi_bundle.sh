@@ -10,7 +10,7 @@ for f in "${need[@]}"; do [ -e "$f" ] || { echo "missing $f -- build first"; exi
 [ -f gpu/teensy/out/600/teensy_gpu.ino.hex ] || { echo "missing gpu/teensy/out/600/teensy_gpu.ino.hex -- build the Teensy firmware first"; exit 1; }
 out=accel-pi-bundle.tar.gz
 tar -czf "$out" --exclude='__pycache__' \
-  install_pi.sh README.md SPEC.md \
+  install_pi.sh bench_day.sh README.md SPEC.md \
   pi/out/aarch64 pi/libzaccel.h pi/zaccel.py llm/out/aarch64 \
   gpu/pi gpu/teensy/out/600/teensy_gpu.ino.hex gpu/SPEC.md gpu/WIRING.md \
   mem/install_pi.sh mem/zaccel-swap mem/zaccel-swap.service mem/zaccel-swap-retry.service \

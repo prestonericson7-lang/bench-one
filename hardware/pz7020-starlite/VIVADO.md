@@ -3,6 +3,31 @@
 Vivado 2026.1 + Vitis are installed at `D:\2026.1\` (`Vivado\bin\vivado.bat`). Everything below was
 built on this PC with it; numbers are Vivado's own post-route reports.
 
+## 0. One bitstream for the Orange Pi's accelerators (2026-09-25)
+
+The PL can hold one configuration at a time, so the system design now carries everything together:
+the platform below, **the FPGA-GPU** (`accel/gpu/rtl`, top `gpu_pl`, its own MMCM from U18: core
+148.75 MHz, HDMI 720p60, Teensy 16-bit bus on JM1) and **the matrix engine** (`accel/rtl/zaccel_gemv.v`
+behind an AXI DMA). Top: `system_top` joins `gpu_pl` and the block design.
+
+| Address (GP0) | Block | Memory side |
+|---|---|---|
+| 0x4000_0000, 4 KB | `pl_regs` | — |
+| 0x4040_0000, 64 KB | AXI DMA (simple mode, 64-bit streams, 26-bit length) + `zaccel_gemv` (FCLK0 100 MHz) | S_AXI_HP3 |
+| 0x43C0_0000, 4 KB | GPU registers + PS command FIFO | S_AXI_HP0 (scanout), HP1 (strip writes), HP2 (sprites), GPU clock |
+
+The engine's `aresetn` = system reset AND the DMA's MM2S/S2MM stream resets, so a DMA soft reset also
+clears an aborted job. LEDs belong to the GPU (heartbeat, frame toggle).
+
+**Result (post-route, `vivado/build/system_summary.txt`):** 23,571 LUT (44 %), 19,167 FF, 93.5 of 140
+BRAM tiles, 2 DSP48, 50 IOB, 2 MMCM. By block: GPU 7,712 LUT / 74 BRAM tiles; matrix engine 11,773 LUT /
+16 RAMB36 (its 128 8×8 multipliers went to LUTs, not DSP48s); AXI DMA 1,643; GP0 interconnect 1,652.
+**All constraints met: WNS +0.198 ns, WHS +0.042 ns**; GPU core clock (148.75 MHz) WNS +0.621 ns,
+FCLK0 (100 MHz) WNS +0.957 ns. 0 critical warnings. `ps7_init_gpl.c/.h` from the new XSA are
+**identical** to `ps7-vivado/`, so the SPL does not change. `system.bit` 2,498,199 B, `system.xsa`
+1,148,976 B. Pin check: `tools/check_xdc.py` — all 50 PACKAGE_PIN lines match the vendor tables, no
+ball used twice.
+
 ## 1. The system design — `vivado/build_system.tcl`
 
 ```

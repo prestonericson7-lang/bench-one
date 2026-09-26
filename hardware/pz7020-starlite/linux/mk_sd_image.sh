@@ -46,13 +46,35 @@ RestartSec=2
 [Install]
 WantedBy=multi-user.target
 UNIT
+# --- the accelerators the Orange Pi uses (accel/SPEC.md, accel/gpu/SPEC.md) ---
+#   zaccel-server  TCP 8093: the PL matrix engine (CPU fallback when the PL is absent)
+#   fpgagpud       TCP 7777: the PL GPU (HDMI out, Teensy geometry bus)
+#   nbd-server     TCP 10809: export "zynqram", part of this board's DDR3 as the Pi's swap
+A=$REPO/accel
+ZACCEL_BIN=${ZACCEL_BIN:-$A/zynq/out/zaccel-server-armhf}
+GPU_BIN=${GPU_BIN:-$A/gpu/zynq/build/fpgagpud}
+for f in "$ZACCEL_BIN" "$A/zynq/zaccel-server.service" "$GPU_BIN" "$A/gpu/zynq/fpgagpud.service" "$A/mem/install_zynq.sh"; do
+  [ -f "$f" ] || { echo "missing accelerator artifact $f"; exit 1; }
+done
+install -D -m 0755 "$ZACCEL_BIN" "$ROOT/usr/local/bin/zaccel-server"
+install -D -m 0644 "$A/zynq/zaccel-server.service" "$ROOT/etc/systemd/system/zaccel-server.service"
+install -D -m 0755 "$GPU_BIN" "$ROOT/usr/local/bin/fpgagpud"
+install -D -m 0644 "$A/gpu/zynq/fpgagpud.service" "$ROOT/etc/systemd/system/fpgagpud.service"
+sed -i 's/\r$//' "$ROOT/etc/systemd/system/zaccel-server.service" "$ROOT/etc/systemd/system/fpgagpud.service"
+mkdir -p "$ROOT/etc/systemd/system/multi-user.target.wants"
+for u in zaccel-server fpgagpud; do
+  ln -sf /etc/systemd/system/$u.service "$ROOT/etc/systemd/system/multi-user.target.wants/$u.service"
+done
+bash "$A/mem/install_zynq.sh" "$ROOT"
+[ -x "$ROOT/usr/bin/nbd-server" ] && echo "nbd-server: present" || { echo "*** nbd-server missing from the rootfs (build_rootfs.sh)"; exit 1; }
 # --- networking: systemd-networkd instead of ifupdown ---
 #   eth0 (PS PHY):  DHCP on the bench, the fixed car-LAN address 10.20.0.2/24 always, and IPv4
 #                   link-local if nothing else answers -- the hub reaches it in every setting.
 #   eth1 (PL PHY via the GMII-to-RGMII core): DHCP + link-local.
 printf 'auto lo\niface lo inet loopback\n' > "$ROOT/etc/network/interfaces"
 mkdir -p "$ROOT/etc/systemd/network"
-printf '[Match]\nName=eth0\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=ipv4\nAddress=10.20.0.2/24\n' \
+#   10.77.0.2 is the FPGA-GPU's direct-cable address (accel/gpu/SPEC.md §10), kept alongside 10.20.0.2.
+printf '[Match]\nName=eth0\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=ipv4\nAddress=10.20.0.2/24\nAddress=10.77.0.2/24\n' \
   > "$ROOT/etc/systemd/network/20-eth0.network"
 printf '[Match]\nName=eth1\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=ipv4\n' \
   > "$ROOT/etc/systemd/network/21-eth1.network"

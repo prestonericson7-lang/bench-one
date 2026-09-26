@@ -48,7 +48,7 @@ done
 check "tb_pl_regs (Zynq AXI register block)" sim hardware/pz7020-starlite/ps7-axi tb_pl_regs.v pl_regs.v
 # every PACKAGE_PIN against the vendor's own pin tables (fan_jm1.xdc is the owner repo's file, uncommented)
 PZ_BUNDLE=${PZ_BUNDLE:-/c/Users/Danie/Downloads/pz7020-bundle}
-check "check_xdc (146 pins vs the vendor tables)" $PY hardware/pz7020-starlite/tools/check_xdc.py "$PZ_BUNDLE" \
+check "check_xdc (176 pins vs the vendor tables)" $PY hardware/pz7020-starlite/tools/check_xdc.py "$PZ_BUNDLE" \
   hardware/pz7020-starlite/vivado/system.xdc hardware/pz7020-starlite/ps7-axi/pz7020_ps7.xdc \
   hardware/pz7020-starlite/constraints/pz7020_starlite_board.xdc firmware/rtlsdr-pentest/fpga/vivado/sdr_accel.xdc
 
@@ -77,9 +77,19 @@ check "flash_windows.ps1 logger (checks image, finds no board)" flash_ps_checks_
 check "flash_windows.ps1 climate (checks image, finds no board)" flash_ps_checks_image climate
 check "Pi installer under systemd (WSL) + Zynq found by beacon" wsl_root bash /mnt/d/espicpc/deploy/orangepi/test_install_wsl.sh
 
+echo "== Accelerators for the Orange Pi (accel/)"
+check "matrix engine RTL vs its model, 4 flow-control patterns" bash accel/tb/run_tb.sh
+check "real AXI DMA IP + engine + reset, server register sequence (xsim)" powershell.exe -NoProfile -ExecutionPolicy Bypass -File accel/cosim/run_cosim.ps1
+check "zaccel-server: x86 + armhf, cpu + PL-model paths" wsl_root bash /mnt/d/espicpc/accel/zynq/run_tests.sh
+check "Pi client, CPU baseline and bench (x86 + aarch64)" wsl_root bash /mnt/d/espicpc/accel/pi/test_pi.sh
+check "Pi clients find the Zynq on either of its addresses" wsl_root bash /mnt/d/espicpc/accel/pi/test_fallback.sh
+check "Zynq RAM export -> Pi swap (nbd, zaccel-swap)" wsl_root bash /mnt/d/espicpc/accel/mem/test_mem.sh
+check "FPGA-GPU: RTL, daemon (x86 + ARM), geometry, Pi tools end to end" wsl_root bash /mnt/d/espicpc/accel/gpu/run_all_gpu_tests.sh
+
 echo "== Zynq SD image"
-check "image carries the repo's boot files and agent" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/check_image_contents.sh
+check "image carries the repo's boot files, agent and accelerators" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/check_image_contents.sh
 check "image boots in QEMU, agent serves the hub over eth0" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_agent_test.sh
+check "image boots in QEMU, all accelerator services answer the Pi" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_accel_test.sh
 
 rm -rf "$T"
 echo

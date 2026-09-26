@@ -1,0 +1,33 @@
+#!/bin/sh
+# zynqram-prep -- make the RAM file that nbd-server exports as "zynqram". Runs once at boot, before
+# nbd-server (zynqram-prep.service).
+#   A tmpfs of its own, sized to the export, so the systemd limits on /run and /dev/shm do not apply,
+#   and one file in it, fully allocated now so the Pi's swap writes can never hit a full tmpfs later.
+#   An existing file of the right size is kept (nbd-server restarts must not wipe the Pi's pages).
+set -eu
+DEFAULTS=${ZYNQRAM_DEFAULTS:-/etc/default/zynqram}
+DIR=/run/zynqram
+FILE=$DIR/zynqram.img
+ZACCEL_SWAP_MB=256
+if [ -r "$DEFAULTS" ]; then . "$DEFAULTS"; fi
+case "$ZACCEL_SWAP_MB" in
+  ''|*[!0-9]*|0) echo "zynqram-prep: ZACCEL_SWAP_MB='$ZACCEL_SWAP_MB' in $DEFAULTS is not a positive whole number of MiB" >&2; exit 1 ;;
+esac
+BYTES=$((ZACCEL_SWAP_MB * 1048576))
+
+mkdir -p "$DIR"
+if mountpoint -q "$DIR"; then
+  mount -o remount,size="${ZACCEL_SWAP_MB}m" "$DIR"
+else
+  mount -t tmpfs -o size="${ZACCEL_SWAP_MB}m",mode=0750 zynqram "$DIR"
+fi
+
+if [ -f "$FILE" ] && [ "$(stat -c %s "$FILE")" = "$BYTES" ]; then
+  echo "zynqram-prep: $FILE already $ZACCEL_SWAP_MB MiB, kept"
+else
+  rm -f "$FILE"
+  fallocate -l "$BYTES" "$FILE"
+  echo "zynqram-prep: $FILE = $ZACCEL_SWAP_MB MiB of RAM for export zynqram"
+fi
+chown nbd:nbd "$DIR" "$FILE"
+chmod 0600 "$FILE"

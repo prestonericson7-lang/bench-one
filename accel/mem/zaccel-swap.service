@@ -1,0 +1,20 @@
+[Unit]
+Description=Zynq DDR3 as swap (nbd export zynqram, priority 100)
+# Starting this starts the retry timer; stopping it stops the timer (PartOf in the timer).
+Wants=network-online.target zaccel-swap-retry.timer
+# After network-online also orders the stop (swapoff + detach) before the network goes down.
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# "-": a failed attach is logged but leaves the unit active, so the retry timer keeps trying
+ExecStart=-/usr/local/sbin/zaccel-swap start
+ExecStop=/usr/local/sbin/zaccel-swap stop
+# start can wait out one nbd timeout on a silent Zynq (30 s) plus the attach (30 s)
+TimeoutStartSec=120
+# swapoff has to read every page back from the Zynq first
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target

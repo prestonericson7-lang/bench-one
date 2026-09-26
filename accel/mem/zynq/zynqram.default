@@ -1,0 +1,5 @@
+# /etc/default/zynqram -- how much of the Zynq's DDR3 the Orange Pi gets as swap, in MiB.
+# Read at boot by zynqram-prep.service; a change takes effect on the next Zynq boot.
+# Linux on the Zynq has 1 GB minus the engine's 384 MB reservation (SPEC section 3); this much of
+# what is left is allocated up front and never given back, so leave room for zaccel-server.
+ZACCEL_SWAP_MB=256

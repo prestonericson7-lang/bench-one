@@ -1,0 +1,125 @@
+#!/bin/bash
+# zaccel-swap -- the Zynq's DDR3, exported by nbd-server as "zynqram", used as this Orange Pi's swap
+# at priority 100, above any disk swap (SPEC section 5).
+#
+#   zaccel-swap start   find the Zynq, attach zynqram, mkswap, swapon -p 100. Idempotent: a healthy
+#                       attachment is left alone; a dead one (Zynq rebooted, link lost) is swapped
+#                       off, detached and attached fresh. Exits 0 with a message when no Zynq answers.
+#   zaccel-swap stop    swapoff + nbd-client -d. Idempotent.
+#
+#   env: ZYNQ_HOST (default: try 10.20.0.2, then 10.77.0.2), ZYNQ_PORT (10809),
+#        ZACCEL_NBD_TIMEOUT (30 s)
+#
+# nbd-client is run in its default netlink form:  -N zynqram -swap -timeout 30   (no -nonetlink, no -persist)
+#   netlink   the kernel holds the socket and nbd-client exits once the device is set up, so there is
+#             no userspace process in the swap I/O path to be OOM-killed or paged out onto the device
+#             it serves. The kernel marks that socket SOCK_MEMALLOC (nbd-client(8)), so its replies
+#             still get through when memory is short. (The ioctl form, -nonetlink, leaves nbd-client
+#             resident for the life of the device; there -swap sets its oom_score_adj to -1000.)
+#   -swap     the man page's swap-safe mode. In the netlink form it only covers nbd-client's own short
+#             run; it is kept because it costs nothing and is what nbd-client(8) prescribes for swap.
+#   -timeout  a Zynq that stops answering fails swap I/O after 30 s. Without it a hung server leaves
+#             the I/O blocked indefinitely (the kernel only logs "Possible stuck request" every 30 s),
+#             and reclaim stalls behind the stuck writes.
+#   no -persist  the export is RAM and is blank after a Zynq reboot; reconnecting silently would hand
+#             the kernel zeros for pages it swapped out. Instead "start" (run by the retry timer)
+#             notices the dead device, takes it down and attaches the blank export fresh.
+set -u
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EXPORT=zynqram
+PRIO=100
+PORT=${ZYNQ_PORT:-10809}
+NBD_TIMEOUT=${ZACCEL_NBD_TIMEOUT:-30}
+PROBE_S=3                          # TCP connect probe per candidate host
+RUN=/run/zaccel-swap
+STATE=$RUN/device                  # the /dev/nbdN this script attached
+
+say() { echo "zaccel-swap: $*"; }
+die() { echo "zaccel-swap: ERROR: $*" >&2; exit 1; }
+
+in_swaps() { awk -v d="$1" 'NR > 1 && $1 == d { f = 1 } END { exit !f }' /proc/swaps; }
+
+# Read page 0 with O_DIRECT, so the answer comes from the Zynq and not the page cache, and check the
+# swap signature. Fails at once on a dead link; on a silent Zynq it fails after the nbd timeout.
+header_ok() {
+  local pg sig
+  pg=$(getconf PAGESIZE)
+  sig=$(dd if="$1" bs="$pg" count=1 iflag=direct status=none 2>/dev/null | tail -c 10 | tr -d '\0')
+  [ "$sig" = SWAPSPACE2 ]
+}
+
+reachable() { timeout "$PROBE_S" bash -c 'exec 3<>"/dev/tcp/$0/$1"' "$1" "$PORT" 2>/dev/null; }
+
+free_nbd() {
+  local d
+  for d in /sys/block/nbd*; do
+    [ -e "$d/size" ] || continue
+    [ -e "$d/pid" ] && continue               # connected
+    [ "$(cat "$d/size")" = 0 ] || continue
+    echo "/dev/${d##*/}"
+    return 0
+  done
+  return 1
+}
+
+detach() {
+  if in_swaps "$1"; then
+    swapoff "$1" || die "swapoff $1 failed; left attached so no swapped-out pages are dropped"
+  fi
+  nbd-client -d "$1" >/dev/null 2>&1 || true
+  rm -f "$STATE"
+}
+
+cmd_start() {
+  local dev host="" cands h size
+  dev=$(cat "$STATE" 2>/dev/null || true)
+  if [ -n "$dev" ]; then
+    if in_swaps "$dev" && header_ok "$dev"; then
+      say "already active: $dev (export $EXPORT) at priority $PRIO"
+      return 0
+    fi
+    say "$dev no longer answers as swap (Zynq rebooted or link lost); taking it down"
+    detach "$dev"
+  fi
+
+  if [ -n "${ZYNQ_HOST:-}" ]; then cands=$ZYNQ_HOST; else cands="10.20.0.2 10.77.0.2"; fi
+  for h in $cands; do
+    if reachable "$h"; then host=$h; break; fi
+  done
+  if [ -z "$host" ]; then
+    say "no Zynq answering on TCP $PORT at: $cands -- no swap attached, nothing changed"
+    return 0
+  fi
+
+  [ -d /sys/module/nbd ] || modprobe nbd || die "no nbd kernel module (modprobe nbd failed; install_pi.sh installs it)"
+  dev=$(free_nbd) || die "no free /dev/nbd* device"
+  timeout 30 nbd-client -N "$EXPORT" -swap -timeout "$NBD_TIMEOUT" "$host" "$PORT" "$dev" \
+    || die "nbd-client could not attach export $EXPORT from $host:$PORT to $dev"
+  echo "$dev" > "$STATE"
+  # the backing store is RAM: blank after a Zynq reboot, so it gets a new swap header every attach
+  mkswap -L "$EXPORT" "$dev" >/dev/null || { detach "$dev"; die "mkswap $dev failed"; }
+  swapon -p "$PRIO" "$dev" || { detach "$dev"; die "swapon $dev failed"; }
+  size=$(( $(blockdev --getsize64 "$dev") >> 20 ))
+  say "attached $EXPORT from $host:$PORT as $dev: $size MiB of swap at priority $PRIO"
+}
+
+cmd_stop() {
+  local dev
+  dev=$(cat "$STATE" 2>/dev/null || true)
+  if [ -z "$dev" ]; then
+    say "nothing attached"
+    return 0
+  fi
+  detach "$dev"
+  say "swapped off and detached $dev"
+}
+
+[ "$(id -u)" = 0 ] || die "must run as root"
+mkdir -p "$RUN"
+exec 9> "$RUN/lock"
+flock -w 120 9 || die "another zaccel-swap is still running"
+case "${1:-}" in
+  start) cmd_start ;;
+  stop)  cmd_stop ;;
+  *) echo "usage: zaccel-swap start|stop" >&2; exit 2 ;;
+esac

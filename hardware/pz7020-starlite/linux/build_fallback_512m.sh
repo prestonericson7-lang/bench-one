@@ -7,9 +7,20 @@ REPO=/mnt/d/espicpc; L=$REPO/hardware/pz7020-starlite/linux; DT=zynq-pz7020-star
 F=$L/out/fallback-512MB; mkdir -p "$F"
 sed -e 's|reg = <0x0 0x40000000>;.*|reg = <0x0 0x20000000>;\t/* 512 MB fallback: 16-bit DDR (ps7/ps7_init_gpl.c) */|' "$L/$DT.dts" > /tmp/$DT-512m.dts
 # the 16-bit PS config does not clock GEM1 over EMIO or FCLK1 -> no PL Ethernet in this fallback
+# and the matrix engine's 384 MB at 0x20000000 lies beyond 512 MB: drop its window, so zaccel-server
+# runs its CPU engine. The GPU's window (0x1E000000, 32 MB) is inside 512 MB and stays.
 printf '
 &gem1 {
 	status = "disabled";
+};
+/ {
+	reserved-memory {
+		/delete-node/ zaccel@20000000;
+	};
+};
+&amba {
+	/delete-node/ zaccel-mem@20000000;
+	/delete-node/ zaccel-dma@40400000;
 };
 ' >> /tmp/$DT-512m.dts
 grep -n -E "0x20000000|disabled" /tmp/$DT-512m.dts | tail -3

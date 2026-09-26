@@ -1,0 +1,6 @@
+clear_color=001f
+nrender=0
+nframes=3
+path=ps
+expect_last_fno=2
+expect_fnos=0,1,2

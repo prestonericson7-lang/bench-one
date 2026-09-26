@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Puzhi PZ7020-StarLite + FPGA-GPU: the board's device tree unchanged, plus the DDR window the
+ * PL GPU owns (SPEC section 10, common/gpu_proto.h GPU_DDR_BASE/GPU_DDR_SIZE):
+ *   0x1E000000 FB0, 0x1E200000 FB1, 0x1E400000..0x1FDFFFFF sprite pool, 0x1FE00000 return buffer.
+ * no-map: Linux never uses or maps this RAM; fpgagpud reaches it through /dev/mem (O_SYNC,
+ * uncached) and the PL through AXI HP0/HP1/HP2.
+ *
+ * Built by zynq/dts/build_dtb.sh with the kernel tree's cpp include paths and dtc, and checked
+ * there to differ from the deployed zynq-pz7020-starlite.dtb only by this node. It is installed
+ * on the SD card under the original name zynq-pz7020-starlite.dtb (boot.scr loads that name).
+ *
+ * Boot-flow requirement (zynq/boot/boot.cmd): U-Boot must not relocate the device tree into
+ * this window (its default is the top of RAM). Linux reserves the DT blob before it scans
+ * reserved-memory, and early_init_dt_reserve_memory() refuses a no-map region that overlaps an
+ * existing reservation (-EBUSY) -- the window would then be ordinary RAM. boot.cmd sets
+ * fdt_high 0x1e000000 for that reason.
+ */
+#include "zynq-pz7020-starlite.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		gpu@1e000000 {
+			reg = <0x1e000000 0x2000000>;
+			no-map;
+		};
+	};
+};

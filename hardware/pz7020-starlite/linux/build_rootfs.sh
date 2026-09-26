@@ -12,7 +12,7 @@ rm -rf "$ROOT"; mkdir -p "$ROOT" "$OUT"
 debootstrap --arch=armhf --foreign --variant=minbase \
   --include=systemd-sysv,udev,openssh-server,ifupdown,isc-dhcp-client,iproute2,iputils-ping,ethtool,net-tools,\
 nano,less,htop,usbutils,pciutils,i2c-tools,python3,python3-serial,python3-spidev,ca-certificates,wget,curl,rsync,\
-mtd-utils,u-boot-tools,device-tree-compiler,kmod,sudo,locales,dbus,tzdata \
+mtd-utils,u-boot-tools,device-tree-compiler,kmod,sudo,locales,dbus,tzdata,nbd-server \
   bookworm "$ROOT" http://deb.debian.org/debian
 cp /usr/bin/qemu-arm-static "$ROOT/usr/bin/"
 chroot "$ROOT" /debootstrap/debootstrap --second-stage

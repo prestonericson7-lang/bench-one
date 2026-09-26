@@ -31,7 +31,9 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 
 | Link | Physical | Level | Facts that fix the design |
 |---|---|---|---|
-| **Teensy ↔ PL, SPI** | JM1 pins 9/11/13/15 + GND pin 3 | 3.3 V both ends — **no shifter** | BANK35 default 3.3 V [M 3.7]; pins in one header column; `sdr_accel.xdc` carries the balls |
+| **Teensy ↔ PL, GPU geometry bus** (the accelerator bitstream, `vivado/build_system.tcl`) | JM1 pins 9–27 (D0–D15, SOR, STROBE, BUSY) + GND 3/4/33–36 | 3.3 V both ends | The FPGA-GPU's 16-bit parallel bus, `accel/gpu/WIRING.md`. It occupies the JM1 pins below, so the SDR SPI link and the GPU bus never share a bitstream |
+| **Pi ↔ Zynq, accelerators** | eth0 (TCP) | — | GPU `fpgagpud` 7777, matrix engine `zaccel-server` 8093, the Pi's extra RAM `nbd-server` 10809 — `accel/README.md` |
+| **Teensy ↔ PL, SPI** (the SDR bitstream only) | JM1 pins 9/11/13/15 + GND pin 3 | 3.3 V both ends — **no shifter** | BANK35 default 3.3 V [M 3.7]; pins in one header column; `sdr_accel.xdc` carries the balls |
 | **Pi ↔ PS, Ethernet** | PS RJ45 → 12 V GbE switch → Pi | — | GEM0 is hard-wired to the PS PHY via MIO; Linux `eth0` with no PL design at all. Car LAN: Zynq `10.20.0.2/24` (+ DHCP, link-local), Pi `10.20.0.1/24` (`car-lan` profile from `deploy/orangepi/install.sh`); the hub also finds the agent by its UDP 8092 beacon on any subnet |
 | **Second Ethernet** | PL RJ45 | — | PHY #2 is plain RGMII on BANK34 → GEM1-over-EMIO + GMII-to-RGMII IP gives Linux `eth1`; a dedicated link (e.g. straight to the Pi, leaving the switch for everything else) |
 | **USB device on the Zynq** | USB 2.0 host | — | ULPI on MIO — usable from Linux without PL work; the RTL-SDR can hang here if the SDR path moves to the Zynq |

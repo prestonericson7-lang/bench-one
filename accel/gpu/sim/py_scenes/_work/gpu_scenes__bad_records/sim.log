@@ -1,0 +1,7 @@
+WARNING: /mnt/d/espicpc/accel/gpu/sim/tb_core.v:542: $readmemh(ddr.hex): Not enough words in the file for the requested range [0:1048575].
+WARNING: /mnt/d/espicpc/accel/gpu/sim/tb_core.v:549: $readmemh(ps.hex): Not enough words in the file for the requested range [0:262143].
+WARNING: /mnt/d/espicpc/accel/gpu/sim/tb_core.v:554: $readmemh(teensy.hex): Not enough words in the file for the requested range [0:262143].
+TB: seed=1 stall=30 nframes=1 nwords=0 path=    ps streams=1 clear=4208
+FRAME 0 render_cycles=365464 prim_count=9 overflow=0 bad=3 dropped=100 axi_err=0 fno=0 back=1e200000 cycle=368046
+COUNTERS overflow=0 bad=3 dropped=100 axi_err=0 prim_count=9 sprite_beats=0 last_fno=0 ret_full=0 ret_frame=0 ring_stall=0
+TB_RESULT errors=0 frames=1 cycles=370136

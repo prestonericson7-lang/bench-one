@@ -1,0 +1,5 @@
+clear_color=0000
+nrec=13
+nrender=12
+nframes=1
+path=ps

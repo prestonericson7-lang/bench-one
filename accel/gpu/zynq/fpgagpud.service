@@ -1,0 +1,41 @@
+# fpgagpud.service -- FPGA-GPU daemon on the Zynq (SPEC 10, 13.2), for the repo's PZ7020-StarLite
+# platform image (1 GB DDR3, Linux 6.12 armhf). The image builder installs:
+#     zynq/build/fpgagpud   -> /usr/local/bin/fpgagpud          (0755, static ARMv7-A binary)
+#     zynq/fpgagpud.service -> /etc/systemd/system/fpgagpud.service (0644)
+#     enabled: /etc/systemd/system/multi-user.target.wants/fpgagpud.service -> the unit
+# Optional: /etc/default/fpgagpud with FPGAGPUD_OPTS="..." (e.g. -v); no file = defaults.
+#
+# The daemon listens on 0.0.0.0:7777, so the Pi reaches it at every address eth0 has: the car-LAN
+# 10.20.0.2, a DHCP lease, or 10.77.0.2 if that is configured. It needs no network to start.
+#
+# What the daemon needs from the image, or it keeps answering GPU_ERR_NOPL and never touches the PL
+# (journalctl -u fpgagpud says which):
+#   1. device tree: reserved-memory gpu@1e000000 { reg = <0x1e000000 0x2000000>; no-map; } -- the
+#      daemon refuses the window while /proc/iomem shows it as System RAM
+#   2. boot.scr: append fpgagpu.pl_loaded=1 to bootargs when "fpga loadb" of pl.bit succeeded
+#      (Linux's zynq-fpga driver clears devcfg PCFG_DONE when it probes, so that marker is how the
+#      daemon knows U-Boot configured the PL)
+#   3. /dev/mem (CONFIG_DEVMEM=y, CONFIG_STRICT_DEVMEM off), and a bitstream whose GP0 register
+#      block at 0x43C00000 reads ID 0x47505531 ('GPU1')
+[Unit]
+Description=FPGA-GPU daemon (Pi protocol on TCP 7777, PL registers and DDR window via /dev/mem)
+After=network.target
+# restart forever (a crash loop must not end in a permanently failed unit)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/fpgagpud
+ExecStart=/usr/local/bin/fpgagpud $FPGAGPUD_OPTS
+Restart=always
+RestartSec=2
+# root: /dev/mem (CAP_SYS_RAWIO) and big socket buffers (SO_SNDBUFFORCE)
+User=root
+Nice=-5
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fpgagpud
+
+[Install]
+WantedBy=multi-user.target

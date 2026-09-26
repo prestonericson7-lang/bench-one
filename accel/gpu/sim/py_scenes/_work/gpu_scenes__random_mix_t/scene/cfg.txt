@@ -1,0 +1,6 @@
+clear_color=18e3
+nrec=143
+nrender=142
+nframes=1
+path=teensy
+expect_fnos=29

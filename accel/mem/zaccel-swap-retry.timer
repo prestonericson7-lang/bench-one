@@ -1,0 +1,8 @@
+[Unit]
+Description=Attach the Zynq swap when the Zynq comes up later, or back after a reboot
+PartOf=zaccel-swap.service
+
+[Timer]
+OnActiveSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s

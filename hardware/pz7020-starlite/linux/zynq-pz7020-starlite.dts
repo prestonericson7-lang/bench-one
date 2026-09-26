@@ -31,6 +31,23 @@
 		reg = <0x0 0x40000000>;	/* 1 GB: PCW_DDR_RAM_HIGHADDR 0x3FFFFFFF (Vivado PS7, 32-bit DDR) */
 	};
 
+	/* DDR3 the PL owns, so Linux never allocates it (accel/SPEC.md §3, accel/gpu/SPEC.md §10):
+	 * the GPU's framebuffers, sprite pool and frame-return buffer, and the matrix engine's tensor
+	 * store and DMA staging. Linux keeps 0x00000000-0x1DFFFFFF and 0x38000000-0x3FFFFFFF. */
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		gpu@1e000000 {
+			reg = <0x1e000000 0x2000000>;		/* 32 MB  */
+			no-map;
+		};
+		zaccel@20000000 {
+			reg = <0x20000000 0x18000000>;		/* 384 MB */
+			no-map;
+		};
+	};
+
 	chosen {
 		bootargs = "earlycon";
 		stdout-path = "serial0:115200n8";
@@ -91,6 +108,18 @@
 	pl_regs@40000000 {
 		compatible = "generic-uio";
 		reg = <0x40000000 0x1000>;
+		status = "okay";
+	};
+	/* The matrix engine (accel/SPEC.md §2-3): its AXI DMA registers and its reserved DDR3.
+	 * zaccel-server finds both by UIO name. Needs uio_pdrv_genirq.of_id=generic-uio (boot.cmd). */
+	zaccel-dma@40400000 {
+		compatible = "generic-uio";
+		reg = <0x40400000 0x10000>;
+		status = "okay";
+	};
+	zaccel-mem@20000000 {
+		compatible = "generic-uio";
+		reg = <0x20000000 0x18000000>;
 		status = "okay";
 	};
 };

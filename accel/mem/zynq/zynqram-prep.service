@@ -1,0 +1,16 @@
+[Unit]
+Description=RAM file for the zynqram nbd export (the Orange Pi's swap, size from /etc/default/zynqram)
+# nbd-server is the package's sysv script (systemd generates nbd-server.service from it). It requires
+# this unit (RequiredBy below) so it never starts without the file, and this unit pulls it in so the
+# export is served at boot even if the package's rc links are missing.
+Wants=nbd-server.service
+Before=nbd-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/zynqram-prep
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=nbd-server.service

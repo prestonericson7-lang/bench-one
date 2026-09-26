@@ -5,7 +5,11 @@
 # If a PL bitstream named pl.bit is present it is loaded BEFORE Linux, so the fabric (LEDs, fan
 # PWM, the SDR accelerator on JM1) is alive from the first second. Absent file = plain PS boot.
 
-setenv bootargs "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0"
+setenv bootargs "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio"
+# Keep the device tree where it is loaded: relocated to the top of RAM it would land in the PL's
+# reserved DDR3 (0x1E000000-0x37FFFFFF), which Linux does not map.
+setenv fdt_high 0xffffffff
+setenv initrd_high 0xffffffff
 
 if load mmc 0:1 0x10000000 pl.bit; then
     echo "Loading PL bitstream pl.bit (${filesize} bytes)"

@@ -1,0 +1,14 @@
+[Unit]
+Description=zaccel-server: Zynq PL matrix engine for the Orange Pi (TCP 8093)
+After=network.target
+
+[Service]
+Type=simple
+# root: needs /dev/mem (PCFG_DONE check) and the zaccel-dma / zaccel-mem UIO devices.
+# Picks the pl engine when the PL is configured, otherwise the cpu engine; see the journal.
+ExecStart=/usr/local/bin/zaccel-server --port 8093
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

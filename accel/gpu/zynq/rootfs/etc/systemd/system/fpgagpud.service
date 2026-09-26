@@ -1,0 +1,27 @@
+# fpgagpud.service -- FPGA-GPU Zynq daemon (SPEC 10, 13.2). Installed by zynq/make_sd_image.sh
+# to /etc/systemd/system/ and enabled (multi-user.target.wants symlink).
+# Logs: journalctl -u fpgagpud      Options: /etc/default/fpgagpud (FPGAGPUD_OPTS, e.g. -v)
+# The daemon never touches the PL's AXI GP0 space unless a bitstream is loaded and its ID
+# register reads 'GPU1'; without one it keeps running, answers GPU_ERR_NOPL and re-checks every 2 s.
+[Unit]
+Description=FPGA-GPU daemon (Pi protocol on TCP 7777, PL registers and DDR window via /dev/mem)
+After=network.target
+# restart forever (a crash loop must not end in a permanently failed unit)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/fpgagpud
+ExecStart=/usr/local/bin/fpgagpud $FPGAGPUD_OPTS
+Restart=always
+RestartSec=2
+# root: /dev/mem (CAP_SYS_RAWIO) and big socket buffers (SO_SNDBUFFORCE)
+User=root
+Nice=-5
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fpgagpud
+
+[Install]
+WantedBy=multi-user.target

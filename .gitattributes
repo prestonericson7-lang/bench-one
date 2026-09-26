@@ -9,3 +9,10 @@ deploy/orangepi/*.service text eol=lf
 deploy/orangepi/*.rules text eol=lf
 firmware/tests/**/*.sh text eol=lf
 hardware/pz7020-starlite/linux/*.sh text eol=lf
+accel/**/*.sh text eol=lf
+accel/**/*.service text eol=lf
+accel/**/*.timer text eol=lf
+accel/mem/zaccel-swap text eol=lf
+accel/mem/zynq/* text eol=lf
+accel/mem/pi-kmod/**/*.ko -text
+hardware/pz7020-starlite/linux/zynq-report text eol=lf

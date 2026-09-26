@@ -1,0 +1,6 @@
+clear_color=4208
+nrender=9
+nframes=1
+path=ps
+expect_bad=3
+expect_dropped=100

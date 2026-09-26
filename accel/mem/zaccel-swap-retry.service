@@ -1,0 +1,10 @@
+[Unit]
+Description=Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)
+After=zaccel-swap.service
+
+[Service]
+Type=oneshot
+# only while zaccel-swap.service is up, so a "systemctl stop zaccel-swap" is not undone 30 s later
+ExecCondition=/usr/bin/systemctl is-active --quiet zaccel-swap.service
+ExecStart=/usr/local/sbin/zaccel-swap start
+TimeoutStartSec=120

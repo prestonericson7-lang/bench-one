@@ -1,0 +1,6 @@
+clear_color=18e3
+nrec=169
+nrender=168
+nframes=1
+path=ps
+expect_fnos=21

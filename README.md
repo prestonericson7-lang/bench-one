@@ -14,6 +14,14 @@ either way.
 
 ---
 
+## Accelerators for the Orange Pi — 2026-09-25
+
+**[accel/README.md](accel/README.md)**: the Zynq and the Teensy as the Orange Pi 4 Pro's accelerators.
+One PL bitstream carries the FPGA-GPU (HDMI out, Teensy 4.1 as its geometry engine), a batched
+int4/int8 matrix engine fed by DMA from the Zynq's DDR3, and the platform; part of the Zynq's 1 GB is
+the Pi's swap over the network. Built, simulated, timing-closed and on the SD card; the board
+measurements are the next step.
+
 ## Current state — 2026-09-12
 
 **[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first. Every measurement, every

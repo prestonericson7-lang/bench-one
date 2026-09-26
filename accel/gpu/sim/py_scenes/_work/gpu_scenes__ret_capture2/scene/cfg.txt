@@ -1,0 +1,7 @@
+clear_color=0841
+nrender=6
+nframes=5
+path=both
+expect_last_fno=904
+expect_fnos=200,201,202,203,904
+ret_caps=1:201,3:203,4:904

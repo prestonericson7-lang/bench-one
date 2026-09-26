@@ -85,6 +85,13 @@ row("boot_time", "still in progress at this report (see uptime)" if "not yet fin
 failed = sh("systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'").split()
 row("failed_units", " ".join(failed) if failed else "none")
 row("zynq-agent", sh("systemctl is-active zynq-agent"))
+# the accelerators the Orange Pi uses: their services, the UIO windows the matrix engine needs, the
+# PL-owned DDR3 Linux must not have, and the RAM export
+row("accel", "   ".join(f"{u} {sh('systemctl is-active ' + u)}" for u in ("zaccel-server", "fpgagpud", "nbd-server")))
+uio = [f"{rd(p + '/name')}@{rd(p + '/maps/map0/addr') or '?'}" for p in sorted(glob.glob("/sys/class/uio/uio*"))]
+row("uio", " ".join(uio) if uio else "none (needs uio_pdrv_genirq.of_id=generic-uio)")
+row("pl_ddr", "Linux RAM ends where the PL windows begin: " + (sh("grep -i 'System RAM' /proc/iomem | tr '\\n' ' '") or "n/a"))
+row("zynqram", sh("ls -la /run/zynqram/zynqram.img 2>&1 | awk '{print $5\" bytes\"}'"))
 
 print("==== ZYNQ-REPORT BEGIN ====")
 print("\n".join(rows))

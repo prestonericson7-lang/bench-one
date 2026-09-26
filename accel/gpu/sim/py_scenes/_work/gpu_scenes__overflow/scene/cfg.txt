@@ -1,0 +1,6 @@
+clear_color=0000
+nrec=1541
+nrender=1536
+nframes=1
+path=ps
+expect_overflow=4

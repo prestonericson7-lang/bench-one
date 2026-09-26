@@ -221,7 +221,28 @@ typedef struct {
 
     uint64_t weight_bytes;          /* everything held in memory               */
     uint64_t bytes_per_token;       /* everything READ to produce one token    */
+
+    /* The Zynq's matrix engine taking a share of every dense matrix's rows (accel/llm, ZACCEL_OFFLOAD
+     * builds only). NULL = everything on this CPU, which is every other build. */
+    void    *zo;
 } model_t;
+
+/* out[r0..r1) = W[r0..r1) . x on this CPU -- the same kernels matvec uses, over a row range, so an
+ * accelerator can take the other rows. */
+void model_matvec_rows(model_t *m, const qten_t *w, const float *x, float *out, int r0, int r1);
+/* out[j][r] = W[r] . X[j] for rows [r0, r1) and positions j < n, the prefill kernel over a row range. */
+void model_matmul_rows(const qten_t *w, const float *X, int n, float *out, int r0, int r1);
+
+#ifdef ZACCEL_OFFLOAD
+/* accel/llm/zaccel_offload.c: move a share of every resident dense matrix's rows (requantized to int8
+ * with a scale per row) onto the Zynq's matrix engine and run them concurrently with the CPU rows.
+ * share < 0 measures both sides and picks the split; the Zynq's free memory caps it. Returns the
+ * number of weights offloaded, or -1 with the reason in msg. */
+long long model_zaccel_attach(model_t *m, const char *host, double share, char *msg, int msglen);
+void      model_zaccel_detach(model_t *m);
+int       model_zaccel_matvec(model_t *m, const qten_t *w, const float *x, float *out, int n);
+int       model_zaccel_matmul(model_t *m, const qten_t *w, const float *X, int n, float *out);
+#endif
 
 /* Load every tensor into memory. Returns 0, or -1 with the reason in g->err. */
 int  model_load(model_t *m, gguf_t *g, int max_seq);

@@ -56,6 +56,9 @@ int main(int argc, char **argv)
 {
     if (argc < 3) {
         printf("run_model <model.gguf> \"prompt\" [n_tokens]\n");
+#ifdef ZACCEL_OFFLOAD
+        printf("   --zaccel HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
+#endif
         return 1;
     }
     const char *path = argv[1];
@@ -113,6 +116,21 @@ int main(int argc, char **argv)
     if (model_load(&m, &g, n_prompt + n_gen + 8)) { printf("load: %s\n", g.err); return 1; }
     const double t_load = now_s() - t_load0;
     model_set_fast(&m, want_fast);
+#ifdef ZACCEL_OFFLOAD
+    {   /* --zaccel HOST [--share S]: the Zynq's matrix engine takes a share of every dense matrix */
+        const char *zh = NULL; double zshare = -1.0;
+        for (int a = 1; a < argc; a++) {
+            if (!strcmp(argv[a], "--zaccel") && a + 1 < argc) zh = argv[++a];
+            else if (!strcmp(argv[a], "--share") && a + 1 < argc) zshare = atof(argv[++a]);
+        }
+        if (zh) {
+            char zmsg[256];
+            long long nw = model_zaccel_attach(&m, zh, zshare, zmsg, sizeof zmsg);
+            printf("  zaccel: %s\n", zmsg);
+            if (nw < 0) return 1;
+        }
+    }
+#endif
     if (want_kv_f32 && model_set_kv_f32(&m, 1)) { printf("  cannot allocate a float KV cache\n"); return 1; }
 
     printf("\n  loaded %.2f GB of quantized weights in %.1f s (%.0f MB/s off this disk)\n",

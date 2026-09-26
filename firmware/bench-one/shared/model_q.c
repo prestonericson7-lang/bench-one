@@ -310,6 +310,9 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
 
 void model_free(model_t *m)
 {
+#ifdef ZACCEL_OFFLOAD
+    model_zaccel_detach(m);
+#endif
     if (m->L) {
         for (int l = 0; l < m->n_layer; l++) {
             mlayer_t *L = &m->L[l];
@@ -419,10 +422,9 @@ void               model_prof_reset(void) { memset(g_prof, 0, sizeof(g_prof)); }
  * pattern the FPGA core implements and the same one bench_stream measures: read each weight exactly
  * once, never revisit it, keep the vector in fast storage. It is also why this is memory bound rather
  * than compute bound, by construction rather than by accident. */
-static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int rows)
+void model_matvec_rows(model_t *m, const qten_t *w, const float *x, float *out, int r0, int n)
 {
-    const int n = rows ? rows : (int)w->rows;
-
+    if (r0 >= n) return;
     if (m->fast) {
         /* Quantize the activation ONCE for the whole matrix, then every row is an integer dot. The
          * activation is 2048 values against millions of weights, so this cost disappears; it is the
@@ -437,7 +439,7 @@ static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-            for (int r = 0; r < n; r++)
+            for (int r = r0; r < n; r++)
                 out[r] = gguf_dot_q4k_presum(w->raw + (size_t)r * w->row_bytes,
                                              m->xq, m->xs, m->xsum, w->cols);
             return;
@@ -445,7 +447,7 @@ static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (int r = 0; r < n; r++)
+        for (int r = r0; r < n; r++)
             out[r] = gguf_dot_q(w->type, w->raw + (size_t)r * w->row_bytes, m->xq, m->xs, w->cols);
         return;
     }
@@ -453,13 +455,22 @@ static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (int r = 0; r < n; r++) {
+    for (int r = r0; r < n; r++) {
         float row[MAX_COLS];
         gguf_dequant(w->type, w->raw + (size_t)r * w->row_bytes, w->cols, row);
         float s = 0.0f;
         for (uint32_t c = 0; c < w->cols; c++) s += row[c] * x[c];
         out[r] = s;
     }
+}
+
+static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int rows)
+{
+    const int n = rows ? rows : (int)w->rows;
+#ifdef ZACCEL_OFFLOAD
+    if (m->zo && model_zaccel_matvec(m, w, x, out, n)) return;
+#endif
+    model_matvec_rows(m, w, x, out, 0, n);
 }
 
 /* SEVERAL MATRICES THAT SHARE ONE INPUT, IN ONE PARALLEL REGION.
@@ -473,7 +484,7 @@ static void matvec(model_t *m, const qten_t *w, const float *x, float *out, int 
 static void matvec_group(model_t *m, const qten_t *const *w, float *const *out, const int *rows,
                          int nmat, const float *x)
 {
-    if (!m->fast) {
+    if (!m->fast || m->zo) {    /* with the Zynq taking rows, each matrix goes through matvec */
         for (int i = 0; i < nmat; i++) matvec(m, w[i], x, out[i], rows[i]);
         return;
     }
@@ -994,14 +1005,14 @@ void model_layers(model_t *m, int pos, int stream)
  * THE ROW IS UNPACKED ONCE AND USED n TIMES. That single fact is the whole difference between prefill
  * and decode. At n = 1 this is matvec and is bound by unpacking; at n = 64 the unpacking is amortised
  * 64-fold and what is left is arithmetic. */
-static void matmul_rows(const qten_t *w, const float *X, int n, float *out)
+void model_matmul_rows(const qten_t *w, const float *X, int n, float *out, int r0, int r1)
 {
     const int rows = (int)w->rows;
     const uint32_t cols = w->cols;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (int r = 0; r < rows; r++) {
+    for (int r = r0; r < r1; r++) {
         float row[MAX_COLS];
         gguf_dequant(w->type, w->raw + (size_t)r * w->row_bytes, cols, row);
 
@@ -1062,6 +1073,16 @@ static void matmul_rows(const qten_t *w, const float *X, int n, float *out)
     }
 }
 
+static void matmul_rows(model_t *m, const qten_t *w, const float *X, int n, float *out)
+{
+#ifdef ZACCEL_OFFLOAD
+    if (m->zo && model_zaccel_matmul(m, w, X, n, out)) return;
+#else
+    (void)m;
+#endif
+    model_matmul_rows(w, X, n, out, 0, (int)w->rows);
+}
+
 /* One chunk of positions through every layer this node holds. Scratch is allocated per call: against
  * the arithmetic in here, a handful of mallocs is free, and it keeps a stage that never prefills from
  * carrying the buffers. */
@@ -1099,9 +1120,9 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
         for (int j = 0; j < n; j++)
             rmsnorm(XB + (size_t)j * dim, X + (size_t)j * dim, L->attn_norm, dim, m->eps);
 
-        matmul_rows(&L->wq, XB, n, Q);
-        matmul_rows(&L->wk, XB, n, KB);
-        matmul_rows(&L->wv, XB, n, VB);
+        matmul_rows(m, &L->wq, XB, n, Q);
+        matmul_rows(m, &L->wk, XB, n, KB);
+        matmul_rows(m, &L->wv, XB, n, VB);
 
         for (int j = 0; j < n; j++) {
             float *qj = Q + (size_t)j * dim;
@@ -1168,7 +1189,7 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
             }
         }
 
-        matmul_rows(&L->wo, XB, n, Q);            /* Q reused as scratch for the projection */
+        matmul_rows(m, &L->wo, XB, n, Q);            /* Q reused as scratch for the projection */
         for (int j = 0; j < n; j++)
             for (int i = 0; i < dim; i++)
                 X[(size_t)j * dim + i] += Q[(size_t)j * dim + i];
@@ -1176,8 +1197,8 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
         for (int j = 0; j < n; j++)
             rmsnorm(XB + (size_t)j * dim, X + (size_t)j * dim, L->ffn_norm, dim, m->eps);
 
-        matmul_rows(&L->w_gate, XB, n, H1);
-        matmul_rows(&L->w_up,   XB, n, H2);
+        matmul_rows(m, &L->w_gate, XB, n, H1);
+        matmul_rows(m, &L->w_up,   XB, n, H2);
         for (int j = 0; j < n; j++) {
             float *h1 = H1 + (size_t)j * m->hidden;
             const float *h2 = H2 + (size_t)j * m->hidden;
@@ -1186,7 +1207,7 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
                 h1[i] = (gv / (1.0f + expf(-gv))) * h2[i];
             }
         }
-        matmul_rows(&L->w_down, H1, n, Q);
+        matmul_rows(m, &L->w_down, H1, n, Q);
         for (int j = 0; j < n; j++)
             for (int i = 0; i < dim; i++)
                 X[(size_t)j * dim + i] += Q[(size_t)j * dim + i];

@@ -79,6 +79,9 @@ int main(int argc, char **argv)
 {
     if (argc < 2) {
         printf("ppl <model.gguf> [--fast] [--kv-f32] [--kv-int4] [--text file] [--limit n]\n");
+#ifdef ZACCEL_OFFLOAD
+        printf("   --zaccel HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
+#endif
         return 1;
     }
 
@@ -129,6 +132,21 @@ int main(int argc, char **argv)
     model_t m;
     if (model_load(&m, &g, n + 8)) { printf("load: %s\n", g.err); return 1; }
     model_set_fast(&m, want_fast);
+#ifdef ZACCEL_OFFLOAD
+    {   /* --zaccel HOST [--share S]: the Zynq's matrix engine takes a share of every dense matrix */
+        const char *zh = NULL; double zshare = -1.0;
+        for (int a = 1; a < argc; a++) {
+            if (!strcmp(argv[a], "--zaccel") && a + 1 < argc) zh = argv[++a];
+            else if (!strcmp(argv[a], "--share") && a + 1 < argc) zshare = atof(argv[++a]);
+        }
+        if (zh) {
+            char zmsg[256];
+            long long nw = model_zaccel_attach(&m, zh, zshare, zmsg, sizeof zmsg);
+            printf("  zaccel: %s\n", zmsg);
+            if (nw < 0) return 1;
+        }
+    }
+#endif
     if (want_kv_f32 && model_set_kv_f32(&m, 1)) { printf("cannot allocate a float KV cache\n"); return 1; }
     /* This line was missing once, and the 4-bit run silently reported the 8-bit result instead. A flag
      * that is parsed but never applied is worse than one that is absent: the test appears to pass. The

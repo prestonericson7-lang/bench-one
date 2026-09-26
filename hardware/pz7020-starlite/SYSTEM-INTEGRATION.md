@@ -29,6 +29,10 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
                      └─────────────────────────────────────────────────────────────────┘
 ```
 
+> **Wiring the accelerator bench (the image on the card): use the six one-screen pages in
+> [wiring-png/](wiring-png/) and nothing else.** The Pi is cabled straight to the upper jack (ETH-PS) at
+> 10.77.0.1 / 10.77.0.2. The rows marked *SDR bitstream* and *car LAN* below belong to other designs.
+
 | Link | Physical | Level | Facts that fix the design |
 |---|---|---|---|
 | **Teensy ↔ PL, GPU geometry bus** (the accelerator bitstream, `vivado/build_system.tcl`) | JM1 pins 9–27 (D0–D15, SOR, STROBE, BUSY) + GND 4/33/34, one per Teensy GND pin (pin 3 is the fan's GND) | 3.3 V both ends | The FPGA-GPU's 16-bit parallel bus, `accel/gpu/WIRING.md`. It occupies the JM1 pins below, so the SDR SPI link and the GPU bus never share a bitstream |
@@ -64,7 +68,7 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 3. **Header identification (P-11)** — drive H16 high, probe pin 5 of each header: confirms
    electrically that JM1 is the top-edge header (the manual's board photo, p. 10, shows the `JM1`
    silkscreen there; the pinout sheet's square-pad rule finds pin 1).
-4. **Teensy link** — 5 wires per `sdr_accel.xdc`; LED2 lights on CS. The Teensy driver and
+4. **Teensy link (SDR bitstream only, not the accelerator image)** — 5 wires per `sdr_accel.xdc`; LED2 lights on CS. The Teensy driver and
    the RTL were verified bit-exact in simulation; this is the first hardware run.
 5. **PS boot from SD** — no Vivado needed: U-Boot SPL carries the validated `ps7/ps7_init_gpl.c`,
    then mainline Linux from the SD image built by `linux/` ([PS-LINUX.md](PS-LINUX.md)); console on

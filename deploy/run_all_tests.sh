@@ -85,6 +85,9 @@ check "Pi client, CPU baseline and bench (x86 + aarch64)" wsl_root bash /mnt/d/e
 check "Pi clients find the Zynq on either of its addresses" wsl_root bash /mnt/d/espicpc/accel/pi/test_fallback.sh
 check "Zynq RAM export -> Pi swap (nbd, zaccel-swap)" wsl_root bash /mnt/d/espicpc/accel/mem/test_mem.sh
 check "nbd.ko loads into the Pi's own kernel (vendor Image under QEMU)" wsl_root bash /mnt/d/espicpc/accel/mem/test_pi_nbd_load.sh
+bench_one_host() { (cd firmware/bench-one/tests && PATH="$ROOT/tools/w64devkit/bin:$PATH" sh run_host_tests.sh); }
+check "BENCH ONE host tests (the shared runtime the offload hooks into)" bench_one_host
+check "model runtime offload: kernels, identical text, perplexity within 3%" wsl_root bash /mnt/d/espicpc/accel/llm/run_tests.sh
 check "FPGA-GPU: RTL, daemon (x86 + ARM), geometry, Pi tools end to end" wsl_root bash /mnt/d/espicpc/accel/gpu/run_all_gpu_tests.sh
 
 echo "== Zynq SD image"

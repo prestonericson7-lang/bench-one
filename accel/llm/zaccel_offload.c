@@ -338,6 +338,7 @@ long long model_zaccel_attach(model_t *m, const char *host, double share, char *
     if (!zo) { snprintf(msg, msglen, "out of memory"); return -1; }
     char hbuf[128] = "";
     int port = 0;
+    if (host && !strcmp(host, "auto")) host = NULL;        /* 10.20.0.2, then 10.77.0.2 */
     if (host && *host) {                                   /* "host" or "host:port" */
         snprintf(hbuf, sizeof hbuf, "%s", host);
         char *colon = strchr(hbuf, ':');

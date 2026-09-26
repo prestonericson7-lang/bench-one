@@ -80,7 +80,7 @@ int main(int argc, char **argv)
     if (argc < 2) {
         printf("ppl <model.gguf> [--fast] [--kv-f32] [--kv-int4] [--text file] [--limit n]\n");
 #ifdef ZACCEL_OFFLOAD
-        printf("   --zaccel HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
+        printf("   --zaccel auto|HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
 #endif
         return 1;
     }

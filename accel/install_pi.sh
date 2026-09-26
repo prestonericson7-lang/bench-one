@@ -32,7 +32,7 @@ echo "installed: /usr/local/bin/zaccel-bench, /usr/local/lib/libzaccel.a, /usr/l
 say "model runtime with the Zynq offload (run_model, ppl)"
 install -D -m 0755 "$A/llm/out/aarch64/run_model" /usr/local/bin/run_model || fail=1
 install -D -m 0755 "$A/llm/out/aarch64/ppl" /usr/local/bin/ppl || fail=1
-echo "installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel 10.20.0.2 to offload)"
+echo "installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel auto to offload)"
 
 say "FPGA-GPU tools"
 bash "$A/gpu/pi/pi_setup.sh" || fail=1

@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     if (argc < 3) {
         printf("run_model <model.gguf> \"prompt\" [n_tokens]\n");
 #ifdef ZACCEL_OFFLOAD
-        printf("   --zaccel HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
+        printf("   --zaccel auto|HOST[:PORT] [--share S]  the Zynq's matrix engine takes a share of the rows (default: measured)\n");
 #endif
         return 1;
     }

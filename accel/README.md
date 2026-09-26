@@ -49,9 +49,16 @@ together, or none when the network round trip alone costs more than the Pi needs
 The Zynq's free memory caps it. If the Zynq stops answering, its rows are recomputed on the Pi and the
 offload switches off.
 
+Activations carry outlier channels, so both the Zynq's weight rows and every activation are rotated
+by a block Hadamard matrix first (orthonormal, so exact), and each engine column chunk gets its own
+activation scale. Without the rotation the model broke (perplexity 13.9 → 174); with it, measured on
+Qwen2.5-Coder 3B with `ppl.c` (64 tokens): **19.14 CPU-only, 19.36 half the rows on the Zynq path,
+19.03 all of them**, top-1 unchanged, and the generated text identical. `accel/llm/run_tests.sh`
+repeats all of it.
+
 ```
-run_model model.gguf "def fibonacci(n):" 64 --fast --zaccel 10.20.0.2      # n_tokens must be 3rd
-ppl model.gguf --fast --limit 256 --zaccel 10.20.0.2                        # the quality cost
+run_model model.gguf "def fibonacci(n):" 64 --fast --zaccel auto   # n_tokens must be 3rd
+ppl model.gguf --fast --limit 256 --zaccel auto                   # the quality cost
 ```
 
 ## Proven here, and what only the boards can answer

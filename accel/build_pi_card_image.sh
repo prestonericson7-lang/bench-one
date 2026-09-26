@@ -21,10 +21,31 @@ echo "vendor .sha $want"; echo "image       $got"
 
 echo "== copy, then stage the bundle into its rootfs"
 cp --sparse=always "$SRC" "$IMG"
+# MODEL=<file.gguf> [MODEL_NAME=<name>.gguf]: pre-load a model for bench-day. The stock rootfs has ~1.7 GB
+# free, so the image and its one partition grow by the model's size + 512 MiB first (the Pi's own
+# first-boot resize then grows it to the whole card as usual).
+MODEL=${MODEL:-}
+MODEL_NAME=${MODEL_NAME:-$(basename "${MODEL:-x.gguf}")}
+if [ -n "$MODEL" ]; then
+  [ -f "$MODEL" ] || { echo "no model at $MODEL"; exit 1; }
+  grow=$(( $(stat -c %s "$MODEL") / 1048576 + 512 ))
+  truncate -s +${grow}M "$IMG"
+  echo ", +" | sfdisk --quiet --no-reread -N 1 "$IMG"
+  L=$(losetup -f --show -o $((32 * 1024 * 1024)) "$IMG")
+  e2fsck -fy "$L" >/dev/null 2>&1; resize2fs "$L" >/dev/null 2>&1 || { losetup -d "$L"; echo "resize2fs failed"; exit 1; }
+  losetup -d "$L"
+  echo "image grown by $grow MiB for the model"
+fi
 M=$(mktemp -d); L=$(losetup -f --show -o $((32 * 1024 * 1024)) "$IMG")
 trap 'mountpoint -q "$M" && umount "$M"; losetup -d "$L" 2>/dev/null; rmdir "$M" 2>/dev/null' EXIT
 mount -t ext4 "$L" "$M"
 bash "$A/stage_pi_card.sh" root "$M"
+if [ -n "$MODEL" ]; then                   # the model bench-day runs by default
+  install -D -m 0644 "$MODEL" "$M/opt/accel/models/$MODEL_NAME"
+  sync; echo 3 > /proc/sys/vm/drop_caches
+  cmp "$MODEL" "$M/opt/accel/models/$MODEL_NAME" && echo "model: /opt/accel/models/$MODEL_NAME read back identical" \
+    || { echo "model copy does not read back identical -- stop"; exit 1; }
+fi
 sync; umount "$M"
 e2fsck -fn "$L" > "$W/fsck.log" 2>&1 && echo "e2fsck -fn: clean" || { cat "$W/fsck.log"; echo "filesystem not clean -- stop"; exit 1; }
 losetup -d "$L"; trap - EXIT; rmdir "$M"

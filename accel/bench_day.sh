@@ -1,10 +1,11 @@
 #!/bin/bash
 # bench_day.sh -- on the Orange Pi, with the Zynq up: every measurement that says how much the Zynq +
 # Teensy add, in one run, saved to a report. These are the numbers that count (a PC's never do).
-#   bench_day.sh [model.gguf]            (after install_pi.sh; the model is optional)
+#   bench_day.sh [model.gguf]            (after install_pi.sh; with no model it uses the one the card
+#                                         was built with, /opt/accel/models/*.gguf, if there is one)
 # Report: ~/accel-bench-<date>.txt
 set -u
-MODEL=${1:-}
+MODEL=${1:-$(ls /opt/accel/models/*.gguf 2>/dev/null | head -1)}
 OUT=~/accel-bench-$(date +%Y%m%d-%H%M%S).txt
 exec > >(tee "$OUT") 2>&1
 say() { printf '\n==== %s\n' "$*"; }

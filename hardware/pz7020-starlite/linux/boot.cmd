@@ -11,9 +11,16 @@ setenv bootargs "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait 
 setenv fdt_high 0xffffffff
 setenv initrd_high 0xffffffff
 
+# Linux's zynq-fpga driver clears devcfg PCFG_DONE when it probes, so after boot that bit cannot say
+# whether the PL is configured. fpgagpu.pl_loaded=1 on the command line, only when "fpga loadb"
+# succeeded, is how fpgagpud, zaccel-server and zynq-report learn it (with PCFG_INIT_NE still clear).
 if load mmc 0:1 0x10000000 pl.bit; then
     echo "Loading PL bitstream pl.bit (${filesize} bytes)"
-    fpga loadb 0 0x10000000 ${filesize}
+    if fpga loadb 0 0x10000000 ${filesize}; then
+        setenv bootargs "${bootargs} fpgagpu.pl_loaded=1"
+    else
+        echo "fpga loadb of pl.bit FAILED -- PL not configured"
+    fi
 else
     echo "No pl.bit on the boot partition -- PL left unconfigured"
 fi

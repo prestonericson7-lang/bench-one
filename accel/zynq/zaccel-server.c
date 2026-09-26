@@ -7,7 +7,9 @@
  * Engines, chosen at start behind one interface (engine_t.gemv):
  *   pl    - AXI DMA (PG021 simple mode) feeding zaccel_gemv in the PL; tensors live in the
  *           reserved DDR3 exposed as UIO "zaccel-mem", DMA registers as UIO "zaccel-dma".
- *           Only used when DEVCFG INT_STS.PCFG_DONE says the PL is configured.
+ *           Only used when the PL is configured: DEVCFG INT_STS.PCFG_DONE, or boot.scr's
+ *           fpgagpu.pl_loaded=1 on the kernel command line with PCFG_INIT_NE still clear (Linux's
+ *           zynq-fpga driver clears PCFG_DONE when it probes -- the same rule as fpgagpud).
  *   cpu   - exact int32 reference in C (fallback whenever the PL or DMA is absent).
  *   model - tests only (--model): the pl code path, unchanged, but the two UIO windows are
  *           ordinary memory and a software model of SPEC section 1 + the DMA reacts to the
@@ -95,6 +97,8 @@ static unsigned g_cpu_pool_mb = CPU_POOL_MB;       /* --cpu-mb: host-side qualit
 #define DEVCFG_BASE 0xF8007000u
 #define DEVCFG_INT_STS 0x0Cu
 #define PCFG_DONE (1u << 2)
+#define PCFG_INIT_NE (1u << 0) /* INT_STS: PL INIT_B went low (PL reset) since boot */
+#define BOOT_MARKER "fpgagpu.pl_loaded=1"
 
 #define RBUF 65536u
 
@@ -983,30 +987,73 @@ static int guarded_read32(volatile uint32_t *p, uint32_t *out)
     return bad;
 }
 
+/* 1 = the kernel command line (tests: the file in ZACCEL_CMDLINE) has BOOT_MARKER as a whole word */
+static int boot_marker(void)
+{
+    const char *path = getenv("ZACCEL_CMDLINE");
+    char buf[4096];
+    size_t ml = sizeof BOOT_MARKER - 1, n;
+    FILE *f = fopen(path ? path : "/proc/cmdline", "r");
+    if (!f)
+        return 0;
+    n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[n] = 0;
+    for (const char *p = buf; *p; p++)
+        if ((p == buf || p[-1] == ' ') && !strncmp(p, BOOT_MARKER, ml) &&
+            (p[ml] == 0 || p[ml] == ' ' || p[ml] == '\n'))
+            return 1;
+    return 0;
+}
+
+/* 1 = the PL is configured. U-Boot's "fpga loadb" sets PCFG_DONE, but Linux's zynq-fpga driver
+ * clears it when it probes; boot.scr then leaves BOOT_MARKER on the command line. The PL counts as
+ * configured with the marker only while PCFG_INIT_NE is clear (no PL reset since). As fpgagpud. */
+static int pl_configured(uint32_t sts, char *why, size_t wl)
+{
+    if (sts & PCFG_DONE)
+        return 1;
+    if (boot_marker()) {
+        if (!(sts & PCFG_INIT_NE))
+            return 1;
+        snprintf(why, wl, "PL was reset after U-Boot loaded pl.bit (DEVCFG INT_STS=0x%08x: PCFG_INIT_NE set, "
+                 "PCFG_DONE clear)", sts);
+        return 0;
+    }
+    snprintf(why, wl, "PL not configured (DEVCFG INT_STS=0x%08x, PCFG_DONE clear, and no %s on the kernel "
+             "command line)", sts, BOOT_MARKER);
+    return 0;
+}
+
 static int pl_init(engine_t *e, char *why, size_t wl)
 {
     engine_teardown(e);
     e->kind = ENG_PL;
     e->name = "pl";
 
-    /* 1. is the PL configured? Touching a PL address while it is not hangs the bus. */
-    int fd = open("/dev/mem", O_RDONLY | O_SYNC);
-    if (fd < 0) {
-        snprintf(why, wl, "cannot open /dev/mem to check PCFG_DONE: %s", strerror(errno));
-        return -1;
+    /* 1. is the PL configured? Touching a PL address while it is not hangs the bus.
+     *    ZACCEL_DEVCFG_STS (tests only) stands in for the register. */
+    uint32_t sts;
+    const char *fake = getenv("ZACCEL_DEVCFG_STS");
+    if (fake) {
+        sts = (uint32_t)strtoul(fake, NULL, 0);
+    } else {
+        int fd = open("/dev/mem", O_RDONLY | O_SYNC);
+        if (fd < 0) {
+            snprintf(why, wl, "cannot open /dev/mem to check PCFG_DONE: %s", strerror(errno));
+            return -1;
+        }
+        void *p = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, DEVCFG_BASE);
+        close(fd);
+        if (p == MAP_FAILED) {
+            snprintf(why, wl, "cannot map DEVCFG at 0x%08x: %s", DEVCFG_BASE, strerror(errno));
+            return -1;
+        }
+        sts = ((volatile uint32_t *)p)[DEVCFG_INT_STS / 4];
+        munmap(p, 4096);
     }
-    void *p = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, DEVCFG_BASE);
-    close(fd);
-    if (p == MAP_FAILED) {
-        snprintf(why, wl, "cannot map DEVCFG at 0x%08x: %s", DEVCFG_BASE, strerror(errno));
+    if (!pl_configured(sts, why, wl))
         return -1;
-    }
-    uint32_t sts = ((volatile uint32_t *)p)[DEVCFG_INT_STS / 4];
-    munmap(p, 4096);
-    if (!(sts & PCFG_DONE)) {
-        snprintf(why, wl, "PL not configured (DEVCFG INT_STS=0x%08x, PCFG_DONE clear)", sts);
-        return -1;
-    }
 
     /* 2. the two UIO devices */
     if (uio_open("zaccel-dma", &e->u_dma, why, wl) || uio_open("zaccel-mem", &e->u_mem, why, wl))

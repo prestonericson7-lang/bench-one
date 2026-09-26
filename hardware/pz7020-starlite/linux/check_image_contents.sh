@@ -15,6 +15,7 @@ same() { if cmp -s "$1" "$2"; then echo "  same     $3"; else echo "  DIFFERS  $
 mount -o ro,loop,offset="$(start 0)" "$IMG" "$M" || { echo "cannot mount the boot partition"; exit 2; }
 for f in boot.bin u-boot.img boot.scr zImage $DT.dtb; do same "$M/$f" "$L/out/$f" "BOOT/$f = linux/out/$f"; done
 grep -aq "uio_pdrv_genirq.of_id=generic-uio" "$M/boot.scr" && echo "  boot.scr binds generic-uio" || { echo "  boot.scr lacks uio_pdrv_genirq.of_id"; rc=1; }
+grep -aq "fpgagpu.pl_loaded=1" "$M/boot.scr" && echo "  boot.scr tells Linux the PL is loaded (fpgagpu.pl_loaded=1)" || { echo "  boot.scr lacks fpgagpu.pl_loaded=1: after boot nothing could tell the PL is configured"; rc=1; }
 same "$M/pl.bit" "$REPO/hardware/pz7020-starlite/vivado/build/system.bit" "BOOT/pl.bit = vivado/build/system.bit"
 umount "$M"
 

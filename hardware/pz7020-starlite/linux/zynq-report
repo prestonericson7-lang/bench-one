@@ -47,15 +47,27 @@ row("cpu_khz", rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq") or "n
 mem = next((l.split()[1] for l in (rd("/proc/meminfo") or "").splitlines() if l.startswith("MemTotal")), "?")
 row("mem_total", f"{mem} kB  (what the device tree gives Linux -- not a probe of the chips)")
 
-# PL (fabric) configured?  DEVCFG INT_STS at 0xF800700C, bit 2 = PCFG_DONE.  A PS register: safe to read.
+# PL (fabric) configured?  DEVCFG INT_STS at 0xF800700C (a PS register: safe to read): bit 2 PCFG_DONE,
+# bit 0 PCFG_INIT_NE (PL reset). Linux's zynq-fpga driver clears PCFG_DONE when it probes, so on a booted
+# board the proof is boot.scr's fpgagpu.pl_loaded=1 with PCFG_INIT_NE still clear (as fpgagpud and
+# zaccel-server decide it).
 pl_done = None
 try:
     fd = os.open("/dev/mem", os.O_RDONLY | os.O_SYNC)
     m = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ, offset=0xF8007000)
-    pl_done = bool(struct.unpack_from("<I", m, 0x0C)[0] & 0x4)
+    sts = struct.unpack_from("<I", m, 0x0C)[0]
     m.close()
     os.close(fd)
-    row("pl_done", "yes -- fabric configured" if pl_done else "no -- PCFG_DONE not set")
+    marker = "fpgagpu.pl_loaded=1" in (rd("/proc/cmdline") or "").split()
+    if sts & 0x4:
+        pl_done, how = True, "PCFG_DONE set"
+    elif marker and not sts & 0x1:
+        pl_done, how = True, "U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since"
+    elif marker:
+        pl_done, how = False, f"PL was reset after U-Boot loaded pl.bit (INT_STS 0x{sts:08x})"
+    else:
+        pl_done, how = False, f"no pl.bit loaded at boot (no fpgagpu.pl_loaded=1, INT_STS 0x{sts:08x})"
+    row("pl_done", ("yes -- fabric configured: " if pl_done else "no -- ") + how)
 except Exception as e:
     row("pl_done", f"n/a ({e})")
 if pl_done:

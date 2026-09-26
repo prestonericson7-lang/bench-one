@@ -16,5 +16,8 @@ run --bin out/zaccel-server-x86 --model
 run --bin out/zaccel-server-armhf --cpu --wrap "$QEMU"
 run --bin out/zaccel-server-armhf --model --wrap "$QEMU"
 echo
+bash test_pl_detect.sh out/zaccel-server-x86 || fail=1
+bash test_pl_detect.sh out/zaccel-server-armhf "$QEMU" || fail=1
+echo
 if [ $fail -eq 0 ]; then echo "RUN_TESTS: ALL CONFIGURATIONS PASSED"; else echo "RUN_TESTS: FAILURES"; fi
 exit $fail

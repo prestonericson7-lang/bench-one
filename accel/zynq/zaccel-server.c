@@ -85,7 +85,8 @@ enum { ST_OK = 0, ST_BAD = 1, ST_NOMEM = 2, ST_ENGINE = 3, ST_UNKNOWN = 4 };
 #define POOL_ALIGN 64u
 #define STAGE_IN_BYTES (64u << 10)                 /* header + 8 x 4096 activations = 32776 */
 #define STAGE_OUT_BYTES ((2u << 20) + (64u << 10)) /* 65535 x 8 results + trailer = 2097128 */
-#define CPU_POOL_MB 256u                           /* heap arena for the cpu engine */
+#define CPU_POOL_MB 256u                           /* heap arena for the cpu engine (default) */
+static unsigned g_cpu_pool_mb = CPU_POOL_MB;       /* --cpu-mb: host-side quality tests only */
 #define MODEL_MEM_PHYS 0x20000000u                 /* model: same layout as the reserved DDR3 */
 #define MODEL_MEM_SIZE (384u << 20)
 #define MODEL_DMA_WINDOW 0x10000u
@@ -834,7 +835,7 @@ static int cpu_init(engine_t *e)
     e->kind = ENG_CPU;
     e->name = "cpu";
     e->info_id = 0;
-    e->anon_mem_len = (size_t)CPU_POOL_MB << 20;
+    e->anon_mem_len = (size_t)g_cpu_pool_mb << 20;
     e->anon_mem = anon_map(e->anon_mem_len);
     if (!e->anon_mem || pool_init(&e->pool, e->anon_mem_len))
         return -1;
@@ -1406,9 +1407,10 @@ static void *conn_main(void *arg)
 static void usage(void)
 {
     fprintf(stderr,
-            "usage: zaccel-server [--port N] [--cpu | --model [--model-fault N]]\n"
+            "usage: zaccel-server [--port N] [--cpu [--cpu-mb N] | --model [--model-fault N]]\n"
             "  default engine: pl when the PL is configured and zaccel-dma/zaccel-mem exist, else cpu\n"
             "  --cpu          force the cpu engine\n"
+            "  --cpu-mb N     cpu engine tensor memory in MB (default 256; host tests only)\n"
             "  --model        tests only: the pl code path against a software model of the PL\n"
             "  --model-fault  tests only: corrupt the trailer of the Nth client job (-1: every selftest job)\n");
 }
@@ -1422,6 +1424,10 @@ int main(int argc, char **argv)
             port = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--cpu")) {
             want = ENG_CPU;
+        } else if (!strcmp(argv[i], "--cpu-mb") && i + 1 < argc) {
+            long mb = strtol(argv[++i], NULL, 0);
+            if (mb < 16 || mb > 16384) { usage(); return 2; }
+            g_cpu_pool_mb = (unsigned)mb;
         } else if (!strcmp(argv[i], "--model")) {
             want = ENG_MODEL;
         } else if (!strcmp(argv[i], "--model-fault") && i + 1 < argc) {

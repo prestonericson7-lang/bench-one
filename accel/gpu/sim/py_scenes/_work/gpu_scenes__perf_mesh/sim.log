@@ -1,5 +1,0 @@
-WARNING: /mnt/d/espicpc/accel/gpu/sim/tb_core.v:542: $readmemh(ddr.hex): Not enough words in the file for the requested range [0:1048575].
-TB: seed=1 stall=30 nframes=1 nwords=34584 path=    ps streams=0 clear=0000
-FRAME 0 render_cycles=398569 prim_count=1440 overflow=0 bad=0 dropped=0 axi_err=0 fno=8 back=1e200000 cycle=448024
-COUNTERS overflow=0 bad=0 dropped=0 axi_err=0 prim_count=1440 sprite_beats=0 last_fno=8 ret_full=0 ret_frame=0 ring_stall=0
-TB_RESULT errors=0 frames=1 cycles=450180

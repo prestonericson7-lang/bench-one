@@ -37,6 +37,9 @@ grep -q '^Address=10.20.0.2/24' "$M/etc/systemd/network/20-eth0.network" && echo
 grep -q '^Address=10.77.0.2/24' "$M/etc/systemd/network/20-eth0.network" && echo "  eth0 GPU link 10.77.0.2/24 configured" \
   || { echo "  eth0 GPU link address MISSING"; rc=1; }
 grep -rq zynqram "$M/etc/nbd-server" 2>/dev/null && echo "  nbd-server exports zynqram" || { echo "  nbd-server zynqram export MISSING"; rc=1; }
+same "$M/etc/nbd-server/zynqram.allow" "$REPO/accel/mem/zynq/zynqram.allow" "/etc/nbd-server/zynqram.allow = accel/mem/zynq/zynqram.allow"
+grep -q '^[[:space:]]*listenaddr = 0.0.0.0' "$M/etc/nbd-server/config" && echo "  nbd-server listens IPv4-only (the allow list holds)" \
+  || { echo "  nbd-server listenaddr MISSING: CIDR allow lines would admit anyone"; rc=1; }
 umount "$M"; rmdir "$M"
 echo "  image sha256 $(sha256sum "$IMG" | cut -c1-64)"
 [ $rc = 0 ] && echo "IMAGE CONTENTS: PASS" || echo "IMAGE CONTENTS: FAIL"

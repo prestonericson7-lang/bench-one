@@ -110,3 +110,6 @@ accel/cosim/*.txt
 .Xil/
 accel/cosim/.ip_user_files/
 accel/cosim/*.log
+accel/llm/out/
+# GPU render-core scene runs: work directories written by sim/run_core.sh
+accel/gpu/sim/py_scenes/

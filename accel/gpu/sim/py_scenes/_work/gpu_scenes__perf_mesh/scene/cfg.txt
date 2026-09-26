@@ -1,5 +1,0 @@
-clear_color=0000
-nrec=1441
-nrender=1440
-nframes=1
-path=ps

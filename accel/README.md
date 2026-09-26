@@ -37,6 +37,23 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
    - `gpu_selftest` — the GPU bit-exact against the golden model, plus frames/s.
    - `swapon --show` — `/dev/nbd0` at priority 100 is the Zynq's RAM.
 
+## The model runtime uses the matrix engine
+
+`run_model` and `ppl` (the repo's own runtime, `firmware/bench-one/shared/model_q.c`) take
+`--zaccel HOST[:PORT] [--share S]`. A share of every dense matrix's rows is requantized to int8 (one
+scale per row) and held in the Zynq's DDR3; each matrix-vector product sends the activation there and
+computes the rest on the Pi's cores at the same time. Prompt processing sends positions 8 at a time, so
+one weight read on the Zynq serves 8 positions. Without `--share` the split is **measured** at start:
+both sides are timed on a real matrix and each matrix gets the share that finishes both halves
+together, or none when the network round trip alone costs more than the Pi needs for the whole matrix.
+The Zynq's free memory caps it. If the Zynq stops answering, its rows are recomputed on the Pi and the
+offload switches off.
+
+```
+run_model model.gguf "def fibonacci(n):" 64 --fast --zaccel 10.20.0.2      # n_tokens must be 3rd
+ppl model.gguf --fast --limit 256 --zaccel 10.20.0.2                        # the quality cost
+```
+
 ## Proven here, and what only the boards can answer
 
 Proven on this PC: the matrix engine RTL bit-exact under four flow-control patterns (6/6 planted bugs

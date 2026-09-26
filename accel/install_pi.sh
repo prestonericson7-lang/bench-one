@@ -3,6 +3,7 @@
 # Pi, as root, from the unpacked accel bundle (make_pi_bundle.sh):
 #     sudo bash install_pi.sh
 #   * matrix engine client: zaccel-bench, libzaccel (.a + .h), zaccel.py          (accel/pi)
+#   * the model runtime with the Zynq offload: run_model, ppl                       (accel/llm)
 #   * FPGA-GPU tools + the wired-port address + Teensy tty access (pi_setup.sh)  (accel/gpu/pi)
 #   * the Teensy geometry-engine firmware, and teensy_loader_cli to flash it       (accel/gpu/teensy)
 #   * the Zynq's DDR3 as swap: nbd module, nbd-client, zaccel-swap service         (accel/mem)
@@ -27,6 +28,11 @@ install -D -m 0755 "$A/pi/zaccel.py" /usr/local/lib/zaccel/zaccel.py || fail=1
 ln -sf /usr/local/lib/zaccel/zaccel.py /usr/local/bin/zaccel.py
 sed -i 's/\r$//' /usr/local/lib/zaccel/zaccel.py
 echo "installed: /usr/local/bin/zaccel-bench, /usr/local/lib/libzaccel.a, /usr/local/include/libzaccel.h, /usr/local/bin/zaccel.py"
+
+say "model runtime with the Zynq offload (run_model, ppl)"
+install -D -m 0755 "$A/llm/out/aarch64/run_model" /usr/local/bin/run_model || fail=1
+install -D -m 0755 "$A/llm/out/aarch64/ppl" /usr/local/bin/ppl || fail=1
+echo "installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel 10.20.0.2 to offload)"
 
 say "FPGA-GPU tools"
 bash "$A/gpu/pi/pi_setup.sh" || fail=1

@@ -1,4 +1,0 @@
-TB: seed=1 stall=30 nframes=1 nwords=312 path=    ps streams=0 clear=0000
-FRAME 0 render_cycles=332064 prim_count=12 overflow=0 bad=0 dropped=0 axi_err=0 fno=9 back=1e200000 cycle=334646
-COUNTERS overflow=0 bad=0 dropped=0 axi_err=0 prim_count=12 sprite_beats=760 last_fno=9 ret_full=0 ret_frame=0 ring_stall=0
-TB_RESULT errors=0 frames=1 cycles=336664

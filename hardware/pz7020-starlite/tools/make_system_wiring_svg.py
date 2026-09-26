@@ -170,12 +170,12 @@ text(W / 2, 172, "NOT the FPGA's JM2 header, NOT the FPGA's lower Ethernet jack.
 AY = 240
 text(40, AY, "A.  The cables", 34, weight="bold")
 # Teensy block, above the FPGA's JM1
-TX, TY, TW, TH = 560, AY + 50, 430, 110
+TX, TY, TW, TH = 560, AY + 110, 430, 110
 box(TX, TY, TW, TH, C["teensy"], C["tfill"])
-text(TX + 180, TY + 50, "Teensy 4.1", 30, C["teensy"], "middle", "bold")
-text(TX + 180, TY + 84, "geometry engine", 20, C["dim"], "middle")
-w_(f'<rect x="{TX + TW - 24}" y="{TY + 36}" width="40" height="38" rx="5" fill="{C["usb"]}"/>')
-text(TX + TW - 36, TY + 26, "micro-USB", 18, C["usb"], "end", "bold")
+text(TX + 250, TY + 50, "Teensy 4.1", 30, C["teensy"], "middle", "bold")
+text(TX + 250, TY + 84, "USB at the left", 20, C["dim"], "middle")
+w_(f'<rect x="{TX - 16}" y="{TY + 36}" width="40" height="38" rx="5" fill="{C["usb"]}"/>')
+text(TX + 34, TY + 26, "micro-USB", 18, C["usb"], weight="bold")
 # FPGA board as it sits on the bench: USB-C + HDMI left, Ethernet right, JM1 top edge
 FX, FY, FW_, FH = 480, TY + TH + 150, 560, 470
 box(FX, FY, FW_, FH, C["board"], C["boardfill"])
@@ -230,8 +230,8 @@ device(PX + 20, PY + PH + 70, PW - 40, 60, "Pi's own supply", None, C["pwr"])
 # numbered cables
 line([(FX + FW_ + 22, ETY), (PX - 22, ETY)], C["eth"], 9)
 badge((FX + FW_ + PX) / 2, ETY - 36, "1", C["eth"])
-line([(TX + TW + 16, TY + 55), (PX + 128, TY + 55), (PX + 128, PY - 18)], C["usb"], 8)
-badge(TX + TW + 140, TY + 55 - 36, "2", C["usb"])
+line([(TX - 16, TY + 55), (TX - 60, TY + 55), (TX - 60, TY - 22), (PX + 128, TY - 22), (PX + 128, PY - 18)], C["usb"], 8)
+badge(TX + TW + 140, TY - 22 - 34, "2", C["usb"])
 for i in range(6):
     x = FX + 170 + i * 36
     line([(x, TY + TH), (x, FY + 14)], C["jump"], 4)
@@ -253,7 +253,7 @@ rows = [("1", C["eth"], "Orange Pi Ethernet port  →  FPGA UPPER Ethernet jack 
         ("2", C["usb"], "Orange Pi USB-A port  →  Teensy micro-USB.",
          "A USB DATA cable, not charge-only. It powers the Teensy."),
         ("3", C["jump"], "Teensy pins  →  FPGA header JM1: 22 jumper wires.",
-         "Table below. Wire them with BOTH boards unpowered, grounds first."),
+         "Wire with BOTH boards unpowered, grounds first. Power DOWN: unplug the Teensy's USB FIRST, then J8."),
         ("4", C["pwr"], "5 V USB-A charger, 2 A or more  →  FPGA UPPER USB-C (J8).",
          "Use a USB-A → USB-C cable. A C-to-C cable gives this board NO power."),
         ("5", C["dim"], "FPGA LOWER USB-C (J2)  →  this PC.  Optional.",
@@ -266,7 +266,9 @@ for i, (n, c, a, b) in enumerate(rows):
     text(110, y, a, 23, weight="bold")
     text(110, y + 32, b, 20, C["dim"])
 y = LY + 60 + 6 * 84
-text(40, y, "Also: the Orange Pi on its own power supply, and the NVMe drive in the Pi's M.2 slot.", 21, C["dim"])
+text(40, y, "Also: the Pi's own power supply; the NVMe in the Pi's M.2 slot; an optional fan on JM1 1 (5 V), 3 (GND),", 21, C["dim"])
+text(40, y + 30, "5 (PWM), 7 (tach). Nothing else.", 21, C["dim"])
+y += 30
 
 # ======== B. the jumper wires ========
 BY = y + 90
@@ -306,7 +308,7 @@ for p in range(1, 41):
             text(x, (y - 36) if p % 2 == 0 else (y + 54), lab, 18, C["pwr"] if p in (1, 2) else C["dim"], "middle")
 NY = JYI + 150
 text(40, NY, "□ Square pad = pin 1, at the left end of the inner row.  Odd pins: inner row.  Even pins: outer row.", 21, C["dim"])
-text(40, NY + 32, "Pins 1–7 are power and the fan: never a Teensy wire there.  Pins 35 and 36 stay empty.", 21, C["dim"])
+text(40, NY + 32, "Never a Teensy wire on 1 (5 V), 2 (3.3 V), 3, 5, 7 (the fan). Pin 4 IS a ground wire (W1). 35 and 36 stay empty.", 21, C["dim"])
 
 TX0, TP = 150, 56
 TYT = NY + 190
@@ -315,26 +317,28 @@ w_(f'<rect x="{TX0 - 46}" y="{TYT - 34}" width="{23 * TP + 92}" height="{TYB - T
 w_(f'<rect x="{TX0 - 100}" y="{(TYT + TYB) / 2 - 30}" width="60" height="60" rx="6" fill="{C["usb"]}"/>')
 text(TX0 - 70, (TYT + TYB) / 2 + 60, "USB", 20, C["usb"], "middle", "bold")
 text(TX0 + 11.5 * TP, (TYT + TYB) / 2 - 4, "Teensy 4.1 — top side up, USB at the LEFT", 26, C["teensy"], "middle", "bold")
-text(TX0 + 11.5 * TP, (TYT + TYB) / 2 + 28, "(as on PJRC's pinout card)", 20, C["dim"], "middle")
+text(TX0 + 11.5 * TP, (TYT + TYB) / 2 + 28, "(PJRC pinout card, store page)", 20, C["dim"], "middle")
+text(TX0 + 23 * TP + 40, TYT - 56, "← the Vin edge", 24, C["pwr"], "end", "bold")
+text(TX0 + 23 * TP + 40, TYB + 74, "← the pin 0 edge", 24, C["teensy"], "end", "bold")
 for edge, labels, y, up in (("top", T_TOP, TYT, True), ("bot", T_BOT, TYB, False)):
     for i, lab in enumerate(labels):
         x = TX0 + i * TP
         wv = by_t.get((edge, i))
         if wv:
             c = col[wv["kind"]]
-            w_(f'<circle cx="{x}" cy="{y}" r="24" fill="{c}"/>')
-            text(x, y + 7, lab, 16 if len(lab) > 2 else 20, ON[wv["kind"]], "middle", "bold")
+            w_(f'<circle cx="{x}" cy="{y}" r="26" fill="{c}"/>')
+            text(x, y + 7, lab, 18 if len(lab) > 2 else 21, ON[wv["kind"]], "middle", "bold")
             wy, sy = (y - 42, y - 70) if up else (y + 60, y + 86)
             text(x, wy, f"W{wv['n']}", 21, c, "middle", "bold")
             text(x, sy, wv["sig"] if wv["sig"] != "STROBE" else "STRB", 18, c, "middle", "bold")
         else:
             bad = lab in ("Vin", "3.3V")
             st = C["pwr"] if bad else C["unused"]
-            w_(f'<circle cx="{x}" cy="{y}" r="22" fill="{C["bg"]}" stroke="{st}" stroke-width="2.5"/>')
-            text(x, y + 6, lab, 14 if len(lab) > 2 else 18, st, "middle", "bold" if bad else "normal")
+            w_(f'<circle cx="{x}" cy="{y}" r="26" fill="{C["bg"]}" stroke="{st}" stroke-width="3" />')
+            text(x, y + 7, lab, 18 if len(lab) > 2 else 20, st, "middle", "bold" if bad else "normal")
 QY = TYB + 150
-text(40, QY, "Top edge from the USB end: Vin, GND, 3.3V, 23 … 13, GND, 41 … 33.", 21, C["dim"])
-text(40, QY + 32, "Bottom edge: GND, 0 … 12, 3.3V, 24 … 32.   Vin and 3.3V (red): NEVER wired.", 21, C["dim"])
+text(40, QY, "The Vin edge, from the USB end: Vin, GND, 3.3V, 23 … 13, GND, 41 … 33.", 21, C["dim"])
+text(40, QY + 32, "The pin 0 edge, from the USB end: GND, 0 … 12, 3.3V, 24 … 32.   Vin and 3.3V (red): NEVER wired.", 21, C["dim"])
 
 # ======== C. wire by wire ========
 CY = QY + 120
@@ -353,7 +357,7 @@ for i, wv in enumerate(wires):
     text(250, y, f"{'inner' if wv['jm1'] % 2 else 'outer'} row, {ordinal((wv['jm1'] - 1) // 2 + 1)} from left", 21)
     text(560, y, wv["sig"], 23, c, weight="bold")
     text(760, y, wv["tpin"], 23, weight="bold")
-    text(890, y, f"{'top' if wv['tedge'] == 'top' else 'bottom'} edge, {ordinal(wv['tidx'] + 1)} from USB", 21)
+    text(890, y, f"{'Vin' if wv['tedge'] == 'top' else 'pin 0'} edge, {ordinal(wv['tidx'] + 1)} from USB", 21)
     d = {"gnd": "ground", "ctl": "FPGA → Teensy" if wv["sig"] == "BUSY" else "Teensy → FPGA",
          "data": "Teensy → FPGA"}[wv["kind"]]
     text(1330, y, d, 20, C["dim"])
@@ -365,10 +369,10 @@ H = int(FY2 + 100)
 # screen pages (make_wiring_pages.py): boxes in drawing units, each becomes one 1920x1080 picture
 RH = 42
 PAGES = [
-    dict(name="1-cables", title="1 / 6   The cables", box=[20, TY - 20, W - 20, PY + PH + 145]),
-    dict(name="2-cable-by-cable", title="2 / 6   Cable by cable", box=[20, LY + 20, W - 20, LY + 60 + 6 * 84 + 20]),
+    dict(name="1-cables", title="1 / 6   The cables", box=[20, TY - 84, W - 20, PY + PH + 145]),
+    dict(name="2-cable-by-cable", title="2 / 6   Cable by cable", box=[20, LY + 20, W - 20, LY + 60 + 6 * 84 + 50]),
     dict(name="3-jm1-fpga", title="3 / 6   Jumper wires on the FPGA header JM1", box=[40, JYO - 150, W - 30, NY + 45]),
-    dict(name="4-teensy", title="4 / 6   Jumper wires on the Teensy 4.1", box=[40, TYT - 112, W - 30, QY + 45]),
+    dict(name="4-teensy", title="4 / 6   Jumper wires on the Teensy 4.1", box=[40, TYT - 118, W - 30, QY + 45]),
     dict(name="5-wires-1-11", title="5 / 6   Wire by wire: W1 - W11",
          header=[28, CY + 20, W - 28, CY + 66], box=[28, CY + 66, W - 28, CY + 96 + 10 * RH + 14]),
     dict(name="6-wires-12-22", title="6 / 6   Wire by wire: W12 - W22",

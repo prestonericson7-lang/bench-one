@@ -20,7 +20,7 @@ doesn't re-derive any of it.
 | Clocks | PS 33.333 MHz (PS_REF_CLK); **PL 50 MHz single-ended = IO_12P_MRCC_34, ball `U18`** |
 | Networking | 2× Gigabit Ethernet (RTL8211FD; 1 PS-side, 1 PL-side) |
 | Video/other | HDMI out (BANK34), MIPI CSI 2-lane, USB 2.0 host (BANK501, 1.8 V) |
-| Power | **5 V / 1 A** — via Type-C **or** the 40P header 5 V pins |
+| Power | **5 V / 1 A** rating — into the **upper** Type-C (J8) from a 5 V USB-A charger of 2 A or more with a USB-A → USB-C cable (no CC resistors: C-to-C gives no power), **or** the 40P header 5 V pins — never both |
 | Reset | nRST (active low) → PS `PS_POR_B (C7)` + PL `IO_L12N_MRCC_34 (U19)` |
 | LEDs | LED1 `R19`, LED2 `V13` (BANK34, high = on) |
 | KEYs | KEY1 `G14`, KEY2 `J15` (BANK35, low = pressed) |

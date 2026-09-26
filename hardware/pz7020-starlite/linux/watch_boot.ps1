@@ -3,7 +3,8 @@ watch_boot.ps1 -- hands-off boot capture for the Puzhi PZ7020-StarLite.
 
   Physical setup (the only manual part):
     * SD card in the board; boot jumper on SD.
-    * Lower USB-C (J2, UART, CH340E) -> this PC.  Upper USB-C (J8, JTAG) -> any 5 V USB supply; it powers the board.
+    * Lower USB-C (J2, UART, CH340E) -> this PC.  Upper USB-C (J8, JTAG) -> a 5 V USB-A charger (2 A or more) with a USB-A to USB-C cable; it
+      powers the board. A C-to-C cable gives no power (the board's USB-C ports have no CC resistors).
       (The UART port's 5 V only feeds the CH340E, never the board.)
   Run (leave it running; order of plugging does not matter):
     powershell -NoProfile -ExecutionPolicy Bypass -File watch_boot.ps1

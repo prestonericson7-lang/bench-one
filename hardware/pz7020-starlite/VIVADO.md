@@ -71,7 +71,9 @@ prompt reached. QEMU cannot run ps7_init, the DDR PHY, the PHYs or the PL — th
 
 **Fallback:** `linux/out/fallback-512MB/` is the 16-bit configuration that booted the board first
 (third-party `ps7/ps7_init_gpl.c`, `0xF8006000 = 0x84`, 512 MB in every DT, `gem1` disabled). If the
-32-bit set stops after the SPL banner, copy that folder's six files over the card's BOOT partition.
+32-bit set gives no console output at all (the SPL needs working DDR before it prints its banner, so a
+DDR failure is total silence -- measured 2026-09-26: the 32-bit set was silent on this board), copy that
+folder's six files over the card's BOOT partition (`linux/update_card.sh <drive> out/fallback-512MB`).
 
 ## 3. The SDR accelerator, signed off — `firmware/rtlsdr-pentest/fpga/vivado/build_bitstream.tcl`
 

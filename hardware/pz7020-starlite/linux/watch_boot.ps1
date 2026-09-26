@@ -45,9 +45,9 @@ $rbuf   = New-Object byte[] 65536
 
 # boot stages in the order they happen: key, regex on a cleaned console line, what it proves
 $Stages = @(
-  @('spl',     'U-Boot SPL \d{4}',                 'SPL banner: BootROM loaded BOOT.BIN from the SD card; ps7_init (clocks, DDR, MIO) is next'),
+  @('spl',     'U-Boot SPL \d{4}',                 'SPL banner: BootROM loaded BOOT.BIN, ps7_init (clocks, MIO, DDR) is DONE and DDR works (the SPL needs DDR before it prints)'),
   @('uboot',   '^U-Boot \d{4}\.',                  'U-Boot proper: SPL brought DDR up and loaded u-boot.img'),
-  @('dram',    '^DRAM:\s',                         'U-Boot sized the DDR'),
+  @('dram',    '^DRAM:\s',                         'U-Boot reports the memory size from its device tree (not a measurement)'),
   @('bootscr', 'Found U-Boot script|## Executing script', 'U-Boot found boot.scr on the SD card'),
   @('plload',  'Loading PL bitstream',             'boot.scr is loading pl.bit into the fabric'),
   @('kernel',  'Starting kernel',                  'U-Boot handed over to Linux'),

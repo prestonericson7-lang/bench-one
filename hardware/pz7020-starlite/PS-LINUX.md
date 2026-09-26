@@ -54,8 +54,13 @@ kernel and DTB.
 - ✅ **Booted on the board, 2026-09-24** (`linux/captures/boot-20260924-161853`): SPL → DDR up →
   U-Boot → `pl.bit` loaded → kernel → panic in cpufreq (CPU at 766 MHz, not in the stock table). Fixed in
   the DTS with a single 766666 kHz operating point. That run used the 16-bit / 512 MB PS config.
-- ⏳ **On the card now (2026-09-25), not yet booted:** the 1 GB set — SPL with the Vivado ps7_init
-  (32-bit DDR), 1 GB DTs, kernel with `XILINX_GMII2RGMII`, Vivado `system.bit` ([VIVADO.md](VIVADO.md)).
-  If it stops after the SPL banner, the 512 MB set in `linux/out/fallback-512MB/` is the known-good one.
+- ❌ **2026-09-26, on hardware: the 1 GB set (SPL with the Vivado ps7_init, 32-bit DDR) gave ZERO console
+  bytes and the DONE LED stayed off.** Proven by byte forensics: its SPL is code-identical to the one that
+  printed on 2026-09-24; only the ps7 DDR tables differ (32-bit, byte lanes 2/3 on). The SPL puts its
+  stack, gd, BSS and a 32 MB heap in DDR BEFORE the banner (crt0.S, common/spl/spl.c), and ps7_init()'s
+  return code is discarded, so a DDR setup that does not match the board = total silence. The vendor
+  schematic, PCB drawing, manual DDR section and photo show one x16 MT41K256M16 (512 MB) on DQ0-15.
+  The card went back to the 16-bit set in `linux/out/fallback-512MB/` (the program that printed).
+  **Zero bytes = BootROM, card, boot mode, ps7_init or DDR. The SPL banner means DDR already works.**
 - ⏳ First boot will also tell whether `eth0` needs `rgmii` instead of `rgmii-id`, and whether the
   2 ns TXC skew on `eth1` is right (RTL8211F strap defaults: TXDLY pull-down, RXDLY pull-up).

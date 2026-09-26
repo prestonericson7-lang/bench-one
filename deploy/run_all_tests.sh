@@ -82,6 +82,9 @@ check "matrix engine RTL vs its model, 4 flow-control patterns" bash accel/tb/ru
 check "real AXI DMA IP + engine + reset, server register sequence (xsim)" powershell.exe -NoProfile -ExecutionPolicy Bypass -File accel/cosim/run_cosim.ps1
 check "zaccel-server: x86 + armhf, cpu + PL-model paths" wsl_root bash /mnt/d/espicpc/accel/zynq/run_tests.sh
 check "Pi client, CPU baseline and bench (x86 + aarch64)" wsl_root bash /mnt/d/espicpc/accel/pi/test_pi.sh
+pi_bundle() { bash accel/make_pi_bundle.sh; }
+check "Pi accelerator bundle builds" pi_bundle
+check "Pi installer from the bundle under systemd (WSL): every tool, firmware, service" wsl_root bash /mnt/d/espicpc/accel/test_install_pi_wsl.sh
 check "Pi clients find the Zynq on either of its addresses" wsl_root bash /mnt/d/espicpc/accel/pi/test_fallback.sh
 check "Zynq RAM export -> Pi swap (nbd, zaccel-swap)" wsl_root bash /mnt/d/espicpc/accel/mem/test_mem.sh
 check "nbd.ko loads into the Pi's own kernel (vendor Image under QEMU)" wsl_root bash /mnt/d/espicpc/accel/mem/test_pi_nbd_load.sh

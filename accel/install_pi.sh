@@ -11,6 +11,9 @@
 set -uo pipefail
 A=$(cd "$(dirname "$0")" && pwd)
 [ "$(id -u)" = 0 ] || { echo "run as root: sudo bash $0"; exit 1; }
+# a bundle packed on Windows carries no executable bits: restore them on everything that runs
+chmod +x "$A"/gpu/pi/build/*/gpu_* "$A"/pi/out/aarch64/* "$A"/llm/out/aarch64/* "$A"/*.sh \
+         "$A"/gpu/pi/*.sh "$A"/mem/*.sh "$A"/mem/zaccel-swap 2>/dev/null
 fail=0
 say() { printf '\n== %s\n' "$*"; }
 
@@ -35,7 +38,8 @@ install -D -m 0755 "$A/llm/out/aarch64/ppl" /usr/local/bin/ppl || fail=1
 echo "installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel auto to offload)"
 
 say "FPGA-GPU tools"
-bash "$A/gpu/pi/pi_setup.sh" || fail=1
+# ACCEL_NO_NET=1 leaves the network alone (tests on a machine whose wired port must not change)
+bash "$A/gpu/pi/pi_setup.sh" ${ACCEL_NO_NET:+--no-net} || fail=1
 
 say "Teensy geometry engine firmware"
 install -d /opt/accel/teensy

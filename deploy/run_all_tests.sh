@@ -44,6 +44,10 @@ esp_image_matches() {  # an ESP32 merged image: the deployed file matches SHA256
   $PY deploy/esp_image_same.py "$T/fw_$1/$3" "deploy/firmware/$3"
 }
 must_fail() { ! "$@"; }
+wiring_pages_current() {  # the bench wiring pages: sources agree, no pin double-booked, committed SVG current
+  PAGES_JSON="$T/pages.json" $PY hardware/pz7020-starlite/tools/make_system_wiring_svg.py > "$T/sw.svg" || return 1
+  cmp "$T/sw.svg" hardware/pz7020-starlite/system-wiring.svg && cmp "$T/pages.json" hardware/pz7020-starlite/system-wiring.pages.json
+}
 syntax() { local f; for f; do bash -n "$f" || return 1; done; }
 flash_ps_checks_image() {  # no board attached: must verify the image, then stop at "no board" (exit 4)
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File deploy/firmware/flash_windows.ps1 "$1" >"$T/ps.log" 2>&1
@@ -96,6 +100,7 @@ pi_bundle() { bash accel/make_pi_bundle.sh; }
 check "Pi accelerator bundle builds" pi_bundle
 check "Pi installer from the bundle under systemd (WSL): every tool, firmware, service" wsl_root bash /mnt/d/espicpc/accel/test_install_pi_wsl.sh
 check "Pi clients find the Zynq on either of its addresses" wsl_root bash /mnt/d/espicpc/accel/pi/test_fallback.sh
+check "wiring pages: firmware = FPGA pins = vendor table = WIRING.md, no pin double-booked, pages current" wiring_pages_current
 check "NVMe: blank drive prepared + mounted at boot, any other drive never touched" wsl_root bash /mnt/d/espicpc/accel/pi/test_nvme_auto.sh
 check "Pi SD card staging: official rootfs overlay, Pi userspace installs the offline .debs" wsl_root bash /mnt/d/espicpc/accel/test_stage_pi_card.sh
 check "Zynq RAM export -> Pi swap (nbd, zaccel-swap)" wsl_root bash /mnt/d/espicpc/accel/mem/test_mem.sh

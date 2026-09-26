@@ -136,6 +136,7 @@ w_(f'<rect width="{W}" height="{H}" fill="{C["bg"]}"/>')
 
 
 def text(x, y, s, size=20, fill=None, anchor="start", weight="normal"):
+    s = str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")   # SVG is XML
     w_(f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{fill or C["ink"]}" text-anchor="{anchor}" '
        f'font-weight="{weight}">{s}</text>')
 
@@ -236,7 +237,7 @@ for i in range(6):
     x = FX + 170 + i * 36
     line([(x, TY + TH), (x, FY + 14)], C["jump"], 4)
 badge(FX + 170 + 5 * 36 + 60, (TY + TH + FY) / 2, "3", C["jump"])
-text(FX + 170 + 5 * 36 + 94, (TY + TH + FY) / 2 + 8, "22 jumper wires (B)", 22, C["jump"], weight="bold")
+text(FX + 170 + 5 * 36 + 94, (TY + TH + FY) / 2 + 8, "22 jumper wires (pages 4–7)", 22, C["jump"], weight="bold")
 line([(DX + DW, J8Y), (FX - 20, J8Y)], C["pwr"], 8)
 badge((DX + DW + FX) / 2, J8Y - 34, "4", C["pwr"])
 line([(DX + DW, J2Y + 115), (FX - 60, J2Y + 115), (FX - 60, J2Y), (FX - 20, J2Y)], C["dim"], 6, "12 8")
@@ -343,7 +344,7 @@ text(40, QY + 32, "The pin 0 edge, from the USB end: GND, 0 … 12, 3.3V, 24 …
 # ======== C. wire by wire ========
 CY = QY + 120
 text(40, CY, "C.  Wire by wire", 34, weight="bold")
-cols = [("Wire", 40), ("JM1", 150), ("where on JM1", 250), ("signal", 560), ("Teensy", 760),
+cols = [("Wire", 40), ("JM1", 150), ("where on JM1", 250), ("signal", 590), ("Teensy", 760),
         ("where on the Teensy", 890), ("direction", 1330)]
 for s, x in cols:
     text(x, CY + 52, s, 21, C["dim"], weight="bold")
@@ -354,8 +355,8 @@ for i, wv in enumerate(wires):
         w_(f'<rect x="28" y="{y - 30}" width="{W - 56}" height="42" fill="{C["faint"]}"/>')
     text(40, y, f"W{wv['n']}", 23, c, weight="bold")
     text(150, y, str(wv["jm1"]), 23, weight="bold")
-    text(250, y, f"{'inner' if wv['jm1'] % 2 else 'outer'} row, {ordinal((wv['jm1'] - 1) // 2 + 1)} from left", 21)
-    text(560, y, wv["sig"], 23, c, weight="bold")
+    text(250, y, f"{'inner' if wv['jm1'] % 2 else 'outer'} row, {ordinal((wv['jm1'] - 1) // 2 + 1)} from pin 1", 21)
+    text(590, y, wv["sig"], 23, c, weight="bold")
     text(760, y, wv["tpin"], 23, weight="bold")
     text(890, y, f"{'Vin' if wv['tedge'] == 'top' else 'pin 0'} edge, {ordinal(wv['tidx'] + 1)} from USB", 21)
     d = {"gnd": "ground", "ctl": "FPGA → Teensy" if wv["sig"] == "BUSY" else "Teensy → FPGA",
@@ -365,17 +366,44 @@ FY2 = CY + 96 + len(wires) * 42 + 20
 text(40, FY2, "Checked when this was drawn: the Teensy firmware, the FPGA pin file, the vendor's JM1 table", 20, C["dim"])
 text(40, FY2 + 30, "and WIRING.md agree on every wire. Every pin carries at most one wire. No wire touches 5 V,", 20, C["dim"])
 text(40, FY2 + 60, "3.3 V or the fan's pins. Both boards are 3.3 V logic: wires go direct, no resistors.", 20, C["dim"])
-H = int(FY2 + 100)
+# ======== D. in this order ========
+DY = FY2 + 180
+text(40, DY, "D.  In this order", 34, weight="bold")
+steps = [
+    ("Cards in.", "Zynq card in the FPGA's underside slot, boot jumper cap on SD. Pi card in the Pi, NVMe in its M.2 slot."),
+    ("Teensy NOT wired yet: plug it into a Pi USB-A port.", "Ethernet cable: Pi → the FPGA's UPPER jack (ETH-PS)."),
+    ("Power the Pi. Its first boot installs everything by itself.",
+     "Wait until ~/accel-install.log ends with ACCEL INSTALLED (a few minutes). The NVMe is set up then too."),
+    ("On the Pi, in a terminal:  flash-teensy-gpu",
+     "Press the Teensy's button if it asks. The Teensy must run this program BEFORE it is wired."),
+    ("Shut the Pi down, unplug the Teensy's USB. Meter check:",
+     "FPGA alone on J8, no Teensy wires: JM1 pin 1 = 5 V, pin 2 = 3.3 V (to pin 3). Then unplug J8."),
+    ("Both boards unpowered: fit W1–W3 (grounds) first, then W4–W22.",
+     "Jumpers 20 cm or shorter, straight pin to pin. No resistors, no level shifters: both boards are 3.3 V."),
+    ("Power up: the FPGA first (J8), then the Pi (it powers the Teensy).",
+     "HDMI shows colour bars, then dark blue when the GPU is running. Optional: FPGA J2 → this PC records the boot."),
+    ("On the Pi:  bench-day", "Every measurement, saved to ~/accel-bench-<date>.txt."),
+]
+for i, (a, b) in enumerate(steps):
+    y = DY + 64 + i * 86
+    badge(64, y - 8, str(i + 1), C["jump"])
+    text(110, y, a, 25, weight="bold")
+    text(110, y + 33, b, 21, C["dim"])
+y = DY + 64 + len(steps) * 86 + 10
+text(40, y, "Power DOWN: unplug the Teensy's USB FIRST, then the FPGA's J8.", 25, C["pwr"], weight="bold")
+DEND = y + 30
+H = int(DEND + 60)
 # screen pages (make_wiring_pages.py): boxes in drawing units, each becomes one 1920x1080 picture
 RH = 42
 PAGES = [
-    dict(name="1-cables", title="1 / 6   The cables", box=[20, TY - 84, W - 20, PY + PH + 145]),
-    dict(name="2-cable-by-cable", title="2 / 6   Cable by cable", box=[20, LY + 20, W - 20, LY + 60 + 6 * 84 + 50]),
-    dict(name="3-jm1-fpga", title="3 / 6   Jumper wires on the FPGA header JM1", box=[40, JYO - 150, W - 30, NY + 45]),
-    dict(name="4-teensy", title="4 / 6   Jumper wires on the Teensy 4.1", box=[40, TYT - 118, W - 30, QY + 45]),
-    dict(name="5-wires-1-11", title="5 / 6   Wire by wire: W1 - W11",
+    dict(name="1-in-this-order", title="1 / 7   Do it in this order", box=[20, DY + 20, W - 20, DEND]),
+    dict(name="2-cables", title="2 / 7   The cables", box=[20, TY - 84, W - 20, PY + PH + 145]),
+    dict(name="3-cable-by-cable", title="3 / 7   Cable by cable", box=[20, LY + 20, W - 20, LY + 60 + 6 * 84 + 50]),
+    dict(name="4-jm1-fpga", title="4 / 7   Jumper wires on the FPGA header JM1", box=[40, JYO - 150, W - 30, NY + 45]),
+    dict(name="5-teensy", title="5 / 7   Jumper wires on the Teensy 4.1", box=[40, TYT - 118, W - 30, QY + 45]),
+    dict(name="6-wires-1-11", title="6 / 7   Wire by wire: W1 - W11",
          header=[28, CY + 20, W - 28, CY + 66], box=[28, CY + 66, W - 28, CY + 96 + 10 * RH + 14]),
-    dict(name="6-wires-12-22", title="6 / 6   Wire by wire: W12 - W22",
+    dict(name="7-wires-12-22", title="7 / 7   Wire by wire: W12 - W22",
          header=[28, CY + 20, W - 28, CY + 66], box=[28, CY + 96 + 10 * RH + 14, W - 28, CY + 96 + 21 * RH + 14]),
 ]
 import json
@@ -384,4 +412,7 @@ with open(os.environ.get("PAGES_JSON", os.path.join(HERE, "..", "system-wiring.p
 w_("</svg>")
 o[0] = o[0].replace(f'viewBox="0 0 {W} 3000"', f'viewBox="0 0 {W} {H}"')
 o[2] = o[2].replace('height="3000"', f'height="{H}"')
-sys.stdout.buffer.write(("\n".join(o) + "\n").encode("utf-8"))
+svg = "\n".join(o) + "\n"
+import xml.dom.minidom
+xml.dom.minidom.parseString(svg.encode("utf-8"))      # refuse to emit an SVG a viewer would reject
+sys.stdout.buffer.write(svg.encode("utf-8"))

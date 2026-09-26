@@ -48,8 +48,8 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
    Zynq's J8, and wire it to JM1 with both boards unpowered, per [gpu/WIRING.md](gpu/WIRING.md)
    (grounds first; it also gives the power-up and power-down order).
 4. **Cables**: Pi Ethernet → the Zynq's upper RJ45 (**ETH-PS**); Zynq HDMI → a monitor. Every pin and port:
-   six one-screen pages in [hardware/pz7020-starlite/wiring-png/](../hardware/pz7020-starlite/wiring-png/)
-   (cables, JM1, Teensy, wire by wire W1–W22), drawn from `system-wiring.svg`.
+   seven one-screen pages in [hardware/pz7020-starlite/wiring-png/](../hardware/pz7020-starlite/wiring-png/)
+   (in this order, cables, JM1, Teensy, wire by wire W1–W22), drawn from `system-wiring.svg`.
 5. **Measure** (on the Pi — only these numbers count). `bench-day [model.gguf]` runs all of these and saves
    `~/accel-bench-<date>.txt`:
    - `zaccel-bench` — Pi alone vs Zynq alone vs both at once, every answer checked. Leave out `-H`:

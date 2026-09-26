@@ -1,7 +1,7 @@
 # Wiring: Orange Pi 4 Pro + PZ7020 FPGA + Teensy 4.1
 
-**Wire from the six one-screen pages in [hardware/pz7020-starlite/wiring-png/](../../hardware/pz7020-starlite/wiring-png/)**
-(1 cables, 2 cable by cable, 3 JM1, 4 Teensy, 5-6 wire by wire). Every wire W1-W22 is marked on both boards.
+**Wire from the seven one-screen pages in [hardware/pz7020-starlite/wiring-png/](../../hardware/pz7020-starlite/wiring-png/)**
+(1 in this order, 2 cables, 3 cable by cable, 4 JM1, 5 Teensy, 6-7 wire by wire). Every wire W1-W22 is marked on both boards.
 
 ![PZ7020 wired as the accelerator](../../hardware/pz7020-starlite/accel-wiring.svg)
 

@@ -29,7 +29,7 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
                      └─────────────────────────────────────────────────────────────────┘
 ```
 
-> **Wiring the accelerator bench (the image on the card): use the six one-screen pages in
+> **Wiring the accelerator bench (the image on the card): use the seven one-screen pages in
 > [wiring-png/](wiring-png/) and nothing else.** The Pi is cabled straight to the upper jack (ETH-PS) at
 > 10.77.0.1 / 10.77.0.2. The rows marked *SDR bitstream* and *car LAN* below belong to other designs.
 

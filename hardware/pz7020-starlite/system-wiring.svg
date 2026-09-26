@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 4244" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 5176" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t">
 <title id="t">Bench wiring: Orange Pi 4 Pro + PZ7020 FPGA + Teensy 4.1</title>
-<rect width="1600" height="4244" fill="#0b0f14"/>
+<rect width="1600" height="5176" fill="#0b0f14"/>
 <text x="800.0" y="58.0" font-size="44" fill="#f4f7fa" text-anchor="middle" font-weight="bold">Bench wiring</text>
 <text x="800.0" y="100.0" font-size="28" fill="#c3ccd5" text-anchor="middle" font-weight="bold">Orange Pi 4 Pro  +  PZ7020 FPGA board  +  Teensy 4.1</text>
 <text x="800.0" y="142.0" font-size="22" fill="#c3ccd5" text-anchor="middle" font-weight="normal">Every cable and every wire. Nothing else connects: NOT the Pi's GPIO pins,</text>
@@ -69,7 +69,7 @@
 <polyline points="830.0,460.0 830.0,624.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="890" cy="535.0" r="22" fill="#5aaeff"/>
 <text x="890.0" y="543.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">3</text>
-<text x="924.0" y="543.0" font-size="22" fill="#5aaeff" text-anchor="start" font-weight="bold">22 jumper wires (B)</text>
+<text x="924.0" y="543.0" font-size="22" fill="#5aaeff" text-anchor="start" font-weight="bold">22 jumper wires (pages 4–7)</text>
 <polyline points="360.0,720.0 460.0,720.0" fill="none" stroke="#ff6b6b" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="420.0" cy="686" r="22" fill="#ff6b6b"/>
 <text x="420.0" y="694.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">4</text>
@@ -398,176 +398,210 @@
 <text x="40.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">Wire</text>
 <text x="150.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">JM1</text>
 <text x="250.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">where on JM1</text>
-<text x="560.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">signal</text>
+<text x="590.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">signal</text>
 <text x="760.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">Teensy</text>
 <text x="890.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">where on the Teensy</text>
 <text x="1330.0" y="3156.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">direction</text>
 <rect x="28" y="3170" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3200.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W1</text>
 <text x="150.0" y="3200.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">4</text>
-<text x="250.0" y="3200.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 2nd from left</text>
-<text x="560.0" y="3200.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="250.0" y="3200.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 2nd from pin 1</text>
+<text x="590.0" y="3200.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
 <text x="760.0" y="3200.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
 <text x="890.0" y="3200.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 2nd from USB</text>
 <text x="1330.0" y="3200.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
 <text x="40.0" y="3242.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W2</text>
 <text x="150.0" y="3242.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">33</text>
-<text x="250.0" y="3242.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 17th from left</text>
-<text x="560.0" y="3242.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="250.0" y="3242.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 17th from pin 1</text>
+<text x="590.0" y="3242.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
 <text x="760.0" y="3242.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
 <text x="890.0" y="3242.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 15th from USB</text>
 <text x="1330.0" y="3242.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
 <rect x="28" y="3254" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3284.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W3</text>
 <text x="150.0" y="3284.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">34</text>
-<text x="250.0" y="3284.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 17th from left</text>
-<text x="560.0" y="3284.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="250.0" y="3284.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 17th from pin 1</text>
+<text x="590.0" y="3284.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
 <text x="760.0" y="3284.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
 <text x="890.0" y="3284.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 1st from USB</text>
 <text x="1330.0" y="3284.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
 <text x="40.0" y="3326.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W4</text>
 <text x="150.0" y="3326.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">9</text>
-<text x="250.0" y="3326.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 5th from left</text>
-<text x="560.0" y="3326.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D0</text>
+<text x="250.0" y="3326.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 5th from pin 1</text>
+<text x="590.0" y="3326.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D0</text>
 <text x="760.0" y="3326.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">19</text>
 <text x="890.0" y="3326.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 8th from USB</text>
 <text x="1330.0" y="3326.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3338" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3368.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W5</text>
 <text x="150.0" y="3368.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">10</text>
-<text x="250.0" y="3368.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 5th from left</text>
-<text x="560.0" y="3368.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D1</text>
+<text x="250.0" y="3368.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 5th from pin 1</text>
+<text x="590.0" y="3368.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D1</text>
 <text x="760.0" y="3368.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">18</text>
 <text x="890.0" y="3368.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 9th from USB</text>
 <text x="1330.0" y="3368.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3410.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W6</text>
 <text x="150.0" y="3410.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">11</text>
-<text x="250.0" y="3410.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 6th from left</text>
-<text x="560.0" y="3410.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D2</text>
+<text x="250.0" y="3410.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 6th from pin 1</text>
+<text x="590.0" y="3410.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D2</text>
 <text x="760.0" y="3410.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">14</text>
 <text x="890.0" y="3410.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 13th from USB</text>
 <text x="1330.0" y="3410.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3422" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3452.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W7</text>
 <text x="150.0" y="3452.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">12</text>
-<text x="250.0" y="3452.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 6th from left</text>
-<text x="560.0" y="3452.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D3</text>
+<text x="250.0" y="3452.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 6th from pin 1</text>
+<text x="590.0" y="3452.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D3</text>
 <text x="760.0" y="3452.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">15</text>
 <text x="890.0" y="3452.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 12th from USB</text>
 <text x="1330.0" y="3452.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3494.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W8</text>
 <text x="150.0" y="3494.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">13</text>
-<text x="250.0" y="3494.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 7th from left</text>
-<text x="560.0" y="3494.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D4</text>
+<text x="250.0" y="3494.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 7th from pin 1</text>
+<text x="590.0" y="3494.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D4</text>
 <text x="760.0" y="3494.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">40</text>
 <text x="890.0" y="3494.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 17th from USB</text>
 <text x="1330.0" y="3494.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3506" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3536.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W9</text>
 <text x="150.0" y="3536.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">14</text>
-<text x="250.0" y="3536.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 7th from left</text>
-<text x="560.0" y="3536.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D5</text>
+<text x="250.0" y="3536.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 7th from pin 1</text>
+<text x="590.0" y="3536.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D5</text>
 <text x="760.0" y="3536.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">41</text>
 <text x="890.0" y="3536.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 16th from USB</text>
 <text x="1330.0" y="3536.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3578.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W10</text>
 <text x="150.0" y="3578.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">15</text>
-<text x="250.0" y="3578.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 8th from left</text>
-<text x="560.0" y="3578.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D6</text>
+<text x="250.0" y="3578.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 8th from pin 1</text>
+<text x="590.0" y="3578.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D6</text>
 <text x="760.0" y="3578.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">17</text>
 <text x="890.0" y="3578.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 10th from USB</text>
 <text x="1330.0" y="3578.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3590" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3620.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W11</text>
 <text x="150.0" y="3620.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">16</text>
-<text x="250.0" y="3620.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 8th from left</text>
-<text x="560.0" y="3620.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D7</text>
+<text x="250.0" y="3620.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 8th from pin 1</text>
+<text x="590.0" y="3620.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D7</text>
 <text x="760.0" y="3620.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">16</text>
 <text x="890.0" y="3620.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 11th from USB</text>
 <text x="1330.0" y="3620.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3662.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W12</text>
 <text x="150.0" y="3662.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">17</text>
-<text x="250.0" y="3662.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 9th from left</text>
-<text x="560.0" y="3662.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D8</text>
+<text x="250.0" y="3662.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 9th from pin 1</text>
+<text x="590.0" y="3662.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D8</text>
 <text x="760.0" y="3662.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">22</text>
 <text x="890.0" y="3662.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 5th from USB</text>
 <text x="1330.0" y="3662.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3674" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3704.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W13</text>
 <text x="150.0" y="3704.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">18</text>
-<text x="250.0" y="3704.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 9th from left</text>
-<text x="560.0" y="3704.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D9</text>
+<text x="250.0" y="3704.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 9th from pin 1</text>
+<text x="590.0" y="3704.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D9</text>
 <text x="760.0" y="3704.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">23</text>
 <text x="890.0" y="3704.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 4th from USB</text>
 <text x="1330.0" y="3704.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3746.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W14</text>
 <text x="150.0" y="3746.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">19</text>
-<text x="250.0" y="3746.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 10th from left</text>
-<text x="560.0" y="3746.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D10</text>
+<text x="250.0" y="3746.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 10th from pin 1</text>
+<text x="590.0" y="3746.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D10</text>
 <text x="760.0" y="3746.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">20</text>
 <text x="890.0" y="3746.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 7th from USB</text>
 <text x="1330.0" y="3746.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3758" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3788.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W15</text>
 <text x="150.0" y="3788.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">20</text>
-<text x="250.0" y="3788.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 10th from left</text>
-<text x="560.0" y="3788.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D11</text>
+<text x="250.0" y="3788.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 10th from pin 1</text>
+<text x="590.0" y="3788.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D11</text>
 <text x="760.0" y="3788.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">21</text>
 <text x="890.0" y="3788.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 6th from USB</text>
 <text x="1330.0" y="3788.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3830.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W16</text>
 <text x="150.0" y="3830.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">21</text>
-<text x="250.0" y="3830.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 11th from left</text>
-<text x="560.0" y="3830.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D12</text>
+<text x="250.0" y="3830.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 11th from pin 1</text>
+<text x="590.0" y="3830.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D12</text>
 <text x="760.0" y="3830.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">38</text>
 <text x="890.0" y="3830.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 19th from USB</text>
 <text x="1330.0" y="3830.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3842" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3872.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W17</text>
 <text x="150.0" y="3872.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">22</text>
-<text x="250.0" y="3872.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 11th from left</text>
-<text x="560.0" y="3872.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D13</text>
+<text x="250.0" y="3872.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 11th from pin 1</text>
+<text x="590.0" y="3872.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D13</text>
 <text x="760.0" y="3872.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">39</text>
 <text x="890.0" y="3872.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">Vin edge, 18th from USB</text>
 <text x="1330.0" y="3872.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3914.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W18</text>
 <text x="150.0" y="3914.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">23</text>
-<text x="250.0" y="3914.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 12th from left</text>
-<text x="560.0" y="3914.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D14</text>
+<text x="250.0" y="3914.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 12th from pin 1</text>
+<text x="590.0" y="3914.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D14</text>
 <text x="760.0" y="3914.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">26</text>
 <text x="890.0" y="3914.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 18th from USB</text>
 <text x="1330.0" y="3914.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="3926" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="3956.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W19</text>
 <text x="150.0" y="3956.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">24</text>
-<text x="250.0" y="3956.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 12th from left</text>
-<text x="560.0" y="3956.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D15</text>
+<text x="250.0" y="3956.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 12th from pin 1</text>
+<text x="590.0" y="3956.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D15</text>
 <text x="760.0" y="3956.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">27</text>
 <text x="890.0" y="3956.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 19th from USB</text>
 <text x="1330.0" y="3956.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="3998.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W20</text>
 <text x="150.0" y="3998.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">25</text>
-<text x="250.0" y="3998.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 13th from left</text>
-<text x="560.0" y="3998.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">SOR</text>
+<text x="250.0" y="3998.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 13th from pin 1</text>
+<text x="590.0" y="3998.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">SOR</text>
 <text x="760.0" y="3998.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">3</text>
 <text x="890.0" y="3998.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 5th from USB</text>
 <text x="1330.0" y="3998.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <rect x="28" y="4010" width="1544" height="42" fill="#18212b"/>
 <text x="40.0" y="4040.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W21</text>
 <text x="150.0" y="4040.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">26</text>
-<text x="250.0" y="4040.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 13th from left</text>
-<text x="560.0" y="4040.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">STROBE</text>
+<text x="250.0" y="4040.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 13th from pin 1</text>
+<text x="590.0" y="4040.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">STROBE</text>
 <text x="760.0" y="4040.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">2</text>
 <text x="890.0" y="4040.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 4th from USB</text>
 <text x="1330.0" y="4040.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
 <text x="40.0" y="4082.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W22</text>
 <text x="150.0" y="4082.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">27</text>
-<text x="250.0" y="4082.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 14th from left</text>
-<text x="560.0" y="4082.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">BUSY</text>
+<text x="250.0" y="4082.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 14th from pin 1</text>
+<text x="590.0" y="4082.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">BUSY</text>
 <text x="760.0" y="4082.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">4</text>
 <text x="890.0" y="4082.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">pin 0 edge, 6th from USB</text>
 <text x="1330.0" y="4082.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">FPGA → Teensy</text>
 <text x="40.0" y="4144.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Checked when this was drawn: the Teensy firmware, the FPGA pin file, the vendor's JM1 table</text>
 <text x="40.0" y="4174.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">and WIRING.md agree on every wire. Every pin carries at most one wire. No wire touches 5 V,</text>
 <text x="40.0" y="4204.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">3.3 V or the fan's pins. Both boards are 3.3 V logic: wires go direct, no resistors.</text>
+<text x="40.0" y="4324.0" font-size="34" fill="#f4f7fa" text-anchor="start" font-weight="bold">D.  In this order</text>
+<circle cx="64" cy="4380" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4388.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">1</text>
+<text x="110.0" y="4388.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Cards in.</text>
+<text x="110.0" y="4421.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Zynq card in the FPGA's underside slot, boot jumper cap on SD. Pi card in the Pi, NVMe in its M.2 slot.</text>
+<circle cx="64" cy="4466" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4474.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">2</text>
+<text x="110.0" y="4474.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Teensy NOT wired yet: plug it into a Pi USB-A port.</text>
+<text x="110.0" y="4507.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Ethernet cable: Pi → the FPGA's UPPER jack (ETH-PS).</text>
+<circle cx="64" cy="4552" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4560.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">3</text>
+<text x="110.0" y="4560.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Power the Pi. Its first boot installs everything by itself.</text>
+<text x="110.0" y="4593.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Wait until ~/accel-install.log ends with ACCEL INSTALLED (a few minutes). The NVMe is set up then too.</text>
+<circle cx="64" cy="4638" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4646.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">4</text>
+<text x="110.0" y="4646.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">On the Pi, in a terminal:  flash-teensy-gpu</text>
+<text x="110.0" y="4679.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Press the Teensy's button if it asks. The Teensy must run this program BEFORE it is wired.</text>
+<circle cx="64" cy="4724" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4732.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">5</text>
+<text x="110.0" y="4732.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Shut the Pi down, unplug the Teensy's USB. Meter check:</text>
+<text x="110.0" y="4765.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">FPGA alone on J8, no Teensy wires: JM1 pin 1 = 5 V, pin 2 = 3.3 V (to pin 3). Then unplug J8.</text>
+<circle cx="64" cy="4810" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4818.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">6</text>
+<text x="110.0" y="4818.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Both boards unpowered: fit W1–W3 (grounds) first, then W4–W22.</text>
+<text x="110.0" y="4851.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Jumpers 20 cm or shorter, straight pin to pin. No resistors, no level shifters: both boards are 3.3 V.</text>
+<circle cx="64" cy="4896" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4904.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">7</text>
+<text x="110.0" y="4904.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">Power up: the FPGA first (J8), then the Pi (it powers the Teensy).</text>
+<text x="110.0" y="4937.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">HDMI shows colour bars, then dark blue when the GPU is running. Optional: FPGA J2 → this PC records the boot.</text>
+<circle cx="64" cy="4982" r="22" fill="#5aaeff"/>
+<text x="64.0" y="4990.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">8</text>
+<text x="110.0" y="4990.0" font-size="25" fill="#f4f7fa" text-anchor="start" font-weight="bold">On the Pi:  bench-day</text>
+<text x="110.0" y="5023.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Every measurement, saved to ~/accel-bench-&lt;date&gt;.txt.</text>
+<text x="40.0" y="5086.0" font-size="25" fill="#ff6b6b" text-anchor="start" font-weight="bold">Power DOWN: unplug the Teensy's USB FIRST, then the FPGA's J8.</text>
 </svg>

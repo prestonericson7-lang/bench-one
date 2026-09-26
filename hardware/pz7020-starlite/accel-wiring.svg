@@ -1,6 +1,6 @@
 <svg viewBox="0 0 1200 850" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
 <title id="t">PZ7020-StarLite accelerator wiring</title>
-<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro's accelerator: Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-35, fan on JM1 pins 1/3/5/7, ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>
+<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro's accelerator: Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4, 33 and 34, fan on JM1 pins 1/3/5/7, ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>
 <rect width="1200" height="850" fill="#0d1117"/>
 <text x="600.0" y="34" font-size="24" fill="#e6edf3" text-anchor="middle" font-weight="bold">PZ7020-StarLite — wired as the Orange Pi's accelerator</text>
 <text x="600.0" y="58" font-size="14" fill="#8b949e" text-anchor="middle">top view, component side up • geometry from the vendor PCB drawing • JM1 signals from accel/gpu/WIRING.md</text>
@@ -144,7 +144,7 @@
 <text transform="translate(649.13,258.30) rotate(90)" font-size="12" fill="#8b949e">33 GND → Teensy</text>
 <line x1="653.13" y1="221.52" x2="653.13" y2="199.00" stroke="#8b949e" stroke-width="1"/>
 <text transform="translate(657.13,197.00) rotate(-90)" font-size="12" fill="#8b949e">34 GND → Teensy</text>
-<text transform="translate(666.91,258.30) rotate(90)" font-size="12" fill="#8b949e">35 GND → Teensy</text>
+<text transform="translate(666.91,258.30) rotate(90)" font-size="12" fill="#8b949e">35 GND</text>
 <line x1="670.91" y1="221.52" x2="670.91" y2="199.00" stroke="#8b949e" stroke-width="1"/>
 <text transform="translate(674.91,197.00) rotate(-90)" font-size="12" fill="#8b949e">36 GND</text>
 <line x1="242.3" y1="289.7" x2="220.0" y2="240.2" stroke="#f85149" stroke-width="1.5"/>

@@ -54,7 +54,7 @@ PINS[4] = ("GND → Teensy", "gnd")
 PINS[5] = ("FAN PWM (10 kΩ to GND)", "fan")
 PINS[7] = ("FAN TACH", "fan")
 for n in (33, 34, 35, 36):
-    PINS[n] = ("GND → Teensy" if n in (33, 34, 35) else "GND", "gnd")
+    PINS[n] = ("GND → Teensy" if n in (33, 34) else "GND", "gnd")
 
 out = []
 w = out.append
@@ -63,7 +63,7 @@ w(f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" role="img" ari
   f'font-family="Helvetica, Arial, sans-serif">')
 w('<title id="t">PZ7020-StarLite accelerator wiring</title>')
 w('<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro\'s accelerator: '
-  'Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-35, fan on JM1 pins 1/3/5/7, '
+  'Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4, 33 and 34, fan on JM1 pins 1/3/5/7, '
   'ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>')
 w(f'<rect width="{W}" height="{H}" fill="{C["bg"]}"/>')
 w(f'<text x="{W/2}" y="34" font-size="24" fill="{C["text"]}" text-anchor="middle" font-weight="bold">'

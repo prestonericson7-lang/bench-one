@@ -1,0 +1,570 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 4154" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t">
+<title id="t">Bench wiring: Orange Pi 4 Pro + PZ7020 FPGA + Teensy 4.1</title>
+<rect width="1600" height="4154" fill="#0b0f14"/>
+<text x="800.0" y="58.0" font-size="44" fill="#f4f7fa" text-anchor="middle" font-weight="bold">Bench wiring</text>
+<text x="800.0" y="100.0" font-size="28" fill="#c3ccd5" text-anchor="middle" font-weight="bold">Orange Pi 4 Pro  +  PZ7020 FPGA board  +  Teensy 4.1</text>
+<text x="800.0" y="142.0" font-size="22" fill="#c3ccd5" text-anchor="middle" font-weight="normal">Every cable and every wire. Nothing else connects: NOT the Pi's GPIO pins,</text>
+<text x="800.0" y="172.0" font-size="22" fill="#c3ccd5" text-anchor="middle" font-weight="normal">NOT the FPGA's JM2 header, NOT the FPGA's lower Ethernet jack.</text>
+<text x="40.0" y="240.0" font-size="34" fill="#f4f7fa" text-anchor="start" font-weight="bold">A.  The cables</text>
+<rect x="560" y="290" width="430" height="110" rx="12" fill="#0f2236" stroke="#7cc0ff" stroke-width="3"/>
+<text x="740.0" y="340.0" font-size="30" fill="#7cc0ff" text-anchor="middle" font-weight="bold">Teensy 4.1</text>
+<text x="740.0" y="374.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">geometry engine</text>
+<rect x="966" y="326" width="40" height="38" rx="5" fill="#d59bff"/>
+<text x="954.0" y="316.0" font-size="18" fill="#d59bff" text-anchor="end" font-weight="bold">micro-USB</text>
+<rect x="480" y="550" width="560" height="470" rx="12" fill="#10261a" stroke="#6fdc8c" stroke-width="3"/>
+<rect x="550" y="564" width="420" height="44" rx="6" fill="#0b0f14" stroke="#5aaeff" stroke-width="3"/>
+<text x="760.0" y="594.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">JM1 header — Teensy wires</text>
+<text x="790.0" y="775.0" font-size="32" fill="#6fdc8c" text-anchor="middle" font-weight="bold">PZ7020 FPGA board</text>
+<text x="790.0" y="812.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">top view</text>
+<text x="790.0" y="846.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">SD card in the underside slot</text>
+<text x="790.0" y="876.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">boot jumper cap on SD</text>
+<rect x="550" y="962" width="420" height="44" rx="6" fill="#0b0f14" stroke="#7d8894" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="760.0" y="992.0" font-size="20" fill="#7d8894" text-anchor="middle" font-weight="normal">JM2 header — not used</text>
+<rect x="460" y="640" width="40" height="40" rx="5" fill="#ff6b6b"/>
+<text x="512.0" y="668.0" font-size="20" fill="#ff6b6b" text-anchor="start" font-weight="bold">J8 USB-C (upper)</text>
+<rect x="460" y="700" width="40" height="40" rx="5" fill="#c3ccd5"/>
+<text x="512.0" y="728.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="bold">J2 USB-C (lower)</text>
+<rect x="460" y="910" width="40" height="40" rx="5" fill="#e3e9ee"/>
+<text x="512.0" y="938.0" font-size="20" fill="#e3e9ee" text-anchor="start" font-weight="bold">HDMI</text>
+<rect x="1018" y="674" width="44" height="52" rx="5" fill="#6fdc8c"/>
+<text x="1006.0" y="698.0" font-size="22" fill="#6fdc8c" text-anchor="end" font-weight="bold">ETH-PS</text>
+<text x="1006.0" y="724.0" font-size="20" fill="#6fdc8c" text-anchor="end" font-weight="normal">upper jack</text>
+<rect x="1018" y="904" width="44" height="52" rx="5" fill="#0b0f14" stroke="#7d8894" stroke-width="2"/>
+<text x="1006.0" y="928.0" font-size="20" fill="#7d8894" text-anchor="end" font-weight="bold">ETH-PL</text>
+<text x="1006.0" y="954.0" font-size="18" fill="#7d8894" text-anchor="end" font-weight="normal">lower: not used</text>
+<rect x="1200" y="550" width="360" height="470" rx="12" fill="#2b1a0f" stroke="#ffa56b" stroke-width="3"/>
+<rect x="1178" y="674" width="44" height="52" rx="5" fill="#6fdc8c"/>
+<text x="1234.0" y="708.0" font-size="22" fill="#6fdc8c" text-anchor="start" font-weight="bold">Ethernet</text>
+<rect x="1300" y="532" width="56" height="36" rx="5" fill="#d59bff"/>
+<text x="1328.0" y="600.0" font-size="22" fill="#d59bff" text-anchor="middle" font-weight="bold">USB-A</text>
+<text x="1380.0" y="775.0" font-size="32" fill="#ffa56b" text-anchor="middle" font-weight="bold">Orange Pi 4 Pro</text>
+<text x="1380.0" y="812.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">boots from its own SD</text>
+<rect x="1226" y="850" width="308" height="52" rx="8" fill="#0b0f14" stroke="#ffa56b" stroke-width="2.5"/>
+<text x="1380.0" y="884.0" font-size="20" fill="#ffa56b" text-anchor="middle" font-weight="bold">NVMe inside → /mnt/nvme</text>
+<rect x="1226" y="920" width="308" height="52" rx="8" fill="#0b0f14" stroke="#7d8894" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="1380.0" y="954.0" font-size="20" fill="#7d8894" text-anchor="middle" font-weight="bold">GPIO pins: nothing</text>
+<rect x="1356.0" y="1004" width="48" height="32" rx="5" fill="#ff6b6b"/>
+<rect x="30" y="615" width="330" height="90" rx="10" fill="#0b0f14" stroke="#ff6b6b" stroke-width="3"/>
+<text x="195.0" y="651.0" font-size="22" fill="#ff6b6b" text-anchor="middle" font-weight="bold">5 V charger, 2 A+</text>
+<text x="195.0" y="681.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">USB-A → USB-C cable</text>
+<rect x="30" y="790" width="330" height="90" rx="10" fill="#0b0f14" stroke="#c3ccd5" stroke-width="3"/>
+<text x="195.0" y="826.0" font-size="22" fill="#c3ccd5" text-anchor="middle" font-weight="bold">This PC (optional)</text>
+<text x="195.0" y="856.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">boot console</text>
+<rect x="30" y="885" width="330" height="90" rx="10" fill="#0b0f14" stroke="#e3e9ee" stroke-width="3"/>
+<text x="195.0" y="921.0" font-size="22" fill="#e3e9ee" text-anchor="middle" font-weight="bold">Monitor / TV</text>
+<text x="195.0" y="951.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">the GPU's screen</text>
+<rect x="1220" y="1090" width="320" height="60" rx="10" fill="#0b0f14" stroke="#ff6b6b" stroke-width="3"/>
+<text x="1380.0" y="1126.0" font-size="22" fill="#ff6b6b" text-anchor="middle" font-weight="bold">Pi's own supply</text>
+<polyline points="1062.0,700.0 1178.0,700.0" fill="none" stroke="#6fdc8c" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1120.0" cy="664" r="22" fill="#6fdc8c"/>
+<text x="1120.0" y="672.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">1</text>
+<polyline points="1006.0,345.0 1328.0,345.0 1328.0,532.0" fill="none" stroke="#d59bff" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1130" cy="309" r="22" fill="#d59bff"/>
+<text x="1130.0" y="317.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">2</text>
+<polyline points="650.0,400.0 650.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="686.0,400.0 686.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="722.0,400.0 722.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="758.0,400.0 758.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="794.0,400.0 794.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="830.0,400.0 830.0,564.0" fill="none" stroke="#5aaeff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="890" cy="475.0" r="22" fill="#5aaeff"/>
+<text x="890.0" y="483.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">3</text>
+<text x="924.0" y="483.0" font-size="22" fill="#5aaeff" text-anchor="start" font-weight="bold">22 jumper wires (B)</text>
+<polyline points="360.0,660.0 460.0,660.0" fill="none" stroke="#ff6b6b" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="420.0" cy="626" r="22" fill="#ff6b6b"/>
+<text x="420.0" y="634.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">4</text>
+<polyline points="360.0,835.0 420.0,835.0 420.0,720.0 460.0,720.0" fill="none" stroke="#c3ccd5" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="12 8"/>
+<circle cx="390.0" cy="801" r="22" fill="#c3ccd5"/>
+<text x="390.0" y="809.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">5</text>
+<polyline points="360.0,930.0 460.0,930.0" fill="none" stroke="#e3e9ee" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="420.0" cy="896" r="22" fill="#e3e9ee"/>
+<text x="420.0" y="904.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">6</text>
+<polyline points="1380.0,1036.0 1380.0,1090.0" fill="none" stroke="#ff6b6b" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="40.0" y="1230.0" font-size="30" fill="#f4f7fa" text-anchor="start" font-weight="bold">Cable by cable</text>
+<circle cx="64" cy="1282" r="22" fill="#6fdc8c"/>
+<text x="64.0" y="1290.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">1</text>
+<text x="110.0" y="1290.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">Orange Pi Ethernet port  →  FPGA UPPER Ethernet jack (ETH-PS).</text>
+<text x="110.0" y="1322.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Normal Ethernet cable. Pi = 10.77.0.1, FPGA = 10.77.0.2. Carries the GPU, matrix engine, RAM swap.</text>
+<circle cx="64" cy="1366" r="22" fill="#d59bff"/>
+<text x="64.0" y="1374.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">2</text>
+<text x="110.0" y="1374.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">Orange Pi USB-A port  →  Teensy micro-USB.</text>
+<text x="110.0" y="1406.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">A USB DATA cable, not charge-only. It powers the Teensy.</text>
+<circle cx="64" cy="1450" r="22" fill="#5aaeff"/>
+<text x="64.0" y="1458.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">3</text>
+<text x="110.0" y="1458.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">Teensy pins  →  FPGA header JM1: 22 jumper wires.</text>
+<text x="110.0" y="1490.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Table below. Wire them with BOTH boards unpowered, grounds first.</text>
+<circle cx="64" cy="1534" r="22" fill="#ff6b6b"/>
+<text x="64.0" y="1542.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">4</text>
+<text x="110.0" y="1542.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">5 V USB-A charger, 2 A or more  →  FPGA UPPER USB-C (J8).</text>
+<text x="110.0" y="1574.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Use a USB-A → USB-C cable. A C-to-C cable gives this board NO power.</text>
+<circle cx="64" cy="1618" r="22" fill="#c3ccd5"/>
+<text x="64.0" y="1626.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">5</text>
+<text x="110.0" y="1626.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">FPGA LOWER USB-C (J2)  →  this PC.  Optional.</text>
+<text x="110.0" y="1658.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Lets watch_boot.ps1 record the FPGA's boot report.</text>
+<circle cx="64" cy="1702" r="22" fill="#e3e9ee"/>
+<text x="64.0" y="1710.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">6</text>
+<text x="110.0" y="1710.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">FPGA HDMI  →  a monitor or TV.</text>
+<text x="110.0" y="1742.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">The GPU's screen: colour bars, then dark blue when it is running.</text>
+<text x="40.0" y="1794.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Also: the Orange Pi on its own power supply, and the NVMe drive in the Pi's M.2 slot.</text>
+<text x="40.0" y="1884.0" font-size="34" fill="#f4f7fa" text-anchor="start" font-weight="bold">B.  The 22 jumper wires: FPGA JM1 ↔ Teensy</text>
+<text x="40.0" y="1926.0" font-size="22" fill="#c3ccd5" text-anchor="start" font-weight="normal">Both boards drawn as they sit on the bench, top side up.</text>
+<text x="40.0" y="1956.0" font-size="22" fill="#c3ccd5" text-anchor="start" font-weight="normal">Each wire has a number (W1–W22) marked on its pin on BOTH boards. Fit W1–W3 (grounds) first.</text>
+<rect x="60" y="2024" width="1478.5" height="322" rx="12" fill="#10261a" stroke="#6fdc8c" stroke-width="3"/>
+<line x1="60" y1="2024" x2="1538.5" y2="2024" stroke="#6fdc8c" stroke-width="8"/>
+<text x="70.0" y="2010.0" font-size="24" fill="#6fdc8c" text-anchor="start" font-weight="bold">FPGA board, TOP EDGE — header JM1</text>
+<text x="1528.5" y="2010.0" font-size="22" fill="#c3ccd5" text-anchor="end" font-weight="normal">USB-C side ←      → Ethernet side</text>
+<rect x="100.0" y="2214" width="40" height="40" fill="#0b0f14" stroke="#ff6b6b" stroke-width="3"/>
+<text x="120.0" y="2241.0" font-size="18" fill="#ff6b6b" text-anchor="middle" font-weight="bold">1</text>
+<text x="120.0" y="2288.0" font-size="18" fill="#ff6b6b" text-anchor="middle" font-weight="normal">5V</text>
+<circle cx="120.0" cy="2134" r="20" fill="#0b0f14" stroke="#ff6b6b" stroke-width="2.5"/>
+<text x="120.0" y="2141.0" font-size="18" fill="#ff6b6b" text-anchor="middle" font-weight="bold">2</text>
+<text x="120.0" y="2098.0" font-size="18" fill="#ff6b6b" text-anchor="middle" font-weight="normal">3.3V</text>
+<circle cx="191.5" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="191.5" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">3</text>
+<text x="191.5" y="2288.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">fan</text>
+<circle cx="191.5" cy="2134" r="22" fill="#e6e6e6"/>
+<text x="191.5" y="2141.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">4</text>
+<text x="191.5" y="2098.0" font-size="22" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W1</text>
+<text x="191.5" y="2070.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="263.0" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="263.0" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">5</text>
+<text x="263.0" y="2288.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">fan</text>
+<circle cx="263.0" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="263.0" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">6</text>
+<circle cx="334.5" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="334.5" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">7</text>
+<text x="334.5" y="2288.0" font-size="18" fill="#c3ccd5" text-anchor="middle" font-weight="normal">fan</text>
+<circle cx="334.5" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="334.5" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">8</text>
+<circle cx="406.0" cy="2234" r="22" fill="#5aaeff"/>
+<text x="406.0" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">9</text>
+<text x="406.0" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W4</text>
+<text x="406.0" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D0</text>
+<circle cx="406.0" cy="2134" r="22" fill="#5aaeff"/>
+<text x="406.0" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">10</text>
+<text x="406.0" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W5</text>
+<text x="406.0" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D1</text>
+<circle cx="477.5" cy="2234" r="22" fill="#5aaeff"/>
+<text x="477.5" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">11</text>
+<text x="477.5" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W6</text>
+<text x="477.5" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D2</text>
+<circle cx="477.5" cy="2134" r="22" fill="#5aaeff"/>
+<text x="477.5" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">12</text>
+<text x="477.5" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W7</text>
+<text x="477.5" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D3</text>
+<circle cx="549.0" cy="2234" r="22" fill="#5aaeff"/>
+<text x="549.0" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">13</text>
+<text x="549.0" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W8</text>
+<text x="549.0" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D4</text>
+<circle cx="549.0" cy="2134" r="22" fill="#5aaeff"/>
+<text x="549.0" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">14</text>
+<text x="549.0" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W9</text>
+<text x="549.0" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D5</text>
+<circle cx="620.5" cy="2234" r="22" fill="#5aaeff"/>
+<text x="620.5" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">15</text>
+<text x="620.5" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W10</text>
+<text x="620.5" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D6</text>
+<circle cx="620.5" cy="2134" r="22" fill="#5aaeff"/>
+<text x="620.5" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">16</text>
+<text x="620.5" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W11</text>
+<text x="620.5" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D7</text>
+<circle cx="692.0" cy="2234" r="22" fill="#5aaeff"/>
+<text x="692.0" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">17</text>
+<text x="692.0" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W12</text>
+<text x="692.0" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D8</text>
+<circle cx="692.0" cy="2134" r="22" fill="#5aaeff"/>
+<text x="692.0" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">18</text>
+<text x="692.0" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W13</text>
+<text x="692.0" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D9</text>
+<circle cx="763.5" cy="2234" r="22" fill="#5aaeff"/>
+<text x="763.5" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">19</text>
+<text x="763.5" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W14</text>
+<text x="763.5" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D10</text>
+<circle cx="763.5" cy="2134" r="22" fill="#5aaeff"/>
+<text x="763.5" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">20</text>
+<text x="763.5" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W15</text>
+<text x="763.5" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D11</text>
+<circle cx="835.0" cy="2234" r="22" fill="#5aaeff"/>
+<text x="835.0" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">21</text>
+<text x="835.0" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W16</text>
+<text x="835.0" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D12</text>
+<circle cx="835.0" cy="2134" r="22" fill="#5aaeff"/>
+<text x="835.0" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">22</text>
+<text x="835.0" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W17</text>
+<text x="835.0" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D13</text>
+<circle cx="906.5" cy="2234" r="22" fill="#5aaeff"/>
+<text x="906.5" y="2241.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">23</text>
+<text x="906.5" y="2288.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W18</text>
+<text x="906.5" y="2314.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D14</text>
+<circle cx="906.5" cy="2134" r="22" fill="#5aaeff"/>
+<text x="906.5" y="2141.0" font-size="19" fill="#ffffff" text-anchor="middle" font-weight="bold">24</text>
+<text x="906.5" y="2098.0" font-size="22" fill="#5aaeff" text-anchor="middle" font-weight="bold">W19</text>
+<text x="906.5" y="2070.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D15</text>
+<circle cx="978.0" cy="2234" r="22" fill="#ffb347"/>
+<text x="978.0" y="2241.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">25</text>
+<text x="978.0" y="2288.0" font-size="22" fill="#ffb347" text-anchor="middle" font-weight="bold">W20</text>
+<text x="978.0" y="2314.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">SOR</text>
+<circle cx="978.0" cy="2134" r="22" fill="#ffb347"/>
+<text x="978.0" y="2141.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">26</text>
+<text x="978.0" y="2098.0" font-size="22" fill="#ffb347" text-anchor="middle" font-weight="bold">W21</text>
+<text x="978.0" y="2070.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">STRB</text>
+<circle cx="1049.5" cy="2234" r="22" fill="#ffb347"/>
+<text x="1049.5" y="2241.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">27</text>
+<text x="1049.5" y="2288.0" font-size="22" fill="#ffb347" text-anchor="middle" font-weight="bold">W22</text>
+<text x="1049.5" y="2314.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">BUSY</text>
+<circle cx="1049.5" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1049.5" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">28</text>
+<circle cx="1121.0" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1121.0" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">29</text>
+<circle cx="1121.0" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1121.0" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">30</text>
+<circle cx="1192.5" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1192.5" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">31</text>
+<circle cx="1192.5" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1192.5" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">32</text>
+<circle cx="1264.0" cy="2234" r="22" fill="#e6e6e6"/>
+<text x="1264.0" y="2241.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">33</text>
+<text x="1264.0" y="2288.0" font-size="22" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W2</text>
+<text x="1264.0" y="2314.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="1264.0" cy="2134" r="22" fill="#e6e6e6"/>
+<text x="1264.0" y="2141.0" font-size="19" fill="#111111" text-anchor="middle" font-weight="bold">34</text>
+<text x="1264.0" y="2098.0" font-size="22" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W3</text>
+<text x="1264.0" y="2070.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="1335.5" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1335.5" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">35</text>
+<circle cx="1335.5" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1335.5" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">36</text>
+<circle cx="1407.0" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1407.0" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">37</text>
+<circle cx="1407.0" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1407.0" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">38</text>
+<circle cx="1478.5" cy="2234" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1478.5" y="2241.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">39</text>
+<circle cx="1478.5" cy="2134" r="20" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1478.5" y="2141.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">40</text>
+<text x="40.0" y="2384.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">□ Square pad = pin 1, at the left end of the inner row.  Odd pins: inner row.  Even pins: outer row.</text>
+<text x="40.0" y="2416.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Pins 1–7 are power and the fan: never a Teensy wire there.  Pins 35 and 36 stay empty.</text>
+<rect x="104" y="2540" width="1380" height="238" rx="10" fill="#0f2236" stroke="#7cc0ff" stroke-width="3"/>
+<rect x="50" y="2629.0" width="60" height="60" rx="6" fill="#d59bff"/>
+<text x="80.0" y="2719.0" font-size="20" fill="#d59bff" text-anchor="middle" font-weight="bold">USB</text>
+<text x="794.0" y="2655.0" font-size="26" fill="#7cc0ff" text-anchor="middle" font-weight="bold">Teensy 4.1 — top side up, USB at the LEFT</text>
+<text x="794.0" y="2687.0" font-size="20" fill="#c3ccd5" text-anchor="middle" font-weight="normal">(as on PJRC's pinout card)</text>
+<circle cx="150" cy="2574" r="22" fill="#0b0f14" stroke="#ff6b6b" stroke-width="2.5"/>
+<text x="150.0" y="2580.0" font-size="14" fill="#ff6b6b" text-anchor="middle" font-weight="bold">Vin</text>
+<circle cx="206" cy="2574" r="24" fill="#e6e6e6"/>
+<text x="206.0" y="2581.0" font-size="16" fill="#111111" text-anchor="middle" font-weight="bold">GND</text>
+<text x="206.0" y="2532.0" font-size="21" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W1</text>
+<text x="206.0" y="2504.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="262" cy="2574" r="22" fill="#0b0f14" stroke="#ff6b6b" stroke-width="2.5"/>
+<text x="262.0" y="2580.0" font-size="14" fill="#ff6b6b" text-anchor="middle" font-weight="bold">3.3V</text>
+<circle cx="318" cy="2574" r="24" fill="#5aaeff"/>
+<text x="318.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">23</text>
+<text x="318.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W13</text>
+<text x="318.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D9</text>
+<circle cx="374" cy="2574" r="24" fill="#5aaeff"/>
+<text x="374.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">22</text>
+<text x="374.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W12</text>
+<text x="374.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D8</text>
+<circle cx="430" cy="2574" r="24" fill="#5aaeff"/>
+<text x="430.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">21</text>
+<text x="430.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W15</text>
+<text x="430.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D11</text>
+<circle cx="486" cy="2574" r="24" fill="#5aaeff"/>
+<text x="486.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">20</text>
+<text x="486.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W14</text>
+<text x="486.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D10</text>
+<circle cx="542" cy="2574" r="24" fill="#5aaeff"/>
+<text x="542.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">19</text>
+<text x="542.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W4</text>
+<text x="542.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D0</text>
+<circle cx="598" cy="2574" r="24" fill="#5aaeff"/>
+<text x="598.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">18</text>
+<text x="598.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W5</text>
+<text x="598.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D1</text>
+<circle cx="654" cy="2574" r="24" fill="#5aaeff"/>
+<text x="654.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">17</text>
+<text x="654.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W10</text>
+<text x="654.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D6</text>
+<circle cx="710" cy="2574" r="24" fill="#5aaeff"/>
+<text x="710.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">16</text>
+<text x="710.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W11</text>
+<text x="710.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D7</text>
+<circle cx="766" cy="2574" r="24" fill="#5aaeff"/>
+<text x="766.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">15</text>
+<text x="766.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W7</text>
+<text x="766.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D3</text>
+<circle cx="822" cy="2574" r="24" fill="#5aaeff"/>
+<text x="822.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">14</text>
+<text x="822.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W6</text>
+<text x="822.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D2</text>
+<circle cx="878" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="878.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">13</text>
+<circle cx="934" cy="2574" r="24" fill="#e6e6e6"/>
+<text x="934.0" y="2581.0" font-size="16" fill="#111111" text-anchor="middle" font-weight="bold">GND</text>
+<text x="934.0" y="2532.0" font-size="21" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W2</text>
+<text x="934.0" y="2504.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="990" cy="2574" r="24" fill="#5aaeff"/>
+<text x="990.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">41</text>
+<text x="990.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W9</text>
+<text x="990.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D5</text>
+<circle cx="1046" cy="2574" r="24" fill="#5aaeff"/>
+<text x="1046.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">40</text>
+<text x="1046.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W8</text>
+<text x="1046.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D4</text>
+<circle cx="1102" cy="2574" r="24" fill="#5aaeff"/>
+<text x="1102.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">39</text>
+<text x="1102.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W17</text>
+<text x="1102.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D13</text>
+<circle cx="1158" cy="2574" r="24" fill="#5aaeff"/>
+<text x="1158.0" y="2581.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">38</text>
+<text x="1158.0" y="2532.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W16</text>
+<text x="1158.0" y="2504.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D12</text>
+<circle cx="1214" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1214.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">37</text>
+<circle cx="1270" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1270.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">36</text>
+<circle cx="1326" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1326.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">35</text>
+<circle cx="1382" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1382.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">34</text>
+<circle cx="1438" cy="2574" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1438.0" y="2580.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">33</text>
+<circle cx="150" cy="2744" r="24" fill="#e6e6e6"/>
+<text x="150.0" y="2751.0" font-size="16" fill="#111111" text-anchor="middle" font-weight="bold">GND</text>
+<text x="150.0" y="2804.0" font-size="21" fill="#e6e6e6" text-anchor="middle" font-weight="bold">W3</text>
+<text x="150.0" y="2830.0" font-size="18" fill="#e6e6e6" text-anchor="middle" font-weight="bold">GND</text>
+<circle cx="206" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="206.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">0</text>
+<circle cx="262" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="262.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">1</text>
+<circle cx="318" cy="2744" r="24" fill="#ffb347"/>
+<text x="318.0" y="2751.0" font-size="20" fill="#111111" text-anchor="middle" font-weight="bold">2</text>
+<text x="318.0" y="2804.0" font-size="21" fill="#ffb347" text-anchor="middle" font-weight="bold">W21</text>
+<text x="318.0" y="2830.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">STRB</text>
+<circle cx="374" cy="2744" r="24" fill="#ffb347"/>
+<text x="374.0" y="2751.0" font-size="20" fill="#111111" text-anchor="middle" font-weight="bold">3</text>
+<text x="374.0" y="2804.0" font-size="21" fill="#ffb347" text-anchor="middle" font-weight="bold">W20</text>
+<text x="374.0" y="2830.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">SOR</text>
+<circle cx="430" cy="2744" r="24" fill="#ffb347"/>
+<text x="430.0" y="2751.0" font-size="20" fill="#111111" text-anchor="middle" font-weight="bold">4</text>
+<text x="430.0" y="2804.0" font-size="21" fill="#ffb347" text-anchor="middle" font-weight="bold">W22</text>
+<text x="430.0" y="2830.0" font-size="18" fill="#ffb347" text-anchor="middle" font-weight="bold">BUSY</text>
+<circle cx="486" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="486.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">5</text>
+<circle cx="542" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="542.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">6</text>
+<circle cx="598" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="598.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">7</text>
+<circle cx="654" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="654.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">8</text>
+<circle cx="710" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="710.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">9</text>
+<circle cx="766" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="766.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">10</text>
+<circle cx="822" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="822.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">11</text>
+<circle cx="878" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="878.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">12</text>
+<circle cx="934" cy="2744" r="22" fill="#0b0f14" stroke="#ff6b6b" stroke-width="2.5"/>
+<text x="934.0" y="2750.0" font-size="14" fill="#ff6b6b" text-anchor="middle" font-weight="bold">3.3V</text>
+<circle cx="990" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="990.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">24</text>
+<circle cx="1046" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1046.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">25</text>
+<circle cx="1102" cy="2744" r="24" fill="#5aaeff"/>
+<text x="1102.0" y="2751.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">26</text>
+<text x="1102.0" y="2804.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W18</text>
+<text x="1102.0" y="2830.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D14</text>
+<circle cx="1158" cy="2744" r="24" fill="#5aaeff"/>
+<text x="1158.0" y="2751.0" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">27</text>
+<text x="1158.0" y="2804.0" font-size="21" fill="#5aaeff" text-anchor="middle" font-weight="bold">W19</text>
+<text x="1158.0" y="2830.0" font-size="18" fill="#5aaeff" text-anchor="middle" font-weight="bold">D15</text>
+<circle cx="1214" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1214.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">28</text>
+<circle cx="1270" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1270.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">29</text>
+<circle cx="1326" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1326.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">30</text>
+<circle cx="1382" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1382.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">31</text>
+<circle cx="1438" cy="2744" r="22" fill="#0b0f14" stroke="#7d8894" stroke-width="2.5"/>
+<text x="1438.0" y="2750.0" font-size="18" fill="#7d8894" text-anchor="middle" font-weight="normal">32</text>
+<text x="40.0" y="2894.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Top edge from the USB end: Vin, GND, 3.3V, 23 … 13, GND, 41 … 33.</text>
+<text x="40.0" y="2926.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="normal">Bottom edge: GND, 0 … 12, 3.3V, 24 … 32.   Vin and 3.3V (red): NEVER wired.</text>
+<text x="40.0" y="3014.0" font-size="34" fill="#f4f7fa" text-anchor="start" font-weight="bold">C.  Wire by wire</text>
+<text x="40.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">Wire</text>
+<text x="150.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">JM1</text>
+<text x="250.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">where on JM1</text>
+<text x="560.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">signal</text>
+<text x="760.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">Teensy</text>
+<text x="890.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">where on the Teensy</text>
+<text x="1330.0" y="3066.0" font-size="21" fill="#c3ccd5" text-anchor="start" font-weight="bold">direction</text>
+<rect x="28" y="3080" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3110.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W1</text>
+<text x="150.0" y="3110.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">4</text>
+<text x="250.0" y="3110.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 2nd from left</text>
+<text x="560.0" y="3110.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="760.0" y="3110.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
+<text x="890.0" y="3110.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 2nd from USB</text>
+<text x="1330.0" y="3110.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
+<text x="40.0" y="3152.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W2</text>
+<text x="150.0" y="3152.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">33</text>
+<text x="250.0" y="3152.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 17th from left</text>
+<text x="560.0" y="3152.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="760.0" y="3152.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
+<text x="890.0" y="3152.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 15th from USB</text>
+<text x="1330.0" y="3152.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
+<rect x="28" y="3164" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3194.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">W3</text>
+<text x="150.0" y="3194.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">34</text>
+<text x="250.0" y="3194.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 17th from left</text>
+<text x="560.0" y="3194.0" font-size="23" fill="#e6e6e6" text-anchor="start" font-weight="bold">GND</text>
+<text x="760.0" y="3194.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">GND</text>
+<text x="890.0" y="3194.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 1st from USB</text>
+<text x="1330.0" y="3194.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">ground</text>
+<text x="40.0" y="3236.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W4</text>
+<text x="150.0" y="3236.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">9</text>
+<text x="250.0" y="3236.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 5th from left</text>
+<text x="560.0" y="3236.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D0</text>
+<text x="760.0" y="3236.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">19</text>
+<text x="890.0" y="3236.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 8th from USB</text>
+<text x="1330.0" y="3236.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3248" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3278.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W5</text>
+<text x="150.0" y="3278.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">10</text>
+<text x="250.0" y="3278.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 5th from left</text>
+<text x="560.0" y="3278.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D1</text>
+<text x="760.0" y="3278.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">18</text>
+<text x="890.0" y="3278.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 9th from USB</text>
+<text x="1330.0" y="3278.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3320.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W6</text>
+<text x="150.0" y="3320.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">11</text>
+<text x="250.0" y="3320.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 6th from left</text>
+<text x="560.0" y="3320.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D2</text>
+<text x="760.0" y="3320.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">14</text>
+<text x="890.0" y="3320.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 13th from USB</text>
+<text x="1330.0" y="3320.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3332" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3362.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W7</text>
+<text x="150.0" y="3362.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">12</text>
+<text x="250.0" y="3362.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 6th from left</text>
+<text x="560.0" y="3362.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D3</text>
+<text x="760.0" y="3362.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">15</text>
+<text x="890.0" y="3362.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 12th from USB</text>
+<text x="1330.0" y="3362.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3404.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W8</text>
+<text x="150.0" y="3404.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">13</text>
+<text x="250.0" y="3404.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 7th from left</text>
+<text x="560.0" y="3404.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D4</text>
+<text x="760.0" y="3404.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">40</text>
+<text x="890.0" y="3404.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 17th from USB</text>
+<text x="1330.0" y="3404.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3416" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3446.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W9</text>
+<text x="150.0" y="3446.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">14</text>
+<text x="250.0" y="3446.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 7th from left</text>
+<text x="560.0" y="3446.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D5</text>
+<text x="760.0" y="3446.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">41</text>
+<text x="890.0" y="3446.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 16th from USB</text>
+<text x="1330.0" y="3446.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3488.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W10</text>
+<text x="150.0" y="3488.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">15</text>
+<text x="250.0" y="3488.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 8th from left</text>
+<text x="560.0" y="3488.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D6</text>
+<text x="760.0" y="3488.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">17</text>
+<text x="890.0" y="3488.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 10th from USB</text>
+<text x="1330.0" y="3488.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3500" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3530.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W11</text>
+<text x="150.0" y="3530.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">16</text>
+<text x="250.0" y="3530.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 8th from left</text>
+<text x="560.0" y="3530.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D7</text>
+<text x="760.0" y="3530.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">16</text>
+<text x="890.0" y="3530.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 11th from USB</text>
+<text x="1330.0" y="3530.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3572.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W12</text>
+<text x="150.0" y="3572.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">17</text>
+<text x="250.0" y="3572.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 9th from left</text>
+<text x="560.0" y="3572.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D8</text>
+<text x="760.0" y="3572.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">22</text>
+<text x="890.0" y="3572.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 5th from USB</text>
+<text x="1330.0" y="3572.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3584" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3614.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W13</text>
+<text x="150.0" y="3614.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">18</text>
+<text x="250.0" y="3614.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 9th from left</text>
+<text x="560.0" y="3614.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D9</text>
+<text x="760.0" y="3614.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">23</text>
+<text x="890.0" y="3614.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 4th from USB</text>
+<text x="1330.0" y="3614.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3656.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W14</text>
+<text x="150.0" y="3656.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">19</text>
+<text x="250.0" y="3656.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 10th from left</text>
+<text x="560.0" y="3656.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D10</text>
+<text x="760.0" y="3656.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">20</text>
+<text x="890.0" y="3656.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 7th from USB</text>
+<text x="1330.0" y="3656.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3668" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3698.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W15</text>
+<text x="150.0" y="3698.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">20</text>
+<text x="250.0" y="3698.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 10th from left</text>
+<text x="560.0" y="3698.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D11</text>
+<text x="760.0" y="3698.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">21</text>
+<text x="890.0" y="3698.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 6th from USB</text>
+<text x="1330.0" y="3698.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3740.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W16</text>
+<text x="150.0" y="3740.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">21</text>
+<text x="250.0" y="3740.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 11th from left</text>
+<text x="560.0" y="3740.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D12</text>
+<text x="760.0" y="3740.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">38</text>
+<text x="890.0" y="3740.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 19th from USB</text>
+<text x="1330.0" y="3740.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3752" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3782.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W17</text>
+<text x="150.0" y="3782.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">22</text>
+<text x="250.0" y="3782.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 11th from left</text>
+<text x="560.0" y="3782.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D13</text>
+<text x="760.0" y="3782.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">39</text>
+<text x="890.0" y="3782.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">top edge, 18th from USB</text>
+<text x="1330.0" y="3782.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3824.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W18</text>
+<text x="150.0" y="3824.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">23</text>
+<text x="250.0" y="3824.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 12th from left</text>
+<text x="560.0" y="3824.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D14</text>
+<text x="760.0" y="3824.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">26</text>
+<text x="890.0" y="3824.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 18th from USB</text>
+<text x="1330.0" y="3824.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3836" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3866.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">W19</text>
+<text x="150.0" y="3866.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">24</text>
+<text x="250.0" y="3866.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 12th from left</text>
+<text x="560.0" y="3866.0" font-size="23" fill="#5aaeff" text-anchor="start" font-weight="bold">D15</text>
+<text x="760.0" y="3866.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">27</text>
+<text x="890.0" y="3866.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 19th from USB</text>
+<text x="1330.0" y="3866.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3908.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W20</text>
+<text x="150.0" y="3908.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">25</text>
+<text x="250.0" y="3908.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 13th from left</text>
+<text x="560.0" y="3908.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">SOR</text>
+<text x="760.0" y="3908.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">3</text>
+<text x="890.0" y="3908.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 5th from USB</text>
+<text x="1330.0" y="3908.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<rect x="28" y="3920" width="1544" height="42" fill="#18212b"/>
+<text x="40.0" y="3950.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W21</text>
+<text x="150.0" y="3950.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">26</text>
+<text x="250.0" y="3950.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">outer row, 13th from left</text>
+<text x="560.0" y="3950.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">STROBE</text>
+<text x="760.0" y="3950.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">2</text>
+<text x="890.0" y="3950.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 4th from USB</text>
+<text x="1330.0" y="3950.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Teensy → FPGA</text>
+<text x="40.0" y="3992.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">W22</text>
+<text x="150.0" y="3992.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">27</text>
+<text x="250.0" y="3992.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">inner row, 14th from left</text>
+<text x="560.0" y="3992.0" font-size="23" fill="#ffb347" text-anchor="start" font-weight="bold">BUSY</text>
+<text x="760.0" y="3992.0" font-size="23" fill="#f4f7fa" text-anchor="start" font-weight="bold">4</text>
+<text x="890.0" y="3992.0" font-size="21" fill="#f4f7fa" text-anchor="start" font-weight="normal">bottom edge, 6th from USB</text>
+<text x="1330.0" y="3992.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">FPGA → Teensy</text>
+<text x="40.0" y="4054.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Checked when this was drawn: the Teensy firmware, the FPGA pin file, the vendor's JM1 table</text>
+<text x="40.0" y="4084.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">and WIRING.md agree on every wire. Every pin carries at most one wire. No wire touches 5 V,</text>
+<text x="40.0" y="4114.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">3.3 V or the fan's pins. Both boards are 3.3 V logic: wires go direct, no resistors.</text>
+</svg>

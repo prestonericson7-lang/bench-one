@@ -68,7 +68,7 @@ Pin map (all LVCMOS33 unless noted; ball names from the Puzhi manual/xlsx):
 
 JM1 pin -> ball: 9 E18, 10 F16, 11 E19, 12 F17, 13 G17, 14 B19, 15 G18, 16 A20, 17 D19, 18 C20,
 19 D20, 20 B20, 21 J18, 22 K19, 23 H18, 24 J19, 25 K17, 26 M17, 27 K18. JM1 pins 3,4,33,34,35,36
-are GND; the bus uses 4, 33, 34, 35. (JM1 pins 1/3/5/7 = 5 V, GND, H16, H17 stay free for the fan
+are GND; the bus uses 4, 33, 34 (one per Teensy GND pin; the Teensy 4.1 has three on its edges). (JM1 pins 1/3/5/7 = 5 V, GND, H16, H17 stay free for the fan
 design in the board repo.)
 
 So: tb_d[0]=E18, [1]=F16, [2]=E19, [3]=F17, [4]=G17, [5]=B19, [6]=G18, [7]=A20, [8]=D19,
@@ -100,7 +100,7 @@ Teensy 4.1 side (verified against the Teensy core `core_pins.h`, GPIO6 fast port
 | SOR | 3 | GPIO9 bit 5 | 25 |
 | STROBE | 2 | GPIO9 bit 4 | 26 |
 | BUSY (in) | 4 | GPIO9 bit 6 | 27 |
-| GND | GND | | 4, 33, 34, 35 (pin 3 = fan GND, 36 spare) |
+| GND | GND | | 4, 33, 34 (pin 3 = fan GND, 35 and 36 spare) |
 
 Writing the 16 data bits = one write: `GPIO6_DR_TOGGLE = ((prev ^ word) & 0xFFFF) << 16`.
 

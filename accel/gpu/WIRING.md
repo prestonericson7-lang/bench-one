@@ -2,7 +2,8 @@
 
 ![PZ7020 wired as the accelerator](../../hardware/pz7020-starlite/accel-wiring.svg)
 
-Diagram: [hardware/pz7020-starlite/accel-wiring.svg](../../hardware/pz7020-starlite/accel-wiring.svg) (vendor PCB geometry; regenerate with `tools/make_accel_wiring_svg.py`). The upper Ethernet jack is **ETH-PS** (J6, the Pi's link), the lower **ETH-PL** (J7); the upper USB-C is **J8 JTAG** (power), the lower **J2 UART** (console) -- from the vendor schematic and the manual's board photo.
+Whole bench, every cable and wire, numbered: [hardware/pz7020-starlite/system-wiring.svg](../../hardware/pz7020-starlite/system-wiring.svg).
+Board diagram: [hardware/pz7020-starlite/accel-wiring.svg](../../hardware/pz7020-starlite/accel-wiring.svg) (vendor PCB geometry; regenerate with `tools/make_accel_wiring_svg.py`). The upper Ethernet jack is **ETH-PS** (J6, the Pi's link), the lower **ETH-PL** (J7); the upper USB-C is **J8 JTAG** (power), the lower **J2 UART** (console) -- from the vendor schematic and the manual's board photo.
 
 ## What plugs into what
 
@@ -10,7 +11,7 @@ Diagram: [hardware/pz7020-starlite/accel-wiring.svg](../../hardware/pz7020-starl
 |---|---|---|
 | Orange Pi **Ethernet** port | FPGA **upper** Ethernet jack, silkscreen `ETH-PS` (J6) | normal Ethernet cable |
 | Orange Pi **USB-A** port | Teensy **micro-USB** | USB **data** cable (not charge-only) |
-| Teensy pins | FPGA header **JM1** | 19 signal jumpers + 4 ground jumpers (table below) |
+| Teensy pins | FPGA header **JM1** | 19 signal jumpers + 3 ground jumpers (table below) |
 | FPGA **HDMI** | a monitor / TV | HDMI cable: this is the GPU's screen |
 | 5 V **USB-A** charger, **2 A or more** | FPGA **upper** Type-C, silkscreen `JTAG` (J8) | **USB-A to USB-C** cable: powers the FPGA |
 | Orange Pi's own supply | Orange Pi | as you use it now |
@@ -46,11 +47,11 @@ The FPGA side is 3.3 V and the Teensy is 3.3 V, so the wires go direct with no r
 | 25 | K17 | SOR (start of record) | 3 |
 | 26 | M17 | STROBE | 2 |
 | 27 | K18 | BUSY (FPGA to Teensy) | 4 |
-| **4, 33, 34, 35** | GND | **ground: use all four** | any **GND** pins on the Teensy |
+| **4, 33, 34** | GND | **ground: all three, one wire each** | the Teensy's three **GND** pins (top edge next to Vin, top edge between 13 and 41, bottom edge next to 0) |
 
 Tips:
 - Keep the jumpers **20 cm or shorter**, and run the ground wires alongside the bundle rather than off to one side.
-- JM1 pins 1, 3, 5 and 7 are left free on purpose; your fan uses them (5 V, GND, PWM, tach). Pin 3 is the fan's GND, not a Teensy ground. Pin 36 is a spare GND.
+- JM1 pins 1, 3, 5 and 7 are left free on purpose; your fan uses them (5 V, GND, PWM, tach). Pin 3 is the fan's GND, not a Teensy ground. Pins 35 and 36 are spare GNDs: the Teensy has only three GND pins on its edges, and each takes one wire.
 - The 40-pin headers can come unpopulated from the factory. If JM1 has bare holes, solder a 2x20 header first.
 
 ### Finding JM1 and its pin 1
@@ -64,7 +65,7 @@ Turn the FPGA board so the **Ethernet jacks are on the right** and the **USB-C p
 Fit the wires in this order:
 1. With no Teensy wires on JM1, power the FPGA from J8 and check with a meter: pin 1 reads 5 V and pin 2 reads 3.3 V to pin 3 (GND).
 2. Unplug the FPGA's J8, and unplug the Teensy's USB from the Orange Pi (after `flash-teensy-gpu`). **Both boards stay unpowered while you place or remove any JM1 jumper.**
-3. Place the four ground jumpers first, then the 19 signal jumpers. Check that no Teensy wire sits on pin 1 or pin 2; pin 3 (GND) is right beside pin 1 (5 V).
+3. Place the three ground jumpers first, then the 19 signal jumpers. Check that no Teensy wire sits on pin 1 or pin 2; pin 3 (GND) is right beside pin 1 (5 V).
 4. Only then power up, in the order below.
 
 ## Which FPGA Ethernet jack

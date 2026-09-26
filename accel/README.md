@@ -31,7 +31,8 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
 2. **Orange Pi**: copy `accel/accel-pi-bundle.tar.gz` over, then
    `mkdir -p ~/accel && tar -xzf accel-pi-bundle.tar.gz -C ~/accel && sudo bash ~/accel/install_pi.sh`.
 3. **Teensy** (geometry engine) on the Pi's USB: `flash-teensy-gpu`. Wire it to JM1 per [gpu/WIRING.md](gpu/WIRING.md).
-4. **Cables**: Pi Ethernet → Zynq PS RJ45; Zynq HDMI → a monitor.
+4. **Cables**: Pi Ethernet → the Zynq's upper RJ45 (**ETH-PS**); Zynq HDMI → a monitor. Every pin and port:
+   [hardware/pz7020-starlite/accel-wiring.svg](../hardware/pz7020-starlite/accel-wiring.svg).
 5. **Measure** (on the Pi — only these numbers count). `bench-day [model.gguf]` runs all of these and saves
    `~/accel-bench-<date>.txt`:
    - `zaccel-bench -H 10.20.0.2` — Pi alone vs Zynq alone vs both at once, every answer checked.

@@ -1,5 +1,9 @@
 # Wiring: Orange Pi 4 Pro + PZ7020 FPGA + Teensy 4.1
 
+![PZ7020 wired as the accelerator](../../hardware/pz7020-starlite/accel-wiring.svg)
+
+Diagram: [hardware/pz7020-starlite/accel-wiring.svg](../../hardware/pz7020-starlite/accel-wiring.svg) (vendor PCB geometry; regenerate with `tools/make_accel_wiring_svg.py`). The upper Ethernet jack is **ETH-PS** (J6, the Pi's link), the lower **ETH-PL** (J7); the upper USB-C is **J8 JTAG** (power), the lower **J2 UART** (console) -- from the vendor schematic and the manual's board photo.
+
 ## What plugs into what
 
 | From | To | Cable |

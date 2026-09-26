@@ -60,6 +60,10 @@ Qwen2.5-Coder 3B with `ppl.c` (64 tokens): **19.14 CPU-only, 19.36 half the rows
 19.03 all of them**, top-1 unchanged, and the generated text identical. `accel/llm/run_tests.sh`
 repeats all of it.
 
+int4 weights (`ZACCEL_WBITS=4`, one scale per row) were measured and **rejected**: perplexity 19.14 →
+29.91 with half the rows, 95.95 with all, even rotated. int4 needs a scale per small group of weights,
+which the engine does not have; int8 is the default and the only setting to use.
+
 ```
 run_model model.gguf "def fibonacci(n):" 64 --fast --zaccel auto   # n_tokens must be 3rd
 ppl model.gguf --fast --limit 256 --zaccel auto                   # the quality cost

@@ -9,9 +9,9 @@ the PC records the whole boot and writes the summary. Nobody types anything.
 | | Fact | How it's known |
 |---|---|---|
 | Card | 32 GB microSD (29.53 GiB physical) | Windows `Get-Disk` |
-| Contents | `linux/out/pz7020-starlite-sd.img` (1666 MiB), sha256 `d1ff87704857e25d803f6b9037831546339d2071e32aa279ba6369a6c7331b3d`: Vivado 32-bit / 1 GB PS init; `pl.bit` = the one-bitstream design (GPU + matrix engine + pl_regs + eth1, `vivado/build/system.bit`); `zaccel-server`, `fpgagpud`, `nbd-server` (zynqram); PL-owned DDR3 reserved | `sd-image.sha256`; `linux/check_image_contents.sh` proves every boot file, binary and unit equals the repo's |
-| Written | 2026-09-25 20:58, unbuffered + write-through, 16.4 MB/s (real card speed, not cache) | `linux/write_sd.py` log |
-| Verified | the first 1,746,927,616 bytes read back unbuffered (19.0 MB/s) hash **identical** to the image | same log (`DONE rc=0`) |
+| Contents | `linux/out/pz7020-starlite-sd.img` (1666 MiB), sha256 `335dc01e0d4c36c3f956851e3ceca54eb046be418cf3da06b001c95a057a58ea`: Vivado 32-bit / 1 GB PS init; `boot.scr` adds `fpgagpu.pl_loaded=1` when `fpga loadb` succeeds (Linux clears PCFG_DONE, so this is how the services know the PL is loaded); `pl.bit` = the one-bitstream design (GPU + matrix engine + pl_regs + eth1, `vivado/build/system.bit`); `zaccel-server`, `fpgagpud`, `nbd-server` (zynqram); PL-owned DDR3 reserved | `sd-image.sha256`; `linux/check_image_contents.sh` proves every boot file, binary and unit equals the repo's |
+| Written | 2026-09-25 22:16, unbuffered + write-through, 16.2 MB/s (real card speed, not cache); the card's FAT label/type bytes were checked first (`--expect`) | `linux/write_sd.py` log |
+| Verified | the first 1,746,927,616 bytes read back unbuffered (17.7 MB/s) hash **identical** to the image | same log (`DONE rc=0`) |
 | Partition 1 | FAT32 `BOOT`, 128 MiB @ 1 MiB: `boot.bin` `u-boot.img` `boot.scr` `zImage` `zynq-pz7020-starlite.dtb` `pl.bit` | `Get-Partition` after the write + `mdir` at build |
 | Partition 2 | ext4 rootfs, 1536 MiB @ 129 MiB — Debian 12 bookworm armhf | `Get-Partition` after the write |
 | Rest of card | ~27.9 GiB unallocated (grow the rootfs from the board later if wanted) | — |

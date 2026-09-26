@@ -33,7 +33,9 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
    installs everything by itself and writes the log to `~/accel-install.log`. That includes the two missing
    packages (shipped in the bundle, no internet needed) and the NVMe drive: a blank drive is partitioned,
    formatted ext4 and mounted at **/mnt/nvme**, at every boot from then on (`nvme-auto`; a drive that
-   already holds data is never formatted). On a card without it: copy `accel/accel-pi-bundle.tar.gz`
+   already holds data is never formatted). The card written 2026-09-25 22:01 holds image sha256
+   `aeb5ce4b60af036982b43b5043f42857d6497f7256ea1b84125d933c0669a18c`; a full unbuffered compare of all
+   8,745,123,840 bytes found no difference. On a card without it: copy `accel/accel-pi-bundle.tar.gz`
    over, then
    `mkdir -p ~/accel && tar -xzf accel-pi-bundle.tar.gz -C ~/accel && sudo bash ~/accel/install_pi.sh`.
    Run it from the Pi's own desktop or over Wi-Fi, not over SSH on the Pi's Ethernet. The installer gives

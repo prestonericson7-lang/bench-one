@@ -1,0 +1,13 @@
+[Unit]
+Description=NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot)
+After=local-fs.target
+Before=zaccel-swap.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/nvme-auto
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target

@@ -33,6 +33,16 @@ image_matches() {  # image_matches <sketch> <fqbn> <artifact> -- rebuild and com
   got=$(sha256sum "$T/fw_$1/$3" | cut -c1-64)
   echo "deployed $want"; echo "rebuilt  $got"; [ -n "$want" ] && [ "$want" = "$got" ]
 }
+esp_image_matches() {  # an ESP32 merged image: the deployed file matches SHA256SUMS, and the rebuild is
+  # the same firmware -- deploy/esp_image_same.py: every byte identical except the core's compile
+  # time/date and the hashes that follow from it (a clean core build restamps __TIME__)
+  arduino-cli compile --fqbn "$2" --output-dir "$T/fw_$1" "firmware/$1" || return 1
+  local want got
+  want=$(grep -E " \*?$3\$" deploy/firmware/SHA256SUMS | cut -c1-64)
+  got=$(sha256sum "deploy/firmware/$3" | cut -c1-64)
+  echo "SHA256SUMS $want"; echo "deployed   $got"; [ -n "$want" ] && [ "$want" = "$got" ] || return 1
+  $PY deploy/esp_image_same.py "$T/fw_$1/$3" "deploy/firmware/$3"
+}
 must_fail() { ! "$@"; }
 syntax() { local f; for f; do bash -n "$f" || return 1; done; }
 flash_ps_checks_image() {  # no board attached: must verify the image, then stop at "no board" (exit 4)
@@ -67,7 +77,7 @@ check "contract check (firmware output -> Pi parsers)" $PY firmware/tests/host/c
 echo "== Firmware images: rebuilt from source, byte-identical to what gets flashed"
 check "car-can-logger.ino.hex" image_matches car-can-logger teensy:avr:teensy41 car-can-logger.ino.hex
 check "vent-display.ino.hex" image_matches vent-display teensy:avr:teensy41 vent-display.ino.hex
-check "vent-climate-node.ino.merged.bin" image_matches vent-climate-node esp32:esp32:esp32s3:CDCOnBoot=cdc vent-climate-node.ino.merged.bin
+check "vent-climate-node.ino.merged.bin (same firmware; core build time may differ)" esp_image_matches vent-climate-node esp32:esp32:esp32s3:CDCOnBoot=cdc vent-climate-node.ino.merged.bin
 check "climate node refuses to build without CDCOnBoot=cdc" must_fail arduino-cli compile --fqbn esp32:esp32:esp32s3 --output-dir "$T/fw_guard" firmware/vent-climate-node
 
 echo "== Deploy: bundle, installer, flashers"
@@ -86,6 +96,8 @@ pi_bundle() { bash accel/make_pi_bundle.sh; }
 check "Pi accelerator bundle builds" pi_bundle
 check "Pi installer from the bundle under systemd (WSL): every tool, firmware, service" wsl_root bash /mnt/d/espicpc/accel/test_install_pi_wsl.sh
 check "Pi clients find the Zynq on either of its addresses" wsl_root bash /mnt/d/espicpc/accel/pi/test_fallback.sh
+check "NVMe: blank drive prepared + mounted at boot, any other drive never touched" wsl_root bash /mnt/d/espicpc/accel/pi/test_nvme_auto.sh
+check "Pi SD card staging: official rootfs overlay, Pi userspace installs the offline .debs" wsl_root bash /mnt/d/espicpc/accel/test_stage_pi_card.sh
 check "Zynq RAM export -> Pi swap (nbd, zaccel-swap)" wsl_root bash /mnt/d/espicpc/accel/mem/test_mem.sh
 check "nbd.ko loads into the Pi's own kernel (vendor Image under QEMU)" wsl_root bash /mnt/d/espicpc/accel/mem/test_pi_nbd_load.sh
 bench_one_host() { (cd firmware/bench-one/tests && PATH="$ROOT/tools/w64devkit/bin:$PATH" sh run_host_tests.sh); }

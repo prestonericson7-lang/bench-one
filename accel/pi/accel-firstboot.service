@@ -1,0 +1,14 @@
+[Unit]
+Description=Accelerators: install the Zynq/Teensy bundle staged on this card (until it succeeds once)
+After=local-fs.target NetworkManager.service
+ConditionPathExists=/opt/accel/bundle/install_pi.sh
+ConditionPathExists=!/var/lib/accel/firstboot.done
+
+[Service]
+# simple, not oneshot: the desktop comes up while this runs instead of waiting for it
+Type=simple
+ExecStart=/bin/bash /opt/accel/bundle/pi/accel-firstboot.sh
+TimeoutStartSec=20min
+
+[Install]
+WantedBy=multi-user.target

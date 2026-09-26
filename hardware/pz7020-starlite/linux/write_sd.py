@@ -28,6 +28,9 @@ ap.add_argument("--sha256", default=None, help="expected sha256 of the RAW image
 ap.add_argument("--log", default=os.path.join(tempfile.gettempdir(), "pz7020_write_sd.log"))
 ap.add_argument("--min-gib", type=float, default=28.0)
 ap.add_argument("--max-gib", type=float, default=34.0)
+ap.add_argument("--expect", action="append", default=[], metavar="OFFSET=HEX",
+                help="bytes the card must ALREADY hold before anything is written (proof it is the right card), "
+                     "e.g. the Orange Pi card: 8196=65474f4e2e425430 (eGON.BT0)")
 A = ap.parse_args()
 if A.sha256 is None:
     A.sha256 = open(os.path.join(OUTD, "sd-image.sha256")).read().split()[0]
@@ -96,6 +99,32 @@ def seek(h, off):
         done(1, f"SetFilePointerEx({off}) failed, winerr {ctypes.get_last_error()}")
 
 
+def check_expect(num):
+    """Every --expect OFFSET=HEX must match what the card holds now (read unbuffered, sector-aligned)."""
+    if not A.expect:
+        return
+    tmp = k32.VirtualAlloc(None, 8192, 0x3000, 0x04)
+    if not tmp:
+        done(1, "VirtualAlloc failed")
+    hd = open_disk(num, GENERIC_READ, NO_BUFFERING)
+    r = wt.DWORD(0)
+    try:
+        for e in A.expect:
+            off_s, hexs = e.split("=", 1)
+            off, want = int(off_s, 0), bytes.fromhex(hexs)
+            base = off & ~4095
+            n = 8192 if off + len(want) - base > 4096 else 4096
+            seek(hd, base)
+            if not k32.ReadFile(hd, tmp, n, ctypes.byref(r), None) or r.value != n:
+                done(1, f"identity read at {base} failed, winerr {ctypes.get_last_error()}")
+            got = ctypes.string_at(tmp + (off - base), len(want))
+            log(f"identity: bytes at {off} = {got.hex()} (expected {want.hex()})")
+            if got != want:
+                done(1, "this card does not hold the expected bytes -- not the card to overwrite; nothing written")
+    finally:
+        k32.CloseHandle(hd)
+
+
 def raw_image():
     """Return the path of the raw image, decompressing an .xz and checking its hash on the way."""
     if not A.image.lower().endswith(".xz"):
@@ -121,6 +150,7 @@ def main():
         done(1, f"no unique SD card found (USB, {A.min_gib}-{A.max_gib} GiB, SD-reader name): {why}")
     num, name, bus, size, style = card
     log(f"target: PhysicalDrive{num} '{name}' bus={bus} size={size / 2**30:.2f} GiB style={style}")
+    check_expect(num)
 
     img = raw_image()
     isz = os.path.getsize(img)
@@ -136,6 +166,13 @@ def main():
     if img_sha != A.sha256:
         done(1, "image hash does not match the recorded build")
 
+    # an earlier failed "wsl --mount" leaves the disk offline (OfflineReason Policy); Clear-Disk refuses
+    # an offline disk. Only reached after the identity checks above, so this is the right card.
+    rc, out, err = ps(f"$d = Get-Disk -Number {num}; if ($d.IsOffline) {{ Set-Disk -Number {num} -IsOffline $false; 'brought online' }}")
+    if rc:
+        done(1, f"Set-Disk -IsOffline $false: {err or out}")
+    if out:
+        log(f"disk was offline: {out}")
     rc, out, err = ps(f"Clear-Disk -Number {num} -RemoveData -RemoveOEM -Confirm:$false")
     if rc:
         done(1, f"Clear-Disk: {err or out}")

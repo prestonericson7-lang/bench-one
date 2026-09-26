@@ -22,9 +22,12 @@ chk "bench-day installed"                       "[ -x /usr/local/bin/bench-day ]
 chk "zaccel-swap service enabled"               "systemctl is-enabled zaccel-swap.service >/dev/null"
 chk "zaccel-swap retry timer present"           "[ -f /etc/systemd/system/zaccel-swap-retry.timer ]"
 chk "nbd module configured to load at boot"     "grep -q nbd /etc/modules-load.d/nbd.conf"
+chk "nvme-auto installed and enabled at boot"   "[ -x /usr/local/sbin/nvme-auto ] && systemctl is-enabled nvme-auto.service >/dev/null"
+chk "no NVMe here: nothing formatted, said so"  "grep -q 'no NVMe drive visible right now' /tmp/accel-install.log"
 chk "network untouched (no 10.77.0.1 here)"     "! ip -4 addr | grep -q 10.77.0.1"
 echo "--- undo"
-systemctl disable --now zaccel-swap.service zaccel-swap-retry.timer >/dev/null 2>&1
+systemctl disable --now zaccel-swap.service zaccel-swap-retry.timer nvme-auto.service >/dev/null 2>&1
+rm -f /etc/systemd/system/nvme-auto.service /usr/local/sbin/nvme-auto
 rm -f /etc/systemd/system/zaccel-swap*.service /etc/systemd/system/zaccel-swap-retry.timer /usr/local/sbin/zaccel-swap
 rm -f /usr/local/bin/{zaccel-bench,zaccel.py,run_model,ppl,flash-teensy-gpu,bench-day} /usr/local/lib/libzaccel.a /usr/local/include/libzaccel.h
 rm -rf /usr/local/lib/zaccel /opt/accel

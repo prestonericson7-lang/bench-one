@@ -1,0 +1,101 @@
+#!/bin/bash
+# nvme-auto -- the Orange Pi's NVMe drive, usable at every boot with nothing to set up.
+#   Runs at every boot (nvme-auto.service). Finds the drive, then:
+#     * blank drive (no partition table, no filesystem signature, first MiB all zero): one GPT
+#       partition, ext4 labelled "nvme", owned by the desktop user (uid 1000);
+#     * drive that already has a filesystem: used as it is -- never reformatted;
+#     * anything else (unknown data, partitions with no filesystem): left untouched, reported.
+#   Then mounts it at /mnt/nvme and keeps ONE /etc/fstab line for it (by UUID, nofail, short device
+#   timeout), so every later boot mounts it natively and a missing drive never holds the boot up.
+#   Idempotent. Nothing is ever formatted unless the drive is provably blank.
+# Test hooks: NVME_AUTO_DEVS (disks to consider instead of /dev/nvme*n1), NVME_AUTO_MNT,
+# NVME_AUTO_FSTAB, NVME_AUTO_WAIT (seconds to wait for the drive).
+set -uo pipefail
+MNT=${NVME_AUTO_MNT:-/mnt/nvme}
+FSTAB=${NVME_AUTO_FSTAB:-/etc/fstab}
+WAIT=${NVME_AUTO_WAIT:-30}
+LABEL=nvme
+OPTS=defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe
+TAG="# nvme-auto: the NVMe drive"
+log() { echo "nvme-auto: $*"; }
+
+# 1. the drive: the PCIe link and udev can take a few seconds after boot
+disk=
+for _ in $(seq "$WAIT"); do
+  for d in ${NVME_AUTO_DEVS:-/dev/nvme[0-9]n1}; do [ -b "$d" ] && { disk=$d; break 2; }; done
+  sleep 1
+done
+[ -n "$disk" ] || { log "no NVMe drive found after ${WAIT}s (none fitted, or the M.2 slot was not detected) -- nothing to do"; exit 0; }
+udevadm settle -t 10 >/dev/null 2>&1 || true
+log "drive $disk, $(lsblk -dno SIZE,MODEL "$disk" 2>/dev/null | sed 's/  */ /g')"
+
+parts() { lsblk -nrpo NAME,TYPE "$disk" | awk '$2 == "part" { print $1 }'; }
+# the filesystem type, only if it is one to mount as storage (swap, LUKS, RAID members... are not)
+fstype() { local t; t=$(blkid -p -s TYPE -o value "$1" 2>/dev/null)
+  case $t in ext2|ext3|ext4|xfs|btrfs|vfat|exfat) echo "$t" ;; esac; }
+
+# 2. what is on it
+target=
+if [ -z "$(parts)" ]; then
+  whole=$(fstype "$disk")
+  # signatures other than an (empty) partition table mean something is on the drive; if wipefs itself
+  # fails, nothing is known about the drive, so it counts as not blank
+  sigs=$(wipefs --no-act --noheadings --output TYPE "$disk" 2>&1) || sigs="(wipefs failed: $sigs)"
+  other=$(echo "$sigs" | grep -vxE 'gpt|PMBR|dos|' | tr '\n' ' ')
+  # with no partitions, the table (if any) lives in the first 64 KiB; everything after it must be zero
+  skip=0; [ -n "$sigs" ] && skip=65536
+  if [ -n "$whole" ]; then
+    target=$disk; log "filesystem ($whole) on the whole drive, no partition table: using it as it is"
+  elif [ -n "$other" ]; then
+    log "drive carries a signature this script does not use ($other):"; wipefs -n "$disk"; log "left untouched"; exit 0
+  elif [ "$(dd if="$disk" bs=65536 skip=$((skip / 65536)) count=$(((1048576 - skip) / 65536)) status=none | tr -d '\0' | head -c 1 | wc -c)" != 0 ]; then
+    log "drive has no partitions and no filesystem, but its first MiB is not blank -- unknown data, left untouched"; exit 0
+  else
+    log "drive is blank: one GPT partition, ext4 labelled '$LABEL'"
+    printf 'label: gpt\n,,L\n' | sfdisk --quiet "$disk" || { log "sfdisk failed"; exit 1; }
+    partprobe "$disk" 2>/dev/null || true; udevadm settle -t 10 >/dev/null 2>&1 || true
+    for _ in $(seq 10); do target=$(parts | head -1); [ -n "$target" ] && [ -b "$target" ] && break; sleep 1; done
+    [ -n "$target" ] || { log "the new partition did not appear"; exit 1; }
+    mkfs.ext4 -q -F -L "$LABEL" -m 1 "$target" || { log "mkfs.ext4 failed on $target"; exit 1; }
+    fresh=1
+  fi
+else
+  # an existing partitioned drive: ours by label first, else the largest partition holding a filesystem
+  for p in $(parts); do [ "$(blkid -p -s LABEL -o value "$p" 2>/dev/null)" = "$LABEL" ] && [ -n "$(fstype "$p")" ] && { target=$p; break; }; done
+  if [ -z "$target" ]; then
+    target=$(for p in $(parts); do [ -n "$(fstype "$p")" ] && echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1 | awk '{ print $2 }')
+  fi
+  [ -n "$target" ] || { log "drive has partitions but none holds a filesystem to mount -- left untouched"; lsblk "$disk"; exit 0; }
+  log "using existing $(fstype "$target") filesystem on $target (not reformatted)"
+fi
+
+uuid=$(blkid -p -s UUID -o value "$target")
+type=$(fstype "$target")
+[ -n "$uuid" ] && [ -n "$type" ] || { log "no UUID/type for $target"; exit 1; }
+
+# 3. one fstab line, by UUID (rewritten only when it changes; a backup of the original is kept once)
+line="UUID=$uuid $MNT $type $OPTS 0 2"
+if ! grep -qxF "$line" "$FSTAB"; then
+  [ -e "$FSTAB.nvme-auto.orig" ] || cp -p "$FSTAB" "$FSTAB.nvme-auto.orig"
+  tmp=$(mktemp "$FSTAB.XXXX")
+  awk -v m="$MNT" -v tag="$TAG" '$0 == tag { next } !/^[[:space:]]*#/ && $2 == m { next } { print }' "$FSTAB" > "$tmp"
+  printf '%s\n%s\n' "$TAG" "$line" >> "$tmp"
+  chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+  log "fstab: $line"
+  [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
+fi
+
+# 4. mounted now
+mkdir -p "$MNT"
+cur=$(findmnt -nro SOURCE --target "$MNT" 2>/dev/null)
+if mountpoint -q "$MNT" && [ "$(blkid -p -s UUID -o value "$cur" 2>/dev/null)" = "$uuid" ]; then
+  :
+else
+  mountpoint -q "$MNT" && { log "$MNT holds something else ($cur) -- not mounting over it"; exit 1; }
+  mount -t "$type" -o defaults,noatime "UUID=$uuid" "$MNT" 2>/dev/null || mount -t "$type" -o defaults,noatime "$target" "$MNT" \
+    || { log "mount of $target on $MNT failed"; exit 1; }
+fi
+if [ "${fresh:-0}" = 1 ] && getent passwd 1000 >/dev/null; then
+  chown 1000:1000 "$MNT"; log "$MNT belongs to $(getent passwd 1000 | cut -d: -f1)"
+fi
+log "ready: $(df -h --output=source,size,avail,target "$MNT" | tail -1 | sed 's/  */ /g')"

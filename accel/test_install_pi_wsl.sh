@@ -6,6 +6,7 @@ set -u
 B=/mnt/d/espicpc/accel/accel-pi-bundle.tar.gz
 W=/tmp/accel-bundle; rm -rf "$W"; mkdir -p "$W"
 tar -xzf "$B" -C "$W" || { echo "FAIL: cannot unpack $B"; exit 1; }
+had_nbdconf=0; [ -e /etc/modules-load.d/nbd.conf ] && had_nbdconf=1      # undo restores exactly this
 ACCEL_NO_NET=1 bash "$W/install_pi.sh" > /tmp/accel-install.log 2>&1; rc=$?
 tail -n 6 /tmp/accel-install.log | sed 's/^/  | /'
 fail=0
@@ -29,6 +30,7 @@ rm -f /usr/local/bin/{zaccel-bench,zaccel.py,run_model,ppl,flash-teensy-gpu,benc
 rm -rf /usr/local/lib/zaccel /opt/accel
 for t in gpu_selftest gpu_demo gpu_view gpu_stat gpu_snap gpu_image; do rm -f /usr/local/bin/$t; done
 rm -f /etc/udev/rules.d/49-fpgagpu-teensy.rules
+[ $had_nbdconf = 0 ] && rm -f /etc/modules-load.d/nbd.conf
 systemctl daemon-reload
 [ $fail = 0 ] && echo "PI INSTALL TEST: PASS" || echo "PI INSTALL TEST: FAIL"
 exit $fail

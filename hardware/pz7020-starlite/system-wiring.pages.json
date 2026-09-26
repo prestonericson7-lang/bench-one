@@ -1,0 +1,79 @@
+{
+ "width": 1600,
+ "height": 4154,
+ "bg": "#0b0f14",
+ "pages": [
+  {
+   "name": "1-cables",
+   "title": "1 / 6   The cables",
+   "box": [
+    20,
+    270,
+    1580,
+    1165
+   ]
+  },
+  {
+   "name": "2-cable-by-cable",
+   "title": "2 / 6   Cable by cable",
+   "box": [
+    20,
+    1250,
+    1580,
+    1814
+   ]
+  },
+  {
+   "name": "3-jm1-fpga",
+   "title": "3 / 6   Jumper wires on the FPGA header JM1",
+   "box": [
+    40,
+    1984,
+    1570,
+    2429
+   ]
+  },
+  {
+   "name": "4-teensy",
+   "title": "4 / 6   Jumper wires on the Teensy 4.1",
+   "box": [
+    40,
+    2462,
+    1570,
+    2939
+   ]
+  },
+  {
+   "name": "5-wires-1-11",
+   "title": "5 / 6   Wire by wire: W1 - W11",
+   "header": [
+    28,
+    3034,
+    1572,
+    3080
+   ],
+   "box": [
+    28,
+    3080,
+    1572,
+    3544
+   ]
+  },
+  {
+   "name": "6-wires-12-22",
+   "title": "6 / 6   Wire by wire: W12 - W22",
+   "header": [
+    28,
+    3034,
+    1572,
+    3080
+   ],
+   "box": [
+    28,
+    3544,
+    1572,
+    4006
+   ]
+  }
+ ]
+}

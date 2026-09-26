@@ -362,6 +362,21 @@ text(40, FY2, "Checked when this was drawn: the Teensy firmware, the FPGA pin fi
 text(40, FY2 + 30, "and WIRING.md agree on every wire. Every pin carries at most one wire. No wire touches 5 V,", 20, C["dim"])
 text(40, FY2 + 60, "3.3 V or the fan's pins. Both boards are 3.3 V logic: wires go direct, no resistors.", 20, C["dim"])
 H = int(FY2 + 100)
+# screen pages (make_wiring_pages.py): boxes in drawing units, each becomes one 1920x1080 picture
+RH = 42
+PAGES = [
+    dict(name="1-cables", title="1 / 6   The cables", box=[20, TY - 20, W - 20, PY + PH + 145]),
+    dict(name="2-cable-by-cable", title="2 / 6   Cable by cable", box=[20, LY + 20, W - 20, LY + 60 + 6 * 84 + 20]),
+    dict(name="3-jm1-fpga", title="3 / 6   Jumper wires on the FPGA header JM1", box=[40, JYO - 150, W - 30, NY + 45]),
+    dict(name="4-teensy", title="4 / 6   Jumper wires on the Teensy 4.1", box=[40, TYT - 112, W - 30, QY + 45]),
+    dict(name="5-wires-1-11", title="5 / 6   Wire by wire: W1 - W11",
+         header=[28, CY + 20, W - 28, CY + 66], box=[28, CY + 66, W - 28, CY + 96 + 10 * RH + 14]),
+    dict(name="6-wires-12-22", title="6 / 6   Wire by wire: W12 - W22",
+         header=[28, CY + 20, W - 28, CY + 66], box=[28, CY + 96 + 10 * RH + 14, W - 28, CY + 96 + 21 * RH + 14]),
+]
+import json
+with open(os.environ.get("PAGES_JSON", os.path.join(HERE, "..", "system-wiring.pages.json")), "w") as pj:
+    json.dump(dict(width=W, height=H, bg=C["bg"], pages=PAGES), pj, indent=1)
 w_("</svg>")
 o[0] = o[0].replace(f'viewBox="0 0 {W} 3000"', f'viewBox="0 0 {W} {H}"')
 o[2] = o[2].replace('height="3000"', f'height="{H}"')

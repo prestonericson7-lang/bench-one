@@ -28,14 +28,28 @@ Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
    sha256 in `sd-image.sha256`). Board setup and the hands-off boot capture:
    [BOOT-SD-runbook.md](../hardware/pz7020-starlite/BOOT-SD-runbook.md). The boot report must show
    `accel zaccel-server active fpgagpud active nbd-server active`, the three `uio` windows, and `pl_done yes`.
-2. **Orange Pi**: copy `accel/accel-pi-bundle.tar.gz` over, then
+2. **Orange Pi**: its card already carries the bundle (the official 1.1.0 image plus the bundle,
+   [build_pi_card_image.sh](build_pi_card_image.sh), written with `write_sd.py`). At its first boot the Pi
+   installs everything by itself and writes the log to `~/accel-install.log`. That includes the two missing
+   packages (shipped in the bundle, no internet needed) and the NVMe drive: a blank drive is partitioned,
+   formatted ext4 and mounted at **/mnt/nvme**, at every boot from then on (`nvme-auto`; a drive that
+   already holds data is never formatted). On a card without it: copy `accel/accel-pi-bundle.tar.gz`
+   over, then
    `mkdir -p ~/accel && tar -xzf accel-pi-bundle.tar.gz -C ~/accel && sudo bash ~/accel/install_pi.sh`.
-3. **Teensy** (geometry engine) on the Pi's USB: `flash-teensy-gpu`. Wire it to JM1 per [gpu/WIRING.md](gpu/WIRING.md).
+   Run it from the Pi's own desktop or over Wi-Fi, not over SSH on the Pi's Ethernet. The installer gives
+   the Pi's wired port the fixed address **10.77.0.1** for the Zynq cable (NetworkManager profile
+   `fpgagpu`, kept across reboots), so a session on that port drops partway through, and from then on
+   the Pi's internet is Wi-Fi. Undo: `sudo nmcli connection delete fpgagpu`.
+3. **Teensy** (geometry engine) on the Pi's USB: `flash-teensy-gpu`. Then unplug the Teensy's USB and the
+   Zynq's J8, and wire it to JM1 with both boards unpowered, per [gpu/WIRING.md](gpu/WIRING.md)
+   (grounds first; it also gives the power-up and power-down order).
 4. **Cables**: Pi Ethernet → the Zynq's upper RJ45 (**ETH-PS**); Zynq HDMI → a monitor. Every pin and port:
    [hardware/pz7020-starlite/accel-wiring.svg](../hardware/pz7020-starlite/accel-wiring.svg).
 5. **Measure** (on the Pi — only these numbers count). `bench-day [model.gguf]` runs all of these and saves
    `~/accel-bench-<date>.txt`:
-   - `zaccel-bench -H 10.20.0.2` — Pi alone vs Zynq alone vs both at once, every answer checked.
+   - `zaccel-bench` — Pi alone vs Zynq alone vs both at once, every answer checked. Leave out `-H`:
+     with no host it tries 10.20.0.2 (car LAN), then 10.77.0.2, which is where the Zynq answers on the
+     direct cable. `-H 10.77.0.2` names it directly.
    - `gpu_selftest` — the GPU bit-exact against the golden model, plus frames/s.
    - `swapon --show` — `/dev/nbd0` at priority 100 is the Zynq's RAM.
    - A real model, Pi alone vs Pi + Zynq (copy a GGUF over, e.g. the Ollama `qwen2.5-coder:3b` blob):

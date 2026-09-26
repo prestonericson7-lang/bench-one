@@ -1,6 +1,6 @@
 <svg viewBox="0 0 1200 850" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
 <title id="t">PZ7020-StarLite accelerator wiring</title>
-<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro's accelerator: Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-36, fan on JM1 pins 1/3/5/7, ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>
+<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro's accelerator: Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-35, fan on JM1 pins 1/3/5/7, ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>
 <rect width="1200" height="850" fill="#0d1117"/>
 <text x="600.0" y="34" font-size="24" fill="#e6edf3" text-anchor="middle" font-weight="bold">PZ7020-StarLite — wired as the Orange Pi's accelerator</text>
 <text x="600.0" y="58" font-size="14" fill="#8b949e" text-anchor="middle">top view, component side up • geometry from the vendor PCB drawing • JM1 signals from accel/gpu/WIRING.md</text>
@@ -25,46 +25,46 @@
 <rect x="335.4" y="561.3" width="404.6" height="63.7" rx="3" fill="none" stroke="#484f58" stroke-dasharray="6 4"/>
 <rect x="335.4" y="205.7" width="404.6" height="63.7" rx="3" fill="none" stroke="#484f58" stroke-dasharray="6 4"/>
 <text x="537.0" y="555.0" font-size="15" fill="#8b949e" text-anchor="middle">JM2 (bottom header) — not used by this build</text>
-<circle cx="700.47" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="700.47" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="682.69" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="682.69" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="664.91" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="664.91" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="647.13" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="647.13" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="629.35" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="629.35" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="611.57" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="611.57" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="593.79" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="593.79" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="576.01" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="576.01" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="558.23" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="558.23" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="540.45" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="540.45" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="522.67" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="522.67" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="504.89" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="504.89" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="487.11" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="487.11" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="469.33" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="469.33" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="451.55" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="451.55" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="433.77" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="433.77" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="415.99" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="415.99" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="398.21" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="398.21" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="380.43" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="380.43" cy="601.90" r="5" fill="#30363d"/>
-<circle cx="362.65" cy="584.12" r="5" fill="#30363d"/>
-<circle cx="362.65" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="706.47" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="706.47" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="688.69" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="688.69" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="670.91" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="670.91" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="653.13" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="653.13" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="635.35" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="635.35" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="617.57" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="617.57" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="599.79" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="599.79" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="582.01" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="582.01" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="564.23" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="564.23" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="546.45" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="546.45" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="528.67" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="528.67" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="510.89" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="510.89" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="493.11" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="493.11" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="475.33" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="475.33" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="457.55" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="457.55" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="439.77" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="439.77" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="421.99" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="421.99" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="404.21" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="404.21" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="386.43" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="386.43" cy="601.90" r="5" fill="#30363d"/>
+<circle cx="368.65" cy="584.12" r="5" fill="#30363d"/>
+<circle cx="368.65" cy="601.90" r="5" fill="#30363d"/>
 <rect x="362.15" y="239.80" width="13" height="13" fill="#f85149"/>
 <circle cx="368.65" cy="228.52" r="6" fill="#d2a8ff"/>
 <circle cx="386.43" cy="246.30" r="6" fill="#8b949e"/>
@@ -132,28 +132,29 @@
 <text transform="translate(578.01,258.30) rotate(90)" font-size="12" fill="#f0883e">25 SOR → T3</text>
 <line x1="582.01" y1="221.52" x2="582.01" y2="199.00" stroke="#f0883e" stroke-width="1"/>
 <text transform="translate(586.01,197.00) rotate(-90)" font-size="12" fill="#f0883e">26 STROBE → T2</text>
-<text transform="translate(595.79,258.30) rotate(90)" font-size="12" fill="#f0883e">27 BUSY ← T4</text>
+<text transform="translate(595.79,258.30) rotate(90)" font-size="12" fill="#f0883e">27 BUSY → T4</text>
 <text transform="translate(364.65,258.30) rotate(90)" font-size="12" fill="#f85149">1 5V → fan +</text>
 <line x1="368.65" y1="221.52" x2="368.65" y2="199.00" stroke="#d2a8ff" stroke-width="1"/>
 <text transform="translate(372.65,197.00) rotate(-90)" font-size="12" fill="#d2a8ff">2 3.3V  (leave)</text>
 <text transform="translate(382.43,258.30) rotate(90)" font-size="12" fill="#8b949e">3 GND → fan −</text>
 <line x1="386.43" y1="221.52" x2="386.43" y2="199.00" stroke="#8b949e" stroke-width="1"/>
 <text transform="translate(390.43,197.00) rotate(-90)" font-size="12" fill="#8b949e">4 GND → Teensy</text>
-<text transform="translate(400.21,258.30) rotate(90)" font-size="12" fill="#3fb950">5 FAN PWM</text>
+<text transform="translate(400.21,258.30) rotate(90)" font-size="12" fill="#3fb950">5 FAN PWM (10 kΩ to GND)</text>
 <text transform="translate(417.99,258.30) rotate(90)" font-size="12" fill="#3fb950">7 FAN TACH</text>
 <text transform="translate(649.13,258.30) rotate(90)" font-size="12" fill="#8b949e">33 GND → Teensy</text>
 <line x1="653.13" y1="221.52" x2="653.13" y2="199.00" stroke="#8b949e" stroke-width="1"/>
-<text transform="translate(657.13,197.00) rotate(-90)" font-size="12" fill="#8b949e">34 GND</text>
-<text transform="translate(666.91,258.30) rotate(90)" font-size="12" fill="#8b949e">35 GND</text>
+<text transform="translate(657.13,197.00) rotate(-90)" font-size="12" fill="#8b949e">34 GND → Teensy</text>
+<text transform="translate(666.91,258.30) rotate(90)" font-size="12" fill="#8b949e">35 GND → Teensy</text>
 <line x1="670.91" y1="221.52" x2="670.91" y2="199.00" stroke="#8b949e" stroke-width="1"/>
 <text transform="translate(674.91,197.00) rotate(-90)" font-size="12" fill="#8b949e">36 GND</text>
 <line x1="242.3" y1="289.7" x2="220.0" y2="240.2" stroke="#f85149" stroke-width="1.5"/>
 <text x="214.0" y="245.2" font-size="15" fill="#f85149" text-anchor="end" font-weight="bold">J8 ‘JTAG’ USB-C</text>
-<text x="214.0" y="262.2" font-size="13" fill="#e6edf3" text-anchor="end">5 V power in, 1 A charger</text>
-<text x="214.0" y="279.2" font-size="13" fill="#8b949e" text-anchor="end">(also the JTAG programmer)</text>
+<text x="214.0" y="262.2" font-size="13" fill="#e6edf3" text-anchor="end">5 V in, 2 A+ USB-A charger</text>
+<text x="214.0" y="279.2" font-size="13" fill="#e6edf3" text-anchor="end">A-to-C cable (not C-to-C)</text>
+<text x="214.0" y="296.2" font-size="13" fill="#8b949e" text-anchor="end">(also the JTAG programmer)</text>
 <line x1="242.3" y1="384.9" x2="220.0" y2="393.4" stroke="#8b949e" stroke-width="1.5"/>
 <text x="214.0" y="398.4" font-size="15" fill="#e6edf3" text-anchor="end" font-weight="bold">J2 ‘UART’ USB-C</text>
-<text x="214.0" y="415.4" font-size="13" fill="#8b949e" text-anchor="end">console to the PC</text>
+<text x="214.0" y="415.4" font-size="13" fill="#8b949e" text-anchor="end">console to the PC (A-to-C)</text>
 <text x="214.0" y="432.4" font-size="13" fill="#8b949e" text-anchor="end">(watch_boot.ps1)</text>
 <line x1="240.9" y1="513.7" x2="220.0" y2="543.7" stroke="#58a6ff" stroke-width="1.5"/>
 <text x="214.0" y="548.7" font-size="15" fill="#58a6ff" text-anchor="end" font-weight="bold">HDMI → monitor</text>

@@ -20,7 +20,7 @@ the PC records the whole boot and writes the summary. Nobody types anything.
 | Watcher | `linux/watch_boot.ps1`, tested three ways: scripted U-Boot (CR in the autoboot window → typed `boot`; panic → exit 3), full Linux boot in QEMU (both reports → exit 0), board already running (one CR → report → exit 0) | `linux/qemu_serial_tcp.sh` + `watch_boot.ps1 -Tcp` |
 | Emulation limits | QEMU `xilinx-zynq-a9` skips SPL/ps7_init and has no DDR PHY, real SD timing or PL | the board run is the first test of those |
 | Login | `root` / `zynq` — hostname `zynq`, SSH root login on | checked against the rootfs `/etc/shadow` (yescrypt) |
-| Network | `eth0`: DHCP **and** link-local **and** fixed `10.20.0.2/24` (the car LAN; the Pi is `10.20.0.1`). `zynq-agent` serves TCP 8091 and broadcasts `ZYNQ-AGENT 8091 <ip>` on UDP 8092 | QEMU: `linux/qemu_agent_test.sh` — the real hub reads `ZYNQ_UP`, `ZYNQ_MEM` over it |
+| Network | `eth0`: DHCP **and** link-local **and** fixed `10.20.0.2/24` (the car LAN; the Pi is `10.20.0.1`) **and** fixed `10.77.0.2/24` (the direct cable to the Orange Pi, which `accel/install_pi.sh` puts on `10.77.0.1`). `zynq-agent` serves TCP 8091 and broadcasts `ZYNQ-AGENT 8091 <ip>` on UDP 8092 | QEMU: `linux/qemu_agent_test.sh` — the real hub reads `ZYNQ_UP`, `ZYNQ_MEM` over it |
 
 Why the card showed "32 GB but only 9 GB": it came with **one 9.34 GB FAT32 partition and 20.19 GB
 unallocated**. Windows shows partitions, not the card. Not a fault.
@@ -29,12 +29,17 @@ unallocated**. Windows shows partitions, not the card. Not a fault.
 
 ## Board setup (positions from the User Manual photos, pp. 10–11)
 
-1. **Power off** — both USB-C unplugged.
-2. **Boot jumper → SD.** Top-right corner of the board, beside the USB-A port: three pin-pairs
-   silkscreened `JTAG · QSPI · SD`. Put the cap on the **right-hand pair (SD)**. Once; it stays there.
+1. **Power off** — both USB-C unplugged. If the Teensy is wired to JM1, unplug its USB first
+   (`accel/gpu/WIRING.md`, power-down order).
+2. **Boot jumper → SD.** Top-right corner of the board, beside the USB-A port: one row of four pins
+   silkscreened `JTAG · QSPI · SD` (the pairs overlap). Put the cap on the **two right-most pins (SD)**. Once; it stays there.
 3. **Insert the card** in the microSD slot on the underside of the board.
-4. **`UART` USB-C (J2, the lower port) → the PC.** Its 5 V feeds only the CH340E (schematic sheet 9); it cannot power the board.
-5. **`JTAG` USB-C (J8, the upper port) → any USB power**, a PC port or a phone charger. This powers the board; the PWR LED goes blue.
+4. **`UART` USB-C (J2, the lower port) → a USB-A port on the PC**, with a USB-A to USB-C cable. Its 5 V feeds only the CH340E (schematic sheet 9); it cannot power the board.
+5. **`JTAG` USB-C (J8, the upper port) → a 5 V USB-A charger of 2 A or more**, with a USB-A to USB-C cable. This powers the board; the PWR LED goes blue. The board is rated 5 V / 1 A and a fan on JM1 pin 1 draws from the same 5 V, so a PC port is not enough.
+
+Neither USB-C port has CC resistors (schematic sheets 9 and 19), so a USB-C to USB-C cable or a
+USB-C-only charger gives no power: the board stays dark, or the CH340 never shows up on the PC. The
+cables used for the 2026-09-24 boots are the right kind.
 
 The order of 4 and 5 doesn't matter. If the board is already up when the watcher attaches, the
 watcher finds the logged-in shell and asks for the report.
@@ -68,8 +73,11 @@ falcon mode: it tries `uImage` + `system.dtb` first and loads `u-boot.img` when 
 
 ## Find it on the network
 
+From the Orange Pi on the direct cable (after `accel/install_pi.sh`): `ssh root@10.77.0.2`, password
+`zynq`. The serial console on J2 logs in by itself.
+
 `eth0` asks for DHCP; the report's `eth0` row gives the address. Without the console: plug the
-PS-side ethernet jack into the router, then look for the Xilinx OUI `00-0a-35` (adjust the subnet):
+PS-side ethernet jack (the upper one, `ETH-PS`) into the router, then look for the Xilinx OUI `00-0a-35` (adjust the subnet):
 ```powershell
 1..254 | % { (New-Object System.Net.NetworkInformation.Ping).SendPingAsync("192.168.2.$_",600) } | Out-Null
 Start-Sleep 3; arp -a | Select-String '00-0a-35'
@@ -98,7 +106,7 @@ table appears and invalidates the raw handle (measured: WinError 433 at 516 MiB)
 ## If the console stays silent (watcher exit 4)
 
 - Jumper not on the SD pair, or the card not fully seated → re-check steps 2–3.
-- PWR LED not blue → the `JTAG` port (J8) isn't powered.
+- PWR LED not blue → the `JTAG` port (J8) isn't powered. A USB-C to USB-C cable gives no power (step 5).
 - Wrong baud shows as *garbage*, not silence. Silence at every baud = nothing is running.
 - `deploy-sd.ps1` is only for copying a folder of boot files onto a FAT32 card; this card was
   written as a whole image, so it isn't needed.

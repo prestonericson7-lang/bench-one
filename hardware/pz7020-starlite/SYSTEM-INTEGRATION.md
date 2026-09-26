@@ -31,7 +31,7 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 
 | Link | Physical | Level | Facts that fix the design |
 |---|---|---|---|
-| **Teensy ↔ PL, GPU geometry bus** (the accelerator bitstream, `vivado/build_system.tcl`) | JM1 pins 9–27 (D0–D15, SOR, STROBE, BUSY) + GND 3/4/33–36 | 3.3 V both ends | The FPGA-GPU's 16-bit parallel bus, `accel/gpu/WIRING.md`. It occupies the JM1 pins below, so the SDR SPI link and the GPU bus never share a bitstream |
+| **Teensy ↔ PL, GPU geometry bus** (the accelerator bitstream, `vivado/build_system.tcl`) | JM1 pins 9–27 (D0–D15, SOR, STROBE, BUSY) + GND 4/33/34/35 (pin 3 is the fan's GND) | 3.3 V both ends | The FPGA-GPU's 16-bit parallel bus, `accel/gpu/WIRING.md`. It occupies the JM1 pins below, so the SDR SPI link and the GPU bus never share a bitstream |
 | **Pi ↔ Zynq, accelerators** | eth0 (TCP) | — | GPU `fpgagpud` 7777, matrix engine `zaccel-server` 8093, the Pi's extra RAM `nbd-server` 10809 — `accel/README.md` |
 | **Teensy ↔ PL, SPI** (the SDR bitstream only) | JM1 pins 9/11/13/15 + GND pin 3 | 3.3 V both ends — **no shifter** | BANK35 default 3.3 V [M 3.7]; pins in one header column; `sdr_accel.xdc` carries the balls |
 | **Pi ↔ PS, Ethernet** | PS RJ45 → 12 V GbE switch → Pi | — | GEM0 is hard-wired to the PS PHY via MIO; Linux `eth0` with no PL design at all. Car LAN: Zynq `10.20.0.2/24` (+ DHCP, link-local), Pi `10.20.0.1/24` (`car-lan` profile from `deploy/orangepi/install.sh`); the hub also finds the agent by its UDP 8092 beacon on any subnet |
@@ -61,8 +61,9 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 2. **First PL bitstream over JTAG** — `fan_top.v` (owner repo) or `sdr_accel_zynq_top.v`
    (this repo, `build_bitstream.tcl` — its FILLME guard is now satisfied). Expect LED1 ~1 Hz.
    Needs Vivado (PS-CONFIG §6).
-3. **Header identification (P-11)** — drive H16 high, probe pin 5 of each header: settles
-   which physical connector is JM1 (no silkscreen; the pinout sheet's square-pad rule helps).
+3. **Header identification (P-11)** — drive H16 high, probe pin 5 of each header: confirms
+   electrically that JM1 is the top-edge header (the manual's board photo, p. 10, shows the `JM1`
+   silkscreen there; the pinout sheet's square-pad rule finds pin 1).
 4. **Teensy link** — 5 wires per `sdr_accel.xdc`; LED2 lights on CS. The Teensy driver and
    the RTL were verified bit-exact in simulation; this is the first hardware run.
 5. **PS boot from SD** — no Vivado needed: U-Boot SPL carries the validated `ps7/ps7_init_gpl.c`,
@@ -93,7 +94,7 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | Linux for the PS, built here | ✅ 2026-09-24: kernel 6.12 `zImage` 11,846,144 B + DTB + 10 MB modules; Debian bookworm armhf rootfs 425 MB (python 3.11, ssh, agent as a systemd unit); SD image assembled by `linux/mk_sd_image.sh` — [PS-LINUX.md](PS-LINUX.md) |
 | PS ↔ PL register link | ✅ `ps7-axi/` bitstream with the PS7 placed; `pl_regs.v` verified by an AXI-Lite BFM testbench; `pl_regs.py` + agent selftests pass — [OPEN-TOOLCHAIN.md §4b](OPEN-TOOLCHAIN.md) |
 | Kernel + DTB + rootfs boot (emulated) | ✅ `linux/qemu_test.sh` on QEMU `xilinx-zynq-a9`: machine model "Puzhi PZ7020-StarLite", 512 MB, ttyPS0 console, SD p1/p2, ext4 root mounted, **systemd 252 / Debian 12 up, hostname `zynq`, login prompt reached**. Not the board: no ps7_init/DDR PHY, no real PHY, no PL |
-| Which physical header is JM1 | ❌ owner repo P-11 |
+| Which physical header is JM1 | ✅ DOC: the top-edge header (silkscreen `JM1` in the manual's board photo, p. 10); owner repo P-11 confirms it electrically |
 
 ## 5. What is in the vendor bundle, and what is missing
 

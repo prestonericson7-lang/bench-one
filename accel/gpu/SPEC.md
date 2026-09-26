@@ -68,7 +68,8 @@ Pin map (all LVCMOS33 unless noted; ball names from the Puzhi manual/xlsx):
 
 JM1 pin -> ball: 9 E18, 10 F16, 11 E19, 12 F17, 13 G17, 14 B19, 15 G18, 16 A20, 17 D19, 18 C20,
 19 D20, 20 B20, 21 J18, 22 K19, 23 H18, 24 J19, 25 K17, 26 M17, 27 K18. JM1 pins 3,4,33,34,35,36
-are GND. (JM1 pins 5/7 = H16/H17 stay free for the fan design in the board repo.)
+are GND; the bus uses 4, 33, 34, 35. (JM1 pins 1/3/5/7 = 5 V, GND, H16, H17 stay free for the fan
+design in the board repo.)
 
 So: tb_d[0]=E18, [1]=F16, [2]=E19, [3]=F17, [4]=G17, [5]=B19, [6]=G18, [7]=A20, [8]=D19,
 [9]=C20, [10]=D20, [11]=B20, [12]=J18, [13]=K19, [14]=H18, [15]=J19, tb_sor=K17,
@@ -99,7 +100,7 @@ Teensy 4.1 side (verified against the Teensy core `core_pins.h`, GPIO6 fast port
 | SOR | 3 | GPIO9 bit 5 | 25 |
 | STROBE | 2 | GPIO9 bit 4 | 26 |
 | BUSY (in) | 4 | GPIO9 bit 6 | 27 |
-| GND | GND | | 3, 4, 33, 34, 35, 36 |
+| GND | GND | | 4, 33, 34, 35 (pin 3 = fan GND, 36 spare) |
 
 Writing the 16 data bits = one write: `GPIO6_DR_TOGGLE = ((prev ^ word) & 0xFFFF) << 16`.
 
@@ -123,7 +124,10 @@ Protocol (Teensy is the only driver of D/SOR/STROBE):
   and STROBE as high-impedance inputs until it has seen BUSY = 0 continuously for >= 10 ms
   (BUSY input has the Teensy pull-up, so an unpowered or unconfigured FPGA reads as busy).
   If BUSY stays 1 for > 500 ms while it needs to send, it returns the pins to inputs, reports
-  GPU_ERR_BUS for that frame, and re-arms (never back-power an unpowered FPGA).
+  GPU_ERR_BUS for that frame, and re-arms; while idle, BUSY = 1 for > 500 ms also releases them.
+  So an unpowered FPGA is never driven before the bus is armed (only BUSY's 22 kOhm pull-up reaches
+  it), but once armed the Teensy keeps driving the bus for at least 500 ms after the FPGA loses
+  power: power the Teensy down before the FPGA (WIRING.md).
 
 ## 4. Setup math (gpu_setup.c) -- exact
 

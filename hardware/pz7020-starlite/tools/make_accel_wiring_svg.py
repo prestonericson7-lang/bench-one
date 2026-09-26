@@ -46,15 +46,15 @@ for n in range(1, 41):
     if n in TEENSY:
         name, t = TEENSY[n]
         kind = "data" if name.startswith("D") else "ctl"
-        PINS[n] = (f"{name} → T{t}" if kind == "data" or name != "BUSY" else f"{name} ← T{t}", kind)
+        PINS[n] = (f"{name} → T{t}", kind)       # "→" = wire to Teensy pin T# (not signal direction)
 PINS[1] = ("5V → fan +", "v5")
 PINS[2] = ("3.3V  (leave)", "v33")
 PINS[3] = ("GND → fan −", "gnd")
 PINS[4] = ("GND → Teensy", "gnd")
-PINS[5] = ("FAN PWM", "fan")
+PINS[5] = ("FAN PWM (10 kΩ to GND)", "fan")
 PINS[7] = ("FAN TACH", "fan")
 for n in (33, 34, 35, 36):
-    PINS[n] = ("GND → Teensy" if n == 33 else "GND", "gnd")
+    PINS[n] = ("GND → Teensy" if n in (33, 34, 35) else "GND", "gnd")
 
 out = []
 w = out.append
@@ -63,7 +63,7 @@ w(f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" role="img" ari
   f'font-family="Helvetica, Arial, sans-serif">')
 w('<title id="t">PZ7020-StarLite accelerator wiring</title>')
 w('<desc id="d">Top view of the PZ7020-StarLite (vendor PCB geometry) wired as the Orange Pi 4 Pro\'s accelerator: '
-  'Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-36, fan on JM1 pins 1/3/5/7, '
+  'Teensy 4.1 geometry bus on JM1 pins 9-27 with grounds on 4 and 33-35, fan on JM1 pins 1/3/5/7, '
   'ETH-PS to the Orange Pi, HDMI to a monitor, JTAG USB-C for power, UART USB-C for the console, boot jumper on SD.</desc>')
 w(f'<rect width="{W}" height="{H}" fill="{C["bg"]}"/>')
 w(f'<text x="{W/2}" y="34" font-size="24" fill="{C["text"]}" text-anchor="middle" font-weight="bold">'
@@ -102,7 +102,7 @@ w(f'<text x="{X(41):.1f}" y="{Y(0) - 70:.1f}" font-size="15" fill="{C["dim"]}" t
 for n in range(1, 41):
     x = PIN1_X + ((n - 1) // 2) * PITCH
     # JM2: pin 1 at the RIGHT end of the inner row (board-layout.svg); draw plain holes only
-    jx = OX + 450.47 - ((n - 1) // 2) * PITCH
+    jx = OX + 456.47 - ((n - 1) // 2) * PITCH
     jy = OY + (439.12 - 60 if n % 2 else 456.9 - 60)
     w(f'<circle cx="{jx:.2f}" cy="{jy:.2f}" r="5" fill="{C["free"]}"/>')
 for n in range(1, 41):
@@ -134,8 +134,8 @@ def callout(px, py, tx, ty, lines, col, anchor="end"):
           f'fill="{c2 or col}" text-anchor="{anchor}"{" font-weight=\"bold\"" if i == 0 else ""}>{s}</text>')
 
 
-callout(jt[0], jt[1] + jt[3] / 2, OX - 30, jt[1] - 18, [("J8 ‘JTAG’ USB-C", None), ("5 V power in, 1 A charger", C["text"]), ("(also the JTAG programmer)", C["dim"])], C["v5"])
-callout(ua[0], ua[1] + ua[3] / 2, OX - 30, ua[1] + 40, [("J2 ‘UART’ USB-C", C["text"]), ("console to the PC", C["dim"]), ("(watch_boot.ps1)", C["dim"])], C["line"])
+callout(jt[0], jt[1] + jt[3] / 2, OX - 30, jt[1] - 18, [("J8 ‘JTAG’ USB-C", None), ("5 V in, 2 A+ USB-A charger", C["text"]), ("A-to-C cable (not C-to-C)", C["text"]), ("(also the JTAG programmer)", C["dim"])], C["v5"])
+callout(ua[0], ua[1] + ua[3] / 2, OX - 30, ua[1] + 40, [("J2 ‘UART’ USB-C", C["text"]), ("console to the PC (A-to-C)", C["dim"]), ("(watch_boot.ps1)", C["dim"])], C["line"])
 callout(hd[0], hd[1] + hd[3] / 2, OX - 30, hd[1] + hd[3] / 2 + 30, [("HDMI → monitor", C["data"]), ("the GPU: 1280×720 @ 60", C["text"])], C["data"])
 # right side
 callout(ps[0] + ps[2], ps[1] + ps[3] / 2, X(90) + 40, ps[1] + 30, [("ETH-PS → Orange Pi", C["ok"]), ("eth0: 10.20.0.2 + 10.77.0.2", C["text"]), ("GPU 7777 • engine 8093", C["dim"]), ("RAM (nbd) 10809", C["dim"])], C["ok"], "start")

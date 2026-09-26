@@ -12,7 +12,7 @@ been run: `bash deploy/run_all_tests.sh` repeats all of it and prints one verdic
 
 | Unit | What you install | State | Proven by |
 |---|---|---|---|
-| PZ7020 Zynq | the SD card (already written) | image sha256 `9375d5fb…81b5cc`, read back from the card byte for byte | `check_image_contents.sh`: boot files and agent equal the repo's · `qemu_agent_test.sh`: the image boots and the real hub reads it over eth0 |
+| PZ7020 Zynq | the SD card (already written) | image sha256 in `hardware/pz7020-starlite/linux/out/sd-image.sha256`; the write and read-back record is the State table of `BOOT-SD-runbook.md` | `check_image_contents.sh`: boot files and agent equal the repo's · `qemu_agent_test.sh`: the image boots and the real hub reads it over eth0 |
 | Orange Pi 4 Pro | `car-bundle.tar.gz` → `install.sh` | bundle built | the real installer under systemd (WSL): service up, `/health` answers, Zynq found by its beacon in 2 s · car-LAN block run against NetworkManager 1.36 |
 | CAN logger (Teensy 4.1) | `firmware/car-can-logger.ino.hex` | rebuilt from source byte-identical | its real code on the host: 14 checks (listen-only, `I`/`R`/`X`, SD log) + the Pi parsers read its output |
 | Vent display (Teensy 4.1) | `firmware/vent-display.ino.hex` | rebuilt byte-identical | 9 checks, fed over both USB and the link UART |

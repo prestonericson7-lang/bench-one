@@ -19,7 +19,7 @@ cp "$IMG" "$W/sd.img" && truncate -s 2G "$W/sd.img"
 # QEMU's GEM PHY is not at MDIO address 1: drop the fixed phy-handle in an emulation-only copy
 cp "$OUT/$DT.dtb" "$W/q.dtb"
 fdtput -d "$W/q.dtb" /axi/ethernet@e000b000 phy-handle && fdtput -r "$W/q.dtb" /axi/ethernet@e000b000/ethernet-phy@1
-timeout 600 qemu-system-arm -M xilinx-zynq-a9 -m 1024M -nographic -serial mon:stdio \
+timeout 600 qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic -serial mon:stdio \
   -kernel "$OUT/zImage" -dtb "$W/q.dtb" \
   -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 cpufreq.off=1 uio_pdrv_genirq.of_id=generic-uio" \
   -drive file="$W/sd.img",if=sd,format=raw \
@@ -37,10 +37,10 @@ echo "$rep" | grep -aE "^(mem_total|pl_done|failed_units|accel|uio|pl_ddr|zynqra
 echo "$rep" | grep -aq "zaccel-server active" && ok "zaccel-server running" || bad "zaccel-server not active"
 echo "$rep" | grep -aq "fpgagpud active" && ok "fpgagpud running" || bad "fpgagpud not active"
 echo "$rep" | grep -aq "nbd-server active" && ok "nbd-server running" || bad "nbd-server not active"
-for n in pl_regs@40000000@0x40000000 zaccel-dma@40400000@0x40400000 zaccel-mem@20000000@0x20000000; do
+for n in pl_regs@40000000@0x40000000 zaccel-dma@40400000@0x40400000 zaccel-mem@10000000@0x10000000; do
   echo "$rep" | grep -aq "$n" && ok "UIO $n" || bad "UIO $n missing"
 done
-echo "$rep" | grep -aE "^pl_ddr" | grep -aq "00000000-1dffffff : System RAM" && ok "Linux RAM stops at the GPU window (0x1E000000)" || bad "System RAM does not exclude the PL DDR3"
+echo "$rep" | grep -aE "^pl_ddr" | grep -aq "00000000-0fffffff : System RAM" && ok "Linux RAM is 0-256 MB; the engine (0x10000000) and GPU (0x1E000000) windows are the PL's" || bad "System RAM does not exclude the PL DDR3"
 echo "$rep" | grep -aq "^failed_units *none" && ok "no failed units" || bad "failed units: $(echo "$rep" | grep -a '^failed_units')"
 
 echo "== matrix engine over the network (the Pi's view)"

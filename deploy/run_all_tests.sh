@@ -112,6 +112,7 @@ check "FPGA-GPU: RTL, daemon (x86 + ARM), geometry, Pi tools end to end" wsl_roo
 
 echo "== Zynq SD image"
 check "image carries the repo's boot files, agent and accelerators" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/check_image_contents.sh
+check "production U-Boot runs boot.scr: pl.bit staged outside reserved DDR, kernel + DT clear of each other, Linux boots" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_uboot_test.sh
 check "image boots in QEMU, agent serves the hub over eth0" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_agent_test.sh
 check "image boots in QEMU, all accelerator services answer the Pi" wsl_root bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_accel_test.sh
 

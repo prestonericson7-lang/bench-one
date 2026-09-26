@@ -2,10 +2,10 @@ zynq/ -- Zynq PS side of the FPGA-GPU: fpgagpud daemon, simulator, tests, device
 =================================================================================================
 (SPEC sections 10, 12, 13.2. Run everything in WSL Ubuntu-22.04; image/qemu targets as root.)
 
-Target: the repo's PZ7020-StarLite platform (1 GB DDR3, 32-bit; Linux 6.12 armhf Debian image
+Target: the repo's PZ7020-StarLite platform (512 MB DDR3, one x16 chip; Linux 6.12 armhf Debian image
 built by hardware/pz7020-starlite/linux/*.sh). The GPU's PL is merged into the platform bitstream:
 GPU registers at 0x43C00000 (GP0), the GPU's reserved DDR window 0x1E000000 + 32 MB, the platform's
-pl_regs at 0x40000000 (ID 0x5A702001), the matrix engine at 0x20000000-0x37FFFFFF and its AXI DMA at
+pl_regs at 0x40000000 (ID 0x5A702001), the matrix engine at 0x10000000-0x1DFFFFFF and its AXI DMA at
 0x40400000. The platform image installs build/fpgagpud and fpgagpud.service (below).
 
 Files
@@ -27,7 +27,7 @@ Files
                         needed on the build host; raw syscalls, own printf/malloc/llrint)
   test_sim.py, test_ref.c  end-to-end tests (python3 stdlib only) + independent reference renderer
   Legacy (the original standalone 512 MB SD image; superseded by the platform image, not used for
-  the 1 GB board and not run here): dts/ (board dts + reserved-memory, build_dtb.sh), boot/boot.cmd,
+  the platform image and not run here): dts/ (board dts + reserved-memory, build_dtb.sh), boot/boot.cmd,
   rootfs/, make_sd_image.sh, qemu_boot_test.sh (make dtb / image / qemu-test). boot/boot.cmd still
   shows the two boot-script lines the platform needs (see "Boot flow").
 
@@ -51,7 +51,7 @@ daemon answers GPU_ERR_NOPL, re-checking every 2 s)
      successful "fpga loadb" (boot/boot.cmd shows the lines). A later PL reset is "PL lost".
   2. SLCR LVL_SHFTR_EN = 0xF (else every GP0 access hangs).
   3. The DDR window 0x1E000000..0x1FFFFFFF is not Linux RAM: no "System RAM" range in /proc/iomem
-     may overlap it. With 1 GB the window is in the middle of RAM, so the platform device tree must
+     may overlap it. On the 512 MB board the window is the top 32 MB of RAM, so the platform device tree must
      carry reserved-memory gpu@1e000000 { reg = <0x1e000000 0x2000000>; no-map; } and Linux must
      have accepted it (it refuses a no-map node that overlaps an earlier reservation, e.g. a device
      tree U-Boot relocated into the window -- boot.scr's fdt_high prevents that).

@@ -3,7 +3,7 @@
 # Debian bookworm armhf root filesystem. Runs nothing from the target, so it works on a foreign-arch
 # rootfs from the image builder. The packages in zynq-packages.txt must be installed in ROOTFS too
 # (before or after this; nothing here depends on the order).
-#   /etc/default/zynqram                    ZACCEL_SWAP_MB=256 (an existing file is kept)
+#   /etc/default/zynqram                    ZACCEL_SWAP_MB=128 (an existing file is kept)
 #   /etc/nbd-server/conf.d/zynqram.conf     export [zynqram], TCP 10809
 #   /etc/nbd-server/zynqram.allow           who may attach: the Pi's links only
 #   /usr/local/sbin/zynqram-prep            tmpfs + fully allocated file, at boot

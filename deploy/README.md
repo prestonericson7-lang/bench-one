@@ -27,12 +27,13 @@ The card is ready. Board setup (boot jumper, which USB-C does what) and the hand
 powershell -NoProfile -ExecutionPolicy Bypass -File hardware\pz7020-starlite\linux\watch_boot.ps1
 ```
 
-A good boot ends in the `zynq-report`: `mem_total` about 1 GB, `pl_done 1`, `eth0` holding `10.20.0.2`.
-The 32-bit / 1 GB DDR setting has never run on this board (the 16-bit one reached the kernel on
-2026-09-24). If the boot stops at `DDR` or right after SPL, put the card back in the PC and:
+A good boot ends in the `zynq-report`: `mem_total` about 230 MB (Linux's 256 MB of the board's 512 MB),
+`pl_done yes`, `eth0` holding `10.20.0.2`. The board has one x16 DRAM (512 MB); the image uses the
+16-bit DDR setting that booted it on 2026-09-24. No console output at all = DDR/BootROM/card: put the
+card back in the PC and:
 
 ```bash
-bash hardware/pz7020-starlite/linux/update_card.sh E out/fallback-512MB
+bash hardware/pz7020-starlite/linux/update_card.sh E
 ```
 
 ## 2. Orange Pi
@@ -79,7 +80,7 @@ node talks on the ESP32-S3's **native USB** port (the one marked USB, not COM/UA
 ## Not yet proven on the real hardware
 
 These are the first things the bench will answer; nothing here could test them.
-- The 32-bit / 1 GB DDR init on this board (fallback above).
+- The BootROM and the 16-bit DDR init on this card's build (the same SPL code as the 2026-09-24 boot).
 - `eth1`'s RGMII timing (TXC skew 2 ns from the PHY straps; RX delay from the PHY).
 - `car-lan` on the Pi's own NetworkManager (same commands passed against NM 1.36 in WSL).
 - The boards themselves: USB enumeration on the Pi, CAN bitrates on the car (bus 1 500 k, bus 2

@@ -87,10 +87,10 @@ enum { ST_OK = 0, ST_BAD = 1, ST_NOMEM = 2, ST_ENGINE = 3, ST_UNKNOWN = 4 };
 #define POOL_ALIGN 64u
 #define STAGE_IN_BYTES (64u << 10)                 /* header + 8 x 4096 activations = 32776 */
 #define STAGE_OUT_BYTES ((2u << 20) + (64u << 10)) /* 65535 x 8 results + trailer = 2097128 */
-#define CPU_POOL_MB 256u                           /* heap arena for the cpu engine (default) */
+#define CPU_POOL_MB 64u                            /* cpu engine arena (default): the board's Linux has 256 MB */
 static unsigned g_cpu_pool_mb = CPU_POOL_MB;       /* --cpu-mb: host-side quality tests only */
-#define MODEL_MEM_PHYS 0x20000000u                 /* model: same layout as the reserved DDR3 */
-#define MODEL_MEM_SIZE (384u << 20)
+#define MODEL_MEM_PHYS 0x10000000u                 /* model: same layout as the reserved DDR3 (board: 0x10000000, 224 MB) */
+#define MODEL_MEM_SIZE (224u << 20)                /* = the board's engine window */
 #define MODEL_DMA_WINDOW 0x10000u
 
 /* ---- Zynq DEVCFG ----------------------------------------------------------------------- */
@@ -1457,7 +1457,7 @@ static void usage(void)
             "usage: zaccel-server [--port N] [--cpu [--cpu-mb N] | --model [--model-fault N]]\n"
             "  default engine: pl when the PL is configured and zaccel-dma/zaccel-mem exist, else cpu\n"
             "  --cpu          force the cpu engine\n"
-            "  --cpu-mb N     cpu engine tensor memory in MB (default 256; host tests only)\n"
+            "  --cpu-mb N     cpu engine tensor memory in MB (default 64; the board has 512 MB in all)\n"
             "  --model        tests only: the pl code path against a software model of the PL\n"
             "  --model-fault  tests only: corrupt the trailer of the Nth client job (-1: every selftest job)\n");
 }

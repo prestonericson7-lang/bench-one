@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Puzhi PZ7020-StarLite -- Zynq XC7Z020-CLG400-2, 1 GB DDR3L (2x MT41K256M16, 32-bit bus)
+ * Puzhi PZ7020-StarLite -- Zynq XC7Z020-CLG400-2, 512 MB DDR3L: ONE MT41K256M16TW-107IT:P (4 Gbit x16)
+ *   on a 16-bit bus. Proof: schematic DDR sheet (only DQ0-15, DQS0/1, DM0/1, A0-A14 wired; part
+ *   MT41K256M16TW-107IT:P), the vendor bundle's only DRAM datasheet, the vendor photo's chip marking
+ *   D9SHG = MT41K256M16TW-107 IT:P. (The photo's '1GB' label is wrong: no A15 line, no second chip.)
+ *   The 32-bit / 1 GB PS config was silent on this board on 2026-09-26; the 16-bit one boots.
  *
  * Every line is from the vendor documents or the hardware-validated PS configuration:
  *   User Manual V1.0 Parts 3.2 (33.333 MHz PS clock), 3.5 (GEM0 on MIO16-27, MDIO 52/53),
  *   3.6 (QSPI W25Q128JV on MIO1-6), 3.10 (UART0 MIO10/11), 3.11 (SD0 MIO40-45, no CD/WP),
  *   3.12 (USB0 ULPI MIO28-39, reset MIO46); schematic sheets 15/16 (PHY addresses 1 and 2);
- *   ps7-vivado/ps7_init_gpl.c from vivado/build_system.tcl (DDR 32-bit, HIGHADDR 0x3FFFFFFF = 1 GB).
+ *   ps7/ps7_init_gpl.c (16-bit DDR, 512 MB) -- the PS configuration that ran on this board.
  * Same file serves U-Boot (dts/upstream or arch/arm/dts) and Linux (arch/arm/boot/dts/xilinx).
  */
 /dts-v1/;
@@ -28,12 +32,13 @@
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x40000000>;	/* 1 GB: PCW_DDR_RAM_HIGHADDR 0x3FFFFFFF (Vivado PS7, 32-bit DDR) */
+		reg = <0x0 0x20000000>;	/* 512 MB: one x16 MT41K256M16 on a 16-bit bus (ps7/ps7_init_gpl.c) */
 	};
 
 	/* DDR3 the PL owns, so Linux never allocates it (accel/SPEC.md §3, accel/gpu/SPEC.md §10):
 	 * the GPU's framebuffers, sprite pool and frame-return buffer, and the matrix engine's tensor
-	 * store and DMA staging. Linux keeps 0x00000000-0x1DFFFFFF and 0x38000000-0x3FFFFFFF. */
+	 * store and DMA staging. Linux keeps 0x00000000-0x0FFFFFFF (256 MB; measured on QEMU at 512 MB: Linux
+	 * and every service use ~42 MB, the zynqram export 128 MB). The GPU window is fixed in the PL. */
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -42,8 +47,8 @@
 			reg = <0x1e000000 0x2000000>;		/* 32 MB  */
 			no-map;
 		};
-		zaccel@20000000 {
-			reg = <0x20000000 0x18000000>;		/* 384 MB */
+		zaccel@10000000 {
+			reg = <0x10000000 0xe000000>;		/* 224 MB */
 			no-map;
 		};
 	};
@@ -81,7 +86,9 @@
  * vivado/build_system.tcl) -> RTL8211F-CG U16 at MDIO address 2 [schematic sheet 16].
  * The MAC talks GMII to the converter; the converter talks RGMII to the PHY. */
 &gem1 {
-	status = "okay";
+	/* off: the 16-bit PS config that boots this board does not clock GEM1 or FCLK1 (only the silent
+	 * 32-bit one did). The bench uses ETH-PS (gem0) only. */
+	status = "disabled";
 	phy-mode = "gmii";
 	phy-handle = <&pl_phy>;
 
@@ -117,9 +124,9 @@
 		reg = <0x40400000 0x10000>;
 		status = "okay";
 	};
-	zaccel-mem@20000000 {
+	zaccel-mem@10000000 {
 		compatible = "generic-uio";
-		reg = <0x20000000 0x18000000>;
+		reg = <0x10000000 0xe000000>;
 		status = "okay";
 	};
 };

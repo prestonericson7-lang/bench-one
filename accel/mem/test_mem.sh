@@ -11,7 +11,9 @@ set -u
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ZS="bash $HERE/zaccel-swap"
 T=/tmp/zaccel-mem-test
-EXPORT_BYTES=$((256 * 1048576))
+# the export size is whatever the shipped default says (zynqram.default), not a number in this test
+EXPORT_MB=$(sed -n 's/^ZACCEL_SWAP_MB=\([0-9]*\)$/\1/p' "$HERE/zynq/zynqram.default")
+EXPORT_BYTES=$((EXPORT_MB * 1048576))
 PASS=0; FAIL=0; RESULTS=()
 ok()  { PASS=$((PASS + 1)); RESULTS+=("PASS  $1"); echo "  PASS: $1"; }
 bad() { FAIL=$((FAIL + 1)); RESULTS+=("FAIL  $1"); echo "  FAIL: $1"; }
@@ -124,11 +126,11 @@ expect "nbd-server.service requires and is ordered after zynqram-prep.service" \
   bash -c 'systemctl show -p Requires --value nbd-server | grep -qw zynqram-prep.service && systemctl show -p After --value nbd-server | grep -qw zynqram-prep.service'
 expect "zynqram-prep.service ran (active)" [ "$(systemctl is-active zynqram-prep)" = active ]
 findmnt -n -o SOURCE,FSTYPE,OPTIONS /run/zynqram | sed 's/^/  mount: /'
-expect "/run/zynqram is its own tmpfs of 256m" bash -c 'findmnt -n -o FSTYPE,OPTIONS /run/zynqram | grep -q "^tmpfs .*size=262144k"'
+expect "/run/zynqram is its own tmpfs of ${EXPORT_MB}m" bash -c "findmnt -n -o FSTYPE,OPTIONS /run/zynqram | grep -q '^tmpfs .*size=$((EXPORT_MB * 1024))k'"
 F=/run/zynqram/zynqram.img
 alloc=$(( $(stat -c %b "$F") * $(stat -c %B "$F") ))
 echo "  file: $(stat -c '%s bytes, owner %U:%G, mode %a' "$F"); allocated $alloc bytes; tmpfs used $(df -B1 --output=used /run/zynqram | tail -1) bytes"
-expect "export file is 256 MiB, fully allocated, owned by nbd, mode 600" \
+expect "export file is $EXPORT_MB MiB, fully allocated, owned by nbd, mode 600" \
   [ "$(stat -c '%s %U %a' "$F")" = "$EXPORT_BYTES nbd 600" -a "$alloc" -ge "$EXPORT_BYTES" ]
 ss -ltnp | grep ':10809 ' | sed 's/^/  listen: /'
 expect "nbd-server listens on TCP 10809" bash -c "ss -ltn | grep -q ':10809 '"
@@ -143,7 +145,7 @@ sed 's/^/  nbd-client: /' <<< "$out"
 expect "nbd-client -N zynqram -swap -timeout 30 127.0.0.1 10809 $DEV attaches" [ $rc = 0 ]
 echo "  nbd-client processes left after attach: '$(pgrep -a -x nbd-client)'  /sys/block/nbd1/pid: '$(cat /sys/block/nbd1/pid 2>/dev/null)'  nbd-client -c: rc=$(nbd-client -c $DEV >/dev/null 2>&1; echo $?)"
 expect "netlink form: nbd-client exits after setup, nothing left in the I/O path" bash -c '! pgrep -x nbd-client >/dev/null'
-expect "device size is 256 MiB" [ "$(blockdev --getsize64 $DEV)" = "$EXPORT_BYTES" ]
+expect "device size is $EXPORT_MB MiB" [ "$(blockdev --getsize64 $DEV)" = "$EXPORT_BYTES" ]
 head -c $((64 * 1048576)) /dev/urandom > "$T/pattern"
 dd if="$T/pattern" of=$DEV bs=1M oflag=direct conv=fsync status=none
 dd if=$DEV of="$T/readback" bs=1M count=64 iflag=direct status=none

@@ -17,7 +17,7 @@ TIMEOUT=${TIMEOUT:-180}
 [ -f "$IMG" ] || { echo "no SD image at $IMG (run mk_sd_image.sh)"; exit 1; }
 cp "$IMG" /root/zynq/qemu-sd.img            # QEMU writes to it; keep the master pristine
 truncate -s 2G /root/zynq/qemu-sd.img       # QEMU insists an SD card is a power-of-two size; padding past p2 is harmless
-MEM=${MEM:-1024M}                           # the board DTB describes 1 GB (32-bit DDR)
+MEM=${MEM:-512M}                            # the board: one x16 MT41K256M16 = 512 MB (16-bit DDR)
 # cpufreq.off=1: QEMU clocks the A9 at 666 MHz while the DTB pins the board's real 766 MHz operating
 # point; on the board the clock matches the table, so the board needs no such flag
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m "$MEM" -nographic \

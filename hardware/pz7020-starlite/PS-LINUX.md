@@ -60,7 +60,7 @@ kernel and DTB.
   stack, gd, BSS and a 32 MB heap in DDR BEFORE the banner (crt0.S, common/spl/spl.c), and ps7_init()'s
   return code is discarded, so a DDR setup that does not match the board = total silence. The vendor
   schematic, PCB drawing, manual DDR section and photo show one x16 MT41K256M16 (512 MB) on DQ0-15.
-  The card went back to the 16-bit set in `linux/out/fallback-512MB/` (the program that printed).
+  The image now uses the 16-bit setup everywhere (`ps7/`, 512 MB; `build_uboot.sh` refuses `ps7-vivado`).
   **Zero bytes = BootROM, card, boot mode, ps7_init or DDR. The SPL banner means DDR already works.**
 - ⏳ First boot will also tell whether `eth0` needs `rgmii` instead of `rgmii-id`, and whether the
   2 ns TXC skew on `eth1` is right (RTL8211F strap defaults: TXDLY pull-down, RXDLY pull-up).

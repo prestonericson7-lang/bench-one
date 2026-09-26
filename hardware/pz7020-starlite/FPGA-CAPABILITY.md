@@ -16,7 +16,7 @@ assumptions, **not** a benchmark.
 | **DSP48 slices** | **220** | ✅ |
 | **Block RAM** | **4.9 Mb ≈ 613 KB** | ✅ |
 | PS CPU | **2× Cortex-A9 @ 766 MHz** | ✅ |
-| DDR3 (this board) | 1 GB | ✅ (owner-confirmed) |
+| DDR3 (this board) | 512 MB (one x16 MT41K256M16, 16-bit bus) | ✅ schematic + datasheet + chip marking |
 | **Hardware video codec** | **NONE** — Zynq-7000 has no VCU (that's UltraScale+ **EV**) | ✅ |
 
 ### The BRAM number is the one that decides things

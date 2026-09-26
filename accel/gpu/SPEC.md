@@ -295,13 +295,13 @@ Mesh convention: counter-clockwise front faces (OpenGL), outward normals.
 
 ## 10. Zynq software
 
-Platform: the repo's PZ7020-StarLite image (1 GB DDR3, Linux 6.12 armhf, built by
+Platform: the repo's PZ7020-StarLite image (512 MB DDR3, one x16 chip; Linux 6.12 armhf, built by
 hardware/pz7020-starlite/linux/*.sh). The GPU's PL is merged into the platform bitstream at the same
 addresses (registers 0x43C00000 on GP0, DDR window 0x1E000000 + 32 MB); the platform's own register
 file pl_regs (ID 0x5A702001) is at 0x40000000.
 
 - Device tree: `reserved-memory { gpu@1e000000 { reg = <0x1e000000 0x2000000>; no-map; } }`
-  (with 1 GB the window is in the middle of RAM; the platform device tree must carry this node).
+  (on the 512 MB board the window is the top 32 MB of RAM; the platform device tree must carry this node).
 - Boot script: after a successful `fpga loadb` of pl.bit it appends `fpgagpu.pl_loaded=1` to
   bootargs (Linux's zynq-fpga driver clears PCFG_DONE when it probes), and it keeps U-Boot from
   relocating the device tree into a reserved window (`fdt_high`).

@@ -9,7 +9,7 @@ system"*. This file is the contract every part is built to. Nothing here is opti
    libzaccel (C)           zaccel-server             │
    zaccel.py               nbd-server (RAM)          ▼ HP0 (DDR3)
    zaccel-bench            reserved DDR3 ──DMA──► zaccel_gemv (PL, AXI-Stream) ──DMA──► results
-   nbd swap  ◄─────────── 1 GB DDR3 as the Pi's extra memory
+   nbd swap  ◄─────────── 128 MB of DDR3 as the Pi's extra memory
 ```
 
 Two things the Zynq adds to the Pi:
@@ -78,11 +78,13 @@ S2MM_DMACR 0x30, S2MM_DMASR 0x34, S2MM_DA 0x48, S2MM_LENGTH 0x58. Polling (no in
 
 ## 3. Zynq Linux
 
-- **Reserved DDR3 for the engine**: 384 MB at physical `0x2000_0000`–`0x37FF_FFFF`, `no-map`,
+- **Reserved DDR3 for the engine**: 224 MB at physical `0x1000_0000`–`0x1DFF_FFFF`, `no-map` (the board has
+  512 MB: one x16 MT41K256M16; Linux keeps `0x0000_0000`–`0x0FFF_FFFF`, the GPU `0x1E00_0000`–`0x1FFF_FFFF`),
   exposed by a `generic-uio` node named `zaccel-mem`. The AXI DMA register window is a
   `generic-uio` node named `zaccel-dma`. Userspace finds them by `/sys/class/uio/uio*/name`.
 - `boot.cmd` sets `fdt_high` and `initrd_high` to `0xffffffff` so U-Boot never relocates the
-  device tree into the reserved range.
+  device tree into the reserved range, and stages `pl.bit` at `0x0800_0000`: U-Boot puts every
+  reserved-memory region in its LMB and refuses to load a file into one.
 - `zaccel-server` (C, armhf, systemd) owns both UIO devices.
 - `nbd-server` exports a RAM-backed file (tmpfs) of `ZACCEL_SWAP_MB` (default 256) as export
   `zynqram` on TCP 10809.

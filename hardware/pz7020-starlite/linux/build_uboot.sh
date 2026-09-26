@@ -18,11 +18,12 @@ cd "$SRC"
 # --- board files: ps7_init from the validated XSA, device tree from the repo ---
 # v2025.07: board/xilinx/zynq/Makefile sets hw-platform-y := $(DEVICE_TREE) -> the dir must be named exactly like the DT
 mkdir -p board/xilinx/zynq/$DT
-# PS7_DIR: ps7-vivado (our Vivado design: 32-bit DDR / 1 GB, FCLK0 100 + FCLK1 200 MHz, GEM1 on EMIO)
-# is the default; ps7 (the third-party 16-bit / 512 MB set that booted the board first) is the fallback.
-DTS_SRC=${DTS_SRC:-$REPO/hardware/pz7020-starlite/linux/$DT.dts}   # override for the 512 MB fallback
-PS7_DIR=${PS7_DIR:-$REPO/hardware/pz7020-starlite/ps7-vivado}
-[ -f "$PS7_DIR/ps7_init_gpl.c" ] || PS7_DIR=$REPO/hardware/pz7020-starlite/ps7
+# PS7_DIR: ps7 -- the 16-bit / 512 MB configuration that boots this board (one x16 MT41K256M16; the
+# schematic wires only DQ0-15 and A0-A14). ps7-vivado (32-bit / 1 GB) gave ZERO console bytes on the board
+# on 2026-09-26: it must never be the default again. The SPL needs working DDR before it prints anything.
+DTS_SRC=${DTS_SRC:-$REPO/hardware/pz7020-starlite/linux/$DT.dts}
+PS7_DIR=${PS7_DIR:-$REPO/hardware/pz7020-starlite/ps7}
+case "$PS7_DIR" in *ps7-vivado*) echo "refusing ps7-vivado: 32-bit DDR does not fit this board"; exit 1 ;; esac
 echo "ps7_init source: $PS7_DIR"
 cp "$PS7_DIR/ps7_init_gpl.c" "$PS7_DIR/ps7_init_gpl.h" board/xilinx/zynq/$DT/
 sed -i 's/\r$//' board/xilinx/zynq/$DT/ps7_init_gpl.c board/xilinx/zynq/$DT/ps7_init_gpl.h
@@ -58,7 +59,10 @@ dtc -q -I dtb -O dts spl/u-boot-spl.dtb > /tmp/spl.dts
 for n in serial@e0000000 mmc@e0100000; do grep -q "$n" /tmp/spl.dts || { echo "*** SPL DTB lacks $n"; exit 1; }; done
 echo "SPL DTB: $(stat -c %s spl/u-boot-spl.dtb) bytes, has serial@e0000000 + mmc@e0100000"
 # which DDR width did the SPL get? DDRC ctrl reg 0xF8006000 bits[3:2]: 00 = 32-bit, 01 = 16-bit
-grep -o -i "EMIT_MASKWRITE(0XF8006000, 0x0001FFFFU ,0x[0-9A-F]*U)" board/xilinx/zynq/$DT/ps7_init_gpl.c | head -1   # 0x80 = 32-bit, 0x84 = 16-bit
+W=$(grep -o -i "EMIT_MASKWRITE(0XF8006000, 0x0001FFFFU ,0x[0-9A-F]*U)" board/xilinx/zynq/$DT/ps7_init_gpl.c | head -1)
+echo "DDRC width write: $W"
+case "$W" in *0x00000084U*) echo "DDR 16-bit: matches the board (one x16 MT41K256M16)" ;;
+  *) echo "*** the SPL's DDR controller setting is not 16-bit (0x84): this board has one x16 chip -- refusing"; exit 1 ;; esac
 
 mkimage -A arm -T script -C none -d "$REPO/hardware/pz7020-starlite/linux/boot.cmd" boot.scr >/dev/null
 cp spl/boot.bin u-boot.img boot.scr "$OUT/"

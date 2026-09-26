@@ -8,19 +8,22 @@ Contracts: [SPEC.md](SPEC.md) (matrix engine + RAM tier) and [gpu/SPEC.md](gpu/S
 | **A GPU**: 3D rasterising, Z-buffer, sprites, HDMI 1280×720 out | Zynq PL (`accel/gpu/rtl`) + `fpgagpud` | `libfpgagpu`, `gpu_demo`, `gpu_selftest`, `gpu_view` — TCP 7777 |
 | **A geometry engine**: transform, light, clip, triangle setup | Teensy 4.1 (`accel/gpu/teensy`) | USB serial from the Pi; 16-bit bus into the PL |
 | **A matrix engine**: int4/int8 × int8, batch 8, weights held in the Zynq's DDR3 | Zynq PL (`accel/rtl/zaccel_gemv.v`) + `zaccel-server` | `libzaccel`, `zaccel.py`, `zaccel-bench` — TCP 8093 |
-| **RAM**: part of the Zynq's 1 GB DDR3 as the Pi's swap, ahead of any disk swap | Zynq `nbd-server` | `zaccel-swap` — NBD, TCP 10809 |
+| **RAM**: 128 MB of the Zynq's 512 MB DDR3 as the Pi's swap, ahead of any disk swap | Zynq `nbd-server` | `zaccel-swap` — NBD, TCP 10809 |
 
 One PL bitstream carries the GPU, the matrix engine, the platform registers and the second
 Ethernet port together (`hardware/pz7020-starlite/vivado/build_system.tcl`).
 
-## Zynq DDR3 map (1 GB)
+## Zynq DDR3 map (512 MB)
+
+The board has ONE x16 DDR3L chip, MT41K256M16TW-107IT:P = 512 MB, on a 16-bit bus: the schematic wires only
+DQ0-15 and A0-A14, the vendor's only DRAM datasheet is that part, and the chip in the vendor photo is marked
+D9SHG (= that part). The listing's "1GB" is wrong. The 32-bit / 1 GB PS config was silent on the board.
 
 | range | owner |
 |---|---|
-| 0x0000_0000 – 0x1DFF_FFFF | Linux (also backs the `zynqram` export) |
-| 0x1E00_0000 – 0x1FFF_FFFF | GPU: framebuffers, sprite pool, frame-return buffer |
-| 0x2000_0000 – 0x37FF_FFFF | matrix engine: tensors + DMA staging (384 MB) |
-| 0x3800_0000 – 0x3FFF_FFFF | Linux |
+| 0x0000_0000 – 0x0FFF_FFFF | Linux, 256 MB (also backs the 128 MB `zynqram` export; Linux + services use ~42 MB) |
+| 0x1000_0000 – 0x1DFF_FFFF | matrix engine: tensors + DMA staging (224 MB) |
+| 0x1E00_0000 – 0x1FFF_FFFF | GPU: framebuffers, sprite pool, frame-return buffer (fixed in the PL) |
 
 ## Bring-up on the bench (first time)
 
@@ -101,6 +104,6 @@ the RAM export and `zaccel-swap` pass under a real kernel (swap in use, pages ba
 SD image boots in QEMU with every service answering the Pi-side tools (`qemu_accel_test.sh`).
 
 Only the boards can answer: the fabric running on silicon (QEMU has no PL, so the engine answers from
-the Zynq's CPU there); the 32-bit / 1 GB DDR init; real throughput of each path and the combined
+the Zynq's CPU there); the DDR init runs the 16-bit config that booted this board; real throughput of each path and the combined
 speedup; `nbd.ko` loading on the Pi's kernel (built from the vendor's own source and config, every
 symbol checked against its System.map); eth1's RGMII timing.

@@ -833,15 +833,15 @@ def read_file(path, off, n):
         return f.read(n)
 
 
-# /proc/iomem of the 1 GB platform: the GPU window 0x1E000000..0x1FFFFFFF and the matrix engine's
-# 0x20000000..0x37FFFFFF are reserved no-map, so Linux lists them outside "System RAM"
-IOMEM_1GB = ("00000000-1dffffff : System RAM\n"
-             "  00008000-00bfffff : Kernel code\n"
-             "  00d00000-00e7ffff : Kernel data\n"
-             "38000000-3fffffff : System RAM\n"
-             "40000000-40000fff : 40000000.pl_regs pl_regs@40000000\n"
-             "e0000000-e0000fff : e0000000.serial serial@e0000000\n"
-             "f8007000-f80070ff : f8007000.devcfg devcfg@f8007000\n")
+# /proc/iomem of the board (512 MB, one x16 MT41K256M16): Linux has 0x00000000..0x0FFFFFFF; the matrix
+# engine's 0x10000000..0x1DFFFFFF and the GPU window 0x1E000000..0x1FFFFFFF are reserved no-map, so
+# Linux lists them outside "System RAM"
+IOMEM_BOARD = ("00000000-0fffffff : System RAM\n"
+               "  00008000-00bfffff : Kernel code\n"
+               "  00d00000-00e7ffff : Kernel data\n"
+               "40000000-40000fff : 40000000.pl_regs pl_regs@40000000\n"
+               "e0000000-e0000fff : e0000000.serial serial@e0000000\n"
+               "f8007000-f80070ff : f8007000.devcfg devcfg@f8007000\n")
 IOMEM_FILES = {}
 
 
@@ -920,7 +920,7 @@ def test_hw_backend():
         # GPU at 0x43C00000), Linux cleared PCFG_DONE, /proc/iomem shows the GPU window as no-map
         path = os.path.join(ftmp, "uboot.bin")
         make_devmem(path, 4, pcfg_done=False, alias_id=PLATFORM_ID, regs=gregs)
-        d = Daemon(["--fake-devmem", path, "--cmdline", cmdfiles["yes"], "--iomem", iomem_file("platform", IOMEM_1GB)],
+        d = Daemon(["--fake-devmem", path, "--cmdline", cmdfiles["yes"], "--iomem", iomem_file("platform", IOMEM_BOARD)],
                    "hw-uboot")
         try:
             c = Conn(d.port)
@@ -999,13 +999,13 @@ def test_hw_backend():
         finally:
             d.stop()
 
-        # the DDR window must be reserved (no-map) before GP0 is touched: 1 GB platform, where
-        # 0x1E000000 is in the middle of RAM unless the device tree reserves it
+        # the DDR window must be reserved (no-map) before GP0 is touched: on the board (512 MB) the window is
+        # the top 32 MB of RAM, so without the device tree's reservation Linux would own it
         wcases = [
-            ("window reserved (1 GB platform)", IOMEM_1GB, True, ""),
-            ("window reserved (512 MB layout)", "00000000-1dffffff : System RAM\n", True, ""),
-            ("no reserved-memory node (all 1 GB is System RAM)",
-             "00000000-3fffffff : System RAM\n  00008000-00bfffff : Kernel code\n", False, "is Linux RAM"),
+            ("window reserved (the board: 512 MB, engine + GPU reserved)", IOMEM_BOARD, True, ""),
+            ("window reserved (Linux up to 0x1DFFFFFF, no engine window)", "00000000-1dffffff : System RAM\n", True, ""),
+            ("no reserved-memory node (all 512 MB is System RAM)",
+             "00000000-1fffffff : System RAM\n  00008000-00bfffff : Kernel code\n", False, "is Linux RAM"),
             ("window partly System RAM", "00000000-1dffffff : System RAM\n1f000000-3fffffff : System RAM\n",
              False, "is Linux RAM"),
             ("iomem without addresses (not root)", "00000000-00000000 : System RAM\n00000000-00000000 : System RAM\n",

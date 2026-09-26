@@ -16,7 +16,10 @@
 #       4 = address map / HP port check failed, 5 = block design wrapper does not match system_top.v,
 #       6 = a package ball is used twice.
 #
-# DDR: 32-bit bus = 1 GB (two MT41K256M16, per the vendor spec for the PZ7020 and the owner).
+# DDR: this PS7 block says 32-bit / 1 GB (from the listing) -- WRONG for the board, which has ONE x16
+# MT41K256M16 (512 MB, 16-bit bus; schematic wires DQ0-15 and A0-A14 only). The SPL built from this
+# design's ps7_init was silent on the board (2026-09-26), so linux/build_uboot.sh uses ps7/ (16-bit)
+# and refuses ps7-vivado/. The PL bitstream does not depend on the DDR width.
 # Everything else of the PS starts from the parameter set of a working PetaLinux build for this
 # board (ps7_validated.tcl), applied with catch, then our overrides on top.
 set here [file dirname [file normalize [info script]]]

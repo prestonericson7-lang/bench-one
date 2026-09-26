@@ -55,7 +55,7 @@ Related: [README.md](README.md) (pinout) · [PS-CONFIG.md](PS-CONFIG.md) (PS7 se
 | Fan | PL PWM on H16, tach H17 | `ps7-axi/pl_regs.v` (duty register + rpm readback from Linux) or the owner-repo `fan_top.v` — coexists with the SPI pins (different JM1 pins) |
 | Time master | PL 64-bit counter at FCLK0 | `pl_regs.v` TIME_LO/HI, read by `pl_regs.py`; published as `PL_TIME` by the agent |
 
-The Zynq's own 1 GB of DDR3 holds everything PL-side owns: audio
+The Zynq's own 512 MB of DDR3 holds everything PL-side owns: audio
 history, capture staging, accelerator buffers. None of that ever lands in the Pi's 4 GB.
 
 ## 3. Bring-up order that never risks the board
@@ -85,7 +85,7 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 | Both PHYs RTL8211F-CG, addresses 1 (PS) and 2 (PL) | ✅ DOC (schematic sheets 15/16) |
 | MIO map: QSPI 1–6, UART0 10/11, GEM0 16–27 + 52/53, USB0 28–39 + rst 46, SD0 40–45 | ✅ DOC |
 | Bank 0 = 3.3 V, bank 1 = 1.8 V (straps) | ✅ DOC (sheet 5) |
-| DRAM: **1 GB, 32-bit bus, DDR3L** | ✅ vendor spec + owner; configured by the Vivado PS7 (`0xF8006000 = 0x80`). The first boot ran a third-party 16-bit config (512 MB visible) — kept as the fallback set |
+| DRAM: **512 MB, 16-bit bus, DDR3L** (one x16 MT41K256M16) | ✅ schematic (DQ0-15, A0-A14 only) + vendor datasheet + photo marking D9SHG; `ps7/` (`0xF8006000 = 0x84`) boots. The 32-bit config (`0x80`) was silent on the board 2026-09-26 |
 | DDR rail | ✅ 1.35 V (DDR3L) — see above |
 | JTAG bridge | ✅ DOC: FT232H (U17) + 93LC56B EEPROM (U18), schematic sheet 19 → USB 0403:6014, `openFPGALoader -c digilent_hs2` |
 | PL PHY RGMII delay mode | ⚠️ straps NC — determine at bring-up |
@@ -117,7 +117,7 @@ in `Downloads\`. Text extractions (`manual.txt`, `schematic.txt`) sit beside the
 
 | Earlier claim | Now |
 |---|---|
-| (earlier in this repo) "schematic shows one chip, the manual's 1 GB is wrong" | Withdrawn: that came from a shared schematic and a third-party 16-bit build. The board is 1 GB; the image now configures 32-bit |
+| "The board is 1 GB, 32-bit" (2026-09-25, from the listing) | Wrong, and it killed the first bench boot: one x16 chip, 512 MB. The schematic, the datasheet and the chip marking agree; the listing did not |
 | "Blocked on the AITH Dropbox bundle: any bitstream touching I/O, the fan pin, a safe FSBL" (FPGA-CAPABILITY §5) | Bundle is here. Master XDC written, `sdr_accel.xdc` FILLMEs replaced with real balls, PS7 Tcl written. Remaining blocker is **Vivado itself** |
 | "Whether the PL-side GbE is usable from Linux on the PS" (interconnect.md open question) | Yes: plain RGMII PHY, address 2, GEM1-over-EMIO + GMII-to-RGMII IP |
 | RTL-SDR SPI link "on an expansion header, FILLME" | JM1 pins 9/11/13/15 = E18/E19/G17/G18, 3.3 V, no shifter |

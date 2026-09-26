@@ -462,8 +462,13 @@ def t_over_26bit(ctx):
 
 
 def t_no_memory(ctx):
-    """Max-size tensors until the memory is full: status 2, then everything is given back."""
-    mode, rows, cols = 1, 65535, 4096
+    """Tensors of ~60% of the free memory until it is full: status 2, then everything is given back.
+    (Sized from INFO: the board's engine window is 224 MB, smaller than the protocol's largest tensor.)"""
+    cols = 4096
+    c = Conn(ctx.port)
+    free = c.info()["mem_free_mb"] << 20
+    c.close()
+    mode, rows = 1, max(1, min(65535, int(free * 0.6) // cols))
     wire = b"\x01" * (rows * cols)  # every weight 1, so Y[r] = sum(A)
     c = Conn(ctx.port)
     ids, statuses = [], []
@@ -476,13 +481,13 @@ def t_no_memory(ctx):
     assert statuses[-1] == NOMEM and ids, f"LOAD statuses {statuses}"
     abytes = ctx.rnd.randbytes(cols)
     s = sum(memoryview(abytes).cast("b").tolist())
-    check_gemv(ctx, *c.gemv(ids[0], 1, abytes), mode, rows, cols, 1, [s] * rows, "65535x4096 int8")
+    check_gemv(ctx, *c.gemv(ids[0], 1, abytes), mode, rows, cols, 1, [s] * rows, f"{rows}x4096 int8")
     assert c.call(PING, b"after nomem")[0] == OK
     for tid in ids:
         assert c.free(tid) == OK
     c.close()
     wait_mem_free(ctx, ctx.baseline_free)
-    print(f"      {len(ids)} x 256 MB tensor loaded, next LOAD -> status 2")
+    print(f"      {len(ids)} x {rows * cols >> 20} MB tensor loaded (of {free >> 20} MB free), next LOAD -> status 2")
 
 
 def t_model_faults(ctx):
@@ -583,7 +588,9 @@ def main():
     label = f"{os.path.basename(args.bin)} --{mode}" + (f" under {args.wrap}" if args.wrap else "")
     print(f"=== {label}  (seed {ctx.seed})")
 
-    proc, ctx.port, log = start_server(args, ["--" + mode], mode)
+    # the cpu engine runs with a 256 MB arena here, so the 67 MB t_over_26bit tensor fits; the board's
+    # default (64 MB, for a 512 MB board) is checked separately below
+    proc, ctx.port, log = start_server(args, ["--cpu", "--cpu-mb", "256"] if mode == "cpu" else ["--" + mode], mode)
     tests = [t_info, t_ping, t_random_jobs, t_extremes, t_load_length, t_unknown_tensor, t_bad_requests,
              t_bad_magic_and_garbage, t_disconnects, t_concurrent, t_large, t_over_26bit, t_no_memory]
     failed = []
@@ -604,6 +611,17 @@ def main():
             print("PASS  server still up after all tests")
     finally:
         stop_server(proc)
+    if not args.model:
+        p2, port2, _ = start_server(args, ["--cpu"], "cpu-default")
+        try:
+            i = Conn(port2).info()
+            if i["mem_total_mb"] == 64:
+                print("PASS  cpu engine default arena is 64 MB (fits the board's 256 MB of Linux RAM)")
+            else:
+                failed.append("cpu-default")
+                print(f"FAIL  cpu engine default arena is {i['mem_total_mb']} MB, want 64")
+        finally:
+            stop_server(p2)
     if args.model and "server-alive" not in failed:
         try:
             t_model_faults(ctx)

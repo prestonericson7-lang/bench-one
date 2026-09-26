@@ -1,5 +1,5 @@
 # fpgagpud.service -- FPGA-GPU daemon on the Zynq (SPEC 10, 13.2), for the repo's PZ7020-StarLite
-# platform image (1 GB DDR3, Linux 6.12 armhf). The image builder installs:
+# platform image (512 MB DDR3, Linux 6.12 armhf). The image builder installs:
 #     zynq/build/fpgagpud   -> /usr/local/bin/fpgagpud          (0755, static ARMv7-A binary)
 #     zynq/fpgagpud.service -> /etc/systemd/system/fpgagpud.service (0644)
 #     enabled: /etc/systemd/system/multi-user.target.wants/fpgagpud.service -> the unit

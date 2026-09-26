@@ -9,17 +9,22 @@ User Manual V1.0 Parts 3.2–3.12; Micron `MT41K256M16TW-107` datasheet (all in 
 
 ---
 
-## 1. DDR: 1 GB, 32-bit bus, DDR3L
+## 1. DDR: 512 MB, 16-bit bus, DDR3L (one chip)
 
-The PZ7020 is sold with **1 GB** (vendor spec) and the owner confirms 1 GB: two Micron
-`MT41K256M16TW-107` (4 Gb ×16 each) on the Zynq's 32-bit DDR bus. The Vivado design configures it
-that way (`vivado/build_system.tcl`: `PCW_UIPARAM_DDR_BUS_WIDTH = 32 Bit`, `DDR 3 (Low Voltage)`,
-`MT41K256M16 RE-125`, HIGHADDR 0x3FFFFFFF), and `ps7-vivado/ps7_init_gpl.c` carries it
-(`0xF8006000 = 0x80`, byte lanes 2-3 powered).
+**One Micron MT41K256M16TW-107IT:P (4 Gbit x16 = 512 MB) on a 16-bit bus, DDR3L 1.35 V.** Proof, all from
+the vendor's own material:
+- schematic DDR sheet: the part is `MT41K256M16TW-107IT:P`; only `PS_DDR3_DQ0-15`, `DQS0/1`, `DM0/1` and
+  address lines `A0-A14` are nets. The Zynq's DQ16-31 balls connect to nothing. A 1 GB x16 chip needs A15,
+  which is not wired, so this board cannot address more than 512 MB whatever chip is fitted;
+- the vendor bundle's only DRAM datasheet: `01.Datasheet/DDR3/MT41K256M16TW-107 IT.pdf`;
+- the vendor product photo: the chip is marked `D9SHG`, Micron's FBGA code for MT41K256M16TW-107 IT:P.
+  The photo's "DDR3 (1GB)" label is wrong about the chip in the same photo;
+- VDD_1V5 is set to 1.35 V (schematic power sheet: `VOUT = 1.35V`).
 
-The first image that ran on the board used a third-party PS configuration set to **16-bit**
-(`ps7/`, `0xF8006000 = 0x84`): 16-bit mode drives one chip only, so it booted with 512 MB visible.
-That build's own notes say "2 chips, 32-bit total". It is kept as `linux/out/fallback-512MB/`.
+Measured on the board: the 16-bit configuration (`ps7/`, `0xF8006000 = 0x84`) booted SPL -> U-Boot ->
+pl.bit -> Linux on 2026-09-24. The 32-bit configuration (`ps7-vivado/`, `0xF8006000 = 0x80`, byte lanes
+2-3 on) produced ZERO console bytes on 2026-09-26: the SPL keeps its stack, BSS and heap in DDR and prints
+nothing until DDR works. `ps7/` is the configuration; `linux/build_uboot.sh` refuses `ps7-vivado`.
 
 **DDR rail:** the power sheet sets one MP2143 to **1.35 V** (`VDD_1V35`, TP3); the parts are DDR3L,
 and the working build records that the plain `DDR 3` (1.5 V) setting fails `DDR_INIT_FAIL`.
@@ -55,7 +60,7 @@ The PS reference clock is **33.333333 MHz** (Y1, `PS_CLK_500` ball E7) [M 3.2, s
 |---|---|---|
 | APU clock | 766.67 MHz | 7020-2 speed grade [M 2.2]; use 666.67 if the chip marking says -1 |
 | DDR part | `MT41K256M16 RE-125` (closest catalogue entry to TW-107; same 4 Gb ×16 organisation) | DDR clock 533.33 MHz (DDR3-1066, Zynq-7000 maximum); a -107/-125 part meets 1066 timing with margin |
-| DDR bus width | **32 Bit** (1 GB) | §1 |
+| DDR bus width | **16 Bit** (512 MB, one x16 chip) | §1 |
 | DDR ECC | disabled | ×16 bus, no ECC lanes |
 | Bank 0 / bank 1 | LVCMOS 3.3 V / LVCMOS 1.8 V | sheet 5 straps |
 | FCLK_CLK0 | 100 MHz to the PL | general PL clock alongside the 50 MHz oscillator |

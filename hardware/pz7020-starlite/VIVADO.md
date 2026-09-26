@@ -53,27 +53,22 @@ Outputs: `vivado/build/system.bit` (938,343 B, compressed), `vivado/build/system
 The boot chain that already ran on this board (U-Boot SPL → U-Boot → Linux, captured 2026-09-24,
 `linux/captures/boot-20260924-161853`) is kept. What changed is what it carries:
 
-| File on the card | Now |
+| File on the card | Now (2026-09-26) |
 |---|---|
-| `boot.bin` (SPL) | compiled with **`ps7-vivado/ps7_init_gpl.c` from this XSA**: DDRC ctrl `0xF8006000 = 0x80` (32-bit), byte lanes 2-3 powered (`DDRIOB_DATA1 = 0x672`, was `0x800` off) |
-| `u-boot.img` | DT memory `0x40000000` (1 GB) |
+| `boot.bin` (SPL) | **`ps7/ps7_init_gpl.c`, 16-bit DDR (`0xF8006000 = 0x84`)** -- byte-identical code to the SPL that booted the board on 2026-09-24 (only the 6-byte build stamp differs). `build_uboot.sh` refuses `ps7-vivado` |
+| `u-boot.img` | DT memory `0x20000000` (512 MB) |
+| `boot.scr` | stages `pl.bit` at `0x08000000`, zImage at `0x03000000`, DT at `0x02E00000` -- clear of the reserved windows (U-Boot refuses to load into reserved memory) and of the unpacked kernel (it ends at `0x01FF8B10`; the default DT address `0x1F00000` was inside it) |
 | `zImage` | + `CONFIG_XILINX_GMII2RGMII=y` |
-| `zynq-pz7020-starlite.dtb` | 1 GB; `gem1` + converter@8 + PHY@2 (`eth1`); `pl_regs` as UIO; the 766 MHz operating point that fixed the cpufreq panic of the first boot |
+| `zynq-pz7020-starlite.dtb` | 512 MB; engine window `0x10000000` (224 MB), GPU `0x1E000000` (32 MB); `gem1` off (the 16-bit PS config does not clock GEM1/FCLK1); `pl_regs` + engine as UIO; the 766 MHz operating point |
 | `pl.bit` | `vivado/build/system.bit`, loaded by U-Boot before Linux |
 
-`linux/update_card.sh E` refreshes these six files on the card's BOOT partition and checks each
-SHA-256 on the card after a cache flush. The full image (`linux/out/pz7020-starlite-sd.img.xz`) is
-rebuilt from the same outputs.
+**Why not the Vivado PS config:** this design's PS7 says 32-bit / 1 GB (the listing's claim). The board has one
+x16 MT41K256M16 (512 MB): the SPL built from `ps7-vivado/` gave zero console bytes on 2026-09-26. The PL
+bitstream does not depend on the DDR width, so `system.bit` is unchanged; `ps7-vivado/` is not used.
 
-**QEMU dry run** (`linux/qemu_test.sh`, 1 GB): kernel sees 1,048,576 KB, `eth1` registers on
-GEM1, the converter driver binds and waits for PHY@2 (absent in QEMU, present on the board), login
-prompt reached. QEMU cannot run ps7_init, the DDR PHY, the PHYs or the PL — the board run tests those.
-
-**Fallback:** `linux/out/fallback-512MB/` is the 16-bit configuration that booted the board first
-(third-party `ps7/ps7_init_gpl.c`, `0xF8006000 = 0x84`, 512 MB in every DT, `gem1` disabled). If the
-32-bit set gives no console output at all (the SPL needs working DDR before it prints its banner, so a
-DDR failure is total silence -- measured 2026-09-26: the 32-bit set was silent on this board), copy that
-folder's six files over the card's BOOT partition (`linux/update_card.sh <drive> out/fallback-512MB`).
+**Tested without the board:** `linux/qemu_uboot_test.sh` runs the production U-Boot and `boot.scr` from
+the image at 512 MB into Linux; `linux/qemu_accel_test.sh` boots the image at 512 MB with every service
+answering. QEMU cannot run the BootROM, ps7_init, the DDR PHY or the PL -- the board run tests those.
 
 ## 3. The SDR accelerator, signed off — `firmware/rtlsdr-pentest/fpga/vivado/build_bitstream.tcl`
 
@@ -83,7 +78,8 @@ WHS +0.052 ns, 0 failing endpoints. `build/sdr_accel.bit` 598,015 B. Same RTL th
 ## 4. Rebuild order
 
 1. `vivado/build_system.tcl` → `system.bit`, `system.xsa`
-2. unzip `ps7_init_gpl.c/.h` from the XSA into `ps7-vivado/`
-3. WSL: `build_uboot.sh` (checks: ps7_init symbols in the SPL, SPL DTB has UART + SD, prints the DDR width)
+2. (the XSA's `ps7_init` is NOT used: 32-bit DDR does not fit the board -- see above)
+3. WSL: `build_uboot.sh` (uses `ps7/` 16-bit; checks: ps7_init symbols in the SPL, SPL DTB has UART + SD,
+   refuses any DDR width but 16-bit)
 4. WSL: `build_kernel.sh`, then `mk_sd_image.sh`; or `update_card.sh E` for the boot files only
-5. `build_fallback_512m.sh` keeps the 512 MB set current
+5. WSL: `qemu_uboot_test.sh` + `qemu_accel_test.sh` (in `deploy/run_all_tests.sh`)

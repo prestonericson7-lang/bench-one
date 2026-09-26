@@ -14,7 +14,7 @@ cp "$IMG" /root/zynq/qemu-agent-sd.img && truncate -s 2G /root/zynq/qemu-agent-s
 QDTB=/root/zynq/qemu-agent.dtb; cp "$OUT/$DT.dtb" "$QDTB"
 fdtput -d "$QDTB" /axi/ethernet@e000b000 phy-handle && fdtput -r "$QDTB" /axi/ethernet@e000b000/ethernet-phy@1 \
   && echo "emulation DTB: gem0 phy-handle removed (PHY scanned)"
-timeout 300 qemu-system-arm -M xilinx-zynq-a9 -m 1024M -nographic -serial mon:stdio \
+timeout 300 qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic -serial mon:stdio \
   -kernel "$OUT/zImage" -dtb "$QDTB" \
   -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 cpufreq.off=1" \
   -drive file=/root/zynq/qemu-agent-sd.img,if=sd,format=raw \

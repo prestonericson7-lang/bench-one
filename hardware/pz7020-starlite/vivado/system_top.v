@@ -1,7 +1,7 @@
 // system_top.v -- top level of the one PZ7020-StarLite bitstream (build_system.tcl).
 //
 // The Zynq holds one PL image, so everything the PL does is in this design:
-//   u_sys  system_wrapper (the block design): PS7 with 1 GB 32-bit DDR3, pl_regs @0x4000_0000,
+//   u_sys  system_wrapper (the block design): PS7 (runtime DDR setup is ps7/: 512 MB 16-bit), pl_regs @0x4000_0000,
 //          AXI DMA @0x4040_0000 + zaccel_gemv (matrix engine, S_AXI_HP3, FCLK0 100 MHz),
 //          GEM1 -> GMII-to-RGMII -> PL PHY (eth1). The GPU's register window 0x43C0_0000/4K
 //          leaves the GP0 interconnect as port M_AXI_GPU; S_AXI_HP0/1/2 are the GPU's DDR3 ports.

@@ -18,7 +18,7 @@
  *   2. SLCR LVL_SHFTR_EN (0xF8000900) must be 0xF: with the PS-PL level shifters off every GP0
  *      access hangs the CPU. (U-Boot "fpga loadb" and Linux fpga_manager both enable them.)
  *   2b. The DDR window 0x1E000000..0x1FFFFFFF must not be Linux RAM: /proc/iomem may show no
- *      "System RAM" range overlapping it. On the 1 GB platform the window sits in the middle of
+ *      "System RAM" range overlapping it. On the 512 MB board the window is the top 32 MB of
  *      RAM, so without a reserved-memory no-map node in the device tree (or when Linux refused that
  *      node, e.g. because U-Boot relocated the device tree into it) the GPU would write over pages
  *      Linux is using. No-map regions are left out of System RAM (arch/arm/kernel/setup.c

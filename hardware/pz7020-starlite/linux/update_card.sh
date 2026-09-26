@@ -2,8 +2,7 @@
 # update_card.sh -- refresh the BOOT (FAT) partition of the PZ7020 SD card that is mounted in this PC.
 # Only the boot files change (SPL, U-Boot, boot script, kernel, DTB, PL bitstream); the ext4 rootfs is
 # left alone. Refuses to touch a drive that does not already look like this card's boot partition.
-#   bash update_card.sh E                        the 32-bit / 1 GB set in linux/out
-#   bash update_card.sh E out/fallback-512MB     the 16-bit / 512 MB set (the one that boots this board)
+#   bash update_card.sh E                        the boot set in linux/out (16-bit DDR, 512 MB: the board)
 # pl.bit always comes from vivado/build/system.bit, the bitstream mk_sd_image.sh puts in the image (a
 # copy in out/ went stale once and would have put the pre-accelerator bitstream on the card).
 set -euo pipefail

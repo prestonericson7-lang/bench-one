@@ -65,6 +65,9 @@ mkdir -p "$ROOT/etc/systemd/system/multi-user.target.wants"
 for u in zaccel-server fpgagpud; do
   ln -sf /etc/systemd/system/$u.service "$ROOT/etc/systemd/system/multi-user.target.wants/$u.service"
 done
+# an image build always takes the repo's export size (install_zynq.sh keeps an existing file for
+# on-board re-installs; the build rootfs would otherwise keep a stale size from an older image)
+rm -f "$ROOT/etc/default/zynqram"
 bash "$A/mem/install_zynq.sh" "$ROOT"
 [ -x "$ROOT/usr/bin/nbd-server" ] && echo "nbd-server: present" || { echo "*** nbd-server missing from the rootfs (build_rootfs.sh)"; exit 1; }
 # --- networking: systemd-networkd instead of ifupdown ---

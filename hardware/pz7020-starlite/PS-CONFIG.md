@@ -75,9 +75,12 @@ training ever proves marginal.
 
 The PL PHY is an ordinary RGMII PHY on BANK34 (pins in `pz7020_starlite_board.xdc`). Enable
 **GEM1 on EMIO** in PS7 and drop AMD's **GMII to RGMII** IP (shipped with Vivado, no separate
-licence) between GEM1's GMII and the RGMII pins; set the IP's PHY address to **2** and, in the
-device tree, `phy-mode` to `rgmii-id` first (the PHY's TX/RX delay straps R144/R146 are marked
-NC, so the delay mode is not fixed by the schematic — try `rgmii` if `rgmii-id` gives no link).
+licence) between GEM1's GMII and the RGMII pins; the PHY is at MDIO address **2** (PHY_AD=010,
+schematic sheet 16) and the converter at 8. Device tree: `gem1` `phy-mode = "gmii"` (the MAC side).
+Delays: the converter's 2 ns TXC skew gives TX; the PHY's RXDLY strap (internal pull-up, RTL8211F
+datasheet pin 25) gives RX; for a non-RGMII mode the Realtek driver leaves the strapped delays alone.
+Status: `gem1` is disabled in the image because `ps7/` does not clock FCLK1 (the converter needs a
+200 MHz IDELAYCTRL reference).
 Result: `eth0` = PS PHY, `eth1` = PL PHY, both driven by the Linux `macb` driver.
 
 ## 6. Vivado on this PC — and why it is no longer on the critical path

@@ -7,12 +7,20 @@ Log: %TEMP%\\verify_cards.log, last line 'DONE rc=0' when both match.
 """
 import ctypes, ctypes.wintypes as wt, hashlib, os, subprocess, sys, tempfile, time
 
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+
+
+def recorded(rel):
+    """the image hash the build recorded (first field of its .sha256 file), so this never goes stale"""
+    return open(os.path.join(REPO, rel), encoding="utf-8").read().split()[0].lower()
+
+
 CARDS = [
     dict(name="Zynq (PZ7020)", lo=28, hi=34, size=1746927616,
-         sha="335dc01e0d4c36c3f956851e3ceca54eb046be418cf3da06b001c95a057a58ea",
+         sha=recorded("hardware/pz7020-starlite/linux/out/sd-image.sha256"),
          expect={1048647: "424f4f5420202020202020"}),                      # FAT label "BOOT"
     dict(name="Orange Pi", lo=100, hi=130, size=11211374592,
-         sha="3c3afdda37b94f0841ec5f9826170a09fdecb0f82d9f5d1a05d70dfb6ee4d077",
+         sha=recorded("accel/pi-card/opi4pro-accel.img.sha256"),
          expect={8196: "65474f4e2e425430", 33555560: "a81ee6f15c1244f08e92c28029cab13c"}),  # eGON.BT0, rootfs UUID
 ]
 LOG = os.path.join(tempfile.gettempdir(), "verify_cards.log")
@@ -76,6 +84,12 @@ def main():
             same = got == c["sha"]
             log(f"{c['name']}: PhysicalDrive{n}, {c['size']} bytes in {time.time() - t0:.0f} s, sha256 {got[:16]}... "
                 + ("MATCHES the image" if same else f"DIFFERS from the image {c['sha'][:16]}..."))
+            if not same:
+                # A whole-card hash also changes when Windows mounts a FAT partition and adds its
+                # "System Volume Information" (Zynq card, 2026-09-26: 312 bytes of FAT bookkeeping + one
+                # directory, boot files identical), or when the Pi has booted the card (first boot writes
+                # the rootfs). card_compare.py DISK IMAGE LOG says which bytes differ.
+                log(f"{c['name']}: find out where with card_compare.py {n} <image> <log> before rewriting anything")
             rc |= 0 if same else 1
     log(f"DONE rc={rc}")
     return rc

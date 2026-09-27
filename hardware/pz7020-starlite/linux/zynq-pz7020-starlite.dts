@@ -71,7 +71,12 @@
 
 &gem0 {
 	status = "okay";
-	phy-mode = "rgmii-id";			/* RTL8211F-CG U15, straps not fixed -> try -id first, then "rgmii" */
+	/* rgmii-id: the PHY adds both 2 ns RGMII delays. The Zynq GEM on MIO has no delay of its own and a
+	 * 2 ns PCB delay would be ~30 cm of extra clock trace, so the delays come from the PHY; every mainline Zynq board
+	 * with an RGMII PHY on MIO uses rgmii-id. Linux's built-in Realtek driver (CONFIG_REALTEK_PHY=y)
+	 * programs RTL8211F TX/RX delay from this value and ignores the straps, so "rgmii" would switch
+	 * both delays OFF (drivers/net/phy/realtek.c rtl8211f_config_init) -- not a fallback to try. */
+	phy-mode = "rgmii-id";			/* RTL8211F-CG U15 */
 	phy-handle = <&ethernet_phy>;
 
 	ethernet_phy: ethernet-phy@1 {		/* PHY_AD[2:0] = 001 [sch 15] */

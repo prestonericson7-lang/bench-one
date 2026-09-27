@@ -89,6 +89,30 @@ chk "(setup) the swap partition is really swap" "[ \"\$(blkid -p -s TYPE -o valu
 run "$D9" "$W/mnt9"; sed 's/^/    | /' "$W/out"
 chk "swap partition only: untouched, not mounted, exit 0" "[ \"\$(sha256sum < $D9)\" = \"$H9\" ] && ! mountpoint -q $W/mnt9 && [ \$(cat $W/rc) = 0 ]"
 
+echo "== a used laptop drive: EFI boot partition + another OS's data (the Pi's real NVMe, 2026-09-26)"
+D10=$(drive laptop 512); M10=$W/mnt10
+printf 'label: gpt\nsize=100M, type=U\nsize=16M, type=E3C9E316-0B5C-4DB8-817D-F92DF00215AE\ntype=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n' \
+  | sfdisk --quiet "$D10"; partprobe "$D10" 2>/dev/null; udevadm settle -t 5 2>/dev/null; sleep 1
+read -r P10a P10b P10c <<< "$(lsblk -nrpo NAME,TYPE "$D10" | awk '$2=="part"{print $1}' | tr '\n' ' ')"
+mkfs.vfat -n SYSTEM "$P10a" >/dev/null && mkfs.ntfs -Q -F -L Windows "$P10c" >/dev/null 2>&1; sync
+chk "(setup) EFI vfat + reserved + NTFS, as a laptop drive" "[ \"\$(blkid -p -s TYPE -o value $P10a)\" = vfat ] && [ \"\$(blkid -p -s TYPE -o value $P10c)\" = ntfs ] && [ \"\$(lsblk -dno PARTTYPE $P10a)\" = c12a7328-f81f-11d2-ba4b-00a0c93ec93b ]"
+# the state the earlier nvme-auto left on the Pi: its fstab line for the EFI partition, and that partition mounted
+U10=$(blkid -p -s UUID -o value "$P10a"); mkdir -p "$M10"; mount -o ro "$P10a" "$M10"
+cp "$W/fstab" "$W/fstab.10pre"
+awk '$0 == "# nvme-auto: the NVMe drive" { skip = 1; next } skip { skip = 0; next } { print }' "$W/fstab.10pre" > "$W/fstab"
+printf '# nvme-auto: the NVMe drive\nUUID=%s %s vfat defaults,noatime,nofail 0 2\n' "$U10" "$M10" >> "$W/fstab"
+cp "$W/fstab" "$W/fstab.10"; H10=$(sha256sum < "$D10")
+run "$D10" "$M10"; sed 's/^/    | /' "$W/out"
+chk "left untouched: drive byte-for-byte the same, exit 0" "[ \"\$(sha256sum < $D10)\" = \"$H10\" ] && [ \$(cat $W/rc) = 0 ]"
+chk "the EFI partition is not mounted any more" "! mountpoint -q $M10"
+chk "fstab: its own line for $M10 gone, every other line kept" "! grep -q ' $M10 ' $W/fstab && ! grep -qxF '# nvme-auto: the NVMe drive' $W/fstab && grep -qxF 'UUID=0000-root / ext4 defaults 0 1' $W/fstab"
+chk "tells how to hand the drive over" "grep -q 'wipefs -a $D10 && sudo dd if=/dev/zero of=$D10 bs=1M count=1' $W/out"
+# the owner's choice, done: exactly the printed commands, then the next boot's run
+wipefs -a "$D10" >/dev/null && dd if=/dev/zero of="$D10" bs=1M count=1 conv=fsync status=none; partprobe "$D10" 2>/dev/null; udevadm settle -t 5 2>/dev/null; sleep 1
+run "$D10" "$M10"; sed 's/^/    | /' "$W/out"
+chk "after the printed erase: treated as blank, ext4 'nvme' mounted" "mountpoint -q $M10 && [ \"\$(blkid -p -s LABEL -o value \$(findmnt -nro SOURCE $M10))\" = nvme ]"
+umount "$M10"
+
 echo "== empty partition table (a new drive some vendors ship)"
 D5=$(drive empty 128); M5=$W/mnt5; printf 'label: gpt\n' | sfdisk --quiet "$D5"
 run "$D5" "$M5"; sed 's/^/    | /' "$W/out"

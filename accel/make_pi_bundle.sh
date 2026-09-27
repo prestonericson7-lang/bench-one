@@ -6,13 +6,13 @@ cd "$(dirname "$0")"
 need=(pi/out/aarch64/zaccel-bench pi/out/aarch64/libzaccel.a pi/libzaccel.h pi/zaccel.py
       gpu/pi/pi_setup.sh mem/install_pi.sh mem/zaccel-swap install_pi.sh README.md
       llm/out/aarch64/run_model llm/out/aarch64/ppl pi/nvme-auto pi/nvme-auto.service pi/debs/SHA256SUMS
-      pi/accel-firstboot.sh pi/accel-firstboot.service)
+      pi/accel-firstboot.sh pi/accel-firstboot.service pi/install_debs.sh)
 for f in "${need[@]}"; do [ -e "$f" ] || { echo "missing $f -- build first"; exit 1; }; done
 [ -f gpu/teensy/out/600/teensy_gpu.ino.hex ] || { echo "missing gpu/teensy/out/600/teensy_gpu.ino.hex -- build the Teensy firmware first"; exit 1; }
 out=accel-pi-bundle.tar.gz
 tar -czf "$out" --exclude='__pycache__' \
   install_pi.sh bench_day.sh README.md SPEC.md \
-  pi/out/aarch64 pi/libzaccel.h pi/zaccel.py pi/nvme-auto pi/nvme-auto.service pi/debs pi/accel-firstboot.sh pi/accel-firstboot.service llm/out/aarch64 \
+  pi/out/aarch64 pi/libzaccel.h pi/zaccel.py pi/nvme-auto pi/nvme-auto.service pi/debs pi/accel-firstboot.sh pi/accel-firstboot.service pi/install_debs.sh llm/out/aarch64 \
   gpu/pi gpu/teensy/out/600/teensy_gpu.ino.hex gpu/SPEC.md gpu/WIRING.md \
   mem/install_pi.sh mem/zaccel-swap mem/zaccel-swap.service mem/zaccel-swap-retry.service \
   mem/zaccel-swap-retry.timer mem/pi-kmod

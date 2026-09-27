@@ -73,7 +73,8 @@ history, capture staging, accelerator buffers. None of that ever lands in the Pi
 5. **PS boot from SD** — no Vivado needed: U-Boot SPL carries the validated `ps7/ps7_init_gpl.c`,
    then mainline Linux from the SD image built by `linux/` ([PS-LINUX.md](PS-LINUX.md)); console on
    the CH340 port at 115200; `eth0` via GEM0 → `BOOT-SD-runbook.md`.
-6. **Second Ethernet** — GEM1/EMIO + GMII-to-RGMII, `phy-mode rgmii-id` first.
+6. **Second Ethernet** — GEM1/EMIO + GMII-to-RGMII (`gem1` `phy-mode gmii`, converter TXC skew 2 ns);
+   needs FCLK1 at 200 MHz, which `ps7/` does not set, so it stays off until that is added.
 7. Only then the benchmarks the owner repo lists as P-05…P-10.
 
 ## 4. Numbers that are documented vs. still unmeasured

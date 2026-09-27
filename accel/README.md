@@ -36,10 +36,13 @@ D9SHG (= that part). The listing's "1GB" is wrong. The 32-bit / 1 GB PS config w
    installs everything by itself and writes the log to `~/accel-install.log`. That includes the two missing
    packages (shipped in the bundle, no internet needed) and the NVMe drive: a blank drive is partitioned,
    formatted ext4 and mounted at **/mnt/nvme**, at every boot from then on (`nvme-auto`; a drive that
-   already holds data is never formatted). The card also carries a test model,
+   already holds data is never formatted, and an EFI boot partition left by another OS does not count as
+   storage -- such a drive is left alone and the log prints the one command that hands it to the Pi).
+   The packages install even while the vendor's own first-run holds the package database (it did on the
+   first real boot, 2026-09-26), and the install leaves the Pi's `/boot` files untouched. The card also carries a test model,
    `/opt/accel/models/qwen2.5-coder-3b.gguf` (the Ollama `qwen2.5-coder:3b` blob), so `bench-day` with no
    argument runs the real-model comparison too. Card image: `MODEL=<blob> MODEL_NAME=qwen2.5-coder-3b.gguf
-   bash accel/build_pi_card_image.sh`, sha256 `3c3afdda37b94f0841ec5f9826170a09fdecb0f82d9f5d1a05d70dfb6ee4d077`.
+   bash accel/build_pi_card_image.sh`, sha256 `a9b64e79d87bdd1ea5ebd88d499e48586055ab5859a5f19b90c8cd5d7f27e3ec` (2026-09-26 17:23: the debconf-race and EFI-partition fixes; replaces `3c3afdda...`, whose first boot on the Pi left nbd-client half-configured).
    On a card without it: copy `accel/accel-pi-bundle.tar.gz`
    over, then
    `mkdir -p ~/accel && tar -xzf accel-pi-bundle.tar.gz -C ~/accel && sudo bash ~/accel/install_pi.sh`.

@@ -21,18 +21,10 @@ say() { printf '\n== %s\n' "$*"; }
 say "packages"
 export DEBIAN_FRONTEND=noninteractive
 # the Pi's Ethernet goes to the Zynq, so it may have no internet: the two missing packages ship in the
-# bundle as the official arm64 .debs (pi/debs/README.md), checked against their recorded hashes
-if [ "$(dpkg --print-architecture 2>/dev/null)" = arm64 ] && [ -f "$A/pi/debs/SHA256SUMS" ]; then
-  if (cd "$A/pi/debs" && sha256sum -c --quiet SHA256SUMS); then
-    need=(); command -v nbd-client >/dev/null || need+=("$A"/pi/debs/nbd-client_*.deb)
-    command -v teensy_loader_cli >/dev/null || need+=("$A"/pi/debs/teensy-loader-cli_*.deb)
-    if [ ${#need[@]} = 0 ]; then echo "nbd-client and teensy-loader-cli already installed"
-    elif dpkg -i "${need[@]}" >/tmp/accel-dpkg.log 2>&1; then echo "installed from the bundle: ${need[*]##*/}"
-    else echo "dpkg -i failed -- /tmp/accel-dpkg.log:"; tail -5 /tmp/accel-dpkg.log; fi
-  else
-    echo "bundled .debs do not match pi/debs/SHA256SUMS -- not installing them"
-  fi
-fi
+# bundle as the official arm64 .debs (pi/debs/README.md), checked against their recorded hashes.
+# install_debs.sh waits out the vendor first-run's debconf lock and leaves /boot alone (see its header).
+sed -i 's/\r$//' "$A/pi/install_debs.sh" 2>/dev/null
+bash "$A/pi/install_debs.sh" "$A/pi/debs" || fail=1
 if ! command -v nbd-client >/dev/null || ! command -v teensy_loader_cli >/dev/null || ! command -v python3 >/dev/null; then
   apt-get install -y -q teensy-loader-cli nbd-client python3 >/tmp/accel-apt.log 2>&1 \
     && echo "teensy-loader-cli, nbd-client, python3 installed" \

@@ -62,5 +62,7 @@ kernel and DTB.
   schematic, PCB drawing, manual DDR section and photo show one x16 MT41K256M16 (512 MB) on DQ0-15.
   The image now uses the 16-bit setup everywhere (`ps7/`, 512 MB; `build_uboot.sh` refuses `ps7-vivado`).
   **Zero bytes = BootROM, card, boot mode, ps7_init or DDR. The SPL banner means DDR already works.**
-- ⏳ First boot will also tell whether `eth0` needs `rgmii` instead of `rgmii-id`, and whether the
-  2 ns TXC skew on `eth1` is right (RTL8211F strap defaults: TXDLY pull-down, RXDLY pull-up).
+- `eth0` is `rgmii-id` by design, not by trial: the Zynq GEM on MIO adds no delay, and Linux's Realtek
+  driver sets the RTL8211F's two 2 ns delays from phy-mode (`rgmii` would turn both off).
+- ⏳ `eth1` (disabled: `ps7/` does not clock FCLK1): whether the 2 ns TXC skew is right is a bench
+  question (RTL8211F strap defaults: TXDLY pull-down, RXDLY pull-up).

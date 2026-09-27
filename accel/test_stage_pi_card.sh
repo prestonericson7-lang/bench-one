@@ -14,7 +14,7 @@ PASS=0; FAIL=0; LOOPS=()
 chk() { if eval "$2"; then echo "  PASS  $1"; PASS=$((PASS + 1)); else echo "  FAIL  $1"; FAIL=$((FAIL + 1)); fi; }
 cleanup() {
   # the binds are rslave (below), so these unmounts can never reach the host's own /dev, /proc, /sys
-  mountpoint -q "$R/mnt/nvtest" && umount "$R/mnt/nvtest"
+  for m in nvtest nvtest2 nvtest3; do mountpoint -q "$R/mnt/$m" && umount "$R/mnt/$m"; done
   for m in dev proc sys; do mountpoint -q "$R/$m" && umount -R "$R/$m"; done
   for m in "$R" "$W/lower"; do mountpoint -q "$m" && umount "$m"; done
   for d in "${LOOPS[@]}"; do losetup -d "$d" 2>/dev/null; done
@@ -48,9 +48,23 @@ in_pi() { chroot "$R" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin "$@"; }
 chk "chroot runs aarch64 (uname -m inside)" "[ \"\$(in_pi /usr/bin/uname -m)\" = aarch64 ]"
 chk "the Pi's systemctl sees the unit enabled" "[ \"\$(in_pi systemctl is-enabled accel-firstboot.service 2>/dev/null)\" = enabled ]"
 chk "the Pi's bash parses install_pi.sh, accel-firstboot.sh, nvme-auto" "in_pi bash -n /opt/accel/bundle/install_pi.sh && in_pi bash -n /opt/accel/bundle/pi/accel-firstboot.sh && in_pi bash -n /opt/accel/bundle/pi/nvme-auto"
-in_pi dpkg -i /opt/accel/bundle/pi/debs/nbd-client_3.26.1-6.1ubuntu2_arm64.deb /opt/accel/bundle/pi/debs/teensy-loader-cli_2.2-1.1build1_arm64.deb > "$W/dpkg.log" 2>&1; rc=$?
-tail -n 3 "$W/dpkg.log" | sed 's/^/    | /'
-chk "dpkg -i of the bundled .debs succeeds offline on the stock image" "[ $rc = 0 ] && in_pi dpkg -s nbd-client teensy-loader-cli 2>/dev/null | grep -c 'Status: install ok installed' | grep -qx 2"
+# The real first boot (2026-09-26): orangepi-firstrun's dpkg-reconfigure held the debconf database while the
+# install ran, nbd-client's postinst died on it and stayed half-configured, and the initramfs trigger rebuilt
+# /boot/initrd.img. Same here: hold config.dat exactly as debconf does (flock) for 25 s during the install.
+IB=$R/boot/initrd.img-6.6.98-sun60iw2; UB=$R/boot/uInitrd-6.6.98-sun60iw2; CF=$R/etc/initramfs-tools/update-initramfs.conf
+HB=$(cat "$IB" "$UB" | sha256sum); HC=$(sha256sum < "$CF")
+in_pi perl -e 'use Fcntl qw(:flock); open(F, "+<", "/var/cache/debconf/config.dat") or die; flock(F, LOCK_EX) or die; sleep 25' &
+LOCKER=$!; sleep 2
+in_pi ACCEL_DPKG_PAUSE=5 ACCEL_DPKG_LOG=/tmp/accel-dpkg.log bash /opt/accel/bundle/pi/install_debs.sh /opt/accel/bundle/pi/debs > "$W/dpkg.log" 2>&1; rc=$?
+wait $LOCKER 2>/dev/null
+sed 's/^/    | /' "$W/dpkg.log"
+chk "(setup) the debconf lock really bit: attempt 1 hit 'config.dat is locked'" "grep -q 'config.dat is locked by another process' $R/tmp/accel-dpkg.log"
+chk "install_debs.sh waits it out: exit 0, both .debs 'install ok installed'" "[ $rc = 0 ] && in_pi dpkg -s nbd-client teensy-loader-cli 2>/dev/null | grep -c 'Status: install ok installed' | grep -qx 2"
+chk "nbd-client's postinst ran to the end (its rcS.d link exists)" "ls $R/etc/rcS.d/ | grep -q nbd-client"
+chk "/boot initrd + uInitrd byte-identical (no initramfs rebuild)" "[ \"\$(cat $IB $UB | sha256sum)\" = \"$HB\" ]"
+chk "update-initramfs.conf restored exactly" "[ \"\$(sha256sum < $CF)\" = \"$HC\" ] && [ ! -e $CF.accel-save ]"
+in_pi ACCEL_DPKG_LOG=/tmp/accel-dpkg.log bash /opt/accel/bundle/pi/install_debs.sh /opt/accel/bundle/pi/debs > "$W/dpkg2.log" 2>&1; rc=$?
+chk "second run: nothing to do, exit 0" "[ $rc = 0 ] && grep -q 'already installed' $W/dpkg2.log"
 chk "nbd-client runs (its libraries resolve)" "in_pi nbd-client --version 2>&1 | grep -qi 'nbd-client version\|This is nbd-client'"
 chk "teensy_loader_cli runs (libusb-0.1 resolves)" "in_pi teensy_loader_cli --list-mcus 2>&1 | grep -qi teensy41"
 chk "zaccel-bench starts on the Pi userspace" "in_pi /opt/accel/bundle/pi/out/aarch64/zaccel-bench --help 2>&1 | grep -q 'usage: zaccel-bench'"
@@ -68,6 +82,14 @@ head -c 4096 /dev/urandom | dd of="$J" bs=4096 seek=40 conv=notrunc status=none;
 in_pi NVME_AUTO_DEVS="$J" NVME_AUTO_MNT=/mnt/nvtest2 NVME_AUTO_FSTAB=/tmp/fstab.t NVME_AUTO_WAIT=3 bash /opt/accel/bundle/pi/nvme-auto > "$W/nv2.log" 2>&1
 sed 's/^/    | /' "$W/nv2.log"
 chk "unknown data: untouched (Pi's tools)" "[ \"\$(sha256sum < $J)\" = \"$H\" ] && grep -q 'unknown data' $W/nv2.log"
+# the Pi's real drive: an EFI System Partition next to another OS's NTFS data -- the ESP is not storage
+truncate -s 256M "$W/laptop.img"; L=$(losetup -fP --show "$W/laptop.img"); LOOPS+=("$L")
+printf 'label: gpt\nsize=64M, type=U\ntype=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n' | sfdisk --quiet "$L"; partprobe "$L" 2>/dev/null; udevadm settle -t 5 2>/dev/null; sleep 1
+mkfs.vfat -n SYSTEM "${L}p1" >/dev/null && mkfs.ntfs -Q -F "${L}p2" >/dev/null 2>&1; sync; H=$(sha256sum < "$L")
+cp "$R/tmp/fstab.t" "$W/fstab.t.before"
+in_pi NVME_AUTO_DEVS="$L" NVME_AUTO_MNT=/mnt/nvtest3 NVME_AUTO_FSTAB=/tmp/fstab.t NVME_AUTO_WAIT=3 bash /opt/accel/bundle/pi/nvme-auto > "$W/nv3.log" 2>&1
+sed 's/^/    | /' "$W/nv3.log"
+chk "EFI partition + NTFS: untouched, nothing mounted, fstab unchanged (Pi's tools)" "[ \"\$(sha256sum < $L)\" = \"$H\" ] && ! mountpoint -q $R/mnt/nvtest3 && cmp -s $W/fstab.t.before $R/tmp/fstab.t && grep -q 'none of them storage' $W/nv3.log"
 
 echo
 echo "summary: $PASS passed, $FAIL failed"

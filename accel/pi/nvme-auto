@@ -3,8 +3,10 @@
 #   Runs at every boot (nvme-auto.service). Finds the drive, then:
 #     * blank drive (no partition table, no filesystem signature, first MiB all zero): one GPT
 #       partition, ext4 labelled "nvme", owned by the desktop user (uid 1000);
-#     * drive that already has a filesystem: used as it is -- never reformatted;
-#     * anything else (unknown data, partitions with no filesystem): left untouched, reported.
+#     * drive that already has a filesystem: used as it is -- never reformatted (an EFI System
+#       Partition does not count: it is another OS's boot partition, not storage);
+#     * anything else (unknown data, partitions with no filesystem): left untouched, reported, with
+#       the one command that hands the whole drive to the Pi.
 #   Then mounts it at /mnt/nvme and keeps ONE /etc/fstab line for it (by UUID, nofail, short device
 #   timeout), so every later boot mounts it natively and a missing drive never holds the boot up.
 #   Idempotent. Nothing is ever formatted unless the drive is provably blank.
@@ -60,12 +62,47 @@ if [ -z "$(parts)" ]; then
     fresh=1
   fi
 else
-  # an existing partitioned drive: ours by label first, else the largest partition holding a filesystem
-  for p in $(parts); do [ "$(blkid -p -s LABEL -o value "$p" 2>/dev/null)" = "$LABEL" ] && [ -n "$(fstype "$p")" ] && { target=$p; break; }; done
+  # an existing partitioned drive: ours by label first, else the largest partition holding a filesystem.
+  # Never an EFI System Partition: that is a previous OS's boot partition, not storage (the Pi's real
+  # drive, 2026-09-26: a 256 MB ESP next to another OS's data got mounted as "the NVMe", 97 MB free).
+  # partition type read from the disk itself (blkid -p), not from udev's database (lsblk), which is empty
+  # early in boot and in a chroot
+  storage() { local p t; for p in $(parts); do
+      t=$(blkid -p -s PART_ENTRY_TYPE -o value "$p" 2>/dev/null)
+      [ -n "$t" ] || t=$(lsblk -dno PARTTYPE "$p" 2>/dev/null)
+      t=$(echo "$t" | tr 'A-F' 'a-f' | tr -d ' ')
+      [ "$t" = c12a7328-f81f-11d2-ba4b-00a0c93ec93b ] || [ "$t" = 0xef ] && continue
+      [ -n "$(fstype "$p")" ] && echo "$p"; done; }
+  for p in $(storage); do [ "$(blkid -p -s LABEL -o value "$p" 2>/dev/null)" = "$LABEL" ] && { target=$p; break; }; done
   if [ -z "$target" ]; then
-    target=$(for p in $(parts); do [ -n "$(fstype "$p")" ] && echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1 | awk '{ print $2 }')
+    target=$(for p in $(storage); do echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1 | awk '{ print $2 }')
   fi
-  [ -n "$target" ] || { log "drive has partitions but none holds a filesystem to mount -- left untouched"; lsblk "$disk"; exit 0; }
+  if [ -z "$target" ]; then
+    log "drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap"
+    log "and unformatted space are not used) -- left untouched:"
+    lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,LABEL "$disk" | sed 's/^/nvme-auto:   /'
+    # an earlier version may have put this drive's EFI partition in fstab: take back exactly its own
+    # entry (the tag line directly followed by the line for $MNT) and that mount; nothing else
+    tmp=$(mktemp "$FSTAB.XXXX")
+    if awk -v tag="$TAG" -v m="$MNT" '
+         $0 == tag { if ((getline nxt) <= 0) { print; next }
+                     split(nxt, f); if (f[2] == m) { found = 1; next }
+                     print; print nxt; next }
+         { print }
+         END { exit !found }' "$FSTAB" > "$tmp"; then
+      if mountpoint -q "$MNT" && lsblk -nrpo NAME "$disk" | grep -qxF "$(findmnt -nro SOURCE --target "$MNT")"; then
+        umount "$MNT" && log "unmounted $MNT (it held a partition of this drive)"
+      fi
+      chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+      log "fstab: removed the line an earlier run added for $MNT"
+      [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
+    else
+      rm -f "$tmp"
+    fi
+    log "to give the whole drive to this Pi (ERASES EVERYTHING on it):"
+    log "  sudo wipefs -a $disk && sudo dd if=/dev/zero of=$disk bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto"
+    exit 0
+  fi
   log "using existing $(fstype "$target") filesystem on $target (not reformatted)"
 fi
 

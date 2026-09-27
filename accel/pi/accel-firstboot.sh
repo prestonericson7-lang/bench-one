@@ -5,10 +5,12 @@
 B=${ACCEL_BUNDLE:-/opt/accel/bundle}
 S=${ACCEL_STATE:-/var/lib/accel}
 mkdir -p "$S"
+u=$(getent passwd 1000 | cut -d: -f1,6)
+# the desktop user, as "sudo bash install_pi.sh" from that account would pass it (pi_setup.sh: dialout)
+[ -n "$u" ] && export SUDO_USER=${u%%:*}
 { echo "=== accel first boot, $(date)"; bash "$B/install_pi.sh"; } >> "$S/firstboot.log" 2>&1
 rc=$?
 echo "=== install_pi.sh exit $rc" >> "$S/firstboot.log"
-u=$(getent passwd 1000 | cut -d: -f1,6)
 if [ -n "$u" ] && [ -d "${u#*:}" ]; then
   cp -f "$S/firstboot.log" "${u#*:}/accel-install.log" && chown "${u%%:*}": "${u#*:}/accel-install.log"
 fi

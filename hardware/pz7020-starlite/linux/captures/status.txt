@@ -1,2 +1,2 @@
-16:19:59  DONE rc=3: kernel panic. Summary: D:\espicpc\hardware\pz7020-starlite\linux\captures\boot-20260924-161853\summary.md
-capture folder: D:\espicpc\hardware\pz7020-starlite\linux\captures\boot-20260924-161853
+15:48:54  watching; CH340 ports already present: none; capture folder D:\espicpc\hardware\pz7020-starlite\linux\captures\boot-20260926-154854
+capture folder: D:\espicpc\hardware\pz7020-starlite\linux\captures\boot-20260926-154854

@@ -14,13 +14,33 @@ either way.
 
 ---
 
-## Accelerators for the Orange Pi — 2026-09-25
+## Accelerators for the Orange Pi — 2026-09-25, re-verified 2026-09-26
 
 **[accel/README.md](accel/README.md)**: the Zynq and the Teensy as the Orange Pi 4 Pro's accelerators.
 One PL bitstream carries the FPGA-GPU (HDMI out, Teensy 4.1 as its geometry engine), a batched
-int4/int8 matrix engine fed by DMA from the Zynq's DDR3, and the platform; part of the Zynq's 1 GB is
-the Pi's swap over the network. Built, simulated, timing-closed and on the SD card; the board
-measurements are the next step.
+int4/int8 matrix engine fed by DMA from the Zynq's DDR3, and the platform; 128 MB of the Zynq's
+512 MB (one x16 DDR3L chip -- not the 1 GB some listings claim) is the Pi's swap over the network.
+Built, simulated, timing-closed, booted to Linux in QEMU at the board's real clocks, and on both SD
+cards; the Pi's first real boot was read back off its card and the two faults it showed are fixed.
+The board measurements are the next step.
+
+### Build it yourself
+
+Everything needed is here. The scripts were written on one Windows 11 PC with WSL2 Ubuntu 22.04 and
+carry its paths (the repo at `/mnt/d/espicpc`, Vivado at `D:\2026.1`, vendor images under Downloads),
+mostly as overridable defaults near the top of each script -- set those for your machine.
+
+| Part | Start here |
+|---|---|
+| Wiring (one screen per page) | [hardware/pz7020-starlite/wiring-png/](hardware/pz7020-starlite/wiring-png/), table in [accel/gpu/WIRING.md](accel/gpu/WIRING.md) |
+| Zynq SD card (U-Boot SPL + Linux + PL bitstream) | [hardware/pz7020-starlite/PS-LINUX.md](hardware/pz7020-starlite/PS-LINUX.md), [BOOT-SD-runbook.md](hardware/pz7020-starlite/BOOT-SD-runbook.md) |
+| PL design (Vivado 2026.1) | [hardware/pz7020-starlite/VIVADO.md](hardware/pz7020-starlite/VIVADO.md) |
+| Orange Pi card (official image + self-installing bundle) | [accel/README.md](accel/README.md), `accel/build_pi_card_image.sh` |
+| Every check, one verdict | `bash deploy/run_all_tests.sh` (47 checks: RTL testbenches, host tests, QEMU boots of both systems' software) |
+
+Hardware: Puzhi PZ7020-StarLite (XC7Z020), Orange Pi 4 Pro, Teensy 4.1. Board facts are sourced to
+the vendors' manuals and schematics page by page; the traps that cost a boot are written down where
+they bit (`hardware/pz7020-starlite/PS-CONFIG.md`, `accel/README.md`).
 
 ## Current state — 2026-09-12
 
@@ -191,3 +211,12 @@ enclosure a radiator and sets how large the thing can be before it cooks itself.
 
 That last finding is the most interesting thing in this repository, and it was not what anyone set
 out to look for.
+
+---
+
+## License
+
+MIT for everything written for this project ([LICENSE](LICENSE)) -- use it, change it, build it, sell
+it. A few files come from elsewhere (AMD's generated Zynq init, the osmocom RTL-SDR tuner driver,
+Ubuntu packages and a Linux module shipped for offline installs) and keep their own licences; they
+are listed with their sources in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

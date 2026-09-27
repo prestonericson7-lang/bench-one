@@ -12,6 +12,8 @@ KREL=6.6.98-sun60iw2
 SRC=/root/opi/linux-orangepi
 OUTD=$REPO/accel/mem/pi-kmod/$KREL
 mkdir -p /root/opi "$OUTD"
+# The nbd.ko committed in accel/mem/pi-kmod/ was built from commit 2ac08e8c7cdc28abbdc5c9a9dd812f887ae9c79f
+# (2026-09-17) of that branch -- its corresponding source (THIRD-PARTY-NOTICES.md).
 if [ ! -d "$SRC/.git" ]; then
   git clone --depth 1 -b orange-pi-6.6-sun60iw2 https://github.com/orangepi-xunlong/linux-orangepi "$SRC"
 fi

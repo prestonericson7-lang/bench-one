@@ -55,6 +55,9 @@ prompts together in 1.81 hours; every step equal to the PC reference to the last
   [docs/56](docs/56-one-chip-one-job.md) — the PSRAM as independent chips, the card read, the kernels;
   [docs/54](docs/54-a-3b-model-on-a-teensy.md) — the full story from the first run.
 - `firmware/bench-one/tests/psram_llm/` — the firmware, the PC proof and the test process.
+- **[docs/58 — Roadmap: what this makes possible](docs/58-roadmap-what-this-makes-possible.md)** — the
+  general principle behind each measured result, the technologies they open, and five staged gates;
+  every line labelled measured, arithmetic or proposal.
 
 ## Earlier state — 2026-09-12 (the chain)
 

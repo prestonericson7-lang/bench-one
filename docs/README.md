@@ -126,6 +126,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [55 — The usable numbers](55-teensy-psram-llm-usable-numbers.md) | what a user gets, version by version: first answer token, tokens an hour, where a pass goes |
 | [56 — One chip, one job](56-one-chip-one-job.md) | the PSRAM as eight independent memories, the card read by ADMA2 under the arithmetic, the batched kernels; what to carry to the FPGA |
 | [57 — What we built, what it does, and how we know](57-what-we-built-and-what-it-does.md) | **the plain-English account**: every measured number, each traced to its log, for a reader who knows none of this |
+| [58 — Roadmap: what this makes possible](58-roadmap-what-this-makes-possible.md) | what each measured result means in general, the technologies that follow, five stages with gates; measured / arithmetic / proposal on every line |
 
 ## Reference
 

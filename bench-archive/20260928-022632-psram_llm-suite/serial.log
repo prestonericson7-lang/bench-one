@@ -1,0 +1,460 @@
+
+[suite 2026-09-28 02:26:32] suite start: 3 entries x 1 runs, bench x 0, tests file firmware/bench-one/tests/psram_llm/tests_together8.txt
+
+[suite 2026-09-28 02:26:32] port COM38 open
+
+[suite 2026-09-28 02:26:32] >>> I
+02:26:33 | I bench-one psram_llm v8 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 02:26:33] >>> I
+02:26:33 | I bench-one psram_llm v8 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 02:26:33] identity: I bench-one psram_llm v8 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 02:26:33] >>> ::sdio fifo
+02:26:34 |     SD up (FIFO_SDIO), clock 66000 kHz
+02:26:34 |     qwen3b.gguf: 1929903072 bytes
+02:26:34 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+02:26:34 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+02:26:34 | SDIO fifo
+
+[suite 2026-09-28 02:26:34] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-28 02:26:34] >>> ::prefill 1
+02:26:34 | PREFILL 1
+
+[suite 2026-09-28 02:26:34] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-28 02:27:59] >>> ::gen 16
+02:27:59 | GEN 16
+
+[suite 2026-09-28 02:27:59] >>> ::multi 8
+02:28:00 | MULTI 8
+
+[suite 2026-09-28 02:28:00] group together8 run 1: 8 prompts together, gen 16
+
+[suite 2026-09-28 02:28:00] >>> The capital of France is
+
+[suite 2026-09-28 02:28:00] >>> Q: What is 17 + 25?\nA:
+
+[suite 2026-09-28 02:28:00] >>> def fibonacci(n):\n
+
+[suite 2026-09-28 02:28:00] >>> const add = (a, b) =>
+
+[suite 2026-09-28 02:28:00] >>> <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nName three primary colors.<|im_end|>\n<|im_start|>assistant\n
+
+[suite 2026-09-28 02:28:00] >>> <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nTranslate "good morning" into French.<|im_end|>\n<|im_start|>assistant\n
+
+[suite 2026-09-28 02:28:00] >>> <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWrite a Python one-liner that reverses a list called xs.<|im_end|>\n<|im_start|>assistant\n
+
+[suite 2026-09-28 02:28:00] >>> <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat does PSRAM stand for?<|im_end|>\n<|im_start|>assistant\n
+02:28:00 |   multi prompt 0: "The capital of France is"  (5 tokens)
+02:28:00 | S0 prompt ids: 785 6722 315 9625 374
+02:28:00 |   multi prompt 1: "Q: What is 17 + 25?\x0AA:"  (14 tokens)
+02:28:00 | S1 prompt ids: 48 25 3555 374 220 16 22 488 220 17 20 5267 32 25
+02:28:00 |   multi prompt 2: "def fibonacci(n):\x0A"  (4 tokens)
+02:28:00 | S2 prompt ids: 750 75698 1445 982
+02:28:00 |   multi prompt 3: "const add = (a, b) =>"  (9 tokens)
+02:28:00 | S3 prompt ids: 1024 912 284 320 64 11 293 8 589
+02:28:00 |   multi prompt 4: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AName three primary colors.<|im_end|>\x0A<|im_start|>assistant\x0A"  (34 tokens)
+02:28:00 | S4 prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 675 2326 6028 7987 13 151645 198 151644 77091 198
+02:28:01 |   multi prompt 5: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0ATranslate \"good morning\" into French.<|im_end|>\x0A<|im_start|>assistant\x0A"  (37 tokens)
+02:28:01 | S5 prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 27473 330 18536 6556 1 1119 8585 13 151645 198 151644 77091 198
+02:28:01 |   multi prompt 6: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWrite a Python one-liner that reverses a list called xs.<|im_end|>\x0A<|im_start|>assistant\x0A"
+02:28:01 | S6 prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 7985 264 13027 825 2852 10453 429 17431 288 264 1140 2598 11943 13 151645 198 151644 77091 198
+02:28:01 |   multi prompt 7: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat does PSRAM stand for?<|im_end|>\x0A<|im_start|>assistant\x0A"  (36 tokens)
+02:28:01 | S7 prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 1558 11405 33905 2498 369 30 151645 198 151644 77091 198
+02:28:01 | 
+02:28:01 |   answering 8 prompts together, 16 tokens each
+02:28:01 |   S5 copies its first 24 positions from S4 (the same opening tokens)
+02:28:01 |   S6 copies its first 24 positions from S4 (the same opening tokens)
+02:28:01 |   S7 copies its first 24 positions from S4 (the same opening tokens)
+02:32:36 | S0 step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+02:32:36 | S0 step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+02:32:36 | S1 step 0 pos 0 fed 48 -> top1 198 11.1436224 top2 220 11.0372753 text "\x0A"
+02:32:36 | S1 step 1 pos 1 fed 25 -> top1 3555 12.5304346 top2 576 12.4700565 text " What"
+02:32:36 | S2 step 0 pos 0 fed 750 -> top1 374 14.0929594 top2 646 13.1234818 text " is"
+02:32:36 | S2 step 1 pos 1 fed 75698 -> top1 1445 20.6242485 top2 23735 16.8269691 text "(n"
+02:32:36 | S3 step 0 pos 0 fed 1024 -> top1 264 13.2165222 top2 198 13.0862331 text " a"
+02:32:36 | S4 step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+02:32:36 |     multi pass=1 slots=8: 274.6 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 207 KB read 150.8 KB written in 0.13 s, compute 191.5 s; PSRAM self-check so far: 0 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+02:32:36 | STAGES multi pass=1 slots=8 embed=0.005 qkv=14.80 att=0.914 wo=11.50 ffn=218.66 head=28.76 hidden=0.00 temp_c=43.1
+02:37:11 | S0 step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+02:37:11 | S0 step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+02:37:11 | S1 step 2 pos 2 fed 3555 -> top1 374 20.4366665 top2 525 18.8898525 text " is"
+02:37:11 | S1 step 3 pos 3 fed 374 -> top1 279 19.7904205 top2 264 18.204916 text " the"
+02:37:11 | S2 step 2 pos 2 fed 1445 -> top1 982 19.5530186 top2 5783 18.0702858 text "):\x0A"
+02:37:11 | S2 step 3 pos 3 fed 982 -> top1 262 21.9885159 top2 220 17.5983448 text "   "
+02:37:11 | S3 step 1 pos 1 fed 912 -> top1 284 22.2646904 top2 10142 19.0967312 text " ="
+02:37:11 | S4 step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+02:37:11 |     multi pass=2 slots=8: 274.8 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 471 KB read 150.8 KB written in 0.20 s, compute 191.6 s; PSRAM self-check so far: 0 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+02:37:11 | STAGES multi pass=2 slots=8 embed=0.005 qkv=14.80 att=1.044 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+02:41:46 | S0 step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+02:41:46 | S1 step 4 pos 4 fed 220 -> top1 16 17.367445 top2 17 16.9371243 text "1"
+02:41:46 | S1 step 5 pos 5 fed 16 -> top1 15 18.1897011 top2 14 17.6334038 text "0"
+02:41:46 | S2 step 4 pos 4 fed 262 -> top1 421 18.6666317 top2 671 17.7574997 text " if"
+02:41:46 | S3 step 2 pos 2 fed 284 -> top1 320 25.8575249 top2 729 23.5821152 text " ("
+02:41:46 | S3 step 3 pos 3 fed 320 -> top1 64 24.5673351 top2 87 22.6852684 text "a"
+02:41:46 | S4 step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+02:41:46 | S4 step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+02:41:46 |     multi pass=3 slots=8: 274.9 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 660 KB read 150.8 KB written in 0.25 s, compute 191.6 s; PSRAM self-check so far: 0 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+02:41:46 | STAGES multi pass=3 slots=8 embed=0.004 qkv=14.80 att=1.128 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+02:46:21 | S0 step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+02:46:21 | S1 step 6 pos 6 fed 22 -> top1 17779 17.1650429 top2 20 16.7240982 text " divided"
+02:46:21 | S1 step 7 pos 7 fed 488 -> top1 220 21.411211 top2 10293 16.9030704 text " "
+02:46:21 | S2 step 5 pos 5 fed 421 -> top1 308 22.3158512 top2 320 16.704895 text " n"
+02:46:21 | S3 step 4 pos 4 fed 64 -> top1 11 24.1463776 top2 25 22.917593 text ","
+02:46:21 | S3 step 5 pos 5 fed 11 -> top1 293 25.6716156 top2 2503 16.7090645 text " b"
+02:46:21 | S4 step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+02:46:21 | S4 step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+02:46:21 |     multi pass=4 slots=8: 275.0 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 923 KB read 150.8 KB written in 0.32 s, compute 191.7 s; PSRAM self-check so far: 0 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+02:46:21 | STAGES multi pass=4 slots=8 embed=0.005 qkv=14.80 att=1.245 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+02:50:56 | S0 step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+02:50:56 | S1 step 8 pos 8 fed 220 -> top1 16 21.4364433 top2 17 20.988821 text "1"
+02:50:56 | S1 step 9 pos 9 fed 17 -> top1 18 18.3468914 top2 20 17.7576351 text "3"
+02:50:56 | S2 step 6 pos 6 fed 308 -> top1 2651 19.966032 top2 621 18.9656143 text " <="
+02:50:56 | S3 step 6 pos 6 fed 293 -> top1 8 26.3052654 top2 11 21.4369545 text ")"
+02:50:56 | S3 step 7 pos 7 fed 8 -> top1 589 25.5211773 top2 6274 18.4978962 text " =>"
+02:50:56 | S4 step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+02:50:56 | S4 step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+02:50:56 |     multi pass=5 slots=8: 275.1 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 1187 KB read 150.8 KB written in 0.38 s, compute 191.7 s; PSRAM self-check so far: 0 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+02:50:56 | STAGES multi pass=5 slots=8 embed=0.004 qkv=14.80 att=1.361 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+02:55:31 | S0 step 7 pos 7 fed 12095 -> top1 374 20.5606785 top2 702 17.2204037 text " is"
+02:55:31 | S1 step 10 pos 10 fed 20 -> top1 5267 19.0039597 top2 30 18.4711266 text "?\x0A"
+02:55:31 | S1 step 11 pos 11 fed 5267 -> top1 32 16.9803524 top2 18837 14.195364 text "A"
+02:55:31 | S1 step 12 pos 12 fed 32 -> top1 25 19.6883602 top2 510 18.6740665 text ":"
+02:55:31 | S2 step 7 pos 7 fed 2651 -> top1 220 23.0584373 top2 15 16.3386211 text " "
+02:55:31 | S3 step 8 pos 8 fed 589 -> top1 264 24.2201939 top2 341 22.3103123 text " a"
+02:55:31 | S4 step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+02:55:31 | S4 step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+02:55:31 |     multi pass=6 slots=8: 275.2 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 1509 KB read 150.8 KB written in 0.47 s, compute 191.8 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+02:55:31 | STAGES multi pass=6 slots=8 embed=0.005 qkv=14.80 att=1.504 wo=11.50 ffn=218.68 head=28.76 hidden=0.00 temp_c=43.1
+03:00:06 | S0 step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+03:00:06 | S1 step 13 pos 13 fed 25 -> top1 220 18.3870277 top2 576 15.8514872 text " "
+03:00:06 | S2 step 8 pos 8 fed 220 -> top1 15 22.8168011 top2 16 22.028677 text "0"
+03:00:06 | S3 step 9 pos 9 fed 264 -> top1 488 24.2598743 top2 35093 19.4856796 text " +"
+03:00:06 | S4 step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+03:00:06 | S4 step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+03:00:06 | S4 step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+03:00:06 | S4 step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+03:00:06 |     multi pass=7 slots=8: 275.3 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 1734 KB read 150.8 KB written in 0.53 s, compute 191.8 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+03:00:06 | STAGES multi pass=7 slots=8 embed=0.004 qkv=14.80 att=1.604 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:04:42 | S0 step 9 pos 9 fed 279 -> top1 7772 18.4694843 top2 1429 17.291029 text " largest"
+03:04:42 | S1 step 14 pos 14 fed 220 -> top1 19 19.8962555 top2 16 17.3152504 text "4"
+03:04:42 | S2 step 9 pos 9 fed 15 -> top1 510 22.0163803 top2 25 17.1849804 text ":\x0A"
+03:04:42 | S3 step 10 pos 10 fed 488 -> top1 293 25.7788315 top2 65 16.9011631 text " b"
+03:04:42 | S4 step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+03:04:42 | S4 step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+03:04:42 | S4 step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+03:04:42 | S4 step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+03:04:42 |     multi pass=8 slots=8: 275.5 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 2110 KB read 150.8 KB written in 0.62 s, compute 191.9 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+03:04:42 | STAGES multi pass=8 slots=8 embed=0.005 qkv=14.80 att=1.771 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:09:18 | S0 step 10 pos 10 fed 7772 -> top1 3283 21.7598343 top2 323 19.3194656 text " city"
+03:09:18 | S1 step 15 pos 15 fed 19 -> top1 17 21.0174179 top2 18 14.3962431 text "2"
+03:09:18 | S2 step 10 pos 10 fed 510 -> top1 286 25.4567661 top2 981 18.0141506 text "       "
+03:09:18 | S3 step 11 pos 11 fed 293 -> top1 280 24.3387356 top2 401 23.2796383 text ";\x0A"
+03:09:18 | S4 step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+03:09:18 | S4 step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+03:09:18 | S4 step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+03:09:18 | S4 step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+03:09:18 |     multi pass=9 slots=8: 275.7 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 2487 KB read 150.8 KB written in 0.72 s, compute 192.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+03:09:18 | STAGES multi pass=9 slots=8 embed=0.005 qkv=14.80 att=1.938 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:13:54 | S0 step 11 pos 11 fed 3283 -> top1 304 21.3497658 top2 323 18.2502346 text " in"
+03:13:54 | S1 step 16 pos 16 fed 17 -> top1 198 17.4048309 top2 271 15.0999613 text "\x0A"
+03:13:54 | S2 step 11 pos 11 fed 286 -> top1 470 21.6613464 top2 1173 16.3980999 text " return"
+03:13:54 | S3 step 12 pos 12 fed 280 -> top1 1024 25.6799507 top2 5354 22.5621357 text "const"
+03:13:54 | S4 step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+03:13:54 | S4 step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+03:13:54 | S4 step 24 pos 24 fed 675 -> top1 25 17.1263485 top2 264 16.4357147 text ":"
+03:13:54 | S4 step 25 pos 25 fed 2326 -> top1 4185 16.8953819 top2 11245 16.4080906 text " common"
+03:13:54 |     multi pass=10 slots=8: 275.8 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 2864 KB read 150.8 KB written in 0.82 s, compute 192.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:13:54 | STAGES multi pass=10 slots=8 embed=0.004 qkv=14.80 att=2.105 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:13:54 | S5 step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+03:13:54 | S5 step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+03:13:54 | S5 step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+03:13:54 | S5 step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+03:13:54 | S5 step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+03:13:54 | S5 step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+03:13:54 | S5 step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+03:13:54 | S5 step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+03:13:54 | S5 step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+03:13:54 | S5 step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+03:13:54 | S5 step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+03:13:54 | S5 step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+03:13:54 | S5 step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+03:13:54 | S5 step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+03:13:54 | S5 step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+03:13:54 | S5 step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+03:13:54 | S5 step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+03:13:54 | S5 step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+03:13:54 | S5 step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+03:13:54 | S5 step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+03:13:54 | S5 step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+03:13:54 | S5 step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+03:13:54 | S5 step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+03:13:54 | S5 step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+03:13:54 | S6 step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+03:13:54 | S6 step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+03:13:54 | S6 step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+03:13:54 | S6 step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+03:13:54 | S6 step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+03:13:54 | S6 step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+03:13:54 | S6 step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+03:13:54 | S6 step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+03:13:54 | S6 step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+03:13:54 | S6 step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+03:13:54 | S6 step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+03:13:54 | S6 step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+03:13:54 | S6 step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+03:13:54 | S6 step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+03:13:54 | S6 step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+03:13:54 | S6 step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+03:13:54 | S6 step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+03:13:54 | S6 step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+03:13:54 | S6 step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+03:13:54 | S6 step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+03:13:54 | S6 step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+03:13:54 | S6 step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+03:13:54 | S6 step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+03:13:54 | S6 step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+03:13:55 | S7 step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+03:13:55 | S7 step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+03:13:55 | S7 step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+03:13:55 | S7 step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+03:13:55 | S7 step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+03:13:55 | S7 step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+03:13:55 | S7 step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+03:13:55 | S7 step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+03:13:55 | S7 step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+03:13:55 | S7 step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+03:13:55 | S7 step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+03:13:55 | S7 step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+03:13:55 | S7 step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+03:13:55 | S7 step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+03:13:55 | S7 step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+03:13:55 | S7 step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+03:13:55 | S7 step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+03:13:55 | S7 step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+03:13:55 | S7 step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+03:13:55 | S7 step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+03:13:55 | S7 step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+03:13:55 | S7 step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+03:13:55 | S7 step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+03:13:55 | S7 step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+03:18:30 | S0 step 12 pos 12 fed 304 -> top1 9625 20.1627922 top2 279 17.4065971 text " France"
+03:18:30 | S1 step 17 pos 17 fed 198 -> top1 33 15.7412558 top2 2610 15.0620537 text "B"
+03:18:30 | S2 step 12 pos 12 fed 470 -> top1 220 19.8717175 top2 4167 18.5844803 text " "
+03:18:30 | S3 step 13 pos 13 fed 1024 -> top1 32256 21.0830994 top2 30270 19.4139729 text " subtract"
+03:18:30 | S4 step 26 pos 26 fed 6028 -> top1 5746 17.2539062 top2 6813 17.2490482 text " functions"
+03:18:30 | S5 step 24 pos 24 fed 27473 -> top1 279 18.7660522 top2 330 16.133213 text " the"
+03:18:30 | S6 step 24 pos 24 fed 7985 -> top1 264 21.8557491 top2 458 18.9802246 text " a"
+03:18:30 | S7 step 24 pos 24 fed 3838 -> top1 374 20.5358391 top2 525 19.992054 text " is"
+03:18:30 |     multi pass=11 slots=8: 275.9 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 4372 KB read 1507.5 KB written in 1.78 s, compute 191.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 24 (0
+03:18:30 | STAGES multi pass=11 slots=8 embed=0.005 qkv=14.80 att=2.172 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=42.5
+03:23:06 | S0 step 13 pos 13 fed 9625 -> top1 323 20.8321648 top2 13 19.0905323 text " and"
+03:23:06 | S1 step 18 pos 18 fed 33 -> top1 25 21.0939808 top2 13 15.3376541 text ":"
+03:23:06 | S2 step 13 pos 13 fed 220 -> top1 15 23.6745319 top2 16 15.8990774 text "0"
+03:23:06 | S3 step 14 pos 14 fed 32256 -> top1 284 27.2380428 top2 43606 17.5407658 text " ="
+03:23:06 | S4 step 27 pos 27 fed 7987 -> top1 323 15.6181059 top2 1483 15.0831957 text " and"
+03:23:06 | S5 step 25 pos 25 fed 330 -> top1 40 12.5550241 top2 785 12.1670694 text "I"
+03:23:06 | S6 step 25 pos 25 fed 264 -> top1 13027 17.2892818 top2 7943 15.0267878 text " Python"
+03:23:06 | S7 step 25 pos 25 fed 1558 -> top1 279 16.6390247 top2 330 15.3034191 text " the"
+03:23:06 |     multi pass=12 slots=8: 276.0 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3166 KB read 150.8 KB written in 0.90 s, compute 192.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:23:06 | STAGES multi pass=12 slots=8 embed=0.005 qkv=14.80 att=2.238 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:27:42 | S0 step 14 pos 14 fed 323 -> top1 374 19.3079033 top2 279 19.3019466 text " is"
+03:27:42 | S1 step 19 pos 19 fed 25 -> top1 220 21.7387733 top2 481 13.6502028 text " "
+03:27:42 | S2 step 14 pos 14 fed 15 -> top1 198 21.6951351 top2 220 16.045269 text "\x0A"
+03:27:42 | S3 step 15 pos 15 fed 284 -> top1 320 28.1235142 top2 729 18.7195206 text " ("
+03:27:42 | S4 step 28 pos 28 fed 13 -> top1 151645 20.4231148 top2 4710 14.0117807 text "<|im_end|>"
+03:27:42 | S5 step 26 pos 26 fed 18536 -> top1 1 16.1638012 top2 6556 15.8842201 text "\""
+03:27:42 | S6 step 26 pos 26 fed 13027 -> top1 729 20.8189278 top2 5316 19.4355698 text " function"
+03:27:42 | S7 step 26 pos 26 fed 11405 -> top1 26319 15.2010288 top2 49 14.0547857 text "NR"
+03:27:42 |     multi pass=13 slots=8: 276.0 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3316 KB read 150.8 KB written in 0.93 s, compute 192.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:27:42 | STAGES multi pass=13 slots=8 embed=0.005 qkv=14.80 att=2.305 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:32:18 | S0 step 15 pos 15 fed 374 -> top1 3881 20.1735954 top2 279 18.9148178 text " known"
+03:32:18 | S1 step 20 pos 20 fed 220 -> top1 19 21.2241573 top2 18 20.2722836 text "4"
+03:32:18 | S2 step 15 pos 15 fed 198 -> top1 262 25.5457935 top2 286 15.4346933 text "   "
+03:32:18 | S3 step 16 pos 16 fed 320 -> top1 64 27.5139198 top2 87 18.3929615 text "a"
+03:32:18 | S4 step 29 pos 29 fed 151645 -> top1 198 26.0102444 top2 151644 21.8600178 text "\x0A"
+03:32:18 | S5 step 27 pos 27 fed 6556 -> top1 1 16.3966465 top2 11 14.827878 text "\""
+03:32:18 | S6 step 27 pos 27 fed 825 -> top1 2852 25.6975899 top2 8447 21.1856766 text "-l"
+03:32:18 | S7 step 27 pos 27 fed 33905 -> top1 2498 17.5079079 top2 3076 16.188303 text " stand"
+03:32:18 |     multi pass=14 slots=8: 276.1 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3467 KB read 150.8 KB written in 0.97 s, compute 192.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:32:18 | STAGES multi pass=14 slots=8 embed=0.004 qkv=14.80 att=2.372 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:36:55 | S0 step 16 pos 16 fed 3881 -> top1 369 22.3402996 top2 438 19.6439362 text " for"
+03:36:55 | S1 step 21 pos 21 fed 19 -> top1 18 18.7572632 top2 19 18.1265545 text "3"
+03:36:55 | S2 step 16 pos 16 fed 262 -> top1 4409 24.1329861 top2 421 18.1796169 text " elif"
+03:36:55 | S3 step 17 pos 17 fed 64 -> top1 11 27.2127209 top2 8402 20.066618 text ","
+03:36:55 | S4 step 30 pos 30 fed 198 -> top1 151644 26.5130653 top2 151645 17.8752441 text "<|im_start|>"
+03:36:55 | S5 step 28 pos 28 fed 1 -> top1 1119 17.7312012 top2 311 17.6901779 text " into"
+03:36:55 | S6 step 28 pos 28 fed 2852 -> top1 10453 30.9476318 top2 39699 20.8601437 text "iner"
+03:36:55 | S7 step 28 pos 28 fed 2498 -> top1 369 24.3874531 top2 304 13.0611677 text " for"
+03:36:55 |     multi pass=15 slots=8: 276.2 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3618 KB read 150.8 KB written in 1.01 s, compute 192.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:36:55 | STAGES multi pass=15 slots=8 embed=0.004 qkv=14.80 att=2.439 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+03:41:31 | S0 step 17 pos 17 fed 369 -> top1 1181 23.4017372 top2 1657 16.6195412 text " its"
+03:41:31 | S1 step 22 pos 22 fed 18 -> top1 198 20.2867508 top2 271 14.6842327 text "\x0A"
+03:41:31 | S2 step 17 pos 17 fed 4409 -> top1 308 24.7253208 top2 220 15.2758551 text " n"
+03:41:31 | S3 step 18 pos 18 fed 11 -> top1 293 26.1070957 top2 220 15.4441853 text " b"
+03:41:31 | S4 step 31 pos 31 fed 151644 -> top1 198 25.3779221 top2 151644 20.777523 text "\x0A"
+03:41:31 | S5 step 29 pos 29 fed 1119 -> top1 15154 17.3236084 top2 8585 16.9272976 text " Spanish"
+03:41:31 | S6 step 29 pos 29 fed 10453 -> top1 311 19.9188023 top2 429 18.6360779 text " to"
+03:41:31 | S7 step 29 pos 29 fed 369 -> top1 304 18.6522121 top2 30 18.5251064 text " in"
+03:41:31 |     multi pass=16 slots=8: 276.2 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3769 KB read 150.8 KB written in 1.05 s, compute 192.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:41:31 | STAGES multi pass=16 slots=8 embed=0.005 qkv=14.80 att=2.506 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:46:07 | S0 step 18 pos 18 fed 1181 -> top1 9080 17.7664394 top2 6233 17.3124275 text " rich"
+03:46:07 | S1 step 23 pos 23 fed 198 -> top1 34 21.4102631 top2 785 14.5288363 text "C"
+03:46:07 | S2 step 18 pos 18 fed 308 -> top1 621 22.5138073 top2 2651 19.3472385 text " =="
+03:46:07 | S3 step 19 pos 19 fed 293 -> top1 8 27.8612194 top2 11 18.4739399 text ")"
+03:46:07 | S4 step 32 pos 32 fed 77091 -> top1 785 19.1159859 top2 19641 17.6916618 text "The"
+03:46:07 | S5 step 30 pos 30 fed 8585 -> top1 13 17.5240707 top2 382 16.1382217 text "."
+03:46:07 | S6 step 30 pos 30 fed 429 -> top1 47417 17.671299 top2 23473 17.5390797 text " calculates"
+03:46:07 | S7 step 30 pos 30 fed 30 -> top1 151645 20.1323242 top2 3555 16.1408386 text "<|im_end|>"
+03:46:07 |     multi pass=17 slots=8: 276.3 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 3920 KB read 150.8 KB written in 1.09 s, compute 192.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:46:07 | STAGES multi pass=17 slots=8 embed=0.004 qkv=14.80 att=2.573 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=42.5
+03:50:43 | S0 step 19 pos 19 fed 9080 -> top1 3840 24.9591465 top2 12752 22.2626038 text " history"
+03:50:43 | S1 step 24 pos 24 fed 34 -> top1 25 22.9263515 top2 13 14.7819328 text ":"
+03:50:43 | S2 step 19 pos 19 fed 621 -> top1 220 24.6948452 top2 16 15.0565004 text " "
+03:50:43 | S3 step 20 pos 20 fed 8 -> top1 589 25.8797092 top2 220 16.913065 text " =>"
+03:50:43 | S4 step 33 pos 33 fed 198 -> top1 785 19.9080048 top2 19641 18.5662613 text "The"
+03:50:43 | S5 step 31 pos 31 fed 13 -> top1 151645 22.3806343 top2 151644 16.4968185 text "<|im_end|>"
+03:50:43 | S6 step 31 pos 31 fed 17431 -> top1 288 26.356781 top2 974 20.1650753 text "es"
+03:50:43 | S7 step 31 pos 31 fed 151645 -> top1 198 25.2853699 top2 151644 21.8797207 text "\x0A"
+03:50:43 |     multi pass=18 slots=8: 276.4 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 4070 KB read 150.8 KB written in 1.13 s, compute 192.3 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:50:43 | STAGES multi pass=18 slots=8 embed=0.005 qkv=14.80 att=2.640 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+03:55:20 | S0 step 20 pos 20 fed 3840 -> top1 11 22.8059788 top2 323 20.0354538 text ","
+03:55:20 | S1 step 25 pos 25 fed 25 -> top1 220 23.069603 top2 2240 14.4338484 text " "
+03:55:20 | S3 step 21 pos 21 fed 589 -> top1 264 26.2143993 top2 293 18.0615768 text " a"
+03:55:20 | S4 step 34 pos 34 fed 785 -> top1 2326 21.9363136 top2 6028 21.8367596 text " three"
+03:55:20 | S5 step 32 pos 32 fed 151645 -> top1 198 25.941555 top2 151644 21.8852329 text "\x0A"
+03:55:20 | S5 step 33 pos 33 fed 198 -> top1 151644 26.5553379 top2 151645 17.6516056 text "<|im_start|>"
+03:55:20 | S6 step 32 pos 32 fed 288 -> top1 279 21.7915058 top2 264 21.7865982 text " the"
+03:55:20 | S7 step 32 pos 32 fed 198 -> top1 151644 26.2186413 top2 151645 17.103157 text "<|im_start|>"
+03:55:20 |     multi pass=19 slots=8: 276.6 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 4466 KB read 150.8 KB written in 1.23 s, compute 192.3 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:55:20 | STAGES multi pass=19 slots=8 embed=0.005 qkv=14.80 att=2.815 wo=11.50 ffn=218.68 head=28.77 hidden=0.00 temp_c=42.5
+03:59:57 | S1 step 26 pos 26 fed 220 -> top1 19 23.0081291 top2 18 19.1143074 text "4"
+03:59:57 | S3 step 22 pos 22 fed 264 -> top1 481 25.5795021 top2 488 18.0950336 text " -"
+03:59:57 | S4 step 35 pos 35 fed 2326 -> top1 6028 26.6999683 top2 1887 18.1738605 text " primary"
+03:59:57 | S5 step 34 pos 34 fed 151644 -> top1 198 25.7882156 top2 151644 20.4473515 text "\x0A"
+03:59:57 | S5 step 35 pos 35 fed 77091 -> top1 1 18.158474 top2 81581 17.7947845 text "\""
+03:59:57 | S6 step 33 pos 33 fed 264 -> top1 914 21.129549 top2 1140 20.0804596 text " string"
+03:59:57 | S6 step 34 pos 34 fed 1140 -> top1 315 19.4066181 top2 304 18.3231792 text " of"
+03:59:57 | S7 step 33 pos 33 fed 151644 -> top1 198 25.1152897 top2 151644 20.6685638 text "\x0A"
+03:59:57 |     multi pass=20 slots=8: 276.8 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 4899 KB read 150.8 KB written in 1.34 s, compute 192.4 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+03:59:57 | STAGES multi pass=20 slots=8 embed=0.004 qkv=14.80 att=3.007 wo=11.50 ffn=218.68 head=28.77 hidden=0.00 temp_c=43.1
+04:04:34 | S1 step 27 pos 27 fed 19 -> top1 19 20.9560947 top2 16 17.5713234 text "4"
+04:04:34 | S3 step 23 pos 23 fed 481 -> top1 293 26.2040234 top2 65 17.7665653 text " b"
+04:04:34 | S4 step 36 pos 36 fed 6028 -> top1 7987 25.4879646 top2 21036 15.7356691 text " colors"
+04:04:34 | S5 step 36 pos 36 fed 198 -> top1 81581 18.6145248 top2 1 17.8690548 text "Bonjour"
+04:04:34 | S6 step 35 pos 35 fed 2598 -> top1 1565 19.9078846 top2 330 18.24193 text " `"
+04:04:34 | S6 step 36 pos 36 fed 11943 -> top1 323 18.3076954 top2 624 17.7188473 text " and"
+04:04:34 | S7 step 34 pos 34 fed 77091 -> top1 5012 19.4772701 top2 641 13.7883101 text "PS"
+04:04:34 | S7 step 35 pos 35 fed 198 -> top1 5012 20.7754974 top2 3838 15.0610695 text "PS"
+04:04:34 |     multi pass=21 slots=8: 276.8 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 5088 KB read 150.8 KB written in 1.39 s, compute 192.5 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+04:04:34 | STAGES multi pass=21 slots=8 embed=0.005 qkv=14.80 att=3.091 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+04:09:11 | S1 step 28 pos 28 fed 19 -> top1 198 19.9618645 top2 271 15.6465597 text "\x0A"
+04:09:11 | S3 step 24 pos 24 fed 293 -> top1 280 25.5475922 top2 401 23.1118202 text ";\x0A"
+04:09:11 | S4 step 37 pos 37 fed 7987 -> top1 525 21.6889992 top2 11 17.3342075 text " are"
+04:09:11 | S5 step 37 pos 37 fed 81581 -> top1 151645 17.0260544 top2 13 14.7937365 text "<|im_end|>"
+04:09:11 | S6 step 37 pos 37 fed 13 -> top1 151645 18.969841 top2 576 15.1175604 text "<|im_end|>"
+04:09:11 | S6 step 38 pos 38 fed 151645 -> top1 198 25.9060421 top2 151644 21.6847897 text "\x0A"
+04:09:11 | S6 step 39 pos 39 fed 198 -> top1 151644 26.557394 top2 151645 17.698597 text "<|im_start|>"
+04:09:11 | S7 step 36 pos 36 fed 5012 -> top1 33905 26.7706814 top2 22038 16.4026699 text "RAM"
+04:09:11 |     multi pass=22 slots=8: 277.0 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 5352 KB read 150.8 KB written in 1.46 s, compute 192.5 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+04:09:11 | STAGES multi pass=22 slots=8 embed=0.005 qkv=14.80 att=3.208 wo=11.50 ffn=218.67 head=28.77 hidden=0.00 temp_c=43.1
+04:13:03 | S1 step 29 pos 29 fed 198 -> top1 35 21.000246 top2 69769 15.1772537 text "D"
+04:13:03 | S4 step 38 pos 38 fed 525 -> top1 2518 21.2178764 top2 1447 18.5874195 text " red"
+04:13:03 | S6 step 40 pos 40 fed 151644 -> top1 198 24.9916039 top2 151644 21.3851032 text "\x0A"
+04:13:03 | S6 step 41 pos 41 fed 77091 -> top1 95456 18.713726 top2 2610 18.5562973 text "Certainly"
+04:13:03 | S6 step 42 pos 42 fed 198 -> top1 2610 18.9344444 top2 95456 18.3995075 text "You"
+04:13:03 | S7 step 37 pos 37 fed 33905 -> top1 13352 21.5626183 top2 374 18.0696487 text " stands"
+04:13:03 |     multi pass=23 slots=6: 232.5 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 4391 KB read 113.1 KB written in 1.20 s, compute 148.3 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.0
+04:13:03 | STAGES multi pass=23 slots=6 embed=0.004 qkv=12.32 att=2.575 wo=9.54 ffn=183.88 head=24.19 hidden=0.00 temp_c=43.1
+04:15:48 | S4 step 39 pos 39 fed 2518 -> top1 11 23.1628132 top2 320 14.6804819 text ","
+04:15:48 | S6 step 43 pos 43 fed 2610 -> top1 646 23.4290276 top2 1410 14.1232862 text " can"
+04:15:48 | S7 step 38 pos 38 fed 13352 -> top1 369 23.9704533 top2 2805 13.0220232 text " for"
+04:15:48 |     multi pass=24 slots=3: 164.9 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2318 KB read 56.5 KB written in 0.64 s, compute 81.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:15:48 | STAGES multi pass=24 slots=3 embed=0.002 qkv=8.60 att=1.347 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=42.5
+04:18:33 | S4 step 40 pos 40 fed 11 -> top1 6303 25.9711266 top2 6176 25.27882 text " blue"
+04:18:33 | S6 step 44 pos 44 fed 646 -> top1 9931 23.442461 top2 990 19.7265949 text " reverse"
+04:18:33 | S7 step 39 pos 39 fed 369 -> top1 27573 17.6955128 top2 330 17.2517872 text " Phase"
+04:18:33 |     multi pass=25 slots=3: 164.9 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2374 KB read 56.5 KB written in 0.65 s, compute 81.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:18:33 | STAGES multi pass=25 slots=3 embed=0.002 qkv=8.60 att=1.372 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=42.5
+04:21:18 | S4 step 41 pos 41 fed 6303 -> top1 11 24.1559601 top2 323 18.4194469 text ","
+04:21:18 | S6 step 45 pos 45 fed 9931 -> top1 264 24.2844639 top2 279 18.7806721 text " a"
+04:21:18 | S7 step 40 pos 40 fed 27573 -> top1 10388 21.3341103 top2 26510 19.5074368 text " Change"
+04:21:18 |     multi pass=26 slots=3: 165.0 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2431 KB read 56.5 KB written in 0.66 s, compute 81.1 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:21:18 | STAGES multi pass=26 slots=3 embed=0.002 qkv=8.60 att=1.397 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=42.5
+04:24:03 | S4 step 42 pos 42 fed 11 -> top1 323 24.014164 top2 6176 13.6364765 text " and"
+04:24:03 | S6 step 46 pos 46 fed 264 -> top1 1140 25.7049847 top2 13027 19.362711 text " list"
+04:24:03 | S7 step 41 pos 41 fed 10388 -> top1 13850 22.5663071 top2 10612 22.4228821 text " Memory"
+04:24:03 |     multi pass=27 slots=3: 165.0 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2487 KB read 56.5 KB written in 0.68 s, compute 81.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:24:03 | STAGES multi pass=27 slots=3 embed=0.002 qkv=8.60 att=1.422 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=42.5
+04:26:48 | S4 step 43 pos 43 fed 323 -> top1 6176 27.3622894 top2 13753 27.1837769 text " green"
+04:26:48 | S6 step 47 pos 47 fed 1140 -> top1 304 20.3238163 top2 1565 19.7492924 text " in"
+04:26:48 | S7 step 42 pos 42 fed 13850 -> top1 13 19.2542591 top2 11 18.7702122 text "."
+04:26:48 |     multi pass=28 slots=3: 165.0 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2544 KB read 56.5 KB written in 0.69 s, compute 81.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:26:48 | STAGES multi pass=28 slots=3 embed=0.002 qkv=8.60 att=1.447 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=43.1
+04:29:33 | S4 step 44 pos 44 fed 6176 -> top1 13 21.3371506 top2 11 17.1262817 text "."
+04:29:33 | S6 step 48 pos 48 fed 304 -> top1 13027 23.228363 top2 264 17.7604275 text " Python"
+04:29:33 | S7 step 43 pos 43 fed 13 -> top1 151645 19.3171463 top2 1084 18.5935211 text "<|im_end|>"
+04:29:33 |     multi pass=29 slots=3: 165.0 s: SD 1834.8 MB in 83.2 s (22.07 MB/s), PSRAM 2600 KB read 56.5 KB written in 0.71 s, compute 81.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:29:33 | STAGES multi pass=29 slots=3 embed=0.002 qkv=8.60 att=1.472 wo=6.58 ffn=131.06 head=17.32 hidden=0.00 temp_c=42.5
+04:31:56 | S4 step 45 pos 45 fed 13 -> top1 151645 19.5102692 top2 4220 18.6456699 text "<|im_end|>"
+04:31:56 | S6 step 49 pos 49 fed 13027 -> top1 1667 22.0330105 top2 304 20.2640991 text " using"
+04:31:56 |     multi pass=30 slots=2: 143.0 s: SD 1834.8 MB in 83.3 s (22.04 MB/s), PSRAM 1809 KB read 37.7 KB written in 0.50 s, compute 59.2 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:31:56 | STAGES multi pass=30 slots=2 embed=0.001 qkv=7.36 att=1.019 wo=5.61 ffn=113.98 head=15.02 hidden=0.00 temp_c=42.5
+04:33:58 | S6 step 50 pos 50 fed 1667 -> top1 264 20.6614513 top2 84915 20.2838898 text " a"
+04:33:58 |     multi pass=31 slots=1: 121.5 s: SD 1834.8 MB in 92.3 s (19.89 MB/s), PSRAM 961 KB read 18.8 KB written in 0.27 s, compute 28.9 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 
+04:33:58 | STAGES multi pass=31 slots=1 embed=0.001 qkv=6.13 att=0.541 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=41.9
+04:35:59 | S6 step 51 pos 51 fed 264 -> top1 825 20.4942379 top2 3175 19.3126717 text " one"
+04:35:59 |     multi pass=32 slots=1: 121.5 s: SD 1834.8 MB in 92.2 s (19.89 MB/s), PSRAM 980 KB read 18.8 KB written in 0.27 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 
+04:35:59 | STAGES multi pass=32 slots=1 embed=0.001 qkv=6.13 att=0.549 wo=4.63 ffn=96.37 head=13.79 hidden=0.00 temp_c=42.5
+04:38:00 | S6 step 52 pos 52 fed 825 -> top1 2852 33.9136047 top2 8447 26.3009319 text "-l"
+04:38:00 |     multi pass=33 slots=1: 121.5 s: SD 1834.8 MB in 92.3 s (19.89 MB/s), PSRAM 999 KB read 18.8 KB written in 0.28 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 
+04:38:00 | STAGES multi pass=33 slots=1 embed=0.001 qkv=6.13 att=0.557 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=41.9
+04:40:02 | S6 step 53 pos 53 fed 2852 -> top1 10453 32.0851936 top2 39699 18.857132 text "iner"
+04:40:02 |     multi pass=34 slots=1: 121.5 s: SD 1834.8 MB in 92.3 s (19.89 MB/s), PSRAM 1018 KB read 18.8 KB written in 0.28 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:40:02 | STAGES multi pass=34 slots=1 embed=0.001 qkv=6.13 att=0.566 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=42.5
+04:42:03 | S6 step 54 pos 54 fed 10453 -> top1 448 20.3804207 top2 553 18.9796085 text " with"
+04:42:03 |     multi pass=35 slots=1: 121.5 s: SD 1834.8 MB in 92.3 s (19.89 MB/s), PSRAM 1036 KB read 18.8 KB written in 0.29 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:42:03 | STAGES multi pass=35 slots=1 embed=0.001 qkv=6.13 att=0.574 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=42.5
+04:44:05 | S6 step 55 pos 55 fed 448 -> top1 279 22.3895149 top2 84915 21.6920166 text " the"
+04:44:05 |     multi pass=36 slots=1: 121.5 s: SD 1834.8 MB in 92.2 s (19.89 MB/s), PSRAM 1055 KB read 18.8 KB written in 0.29 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:44:05 | STAGES multi pass=36 slots=1 embed=0.001 qkv=6.13 att=0.582 wo=4.63 ffn=96.37 head=13.79 hidden=0.00 temp_c=41.9
+04:46:06 | S6 step 56 pos 56 fed 279 -> top1 1565 21.8632545 top2 84915 21.5956211 text " `"
+04:46:06 |     multi pass=37 slots=1: 121.5 s: SD 1834.8 MB in 92.2 s (19.89 MB/s), PSRAM 1074 KB read 18.8 KB written in 0.30 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:46:06 | STAGES multi pass=37 slots=1 embed=0.001 qkv=6.13 att=0.591 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=41.9
+04:48:08 | S6 step 57 pos 57 fed 1565 -> top1 265 23.5729713 top2 25903 21.7101593 text "re"
+04:48:08 |     multi pass=38 slots=1: 121.5 s: SD 1834.8 MB in 92.2 s (19.89 MB/s), PSRAM 1093 KB read 18.8 KB written in 0.30 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:48:08 | STAGES multi pass=38 slots=1 embed=0.001 qkv=6.13 att=0.599 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=41.9
+04:50:09 | S6 step 58 pos 58 fed 265 -> top1 43776 36.0300674 top2 3004 24.7813053 text "versed"
+04:50:09 |     multi pass=39 slots=1: 121.5 s: SD 1834.8 MB in 92.2 s (19.89 MB/s), PSRAM 1112 KB read 18.8 KB written in 0.31 s, compute 29.0 s; PSRAM self-check so far: 7 rows re-read, 1 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+04:50:09 | STAGES multi pass=39 slots=1 embed=0.001 qkv=6.13 att=0.607 wo=4.63 ffn=96.37 head=13.80 hidden=0.00 temp_c=41.9
+04:50:09 |   ANSWER S0: " Paris. Paris is the largest city in France and is known for its rich history,"
+04:50:09 |   ANSWER S1: " 42\x0AB: 43\x0AC: 44\x0AD"
+04:50:09 |   ANSWER S2: "    if n <= 0:\x0A        return 0\x0A    elif n == "
+04:50:09 |   ANSWER S3: " a + b;\x0Aconst subtract = (a, b) => a - b;\x0A"
+04:50:09 |   ANSWER S4: "The three primary colors are red, blue, and green.<|im_end|>"
+04:50:09 |   ANSWER S5: "Bonjour<|im_end|>"
+04:50:09 |   ANSWER S6: "You can reverse a list in Python using a one-liner with the `reversed"
+04:50:09 |   ANSWER S7: "PSRAM stands for Phase Change Memory.<|im_end|>"
+04:50:09 |   8 prompts, 39 passes over the weights for 211 positions in 8527 s, 218.6 s per pass; one at a time they would take 128 passes
+04:50:09 | RUN multi=8 n_gen=16 passes=39 positions=211 shared=72 solo_passes=128 total_s=8527.1 per_pass_s=218.64 sd_gb=69.881 sd_mbs=21.55 sd_s=3321.2 compute_s=5178.9 hidden_s=0.0 ps_s=27.0 ps_fix_r=7 ps_fix_w=1 ps_bad=0 ps_sw=252 ps_sw_s=0.52 tem
+
+[suite 2026-09-28 04:50:40] group together8 run 1 done: 8/8 prompts equal the PC reference; RUN multi=8 n_gen=16 passes=39 positions=211 shared=72 solo_passes=128 total_s=8527.1 per_pass_s=218.64 sd_gb=69.881 sd_mbs=21.55 sd_s=3321.2 compute_s=5178.9 hidden_s=0.0 ps_s=27.0 ps_fix_r=7 ps_fix_w=1 ps_bad=0 ps_sw=252 ps_sw_s=0.52 tem
+
+[suite 2026-09-28 04:50:40] round 1 complete; passes.md updated
+
+[suite 2026-09-28 04:50:40] suite complete
+
+[suite 2026-09-28 04:50:40] >>> ::stats
+04:50:41 |   DONE. Type another prompt and press Enter.
+04:50:41 | STATS bank 0 CS0 quad write 3 read 16 burst 96 rate_mb_s 9.41
+04:50:41 | STATS bank 1 CS1 quad write 3 read 24 burst 96 rate_mb_s 7.31
+04:50:41 | STATS bank 2 Y1 single 0x0B write 7 read 9 burst 64 rate_mb_s 3.11
+04:50:41 | STATS bank 3 Y5 single 0x0B write 3 read 9 burst 64 rate_mb_s 3.11
+04:50:41 | STATS bank 4 Y4 single 0x0B write 8 read 10 burst 56 rate_mb_s 2.95
+04:50:41 | STATS bank 5 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+04:50:41 | STATS bank 6 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.83
+04:50:41 | STATS bank 7 Y0 single 0x03 write 6 read 24 burst 32 rate_mb_s 1.78
+04:50:41 | STATS ps_fix_r 7 ps_fix_w 1 ps_bad 0 temp_c 43.1 gen 16 max_seq 2608 uptime_s 11509

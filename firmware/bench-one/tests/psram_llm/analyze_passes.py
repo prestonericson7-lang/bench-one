@@ -51,8 +51,9 @@ def way_name(w):
         return "FIFO" + clk
     if w["sdio"] == "?":
         return "card mode not in the log"
-    return "DMA, overlap %d, align %d, slice %s%s%s" % (w["overlap"], w["align"], "%d us" % w["slice"] if w["slice"] else "one row",
-                                                        ", bursts " + w["burst"] if w.get("burst") else "", clk)
+    return "%s, overlap %d, align %d, slice %s%s%s" % ("ADMA2" if w.get("sdpath") == "adma" else "DMA", w["overlap"], w["align"],
+                                                       "%d us" % w["slice"] if w["slice"] else "one row",
+                                                       ", bursts " + w["burst"] if w.get("burst") else "", clk)
 
 
 def main():
@@ -89,6 +90,10 @@ def main():
         m = re.match(r'^(?:SDCFG (set|sdfat)|SWEEP best) wml (\d+) brst (\d+) blen (\d+)', s)
         if m:                                                      # v8b: the DMA burst setting in force
             w = dict(w, burst="" if m.group(1) == "sdfat" else "wml %s brst %s blen %s" % (m.group(2), m.group(3), m.group(4)))
+            continue
+        m = re.match(r'^SDPATH (file|adma)', s)
+        if m:                                                      # v9b: pipeline reads by ADMA2 descriptors
+            w = dict(w, sdpath=m.group(1))
             continue
         m = re.match(r'^(OVERLAP|ALIGN|SLICE) (\d+)', s)
         if m:

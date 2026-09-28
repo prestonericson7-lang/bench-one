@@ -1439,7 +1439,12 @@ static int cache_read(int l, int which, int t0, int n)
                 ps_read(b, a + o_sc(which, t0 + j), (uint8_t *)KCS + (size_t)j * sd, sd) ||
                 ps_read(b, a + o_sum(which, t0 + j), &SUMC[j], 4)) return -1;
         }
-        if (tries) S.ps_rows_reread++;
+        if (tries) {
+            S.ps_rows_reread++;
+            if (S.ps_rows_reread <= 8)                             /* the first few, so the log names the chip */
+                plat_log("    cache row re-read: bank %d, layer %d, position %d (%s), right after %d more read(s)",
+                         b, l, t0 + j, which ? "values" : "keys", tries);
+        }
     }
     return 0;
 }

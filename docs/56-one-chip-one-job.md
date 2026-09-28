@@ -93,6 +93,80 @@ this one; on the flat layout that byte would have been anyone's. The context cos
 position per prompt in an 8-slot pass (measured slope; v8b 0.010): at the full 2,608 positions the PSRAM
 adds about 13 s to a token instead of 27.
 
+Eight prompts together (4 plain, 4 chat, 16 tokens each; v6 on the flat layout at the 49.5 MHz card clock,
+`20260927-122709`; v9, `20260928-022632`):
+
+| | v6 | v9 |
+|---|---|---|
+| all eight answered | 9,461.7 s | **8,527.1 s** |
+| a pass | 242.6 s | 218.6 s |
+| PSRAM over the 39 passes | 168.0 s | **27.0 s** |
+| chip selects | — | 252 (0.52 s) |
+| rows caught by the checksum and re-read right | — | **7** |
+| writes redone | 0 | 1 |
+| prompts equal to the PC | 8 of 8 | **8 of 8** |
+
+The 72 shared-opening positions are copied inside each layer's chip now (`kv_copy`), 6 chip selects a pass.
+Seven cache rows came back wrong from a chip during the run and were caught by their checksums and re-read
+right; on the flat layout with its double read those would have been caught too — the difference is the
+27 s against 168.
+
+## The card by ADMA2: the DMA path that is not capped
+
+Simple DMA (SdFat's) reads this card at 7.3 MB/s whatever its registers say (docs/54). The same controller
+has a second DMA mode, ADMA2 -- a descriptor table instead of one address register -- which is the mode
+NXP's own driver uses. `::sdadma` (v9b) arms a table for SdFat's `readSectors()` and reads 2 MB of the model
+at each size, every byte summed and compared with the FIFO read (`20260928-045113-psram_llm-sdadma`, reproduced by the rerun `20260928-045546-psram_llm-sdadma`, card at
+66 MHz):
+
+| read size | simple DMA | **ADMA2** | FIFO |
+|---|---|---|---|
+| 4 KB | | **8.31 MB/s** | |
+| 16 KB | | **14.20** | |
+| 64 KB | 7.56 | **17.28** | 23.94 |
+
+All bytes right at every size. The shape is a fixed cost per command plus a per-byte rate: from the 16 and
+64 KB points, **274 µs a command and 18.6 MB/s asymptotic** -- the card's own set-up time for a fresh CMD18,
+which FIFO mode never pays because it keeps one transfer open across sequential reads. So ADMA2 is 2.3× the
+simple DMA path and still under FIFO; what it buys is that the CPU is free during the read. The pipeline's
+blocks are 24 KB, about 15 MB/s at this cost curve, so for a one-token pass (arithmetic 29 s, card 76 s by
+FIFO) ADMA2 with the arithmetic hidden is a loss, and for an eight-position pass (arithmetic 192 s) it is a
+gain of up to 30% -- the A/B below measures both. (The sweep's first run also tried 256 KB into a 64 KB
+buffer, my error; the board reset itself and the sweep is now bounded to its buffer.)
+
+**The A/B on one boot** (`20260928-045737-psram_llm-suite`; France, a 5-position batched pass then two
+one-token passes; every arm 7 of 7 equal to the PC, logit delta 0.0):
+
+| pass | FIFO | **ADMA2, arithmetic hidden under the read** | ADMA2, no overlap |
+|---|---|---|---|
+| 5 prompt positions | 208.6 s (card 83.0, arithmetic 125.5) | **143.0 s** (card wait left 17.0, arithmetic 125.8) | 260.9 s (card 135.2) |
+| one token | **104.8 s** (card 76.0, arithmetic 28.7) | 137.5 s (card 108.5) | 159.9 s (card 131.1) |
+
+With the arithmetic hidden, a batched pass becomes arithmetic-bound: 118 of the 135 s of card time vanished
+under the 126 s of computing, **31% off the pass**. A one-token pass has only 29 s of arithmetic to hide 131 s
+of card behind, so there FIFO's 24 MB/s wins. The rule that follows, and that v9c applies before every pass:
+**three or more positions in the pass, ADMA2 with overlap; fewer, FIFO** (the mode switch is a card restart,
+about two seconds, once per prompt).
+
+**v9c, the rule live** (`20260928-052543-psram_llm-suite`; the chat test, 45-token prompt, 4 answer tokens,
+49 of 49 equal to the PC):
+
+| | v8b (FIFO only) | v9 (FIFO only) | **v9c (per-pass rule)** |
+|---|---|---|---|
+| an 8-position prompt pass | 278.7 s | 274.8 s | **193.7 s** (card wait left 1.6 s; 145.7 s of card under the arithmetic) |
+| the 5-position tail pass | 213.6 s | 210.2 s | **144.5 s** |
+| first answer token | 1,615.4 s | 1,589.9 s | **1,118.4 s (18.6 min)** |
+| each answer token after (FIFO) | 105.7 s | 105.1 s | 105.1 s |
+| the whole test | 2,038.4 s | 2,010.2 s | **1,538.6 s** |
+| card time hidden under arithmetic | 0 | 0 | 853.4 s |
+| reading a prompt | 103 tokens an hour | 105 | **149 tokens an hour** |
+
+One card-mode switch per prompt (before the first pass, and back to FIFO before the first single token), 50
+chip selects, 0 PSRAM corrections. A prompt pass is now arithmetic-bound: 192 s of M7 with the card
+invisible behind it. The one-token pass is card-bound at 76 s of FIFO and stays there until the card itself
+is faster or the DMA path's 274 µs per command is paid less often (larger pipeline blocks, or one open
+transfer for a whole matrix -- the next thing to try).
+
 ## For the FPGA
 
 This is the layout to carry over: independent memories, each owning whole layers, a checksum beside every

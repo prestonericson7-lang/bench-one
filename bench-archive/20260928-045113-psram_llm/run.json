@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-045113",
+  "sketch": "psram_llm",
+  "git": "fcafefb",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v9b: ::sdadma (card by ADMA2 descriptors, 2 MB byte-checked at 4 read sizes), ::sdpath adma (pipeline reads by ADMA2 with the overlap), cache row re-reads named",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 593434
+}

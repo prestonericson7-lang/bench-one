@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-052543",
+  "sketch": "psram_llm",
+  "git": "fcafefb",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v9c: card path chosen per pass (>= 3 positions: ADMA2 with the arithmetic under the read; else FIFO); realistic chat test",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 596314
+}

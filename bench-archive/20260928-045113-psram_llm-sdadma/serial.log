@@ -1,0 +1,87 @@
+
+[board_cmd 2026-09-28 04:51:48] >>> I
+04:51:48 |       Y0   no quad setting survives 1024 kB
+04:51:51 |       Y0   single 0x03 edge write 11 read 12, running at write 14 read 16 burst 48 setup 16 ->  2.35 MB/s
+04:51:53 |       Y0   single 0x0B edge write  3 read  8, running at write  6 read 11 burst 56 setup 16 ->  2.84 MB/s
+04:51:56 |       Y1   no quad setting survives 1024 kB
+04:51:59 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+04:52:01 |       Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+04:52:04 |       Y2   no quad setting survives 1024 kB
+04:52:06 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+04:52:08 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.84 MB/s
+04:52:11 |       Y3   no quad setting survives 1024 kB
+04:52:14 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+04:52:16 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+04:52:18 |       Y4   no quad setting survives 1024 kB
+04:52:19 |       Y4   no single 0x03 setting survives 1024 kB
+04:52:20 |       Y4   no single 0x0B setting survives 1024 kB
+04:52:20 |       Y4: not usable
+04:52:20 |       Y5   no quad setting survives 1024 kB
+04:52:23 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+04:52:25 |       Y5   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+04:52:27 |   proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+04:52:27 |     CS0  filled 8 MB in 0.3 s
+04:52:28 |     CS1  filled 8 MB in 0.3 s
+04:52:30 |     Y1   filled 8 MB in 1.8 s
+04:52:31 |     Y5   filled 8 MB in 1.3 s
+04:52:32 |     Y3   filled 8 MB in 1.3 s
+04:52:34 |     Y0   filled 8 MB in 1.7 s
+04:52:35 |     Y2   filled 8 MB in 1.3 s
+04:52:36 |     CS0  quad        read back 8 MB in 0.9 s (9.40 MB/s): 0 wrong
+04:52:37 |     CS1  quad        read back 8 MB in 1.1 s (7.31 MB/s): 0 wrong
+04:52:40 |     Y1   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+04:52:43 |     Y5   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+04:52:46 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+04:52:49 |     Y0   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 40 wrong  -> DROPPED
+04:52:52 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+04:52:52 |   PSRAM in use: 6 banks, 50331648 bytes
+04:52:52 |   SD card
+04:52:52 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+04:52:52 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+04:52:52 |     qwen3b.gguf: 1929903072 bytes
+04:52:52 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+04:52:52 | CLKSWEEP begin temp_c 42.5
+04:52:52 |     SD up (FIFO_SDIO), clock 49500 kHz
+04:52:52 |     qwen3b.gguf: 1929903072 bytes
+04:52:53 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 132 ms)
+04:52:53 | CLKSWEEP khz 49500 divider 4 mb_s 22.91 (SdFat's, the reference)
+04:52:54 | CLKSWEEP khz 66000 divider 3 mb_s 24.04 regions 8 wrong 0 failed 0
+04:52:55 | CLKSWEEP khz 99000 divider 2 mb_s 23.87 regions 8 wrong 0 failed 0
+04:52:55 |     SD up (DMA_SDIO), clock 49500 kHz
+04:52:55 |     qwen3b.gguf: 1929903072 bytes
+04:52:56 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+04:52:56 | CLKSWEEP best khz 66000 divider 3 mb_s 24.04 (kept)
+04:52:56 | CLKSWEEP end temp_c 42.5
+04:53:00 |     sequential read: 32 MB in 4.47 s = 7.51 MB/s
+04:53:00 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+04:53:00 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:53:03 |     3.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+04:53:03 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+04:53:03 |     3085938688 parameters in the file
+04:53:03 |     read from the card per token: 1923948176 bytes
+04:53:03 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+04:53:03 |     PSRAM: 6 chips, the attention cache on 5 of them, one layer per region (1048416 bytes), 1956 positions; 48 layer slots, 12 spare (any one chip can fail) -- nothing of the model
+04:53:03 |     layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 CS1 CS1 Y1 Y1 Y1 Y1 Y1 Y1 Y1 Y1 Y5 Y5 Y5 Y5 Y5 Y5 Y5 Y5 Y3 Y3 Y3 Y3
+04:53:03 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[board_cmd 2026-09-28 04:53:03] >>> ::hold
+04:53:03 | HOLD waiting for prompts
+
+[board_cmd 2026-09-28 04:53:03] >>> I
+04:53:03 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[board_cmd 2026-09-28 04:53:03] >>> ::sdadma
+04:53:03 | ADMA begin temp_c 43.1
+04:53:03 |     SD up (FIFO_SDIO), clock 66000 kHz
+04:53:03 |     qwen3b.gguf: 1929903072 bytes
+04:53:04 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 112 ms)
+04:53:04 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:53:04 | ADMA fifo mb_s 23.94
+04:53:04 |     SD up (DMA_SDIO), clock 66000 kHz
+04:53:04 |     qwen3b.gguf: 1929903072 bytes
+04:53:05 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 786 ms)
+04:53:05 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:53:05 | ADMA sdma read_size 65536 mb_s 7.56 data OK
+04:53:05 | ADMA adma2 read_size 4096 mb_s 8.31 data OK adma_err 0x00000000
+04:53:05 | ADMA adma2 read_size 16384 mb_s 14.20 data OK adma_err 0x00000000
+04:53:05 | ADMA adma2 read_size 65536 mb_s 17.28 data OK adma_err 0x00000000

@@ -344,6 +344,7 @@ static void poll_stop(void)
  * one already positioned closest below it, so interleaved streams (gate/up) each move forward only. */
 #define MF_POOL 4
 static bool     mf_contig;
+static uint32_t mf_sector0;                  /* the model file's first sector when it is contiguous */
 static FsFile   mfp[MF_POOL];
 static uint64_t mfp_pos[MF_POOL];
 static uint32_t mfp_used[MF_POOL], mfp_tick;
@@ -425,6 +426,9 @@ static void sd_cfg_reapply(void)
 static int  g_overlap = 1;                   /* ::overlap 0|1 */
 static int  g_align = 1;                     /* ::align 0|1: whole sectors per pipeline read, DMA only */
 static uint32_t g_slice_us;                  /* ::slice N: 0 = one row per yield() */
+static int  g_sdpath;                        /* ::sdpath file|adma: 1 = whole-sector pipeline reads by ADMA2 (v9b) */
+static void adma_arm(void *buf, uint32_t n);
+static void adma_disarm(void);
 static int (*volatile g_ywork)(void *);
 static void *g_yctx;
 
@@ -448,6 +452,7 @@ FLASHMEM static bool model_file_open(void)
     uint32_t s0 = 0, s1 = 0;
     const uint32_t t0 = millis();
     mf_contig = mf.contiguousRange(&s0, &s1);
+    mf_sector0 = s0;
     const uint8_t ft = sd.fatType();
     if (mf_contig) {
         say("    contiguous on the card, sectors %lu..%lu (%s): every seek is one addition (checked in %lu ms)",
@@ -547,6 +552,18 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
         len = (pre + n + 511u) & ~511u;
     }
     if (work && g_dma && g_overlap) { g_yctx = ctx; g_ywork = work; }
+    /* ::sdpath adma (v9b): whole sectors of the contiguous model file straight through the card object with an
+     * ADMA2 descriptor table for this very buffer -- no file layer, no cluster splitting, one CMD18 -- and the
+     * core's rows run in SdFat's wait for it, exactly as with simple DMA. The pipeline buffers are DTCM. */
+    if (g_sdpath == 1 && g_dma && mf_contig && (a % 512u) == 0 && (len % 512u) == 0 && len <= 8u * 32768u &&
+        ((uintptr_t)d % 4u) == 0 && a + len <= ((mf_size + 511u) & ~511ull)) {
+        adma_arm(d, len);
+        const bool ok = sd.card()->readSectors((uint32_t)(mf_sector0 + a / 512u), d, len / 512u);
+        adma_disarm();
+        g_ywork = 0;
+        if (!ok) { say("    ADMA2 read failed at %llu (+%lu): SdFat error 0x%02X", (unsigned long long)a, (unsigned long)len, (unsigned)sd.sdErrorCode()); return -1; }
+        return 0;
+    }
     const int r = mf_read_at(a, d, len, (uint32_t)(off - a) + n);   /* the file may end inside the last sector */
     g_ywork = 0;
     return r;
@@ -717,6 +734,12 @@ void plat_emit(const char *s, int n) { Serial.write((const uint8_t *)s, (size_t)
  *    ::sdclksweep   the card clock above SdFat's 49.5 MHz (66, 99), 8 MB checked byte for byte at each;
  *                   keeps the fastest that reads right ("CLKSWEEP ..." lines)
  *    ::sdclk N      card clock = 198 MHz / N (2..16); "::sdclk 0" = SdFat's own
+ *    ::admamin N    a pass with N or more positions reads the card by ADMA2 with the arithmetic under the read,
+ *                   a smaller one by FIFO (default 3, measured: docs/56); 0 = no automatic switching
+ *    ::sdpath file|adma  a pipeline read goes through SdFat's file layer (default) or, in DMA mode, straight to
+ *                   the card object as whole sectors with an ADMA2 descriptor table for the core's buffer
+ *    ::sdadma       the card by ADMA2 (descriptor DMA) at four read sizes, 2 MB each checked byte for byte
+ *                   against FIFO and against SdFat's simple DMA ("ADMA ..." lines)
  *                   (every one of these four gives the same step lines; they move only the time)
  *    anything else  a prompt. \n \t \\ are unescaped, so code and chat templates fit on one line
  *
@@ -800,6 +823,26 @@ static bool read_line(char *out, int max, uint32_t wait_ms)
 static int g_prefill = 1;                 /* ::prefill 0|1 -- the prompt through tl_prefill, or one token at a time */
 
 /* One position's line, exactly the format tests/tl_host.c and tests/tl_ref.c print, and the text so far. */
+/* WHICH WAY THE CARD IS READ IS DECIDED PER PASS (v9c). Measured 2026-09-28 (docs/56): a batched pass of 5
+ * positions took 208.6 s by FIFO and 143.0 s by ADMA2 with the arithmetic run under the read; a one-token pass
+ * 104.8 s by FIFO and 137.5 s by ADMA2, because 29 s of arithmetic cannot hide 131 s of card. So a pass with
+ * g_adma_min or more positions reads the card by ADMA2 with the overlap, a smaller one by FIFO; the switch
+ * is a card restart (about 2 s), made only when the answer changes -- once per prompt, a few per group. */
+static int g_adma_min = 3;                   /* ::admamin N; 0 = never switch automatically */
+static void card_for_slots(int slots)
+{
+    if (!mf_contig || g_adma_min <= 0) return;
+    const bool want = slots >= g_adma_min;
+    if (want != g_dma) {
+        say("  card: %d position%s in this pass -> %s", slots, slots == 1 ? "" : "s",
+            want ? "ADMA2 with the arithmetic under the read" : "FIFO");
+        if (!sdio_switch(want)) { halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+        say("SDIO %s", want ? "dma" : "fifo");
+    }
+    if (g_sdpath != (want ? 1 : 0)) { g_sdpath = want ? 1 : 0; say("SDPATH %s", want ? "adma" : "file"); }
+    if (want) { g_overlap = 1; g_align = 1; }
+}
+
 /* After a chip fault a prompt is re-run from position 0 (run_prompt, run_multi below): the step lines that
  * were already printed come out again prefixed "R ", so the log holds both copies to compare. */
 static int g_replay_to, g_run_steps;                 /* one prompt: steps printed before the fault / so far */
@@ -873,6 +916,7 @@ static bool run_prompt_once(const char *prompt)
         const int B = tl_batch() < 64 ? tl_batch() : 64;
         for (int p0 = 0; p0 < n; p0 += B) {
             const int k = (n - p0) < B ? (n - p0) : B;
+            card_for_slots(k);
             tl_stats_reset();
             if (tl_prefill(ids + p0, k, p0, a1, b1, a2, b2)) {
                 if (g_abort) { say("  STOPPED in the prompt by ::stop, between two card reads"); say("RUN error=stopped step=%d", p0); g_abort = false; return true; }
@@ -898,6 +942,7 @@ static bool run_prompt_once(const char *prompt)
         step0 = n;
         if (next == info.eos) ended = true;
     }
+    if (!ended && step0 < n + g_gen) card_for_slots(1);
     for (int step = step0; !ended && step < n + g_gen; step++) {
         const int32_t fed = step < n ? ids[step] : next;
         int32_t t1, t2;
@@ -1014,6 +1059,11 @@ static bool run_multi_once(int ns)
     uint64_t sd_total = 0;
     float tmax = -1000.0f;
     for (;;) {
+        {
+            int live = 0;
+            for (int i = 0; i < ns; i++) live += !mseq[i].done;
+            if (live) card_for_slots(live < tl_batch() ? live : tl_batch());
+        }
         tl_stats_reset();
         r = tl_multi_pass(mseq, ns, multi_emit, NULL);
         if (r <= 0) break;
@@ -1280,6 +1330,85 @@ FLASHMEM static void sd_clk_sweep(void)
     say("CLKSWEEP end temp_c %.1f", tempmonGetTemp());
 }
 
+/* THE CARD BY ADMA2 (v9b experiment). SdFat's DMA path uses the uSDHC's simple DMA (PROT_CTRL DMASEL 00) and
+ * measured 7.3 MB/s on this card whatever the watermark and burst registers said (::sdsweep), against 22.9
+ * by FIFO. NXP's own driver runs the same controller in ADMA2 mode (DMASEL 10): the transfer follows a
+ * descriptor table -- {attribute, address} pairs, attribute = length << 16 | Tran (0x21) | End (0x02) --
+ * instead of DS_ADDR. ::sdadma arms such a table for SdFat's own readSectors() (its DS_ADDR write is then
+ * ignored) and reads 2 MB of the model at four read sizes, each summed and compared with the FIFO read.
+ * A fast, right ADMA2 read is what the v7 overlap (arithmetic during the card wait) has been waiting for. */
+__attribute__((aligned(32))) static uint32_t adma_desc[2 * 8];   /* up to 8 x 32 KB */
+static void adma_arm(void *buf, uint32_t n)
+{
+    uint8_t *p = (uint8_t *)buf;
+    uint32_t i = 0;
+    while (n && i < 8) {
+        const uint32_t k = n < 32768u ? n : 32768u;
+        adma_desc[2 * i]     = (k << 16) | 0x21u | (n == k ? 0x02u : 0u);
+        adma_desc[2 * i + 1] = (uint32_t)p;
+        p += k; n -= k; i++;
+    }
+    USDHC1_ADMA_SYS_ADDR = (uint32_t)adma_desc;
+    USDHC1_PROT_CTRL = (USDHC1_PROT_CTRL & ~(3u << 8)) | (2u << 8);
+}
+static void adma_disarm(void) { USDHC1_PROT_CTRL &= ~(3u << 8); }
+
+FLASHMEM static bool sd_region_adma(uint64_t off, uint32_t K, uint64_t *sum, float *mbs, uint32_t *errstat)
+{
+    const uint32_t N = 2u << 20;
+    uint64_t h = 1469598103934665603ull;
+    uint32_t us = 0;
+    *errstat = 0;
+    if (K > SDBUF_BYTES || K % 512u) { say("    ADMA2 read size %lu does not fit the %u-byte buffer", (unsigned long)K, (unsigned)SDBUF_BYTES); return false; }
+    for (uint32_t got = 0; got < N; got += K) {
+        arm_dcache_flush_delete(sdbuf, K);
+        adma_arm(sdbuf, K);
+        const uint32_t t0 = micros();
+        const bool ok = sd.card()->readSectors((uint32_t)(mf_sector0 + (off + got) / 512u), sdbuf, K / 512u);
+        us += micros() - t0;
+        *errstat |= USDHC1_ADMA_ERR_STATUS;
+        adma_disarm();
+        if (!ok) {
+            say("    ADMA2 read of %lu bytes failed: SdFat error 0x%02X data 0x%08lX, ADMA_ERR_STATUS 0x%08lX", (unsigned long)K,
+                (unsigned)sd.sdErrorCode(), (unsigned long)sd.sdErrorData(), (unsigned long)*errstat);
+            return false;
+        }
+        arm_dcache_delete(sdbuf, K);
+        for (uint32_t i = 0; i < K; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+    }
+    *sum = h;
+    *mbs = 2.0f * 1.048576f / (us / 1e6f);
+    return true;
+}
+
+FLASHMEM static void sd_adma_sweep(void)
+{
+    say("ADMA begin temp_c %.1f", tempmonGetTemp());
+    if (!mf_contig) { say("ADMA end: the model file is not contiguous, no sector arithmetic"); return; }
+    const bool was_dma = g_dma;
+    uint64_t ref = 0, s = 0;
+    float r = 0;
+    if (g_dma && !sdio_switch(false)) { say("ADMA end: FIFO restart failed"); return; }
+    if (!sd_region(512ull << 20, &ref, &r)) { say("ADMA end: FIFO read failed"); return; }
+    say("ADMA fifo mb_s %.2f", r);
+    if (!sdio_switch(true)) { say("ADMA end: DMA restart failed"); return; }
+    if (sd_region(512ull << 20, &s, &r)) say("ADMA sdma read_size 65536 mb_s %.2f data %s", r, s == ref ? "OK" : "WRONG");
+    static const uint32_t SZ[3] = { 4096, 16384, 65536 };   /* <= SDBUF_BYTES: the 04:52 build read 256 KB into
+                                                              a 64 KB buffer and the board reset itself */
+    for (int k = 0; k < 3; k++) {
+        uint32_t es = 0;
+        if (!sd_region_adma(512ull << 20, SZ[k], &s, &r, &es)) {
+            say("ADMA adma2 read_size %lu FAILED; restarting the card", (unsigned long)SZ[k]);
+            if (!sdio_switch(true)) { say("ADMA end: DMA restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+            continue;
+        }
+        say("ADMA adma2 read_size %lu mb_s %.2f data %s adma_err 0x%08lX", (unsigned long)SZ[k], r, s == ref ? "OK" : "WRONG", (unsigned long)es);
+    }
+    sd_idle();
+    if (!was_dma && !sdio_switch(false)) { say("ADMA end: FIFO restart failed"); return; }
+    say("ADMA end temp_c %.1f", tempmonGetTemp());
+}
+
 FLASHMEM static void card_bench(void)
 {
     static const uint32_t SZ[3] = { 4096, 16384, 65536 };
@@ -1424,6 +1553,20 @@ FLASHMEM static void dispatch_one(char *line)
     if (!strncmp(line, "::align", 7)) { g_align = atoi(line + 7) ? 1 : 0; say("ALIGN %d (card %s)", g_align, g_dma ? "DMA_SDIO" : "FIFO_SDIO: reads stay exact"); return; }
     if (!strcmp(line, "::sdsweep")) { sd_sweep(); return; }
     if (!strcmp(line, "::sdclksweep")) { sd_clk_sweep(); return; }
+    if (!strcmp(line, "::sdadma")) { sd_adma_sweep(); return; }
+    if (!strncmp(line, "::admamin", 9)) {                    /* ::admamin N: passes with >= N positions go by ADMA2; 0 = never */
+        long v = strtol(line + 9, NULL, 10);
+        if (v < 0) v = 0;
+        if (v > 8) v = 8;
+        g_adma_min = (int)v;
+        say("ADMAMIN %d%s", g_adma_min, g_adma_min ? "" : " (the card path is only what ::sdio/::sdpath set)");
+        return;
+    }
+    if (!strncmp(line, "::sdpath", 8)) {                     /* ::sdpath file|adma: how a pipeline read reaches the card */
+        g_sdpath = strstr(line + 8, "adma") ? 1 : 0;
+        say("SDPATH %s%s", g_sdpath ? "adma" : "file", g_sdpath && !g_dma ? " (takes effect in DMA mode: ::sdio dma)" : "");
+        return;
+    }
     if (!strncmp(line, "::sdclk", 7)) {                      /* ::sdclk N: divide 198 MHz by N (2..16); 0 = SdFat's */
         const unsigned long d = strtoul(line + 7, NULL, 10);
         if (d >= 2 && d <= 16) { g_sddvs = (uint8_t)(d - 1); sd_idle(); sd_set_dvs(g_sddvs); }

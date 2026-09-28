@@ -43,7 +43,10 @@ Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 | `::slice N` | rows per `yield()` during a DMA wait: 0 = one row (default), N = N µs of rows. These four move only the time; the step lines must not change |
 | `::sdclksweep` | the card clock above SdFat's 49.5 MHz (66, 99 MHz): 8 MB in four places read twice at each and checked byte for byte; keeps the fastest by measured rate (`CLKSWEEP …` lines). **Runs at every boot** |
 | `::sdclk N` | card clock = 198 MHz / N (2–16); `::sdclk 0` = SdFat's 49.5 MHz. A failed read above 49.5 MHz drops back for good and retries |
-| `::sdsweep` | the DMA path's read watermark × burst length × burst enables, each 2 MB checked against FIFO; keeps the fastest that reads right (`SWEEP …` lines) |
+| `::admamin N` | a pass with N or more positions reads the card by ADMA2 with the arithmetic run under the read, a smaller one by FIFO (default 3, measured in `docs/56`); `::admamin 0` = no automatic switching |
+| `::sdpath file\|adma` | how a pipeline read reaches the card: SdFat's file layer, or (in DMA mode) whole sectors straight to the card object with an ADMA2 descriptor table for the core's buffer |
+| `::sdadma` | the card by ADMA2 at three read sizes, 2 MB each checked byte for byte against FIFO and against SdFat's simple DMA (`ADMA …` lines) |
+| `::sdsweep` | the simple-DMA path's read watermark × burst length × burst enables, each 2 MB checked against FIFO; keeps the fastest that reads right (`SWEEP …` lines) |
 | `::sdcfg W B L`, `::sdregs` | set the DMA watermark/burst by hand (`::sdcfg 0` = SdFat's); dump the SD controller's registers |
 | `::bench` | card at 4/16/64 KB and random 4 KB; the M7 kernels on real Q4_K and Q6_K rows, and the Q4_K dot timed in stages (`BENCH q4k_stage`); v6 adds the batched kernel with 8 vectors (`BENCH kernel_x8`); PSRAM raw and self-checked on a free bank |
 | `::stats` | banks, settings, PSRAM self-check counters, temperature |

@@ -1,0 +1,194 @@
+
+[suite 2026-09-28 04:57:37] suite start: 14 entries x 1 runs, bench x 0, tests file firmware/bench-one/tests/psram_llm/tests_adma.txt
+
+[suite 2026-09-28 04:57:37] port COM38 open
+
+[suite 2026-09-28 04:57:37] >>> I
+04:57:38 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 04:57:38] >>> I
+04:57:38 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 04:57:38] identity: I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[suite 2026-09-28 04:57:38] >>> ::prefill 1
+04:57:39 | PREFILL 1
+
+[suite 2026-09-28 04:57:39] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-28 04:57:39] >>> ::sdio fifo
+04:57:39 |     SD up (FIFO_SDIO), clock 66000 kHz
+04:57:39 |     qwen3b.gguf: 1929903072 bytes
+04:57:39 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+04:57:39 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:57:39 | SDIO fifo
+
+[suite 2026-09-28 04:57:39] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-28 04:57:39] >>> ::sdpath file
+04:57:40 | SDPATH file
+
+[suite 2026-09-28 04:57:40] board command ::sdpath file -> SDPATH file
+
+[suite 2026-09-28 04:57:42] >>> ::gen 2
+04:57:42 | GEN 2
+
+[suite 2026-09-28 04:57:42] test ab_fifo run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-28 04:57:42] >>> The capital of France is
+04:57:43 | 
+04:57:43 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+04:57:43 | prompt ids: 785 6722 315 9625 374
+05:01:11 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+05:01:11 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+05:01:11 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+05:01:11 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+05:01:11 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+05:01:11 |   >> The capital of France is Paris
+05:01:11 |     prefill=0..4: 208.6 s: SD 1834.8 MB in 83.0 s (22.11 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 125.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:01:11 | STAGES prefill=0..4 embed=0.003 qkv=11.09 att=0.637 wo=8.56 ffn=166.45 head=21.90 hidden=0.00 temp_c=42.5
+05:02:56 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+05:02:56 |   >> The capital of France is Paris.
+05:02:56 |     step=5: 104.8 s: SD 1834.8 MB in 76.0 s (24.14 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:02:56 | STAGES step=5 embed=0.001 qkv=6.14 att=0.154 wo=4.63 ffn=80.04 head=13.79 hidden=0.00 temp_c=41.2
+05:04:41 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+05:04:41 |   >> The capital of France is Paris. Paris
+05:04:41 |     step=6: 104.8 s: SD 1834.8 MB in 76.0 s (24.14 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:04:41 | STAGES step=6 embed=0.001 qkv=6.14 att=0.162 wo=4.63 ffn=80.04 head=13.80 hidden=0.00 temp_c=41.9
+05:04:41 | 
+05:04:41 |   ANSWER: " Paris. Paris"
+05:04:41 |   3 passes over the weights in 418 s (prompt 209 s), 139.4 s each; 5.38 GB read from the card
+05:04:41 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+05:04:41 | RUN n_prompt=5 n_gen=2 prefill=1 passes=3 total_s=418.2 prompt_s=208.6 per_pass_s=139.39 sd_gb=5.375 sd_mbs=23.42 sd_s=235.0 compute_s=183.0 hidden_s=0.0 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=15 ps_sw_s=0.03 temp_max_c=42.5
+
+[suite 2026-09-28 05:05:11] test ab_fifo run 1 done: {"prompt_ids_match": true, "steps": 7, "matched": 7, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-28 05:05:11] >>> ::sdio dma
+05:05:12 |   DONE. Type another prompt and press Enter.
+05:05:12 |     SD up (DMA_SDIO), clock 66000 kHz
+05:05:12 |     qwen3b.gguf: 1929903072 bytes
+05:05:12 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+05:05:12 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+05:05:12 | SDIO dma
+
+[suite 2026-09-28 05:05:12] board command ::sdio dma -> SDIO dma
+
+[suite 2026-09-28 05:05:12] >>> ::sdpath adma
+05:05:13 | SDPATH adma
+
+[suite 2026-09-28 05:05:13] board command ::sdpath adma -> SDPATH adma
+
+[suite 2026-09-28 05:05:13] >>> ::overlap 1
+05:05:13 | OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-28 05:05:13] board command ::overlap 1 -> OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-28 05:05:13] >>> ::align 1
+05:05:14 | ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-28 05:05:14] board command ::align 1 -> ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-28 05:05:14] >>> ::slice 0
+05:05:14 | SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-28 05:05:14] board command ::slice 0 -> SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-28 05:05:16] >>> ::gen 2
+05:05:17 | GEN 2
+
+[suite 2026-09-28 05:05:17] test ab_adma_overlap run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-28 05:05:17] >>> The capital of France is
+05:05:17 | 
+05:05:17 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+05:05:17 | prompt ids: 785 6722 315 9625 374
+05:07:40 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+05:07:40 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+05:07:40 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+05:07:40 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+05:07:40 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+05:07:40 |   >> The capital of France is Paris
+05:07:40 |     prefill=0..4: 143.0 s: SD 1834.8 MB in 17.0 s (107.72 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 125.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:07:40 | STAGES prefill=0..4 embed=0.004 qkv=8.03 att=0.637 wo=5.99 ffn=110.48 head=17.85 hidden=124.84 temp_c=43.8
+05:09:58 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+05:09:58 |   >> The capital of France is Paris.
+05:09:58 |     step=5: 137.5 s: SD 1834.8 MB in 108.5 s (16.91 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:09:58 | STAGES step=5 embed=0.001 qkv=7.84 att=0.154 wo=5.92 ffn=105.68 head=17.85 hidden=28.49 temp_c=43.8
+05:12:15 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+05:12:15 |   >> The capital of France is Paris. Paris
+05:12:15 |     step=6: 137.5 s: SD 1834.8 MB in 108.5 s (16.91 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 28.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:12:15 | STAGES step=6 embed=0.001 qkv=7.84 att=0.162 wo=5.92 ffn=105.68 head=17.85 hidden=28.49 temp_c=44.4
+05:12:15 | 
+05:12:15 |   ANSWER: " Paris. Paris"
+05:12:15 |   3 passes over the weights in 418 s (prompt 143 s), 139.3 s each; 5.38 GB read from the card
+05:12:15 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+05:12:15 | RUN n_prompt=5 n_gen=2 prefill=1 passes=3 total_s=417.9 prompt_s=143.0 per_pass_s=139.30 sd_gb=5.375 sd_mbs=23.52 sd_s=234.0 compute_s=183.7 hidden_s=181.8 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=15 ps_sw_s=0.03 temp_max_c=44.4
+
+[suite 2026-09-28 05:12:45] test ab_adma_overlap run 1 done: {"prompt_ids_match": true, "steps": 7, "matched": 7, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-28 05:12:45] >>> ::overlap 0
+05:12:46 |   DONE. Type another prompt and press Enter.
+05:12:46 | OVERLAP 0 (card DMA_SDIO)
+
+[suite 2026-09-28 05:12:46] board command ::overlap 0 -> OVERLAP 0 (card DMA_SDIO)
+
+[suite 2026-09-28 05:12:48] >>> ::gen 2
+05:12:49 | GEN 2
+
+[suite 2026-09-28 05:12:49] test ab_adma_plain run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-28 05:12:49] >>> The capital of France is
+05:12:49 | 
+05:12:49 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+05:12:49 | prompt ids: 785 6722 315 9625 374
+05:17:10 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+05:17:10 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+05:17:10 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+05:17:10 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+05:17:10 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+05:17:10 |   >> The capital of France is Paris
+05:17:10 |     prefill=0..4: 260.9 s: SD 1834.8 MB in 135.2 s (13.57 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 125.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:17:10 | STAGES prefill=0..4 embed=0.005 qkv=14.73 att=0.637 wo=11.38 ffn=203.54 head=30.59 hidden=0.00 temp_c=43.8
+05:19:50 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+05:19:50 |   >> The capital of France is Paris.
+05:19:50 |     step=5: 159.9 s: SD 1834.8 MB in 131.1 s (13.99 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:19:50 | STAGES step=5 embed=0.001 qkv=9.19 att=0.154 wo=6.93 ffn=122.71 head=20.87 hidden=0.00 temp_c=43.8
+05:22:30 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+05:22:30 |   >> The capital of France is Paris. Paris
+05:22:30 |     step=6: 159.9 s: SD 1834.8 MB in 131.1 s (14.00 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+05:22:30 | STAGES step=6 embed=0.001 qkv=9.19 att=0.162 wo=6.93 ffn=122.71 head=20.87 hidden=0.00 temp_c=43.8
+05:22:30 | 
+05:22:30 |   ANSWER: " Paris. Paris"
+05:22:30 |   3 passes over the weights in 581 s (prompt 261 s), 193.5 s each; 5.38 GB read from the card
+05:22:30 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+05:22:30 | RUN n_prompt=5 n_gen=2 prefill=1 passes=3 total_s=580.6 prompt_s=260.9 per_pass_s=193.54 sd_gb=5.375 sd_mbs=13.85 sd_s=397.4 compute_s=183.0 hidden_s=0.0 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=15 ps_sw_s=0.03 temp_max_c=43.8
+
+[suite 2026-09-28 05:23:00] test ab_adma_plain run 1 done: {"prompt_ids_match": true, "steps": 7, "matched": 7, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-28 05:23:00] >>> ::sdpath file
+05:23:01 |   DONE. Type another prompt and press Enter.
+05:23:01 | SDPATH file
+
+[suite 2026-09-28 05:23:01] board command ::sdpath file -> SDPATH file
+
+[suite 2026-09-28 05:23:01] >>> ::sdio fifo
+05:23:01 |     SD up (FIFO_SDIO), clock 66000 kHz
+05:23:01 |     qwen3b.gguf: 1929903072 bytes
+05:23:01 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+05:23:01 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+05:23:01 | SDIO fifo
+
+[suite 2026-09-28 05:23:01] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-28 05:23:01] round 1 complete; passes.md updated
+
+[suite 2026-09-28 05:23:01] suite complete
+
+[suite 2026-09-28 05:23:01] >>> ::stats
+05:23:02 | STATS bank 0 CS0 quad write 3 read 16 burst 96 rate_mb_s 9.41
+05:23:02 | STATS bank 1 CS1 quad write 3 read 24 burst 96 rate_mb_s 7.31
+05:23:02 | STATS bank 2 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+05:23:02 | STATS bank 3 Y5 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+05:23:02 | STATS bank 4 Y1 single 0x0B write 7 read 10 burst 56 rate_mb_s 2.95
+05:23:02 | STATS bank 5 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.84
+05:23:02 | STATS ps_fix_r 0 ps_fix_w 0 ps_bad 0 temp_c 43.8 gen 2 max_seq 1956 uptime_s 1606

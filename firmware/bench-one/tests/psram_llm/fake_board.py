@@ -91,6 +91,8 @@ class FakeBoard:
         if line.startswith("::overlap"):
             self.overlap = 1 if int(line[9:] or 0) else 0
             return self._say(["OVERLAP %d (card %s)" % (self.overlap, "DMA_SDIO" if self.dma else "FIFO_SDIO: no overlap possible")])
+        if line.startswith("::sdpath"):
+            return self._say(["SDPATH %s" % ("adma" if "adma" in line else "file")])
         if line.startswith("::align"):
             return self._say(["ALIGN %d (card %s)" % (1 if int(line[7:] or 0) else 0, "DMA_SDIO" if self.dma else "FIFO_SDIO: reads stay exact")])
         if line.startswith("::slice"):

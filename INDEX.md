@@ -18,6 +18,7 @@ If you know what you want, use the table. If you do not, start at
 
 | I want to | Go here |
 |---|---|
+| See a 3-billion-parameter model run on one Teensy, explained for anyone | [docs/57](docs/57-what-we-built-and-what-it-does.md) — every measured number in plain English; then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers and [docs/56](docs/56-one-chip-one-job.md) for the design |
 | See the machine actually work | [docs/40](docs/40-psram-bank-brought-up.md) — 8 MB of PSRAM verified on hardware, and what it cost |
 | Read one number correctly | [docs/41](docs/41-the-tuned-settings-were-a-cliff-edge.md) — why the settings in 40 stopped working the same day, and the six rules that came out of it |
 | See it do arithmetic | [docs/42](docs/42-matrix-arithmetic-on-the-teensy.md) — 499 MFLOP/s GEMM, 24 Mverts/s, and 234 MMAC/s on 4-bit weights |

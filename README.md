@@ -42,9 +42,23 @@ Hardware: Puzhi PZ7020-StarLite (XC7Z020), Orange Pi 4 Pro, Teensy 4.1. Board fa
 the vendors' manuals and schematics page by page; the traps that cost a boot are written down where
 they bit (`hardware/pz7020-starlite/PS-CONFIG.md`, `accel/README.md`).
 
-## Current state — 2026-09-12
+## Current state — 2026-09-28
 
-**[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first. Every measurement, every
+**A 3-billion-parameter model runs on one Teensy 4.1, exact to the PC.** The whole model stays on the
+microSD card and is read in full for every token; eight PSRAM chips hold only the attention cache. A
+45-token chat question reaches its first answer token in 15.9 minutes, then 105 s a token; eight
+prompts together in 1.81 hours; every step equal to the PC reference to the last printed digit.
+
+- **[docs/57 — What we built, what it does, and how we know](docs/57-what-we-built-and-what-it-does.md)** —
+  every measured number, in plain English, each traced to its log. Read this first.
+- [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) — the usable numbers in detail;
+  [docs/56](docs/56-one-chip-one-job.md) — the PSRAM as independent chips, the card read, the kernels;
+  [docs/54](docs/54-a-3b-model-on-a-teensy.md) — the full story from the first run.
+- `firmware/bench-one/tests/psram_llm/` — the firmware, the PC proof and the test process.
+
+## Earlier state — 2026-09-12 (the chain)
+
+**[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first for the chain work. Every measurement, every
 mistake worth not repeating, and exactly which code has run on hardware and which has not.
 
 The short version, all measured:
@@ -69,6 +83,7 @@ Pick the part you actually want:
 
 | You want to | Go to |
 |---|---|
+| **See a 3B language model run on one Teensy, explained for anyone** | [docs/57](docs/57-what-we-built-and-what-it-does.md) — then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers |
 | **Put 256 MB of DDR3 on a microcontroller** | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) — and [docs/38](docs/38-ddr3-on-a-microcontroller.md) for why |
 | Understand what this hardware costs and buys | [docs/27-the-machine-as-measured.md](docs/27-the-machine-as-measured.md) |
 | See a 30B model actually run | [docs/33-a-30b-runs.md](docs/33-a-30b-runs.md) |

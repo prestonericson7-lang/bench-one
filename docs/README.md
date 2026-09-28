@@ -22,10 +22,11 @@ not marginal notes. They are in this directory now.
 
 Build footage for most of what is described here: **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)**.
 
-## If you are new, read these five
+## If you are new, read these six
 
 | | |
 |---|---|
+| [57 — What we built, what it does, and how we know](57-what-we-built-and-what-it-does.md) | **start here**: a 3B model on one Teensy, every measured number in plain English, each traced to its log |
 | [27 — The machine, as specified by measurement](27-the-machine-as-measured.md) | the whole thing in one document, every figure sourced. **Corrected by 45** |
 | [23 — The real runtime, and the number that changes the architecture](23-real-runtime-measured.md) | where the discovery that read and unpack *add* comes from |
 | [33 — A 30B mixture-of-experts, and what it actually costs](33-a-30b-runs.md) | the largest model that fits, and why that class is the only one that does |
@@ -110,6 +111,21 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [45 — The Teensy had been running the scalar kernel](45-the-teensy-had-been-running-the-scalar-kernel.md) | the project's headline 39.3 MB/s was the portable fallback, because a Teensy 4.1 is a Cortex-M7 and the hand-written vector path was NEON. A Cortex-M7 DSP path is 1.45x and bit-identical, and the bottleneck moves from the nibbles to the per-sub-block double arithmetic |
 | [46 — Everything from 2026-09-11](46-session-log-2026-09-11.md) | the whole day: the bank requalified, matrix arithmetic measured across three memory tiers, the first end-to-end token rate in the project, and eight claims of mine the measurements overturned. The corrections section is the part that changes what to build |
 | [47 — The perfboard build](47-the-perfboard-build.md) | the wiring sheet for eight chips and 64 MB, keyed by PSRAM pin number; the one wire that removes the 8 MB cap; and the ground return that has to halve 40 ns per nibble to 20.2 before the hardware controller can ever be used |
+
+## Phase five — the chain handoff, then a 3B model on one Teensy
+
+| | |
+|---|---|
+| [48 — Overnight soak, 2026-09-12](48-overnight-soak.md) | the raw log: eight PSRAM banks, twenty passes each |
+| [49 — The Teensy does the arithmetic, the Luckfox does everything else](49-teensy-as-a-math-engine.md) | |
+| [50 — What this machine actually runs](50-what-this-actually-runs.md) | |
+| [51 — Chain build sheet: nine Teensys, one flash](51-chain-build-sheet.md) | |
+| [52 — One system: what each part is for, and why](52-one-system.md) | |
+| [53 — Handoff: everything measured, and where it stands](53-handoff.md) | the state of the chain work on 2026-09-12; which code has run on hardware and which has not |
+| [54 — A 3-billion-parameter model on a Teensy](54-a-3b-model-on-a-teensy.md) | the full story from the first answer on 2026-09-27: every measurement and every fix on the way |
+| [55 — The usable numbers](55-teensy-psram-llm-usable-numbers.md) | what a user gets, version by version: first answer token, tokens an hour, where a pass goes |
+| [56 — One chip, one job](56-one-chip-one-job.md) | the PSRAM as eight independent memories, the card read by ADMA2 under the arithmetic, the batched kernels; what to carry to the FPGA |
+| [57 — What we built, what it does, and how we know](57-what-we-built-and-what-it-does.md) | **the plain-English account**: every measured number, each traced to its log, for a reader who knows none of this |
 
 ## Reference
 

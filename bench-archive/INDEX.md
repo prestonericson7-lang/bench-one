@@ -111,3 +111,8 @@ been in can be returned to by flashing one file. Newest last.
 | 20260928-052543 | psram_llm | fcafefb+dirty | 1042 | suite flash: v9c: card path chosen per pass (>= 3 positions: ADMA2 with the arithmetic under the read; else FIFO); realistic chat test |
 | 20260928-052543 | psram_llm | fcafefb+dirty | - | v9c flash: the card path chosen per pass (::admamin, default 3: >= 3 positions ADMA2 with the arithmetic under the read, else FIFO) |
 | 20260928-052543 | psram_llm-suite | fcafefb+dirty | - | v9c chat 45 tokens: 8-position passes 193.7-195.8 s (v9 274.8), first answer token 1,118.4 s (v9 1,589.9; v7b 1,707.9), 105.1 s a token, 853.4 s of card hidden, total 1,538.6 s; 49/49 = PC; 0 PSRAM corrections |
+| 20260928-055523 | psram_llm-suite | b65b86d | - | v9c together8: 6,530.5 s (v9 8,527; v6 9,462), 8-slot passes 193.5 s, 3,826.6 s of card hidden, 2 card-mode switches, PSRAM 24.3 s, 1 row re-read, 210 chip selects; 8/8 = PC |
+| 20260928-074656 | psram_llm | b65b86d+dirty | 1042 | v9c + extended ::sdadma: descriptor size, 112 KB reads into the arena, watermark/burst under ADMA2 |
+| 20260928-075009 | psram_llm | b65b86d+dirty | 1042 | v9c + ::sdadma summing exactly the 2 MB region at every read size |
+| 20260928-074656 | psram_llm-sdadma | b65b86d+dirty | - | extended ::sdadma: ADMA2 17.3 MB/s at 64 KB with 1/2/4 descriptors, 17.1 at 112 KB, unchanged by watermark/burst; three sizes reported WRONG because the sweep summed past the 2 MB region (my bug). 6 banks this boot |
+| 20260928-075009 | psram_llm-sdadma | b65b86d+dirty | - | ::sdadma summing exactly the region: every size and setting data OK; ADMA2 16.4-17.0 MB/s from 64 KB up (ceiling), FIFO 23.94, simple DMA 7.56 |

@@ -125,14 +125,32 @@ at each size, every byte summed and compared with the FIFO read (`20260928-04511
 | 16 KB | | **14.20** | |
 | 64 KB | 7.56 | **17.28** | 23.94 |
 
-All bytes right at every size. The shape is a fixed cost per command plus a per-byte rate: from the 16 and
-64 KB points, **274 µs a command and 18.6 MB/s asymptotic** -- the card's own set-up time for a fresh CMD18,
-which FIFO mode never pays because it keeps one transfer open across sequential reads. So ADMA2 is 2.3× the
-simple DMA path and still under FIFO; what it buys is that the CPU is free during the read. The pipeline's
-blocks are 24 KB, about 15 MB/s at this cost curve, so for a one-token pass (arithmetic 29 s, card 76 s by
-FIFO) ADMA2 with the arithmetic hidden is a loss, and for an eight-position pass (arithmetic 192 s) it is a
-gain of up to 30% -- the A/B below measures both. (The sweep's first run also tried 256 KB into a 64 KB
-buffer, my error; the board reset itself and the sweep is now bounded to its buffer.)
+All bytes right at every size. The extended sweep (`20260928-074656-psram_llm-sdadma` and `075009`, two boots) looked for
+anything that moves the rate:
+
+| ADMA2 read | descriptors | MB/s (two boots) |
+|---|---|---|
+| 65,024 B | one of 65,024 | 16.4 / 16.8 |
+| 65,536 B | two of 32 KB | 16.5 / 17.3 |
+| 65,536 B | four of 16 KB | 16.5 / 17.3 |
+| 114,688 B | two of 56 KB | 17.0 / 17.1 |
+| 114,688 B | four of 28 KB | 17.0 / 17.1 |
+| 65,536 B, watermark 128/64/16, burst 16, enables 7 | | 16.5 / 17.3 |
+| 65,536 B, watermark 128, burst 8, enables off | | 16.5 / 17.3 |
+
+Nothing moves it: **the controller's ADMA2 path streams this card at 16.5–17.3 MB/s, full stop**, against
+FIFO's 23.9 on the same bus and clock. The shape below 64 KB is a fixed cost per command (about 250 µs, the
+card's set-up for a fresh CMD18, which FIFO never pays because it keeps one transfer open) on top of that
+rate. So ADMA2 is 2.3× the simple-DMA path and still 30% under FIFO; what it buys is that the CPU is free
+during the read.
+
+That decides where it pays. Per byte, ADMA2 costs 1/17.3 − 1/23.9 = 16 ns more than FIFO; a one-token pass
+has 28.8 s of arithmetic over 1.83 GB = 15.7 ns per byte to hide. Dead even: for one token, hiding the
+arithmetic behind the slower read gains nothing, at any block size. At three positions there are 47 ns of
+arithmetic per byte to hide against the same 16 ns penalty, and at eight, 105 ns -- the A/B below measures
+the two ends. (My errors along the way, kept in the archive: the first sweep read 256 KB into a 64 KB buffer
+and the board reset itself; the second summed past the 2 MB region for read sizes that do not divide it and
+reported three sizes WRONG that were right. Both fixed; the table above is from the corrected sweep.)
 
 **The A/B on one boot** (`20260928-045737-psram_llm-suite`; France, a 5-position batched pass then two
 one-token passes; every arm 7 of 7 equal to the PC, logit delta 0.0):
@@ -166,6 +184,20 @@ chip selects, 0 PSRAM corrections. A prompt pass is now arithmetic-bound: 192 s 
 invisible behind it. The one-token pass is card-bound at 76 s of FIFO and stays there until the card itself
 is faster or the DMA path's 274 µs per command is paid less often (larger pipeline blocks, or one open
 transfer for a whole matrix -- the next thing to try).
+
+Eight prompts together under the rule (`20260928-055523-psram_llm-suite`):
+
+| | v6 (flat layout, 49.5 MHz) | v9 (chips as memories) | **v9c (+ card path per pass)** |
+|---|---|---|---|
+| all eight answered | 9,461.7 s | 8,527.1 s | **6,530.5 s (1.81 h)** |
+| an 8-slot pass | 302 s | 274.6 s | **193.5 s** |
+| card time hidden under arithmetic | 0 | 0 | 3,826.6 s of 5,146 |
+| card-mode switches | — | — | 2 (to ADMA2 at the start; back to FIFO when 2 prompts were left) |
+| PSRAM over the run | 168.0 s | 27.0 s | 24.3 s |
+| rows caught by checksum and re-read | — | 7 | 1 |
+| prompts equal to the PC | 8 of 8 | 8 of 8 | **8 of 8** |
+
+Yesterday's estimate for eight users was 4.8 h a round; the same group is now under two hours.
 
 ## For the FPGA
 

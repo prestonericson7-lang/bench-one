@@ -1,0 +1,13 @@
+# v9: the eight prompts together (from tests_night2.txt), card in FIFO at the boot-swept clock
+::sdio fifo
+::prefill 1
+@multi together8 | 16
+france | The capital of France is
+arith | Q: What is 17 + 25?\nA:
+fib | def fibonacci(n):\n
+js | const add = (a, b) =>
+colors | <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nName three primary colors.<|im_end|>\n<|im_start|>assistant\n
+french | <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nTranslate "good morning" into French.<|im_end|>\n<|im_start|>assistant\n
+reverse | <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWrite a Python one-liner that reverses a list called xs.<|im_end|>\n<|im_start|>assistant\n
+psram | <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat does PSRAM stand for?<|im_end|>\n<|im_start|>assistant\n
+@end

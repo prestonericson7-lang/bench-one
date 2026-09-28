@@ -38,9 +38,9 @@ every boot: 6.8 s), then answered France exactly, 7 of 7 (`20260927-222806-psram
 | longest conversation the cache holds | **2,608 positions, and any one chip can fail** (docs/56) | 3,072, no spare | 3,072 | 2,048 | |
 | PSRAM over the run | 6.5 s, 59 chip selects, 1 write redone (chip Y4), 0 rows re-read | 34.8 s | | | |
 
-Eight prompts at once (4 plain, 4 chat, 16 tokens each, v6): 39 passes, 211 positions (72 of them shared
-openings), **2.63 h** for all eight, 8 of 8 equal to the PC; a pass feeding eight answers costs 302 s for 8
-tokens against 113 s for 1: **3.0× the tokens an hour** (`20260927-122709-psram_llm-suite`).
+Eight prompts at once (4 plain, 4 chat, 16 tokens each): 39 passes, 211 positions (72 of them shared
+openings), **1.81 h** for all eight on v9c (v6: 2.63 h), 8 of 8 equal to the PC; a pass feeding eight answers
+costs 193.5 s for 8 tokens against 105 s for 1: **4.3× the tokens an hour** (`20260928-055523-psram_llm-suite`).
 
 So it is a working, exact 3-billion-parameter assistant for **batch work** — questions queued and answered
 overnight — and not an interactive one.

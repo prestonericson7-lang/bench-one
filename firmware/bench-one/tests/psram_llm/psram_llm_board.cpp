@@ -1947,12 +1947,13 @@ FLASHMEM static void sd_clk_sweep(void)
  * ignored) and reads 2 MB of the model at four read sizes, each summed and compared with the FIFO read.
  * A fast, right ADMA2 read is what the v7 overlap (arithmetic during the card wait) has been waiting for. */
 __attribute__((aligned(32))) static uint32_t adma_desc[2 * 8];   /* up to 8 x 32 KB */
+static uint32_t g_adma_chunk = 32768u;       /* bytes per descriptor (<= 65024, a multiple of 512) */
 static void adma_arm(void *buf, uint32_t n)
 {
     uint8_t *p = (uint8_t *)buf;
     uint32_t i = 0;
     while (n && i < 8) {
-        const uint32_t k = n < 32768u ? n : 32768u;
+        const uint32_t k = n < g_adma_chunk ? n : g_adma_chunk;
         adma_desc[2 * i]     = (k << 16) | 0x21u | (n == k ? 0x02u : 0u);
         adma_desc[2 * i + 1] = (uint32_t)p;
         p += k; n -= k; i++;
@@ -1966,9 +1967,11 @@ FLASHMEM static bool sd_region_adma(uint64_t off, uint32_t K, uint64_t *sum, flo
 {
     const uint32_t N = 2u << 20;
     uint64_t h = 1469598103934665603ull;
-    uint32_t us = 0;
+    uint32_t us = 0, bytes = 0;
     *errstat = 0;
-    if (K > SDBUF_BYTES || K % 512u) { say("    ADMA2 read size %lu does not fit the %u-byte buffer", (unsigned long)K, (unsigned)SDBUF_BYTES); return false; }
+    uint32_t arena = 0;
+    tl_scratch(&arena);                                         /* sdbuf is the arena's start; the whole arena is free here */
+    if (K > arena || K % 512u || K > 8u * g_adma_chunk) { say("    ADMA2 read size %lu does not fit (arena %lu, 8 descriptors of %lu)", (unsigned long)K, (unsigned long)arena, (unsigned long)g_adma_chunk); return false; }
     for (uint32_t got = 0; got < N; got += K) {
         arm_dcache_flush_delete(sdbuf, K);
         adma_arm(sdbuf, K);
@@ -1983,10 +1986,14 @@ FLASHMEM static bool sd_region_adma(uint64_t off, uint32_t K, uint64_t *sum, flo
             return false;
         }
         arm_dcache_delete(sdbuf, K);
-        for (uint32_t i = 0; i < K; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+        /* the sum covers the 2 MB region exactly, whatever the read size: a size that does not divide it reads a
+         * little past the end (the 07:5x sweep summed that too and called 65,024- and 114,688-byte reads WRONG) */
+        const uint32_t take = (N - got) < K ? (N - got) : K;
+        for (uint32_t i = 0; i < take; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+        bytes += K;
     }
     *sum = h;
-    *mbs = 2.0f * 1.048576f / (us / 1e6f);
+    *mbs = (float)bytes / 1048576.0f / (us / 1e6f);
     return true;
 }
 
@@ -2002,16 +2009,33 @@ FLASHMEM static void sd_adma_sweep(void)
     say("ADMA fifo mb_s %.2f", r);
     if (!sdio_switch(true)) { say("ADMA end: DMA restart failed"); return; }
     if (sd_region(512ull << 20, &s, &r)) say("ADMA sdma read_size 65536 mb_s %.2f data %s", r, s == ref ? "OK" : "WRONG");
-    static const uint32_t SZ[3] = { 4096, 16384, 65536 };   /* <= SDBUF_BYTES: the 04:52 build read 256 KB into
-                                                              a 64 KB buffer and the board reset itself */
-    for (int k = 0; k < 3; k++) {
+    /* read size x descriptor size (the arena, 119 KB, is the buffer: the 04:52 build read 256 KB into it and the
+     * board reset itself), then the watermark and burst registers under ADMA2 at 64 KB */
+    static const uint32_t SZ[7][2] = { { 4096, 32768 }, { 16384, 32768 }, { 65024, 65024 }, { 65536, 32768 }, { 65536, 16384 },
+                                       { 114688, 57344 }, { 114688, 28672 } };
+    for (int k = 0; k < 7; k++) {
         uint32_t es = 0;
-        if (!sd_region_adma(512ull << 20, SZ[k], &s, &r, &es)) {
-            say("ADMA adma2 read_size %lu FAILED; restarting the card", (unsigned long)SZ[k]);
+        g_adma_chunk = SZ[k][1];
+        if (!sd_region_adma(512ull << 20, SZ[k][0], &s, &r, &es)) {
+            say("ADMA adma2 read_size %lu desc %lu FAILED; restarting the card", (unsigned long)SZ[k][0], (unsigned long)SZ[k][1]);
             if (!sdio_switch(true)) { say("ADMA end: DMA restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
             continue;
         }
-        say("ADMA adma2 read_size %lu mb_s %.2f data %s adma_err 0x%08lX", (unsigned long)SZ[k], r, s == ref ? "OK" : "WRONG", (unsigned long)es);
+        say("ADMA adma2 read_size %lu desc %lu mb_s %.2f data %s adma_err 0x%08lX", (unsigned long)SZ[k][0], (unsigned long)SZ[k][1], r,
+            s == ref ? "OK" : "WRONG", (unsigned long)es);
+    }
+    g_adma_chunk = 32768u;
+    {
+        const uint32_t w0 = USDHC1_WTMK_LVL, p0 = USDHC1_PROT_CTRL;
+        static const uint8_t WB[4][3] = { { 128, 16, 7 }, { 64, 16, 7 }, { 16, 16, 7 }, { 128, 8, 0 } };
+        for (int k = 0; k < 4; k++) {
+            uint32_t es = 0;
+            sd_burst_apply(WB[k][0], WB[k][1], WB[k][2]);
+            const bool ok = sd_region_adma(512ull << 20, 65536, &s, &r, &es);
+            USDHC1_WTMK_LVL = w0; USDHC1_PROT_CTRL = p0;
+            if (!ok) { say("ADMA adma2 wml %u brst %u blen %u FAILED", WB[k][0], WB[k][1], WB[k][2]); if (!sdio_switch(true)) { halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; } continue; }
+            say("ADMA adma2 read_size 65536 wml %u brst %u blen %u mb_s %.2f data %s", WB[k][0], WB[k][1], WB[k][2], r, s == ref ? "OK" : "WRONG");
+        }
     }
     sd_idle();
     if (!was_dma && !sdio_switch(false)) { say("ADMA end: FIFO restart failed"); return; }

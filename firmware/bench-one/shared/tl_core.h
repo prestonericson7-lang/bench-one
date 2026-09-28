@@ -27,9 +27,11 @@ typedef struct {
     int      n_layer, dim, hidden, n_heads, n_kv, head_dim, q_dim, vocab, max_seq;
     int32_t  bos, eos;
     uint64_t file_bytes, sd_bytes_per_token;
-    uint32_t ps_used;                 /* PSRAM bytes allocated                        */
+    uint32_t ps_used;                 /* PSRAM bytes allocated: the attention cache, nothing else */
     uint32_t n_merges;
-    uint32_t ps_tokenizer, ps_small, ps_kv;   /* where those bytes went             */
+    uint32_t ps_kv;                   /* = ps_used                                    */
+    uint32_t tok_store_bytes;         /* the tokenizer's tables in the card store (tl_plat.h) */
+    int      tok_built;               /* 1: built from the model file on this open; 0: the store matched */
     double   params;                  /* weights in the file, counted from tensor shapes */
 } tl_info_t;
 
@@ -42,8 +44,9 @@ typedef struct {
     uint64_t sd_bytes, ps_read, ps_written;
 } tl_stats_t;
 
-/* Parse the model through plat_sd_read, build the tokenizer, copy norms and biases into PSRAM and lay
- * out the attention cache in what is left. Returns 0, or -1 with the reason in err. */
+/* Parse the model through plat_sd_read; find the tokenizer's tables in the card store, or build them there
+ * (PSRAM as scratch, erased after); lay out the attention cache, the only thing kept in PSRAM. Norms and
+ * biases stay in the model file and are read where used. Returns 0, or -1 with the reason in err. */
 int  tl_open(tl_info_t *info, char *err, int errlen);
 
 /* Text -> token ids, identical to shared/tokenizer.c. Returns the count, or -1 if it does not fit. */

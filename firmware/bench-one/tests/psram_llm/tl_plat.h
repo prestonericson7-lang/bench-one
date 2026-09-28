@@ -2,10 +2,10 @@
  *  tl_plat.h -- everything the model core needs from a board, and nothing else
  * ===========================================================================================
  *
- *  The core (tl_core.c) runs a real GGUF transformer with its weights STREAMED from storage and its
+ *  The core (tl_core.c) runs a real GGUF transformer with the whole model STREAMED from storage and its
  *  working memory in an external store that is NOT memory mapped. Two boards implement this:
  *
- *    tests/psram_llm Teensy 4.1: weights on the built-in microSD (SdFat, SDIO), working memory in
+ *    tests/psram_llm Teensy 4.1: the model on the built-in microSD (SdFat, SDIO), working memory in
  *                     the bit-banged PSRAM banks (driver copied verbatim from tests/psram_worker).
  *    tests/tl_host.c  the PC: weights from the same .gguf file with fread, the "PSRAM" a 48 MB
  *                     malloc. It exists to prove the core computes exactly what model_q.c does.
@@ -47,6 +47,18 @@ uint32_t plat_ps_size(void);
 /* Transfer n bytes at virtual PSRAM address addr. addr + n <= plat_ps_size(). */
 int      plat_ps_read (uint32_t addr, void *dst, uint32_t n);
 int      plat_ps_write(uint32_t addr, const void *src, uint32_t n);
+
+/* THE MODEL STAYS ON THE CARD; THE PSRAM IS ONLY THE MODEL'S WORKING MEMORY (its attention cache).
+ * The tokenizer's lookup tables live in a second file on the card beside the model -- the Teensy's
+ * "qwen3b.tok" -- built once from the model file and reused while it still matches it (the core checks).
+ * plat_tok_open(0): open the existing store (nonzero if there is none); plat_tok_open(bytes): create it anew,
+ * replacing any old one, with room for `bytes` in ONE CONTIGUOUS RUN on the card (the tables are read at
+ * random, and a FAT32 seek in a fragmented file walks the cluster chain). plat_tok_read/_write: n bytes at
+ * offset a, inside that room; plat_tok_flush: everything written is on the card. */
+int      plat_tok_open (uint32_t bytes);
+int      plat_tok_read (uint32_t a, void *dst, uint32_t n);
+int      plat_tok_write(uint32_t a, const void *src, uint32_t n);
+int      plat_tok_flush(void);
 
 /* Monotonic seconds. */
 double   plat_now(void);

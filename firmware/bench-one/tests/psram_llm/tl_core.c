@@ -4,11 +4,13 @@
  *
  *  WHERE EVERYTHING LIVES (Qwen2.5-Coder-3B: dim 2048, hidden 11008, 16 heads, 2 kv heads, 36 layers)
  *
- *    storage (SD)   every weight matrix and the embedding table, 1.93 GB, read once per token in blocks
- *                   of whole rows (ROW, 64 KB); the tied embedding is also the output head, read in full
- *    PSRAM          tokenizer: 151,936 pieces + 151,387 merges + two open-addressing maps (~8 MB)
- *                   every norm gain and bias, 36 layers (~0.9 MB)
- *                   the attention cache, int8 + one float scale per head per position (19 KB/position)
+ *    storage (SD)   THE WHOLE MODEL. Every weight matrix and the embedding table, 1.93 GB, read once per
+ *                   token in blocks of whole rows; the tied embedding is also the output head, read in
+ *                   full; every norm gain and bias (~0.9 MB), read where each layer uses it. The tokenizer's
+ *                   tables (151,936 pieces + 151,387 merges + two open-addressing maps, 8.3 MB) in a second
+ *                   file beside the model, built from it once (see "the tokenizer's tables live on the card")
+ *    PSRAM          the model's working memory and nothing else: the attention cache, int8 + one float
+ *                   scale per head per position (19 KB/position, 3,072 positions in 58.4 MB)
  *    on-chip RAM    the buffers listed below
  *
  *  STATIC RAM, and why each is that size (defaults, this model):
@@ -16,10 +18,10 @@
  *    KB VB              2 x 512 floats          4 KB   this position's key and value
  *    HB HB2             2 x 11008 floats       86 KB   feed-forward hidden (big, OCRAM on the Teensy)
  *    XQ XS XSUM         11008 + 2 x 345        14 KB   the int8 activation, its per-32 scales and sums
- *    ATT                16 heads x 2048 pos   128 KB   attention scores for every head (OCRAM)
+ *    ATT                16 heads x 3072 pos   192 KB   attention scores for every head (OCRAM)
  *    ROW                64 KB                  64 KB   one block of weight rows (OCRAM)
  *    KC/VC + scales     64 pos x 512 + 64 x 8  34 KB   one block of the cache pulled from PSRAM
- *    G_A G_F BQ BK BV   2048 x 3 + 512 x 2     28 KB   this layer's gains and biases, from PSRAM
+ *    G_A G_F BQ BK BV   2048 x 3 + 512 x 2     28 KB   this layer's gains and biases, from the card
  *    SYM + misc         256 x 64 + small       ~20 KB  the tokenizer's merge workspace, parse buffer
  *    total                                    ~410 KB
  *
@@ -70,7 +72,8 @@
 #define TL_MAX_LAYERS  40
 #endif
 #ifndef TL_MAX_SEQ
-#define TL_MAX_SEQ     2048
+#define TL_MAX_SEQ     3072       /* the PSRAM holds only the attention cache: 3,072 positions of this model
+                                     are 58.4 MB, which 7 banks hold as well as 8 (ATT below grows with it) */
 #endif
 #define TL_ROWBUF      TL_PIPEBUF
 #define TL_KCHUNK      64         /* cache positions pulled from PSRAM per read in attention */
@@ -244,8 +247,7 @@ typedef struct {
 
 typedef struct {
     tten_t   wq, wk, wv, wo, wg, wu, wd;
-    tten_t   n_attn, n_ffn, bq, bk, bv;          /* small float tensors, copied to PSRAM */
-    uint32_t ps_attn, ps_ffn, ps_bq, ps_bk, ps_bv;
+    tten_t   n_attn, n_ffn, bq, bk, bv;          /* small float tensors, read from the card where used */
 } tlayer_t;
 
 static struct {
@@ -254,9 +256,8 @@ static struct {
     tlayer_t L[TL_MAX_LAYERS];
     tten_t   embd, onorm, out;
     int      tied;
-    uint32_t ps_onorm;
     uint64_t data_start;
-    /* tokenizer, all in PSRAM */
+    /* tokenizer: its tables in the card store (tl_plat.h), addresses relative to the store's table area */
     uint32_t n_vocab, n_merges;
     uint32_t p_off, p_blob, m_off, m_blob;       /* offset tables have n+1 entries */
     uint32_t vmap, vcap, mmap_, mcap;            /* slot = id+1 / rank+1, 0 = empty */
@@ -456,6 +457,40 @@ static int ps_zero(uint32_t a, uint32_t n)
     return 0;
 }
 
+/* ---- the tokenizer's tables live on the card ----------------------------------------------------------
+ * THE MODEL STAYS ON THE CARD; THE PSRAM IS THE MODEL'S WORKING MEMORY. The tokenizer's tables (offset
+ * tables, string blobs and two hash maps: 8.3 MB for Qwen2.5) are built once from the model file -- in PSRAM
+ * as scratch, because a hash map is built by random writes -- then copied to the card store (tl_plat.h;
+ * "qwen3b.tok" on the Teensy), read back and checked there, and the PSRAM copy erased. A later open that
+ * finds the store matching the model skips the build and never puts any of it in PSRAM. Every lookup then
+ * reads the card: a prompt's encoding is some hundreds of small reads, a generated token's text two. */
+#define TOK_HDR   512u                   /* the store: a header sector, then the tables */
+#define TOK_MAGIC "TLTOK01"
+typedef struct {
+    char     magic[8];
+    uint64_t file_bytes;                 /* the model file the tables were built from */
+    uint64_t tok_at, merge_at;           /* where its two string arrays start in that file */
+    uint32_t n_vocab, n_merges;
+    uint32_t p_off, p_blob, m_off, m_blob, vmap, vcap, mmap_, mcap;
+    uint32_t bytes;                      /* table bytes after the header */
+    uint32_t pad;
+    uint64_t sum;                        /* FNV-1a 64 of those bytes */
+} tok_hdr_t;
+static int g_tok_card;                   /* 0 while the tables are being built in PSRAM, 1 once on the card */
+static int tok_rd(uint32_t a, void *dst, uint32_t n)
+{
+    if (!g_tok_card) return ps_read(a, dst, n);
+    if (!n) return 0;
+    const int r = plat_tok_read(TOK_HDR + a, dst, n);
+    if (r) snprintf(g_err, sizeof g_err, "tokenizer store read failed at %lu (+%lu)", (unsigned long)a, (unsigned long)n);
+    return r;
+}
+static uint64_t fnv_add(uint64_t h, const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) { h ^= p[i]; h *= 1099511628211ull; }
+    return h;
+}
+
 /* A GGUF string array streamed into PSRAM as an offset table (n+1 entries, relative to the blob) and a
  * blob of the bytes. Strings are cut at the first NUL, exactly where shared/tokenizer.c's C strings end. */
 static int stream_strings(uint64_t n, uint32_t *off_tab, uint32_t *blob, uint32_t *count)
@@ -502,7 +537,7 @@ static int stream_strings(uint64_t n, uint32_t *off_tab, uint32_t *blob, uint32_
 }
 
 /* ================================================================================================
- *  the tokenizer: shared/tokenizer.c with its maps and strings in PSRAM
+ *  the tokenizer: shared/tokenizer.c with its maps and strings in the card store
  * ============================================================================================== */
 static uint16_t byte_cp[256], cp_byte[512];
 
@@ -513,27 +548,28 @@ static uint64_t fnv1a(const char *s)
     return h;
 }
 
-/* String k of a table -> buf (NUL terminated). Returns its length or -1. */
+/* String k of a table -> buf (NUL terminated). Returns its length or -1. From PSRAM while building, the card after. */
 static int ps_string(uint32_t off_tab, uint32_t blob, uint32_t k, char *buf, int max)
 {
     uint32_t o[2];
-    if (ps_read(off_tab + 4u * k, o, 8)) return -1;
+    if (tok_rd(off_tab + 4u * k, o, 8)) return -1;
     const uint32_t len = o[1] - o[0];
     if ((int)len >= max) { snprintf(g_err, sizeof g_err, "stored string %lu too long", (unsigned long)k); return -1; }
-    if (ps_read(blob + o[0], buf, len)) return -1;
+    if (tok_rd(blob + o[0], buf, len)) return -1;
     buf[len] = 0;
     return (int)len;
 }
 
 /* map_get/map_put from tokenizer.c: linear probing from fnv1a & (cap-1), first writer wins. A slot holds
- * value+1 and the key is the string with that index, so a probe reads the slot and then the string. */
+ * value+1 and the key is the string with that index, so a probe reads the slot and then the string.
+ * map_put builds (PSRAM); map_get looks up (the card, once the tables are there). */
 static int32_t map_get(uint32_t map, uint32_t cap, uint32_t off_tab, uint32_t blob, const char *k, int32_t dflt)
 {
     static char cand[TL_KEYMAX];
     uint32_t i = (uint32_t)(fnv1a(k) & (cap - 1));
     for (;;) {
         uint32_t slot;
-        if (ps_read(map + 4u * i, &slot, 4)) return dflt;
+        if (tok_rd(map + 4u * i, &slot, 4)) return dflt;
         if (!slot) return dflt;
         if (ps_string(off_tab, blob, slot - 1, cand, TL_KEYMAX) < 0) return dflt;
         if (!strcmp(cand, k)) return (int32_t)(slot - 1);
@@ -670,7 +706,7 @@ static int chunk_len(const char *s)
     return i ? i : 1;
 }
 
-/* BPE over one chunk: shared/tokenizer.c's bpe_chunk with the maps in PSRAM -- symbols are spans of one
+/* BPE over one chunk: shared/tokenizer.c's bpe_chunk with the maps in the card store -- symbols are spans of one
  * buffer, every adjacent pair's rank is kept and only the two pairs a merge touches are looked up again.
  * See tokenizer.c for why (pieces up to 256 bytes; a 64-byte slot silently stopped the merging). */
 static char     BB[2 * TL_MAX_CHUNK + 1];
@@ -830,19 +866,23 @@ static int assign_tensor(const char *name, uint32_t type, const uint64_t *dims, 
     return -1;
 }
 
-/* A small float tensor (a gain or bias) from the file into PSRAM, converted to float the way
- * gguf_read_f32 does. Bounded: dim floats at most. */
-static int small_to_ps(const tten_t *t, uint32_t n, uint32_t *addr)
+/* A small float tensor (a gain or bias): checked once at open, then read from the model file on the card
+ * each time a layer uses it and converted to float the way gguf_read_f32 does -- none of the model is kept
+ * in PSRAM. 36 layers x 26 KB is 0.94 MB a pass, 0.05% of the 1.83 GB the weights already cost. ROW is free
+ * wherever this is called: every pipeline has finished its last block by then. */
+static int small_check(const tten_t *t, uint32_t n)
 {
-    if (!t->present) { *addr = 0; return 0; }
+    if (!t->present) return 0;
     if (t->rows * t->cols != n || n > TL_MAX_DIM) { snprintf(g_err, sizeof g_err, "small tensor of %lu elements, expected %lu", (unsigned long)(t->rows * t->cols), (unsigned long)n); return -1; }
     if (t->type != GGML_F32 && t->type != GGML_F16) { snprintf(g_err, sizeof g_err, "small tensor type %lu", (unsigned long)t->type); return -1; }
-    const uint32_t nb = t->row_bytes * t->rows;
-    if (nb > TL_ROWBUF) return -1;
-    if (sd_read(t->off, ROW, nb)) return -1;
-    if (gguf_dequant(t->type, ROW, n, G_A)) { snprintf(g_err, sizeof g_err, "dequant of small tensor"); return -1; }
-    if (ps_alloc(n * 4u, addr)) return -1;
-    return ps_write(*addr, G_A, n * 4u);
+    if (t->row_bytes * t->rows > TL_ROWBUF) { snprintf(g_err, sizeof g_err, "small tensor over TL_ROWBUF"); return -1; }
+    return 0;
+}
+static int small_read(const tten_t *t, uint32_t n, float *dst)
+{
+    if (sd_read(t->off, ROW, t->row_bytes * t->rows)) return -1;
+    if (gguf_dequant(t->type, ROW, n, dst)) { snprintf(g_err, sizeof g_err, "dequant of small tensor"); return -1; }
+    return 0;
 }
 
 static int check_mat(const tten_t *t, uint32_t rows, uint32_t cols, const char *what, int l)
@@ -860,7 +900,21 @@ static int check_mat(const tten_t *t, uint32_t rows, uint32_t cols, const char *
     return 0;
 }
 
-int tl_open(tl_info_t *info, char *err, int errlen)
+/* The card store's tables, summed the way they were when written (FNV-1a 64 over the table bytes). */
+static int tok_store_sum(uint32_t bytes, uint64_t *sum)
+{
+    uint64_t h = 1469598103934665603ull;
+    for (uint32_t a = 0; a < bytes; a += TL_ROWBUF) {
+        const uint32_t k = bytes - a < TL_ROWBUF ? bytes - a : TL_ROWBUF;
+        if (plat_tok_read(TOK_HDR + a, ROW, k)) { snprintf(g_err, sizeof g_err, "tokenizer store read failed at %lu", (unsigned long)a); return -1; }
+        h = fnv_add(h, ROW, k);
+    }
+    *sum = h;
+    return 0;
+}
+
+#define TL_REBUILD (-2)
+static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
 {
     memset(&M, 0, sizeof M);
     memset(&R, 0, sizeof R);
@@ -869,9 +923,23 @@ int tl_open(tl_info_t *info, char *err, int errlen)
     g_fsize = plat_sd_size();
     g_ps_size = plat_ps_size();
     g_ps_cur = 0;
+    g_tok_card = 0;
     build_byte_map();
 
 #define FAIL() do { if (err && errlen > 0) snprintf(err, (size_t)errlen, "%s", g_err[0] ? g_err : "failed"); return -1; } while (0)
+
+    /* The tokenizer store on the card: used as it is only if it was built from this very file and every
+     * table byte still sums to what was written. Anything else is rebuilt from the model. */
+    static tok_hdr_t H;
+    memset(&H, 0, sizeof H);
+    int reuse = 0;
+    if (!force_build && !plat_tok_open(0) && !plat_tok_read(0, &H, sizeof H) && !memcmp(H.magic, TOK_MAGIC, 8) &&
+        H.file_bytes == g_fsize && H.bytes > 0) {
+        uint64_t sum;
+        if (!tok_store_sum(H.bytes, &sum) && sum == H.sum) reuse = 1;
+    }
+    g_err[0] = 0;
+    uint64_t tok_at = 0, merge_at = 0;
 
     char magic[4];
     uint32_t version;
@@ -903,12 +971,23 @@ int tl_open(tl_info_t *info, char *err, int errlen)
         uint32_t at;
         uint64_t n;
         if (r_u32(&at) || r_u64(&n)) { snprintf(g_err, sizeof g_err, "bad array header for %s", key); FAIL(); }
-        if (at == GGUF_STR && !strcmp(key, "tokenizer.ggml.tokens")) {
-            if (stream_strings(n, &M.p_off, &M.p_blob, &tok_n)) FAIL();
-            continue;
-        }
-        if (at == GGUF_STR && !strcmp(key, "tokenizer.ggml.merges")) {
-            if (stream_strings(n, &M.m_off, &M.m_blob, &M.n_merges)) FAIL();
+        if (at == GGUF_STR && (!strcmp(key, "tokenizer.ggml.tokens") || !strcmp(key, "tokenizer.ggml.merges"))) {
+            const int is_tok = !strcmp(key, "tokenizer.ggml.tokens");
+            const uint64_t here = r_tell();
+            if (reuse) {                                        /* the store has them: pass over the strings */
+                if (here != (is_tok ? H.tok_at : H.merge_at) || n != (is_tok ? H.n_vocab : H.n_merges)) return TL_REBUILD;
+                for (uint64_t j = 0; j < n; j++) {
+                    uint64_t sl;
+                    if (r_u64(&sl) || r_skip(sl)) FAIL();
+                }
+                if (is_tok) tok_n = (uint32_t)n; else M.n_merges = (uint32_t)n;
+            } else if (is_tok) {
+                tok_at = here;
+                if (stream_strings(n, &M.p_off, &M.p_blob, &tok_n)) FAIL();
+            } else {
+                merge_at = here;
+                if (stream_strings(n, &M.m_off, &M.m_blob, &M.n_merges)) FAIL();
+            }
             continue;
         }
         if (at == GGUF_I32 && !strcmp(key, "tokenizer.ggml.token_type")) {
@@ -1021,22 +1100,58 @@ int tl_open(tl_info_t *info, char *err, int errlen)
         per_tok += (uint64_t)head->rows * head->row_bytes + M.embd.row_bytes;
     }
 
-    /* ---- PSRAM: tokenizer maps, then gains and biases, then the cache in whatever is left ---- */
-    if (build_map(M.n_vocab, M.p_off, M.p_blob, &M.vmap, &M.vcap)) FAIL();
-    if (M.n_merges && build_map(M.n_merges, M.m_off, M.m_blob, &M.mmap_, &M.mcap)) FAIL();
-    const uint32_t ps_tok = g_ps_cur;
+    /* ---- the tokenizer's tables: from the card store, or built now and put there ---- */
+    uint32_t tok_bytes;
+    if (reuse) {
+        M.p_off = H.p_off; M.p_blob = H.p_blob; M.m_off = H.m_off; M.m_blob = H.m_blob;
+        M.vmap = H.vmap; M.vcap = H.vcap; M.mmap_ = H.mmap_; M.mcap = H.mcap;
+        tok_bytes = H.bytes;
+    } else {
+        /* built in PSRAM as scratch -- a hash map is random writes -- then copied to the card, read back
+         * from the card and checked, and erased from PSRAM */
+        if (build_map(M.n_vocab, M.p_off, M.p_blob, &M.vmap, &M.vcap)) FAIL();
+        if (M.n_merges && build_map(M.n_merges, M.m_off, M.m_blob, &M.mmap_, &M.mcap)) FAIL();
+        tok_bytes = g_ps_cur;
+        if (plat_tok_open(TOK_HDR + tok_bytes)) { snprintf(g_err, sizeof g_err, "could not create the tokenizer store on the card (%lu bytes)", (unsigned long)(TOK_HDR + tok_bytes)); FAIL(); }
+        uint64_t h = 1469598103934665603ull;
+        for (uint32_t a = 0; a < tok_bytes; a += TL_ROWBUF) {
+            const uint32_t k = tok_bytes - a < TL_ROWBUF ? tok_bytes - a : TL_ROWBUF;
+            if (ps_read(a, ROW, k)) FAIL();
+            h = fnv_add(h, ROW, k);
+            if (plat_tok_write(TOK_HDR + a, ROW, k)) { snprintf(g_err, sizeof g_err, "tokenizer store write failed at %lu", (unsigned long)a); FAIL(); }
+        }
+        static uint8_t hs[TOK_HDR];
+        memset(&H, 0, sizeof H);
+        memcpy(H.magic, TOK_MAGIC, 8);
+        H.file_bytes = g_fsize; H.tok_at = tok_at; H.merge_at = merge_at;
+        H.n_vocab = tok_n; H.n_merges = M.n_merges;
+        H.p_off = M.p_off; H.p_blob = M.p_blob; H.m_off = M.m_off; H.m_blob = M.m_blob;
+        H.vmap = M.vmap; H.vcap = M.vcap; H.mmap_ = M.mmap_; H.mcap = M.mcap;
+        H.bytes = tok_bytes; H.sum = h;
+        memset(hs, 0, sizeof hs);
+        memcpy(hs, &H, sizeof H);
+        if (plat_tok_write(0, hs, TOK_HDR) || plat_tok_flush()) { snprintf(g_err, sizeof g_err, "tokenizer store header write failed"); FAIL(); }
+        uint64_t back;
+        if (tok_store_sum(tok_bytes, &back)) FAIL();
+        if (back != h) { snprintf(g_err, sizeof g_err, "the tokenizer store did not read back from the card as written"); FAIL(); }
+        if (ps_zero(0, tok_bytes)) FAIL();
+        g_ps_cur = 0;
+    }
+    g_tok_card = 1;
 
+    /* ---- norms and biases: they stay in the model file; checked here, read where each layer uses them ---- */
     for (int l = 0; l < M.n_layer; l++) {
         tlayer_t *L = &M.L[l];
-        if (small_to_ps(&L->n_attn, (uint32_t)M.dim, &L->ps_attn) ||
-            small_to_ps(&L->n_ffn,  (uint32_t)M.dim, &L->ps_ffn)  ||
-            small_to_ps(&L->bq, (uint32_t)M.q_dim,  &L->ps_bq)    ||
-            small_to_ps(&L->bk, (uint32_t)M.kv_dim, &L->ps_bk)    ||
-            small_to_ps(&L->bv, (uint32_t)M.kv_dim, &L->ps_bv)) FAIL();
+        if (small_check(&L->n_attn, (uint32_t)M.dim) || small_check(&L->n_ffn, (uint32_t)M.dim) ||
+            small_check(&L->bq, (uint32_t)M.q_dim) || small_check(&L->bk, (uint32_t)M.kv_dim) ||
+            small_check(&L->bv, (uint32_t)M.kv_dim)) FAIL();
+        const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv };
+        for (size_t k = 0; k < 5; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
     }
-    if (small_to_ps(&M.onorm, (uint32_t)M.dim, &M.ps_onorm)) FAIL();
-    const uint32_t ps_small = g_ps_cur - ps_tok;
+    if (small_check(&M.onorm, (uint32_t)M.dim)) FAIL();
+    per_tok += (uint64_t)M.onorm.rows * M.onorm.row_bytes;
 
+    /* ---- PSRAM: the attention cache, and nothing else ---- */
     {
         const uint64_t per_pos = (uint64_t)M.n_layer * (2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv);
         const uint64_t left = g_ps_size > g_ps_cur + 16u ? (uint64_t)(g_ps_size - g_ps_cur - 16u) : 0;
@@ -1057,12 +1172,18 @@ int tl_open(tl_info_t *info, char *err, int errlen)
         info->n_kv = M.n_kv; info->head_dim = M.head_dim; info->q_dim = M.q_dim; info->vocab = M.vocab;
         info->max_seq = M.max_seq; info->bos = M.bos; info->eos = M.eos;
         info->file_bytes = g_fsize; info->sd_bytes_per_token = per_tok; info->ps_used = M.ps_used;
-        info->n_merges = M.n_merges; info->ps_tokenizer = ps_tok; info->ps_small = ps_small;
-        info->ps_kv = M.ps_used - ps_tok - ps_small; info->params = (double)nparams;
+        info->n_merges = M.n_merges; info->ps_kv = M.ps_used; info->params = (double)nparams;
+        info->tok_store_bytes = TOK_HDR + tok_bytes; info->tok_built = !reuse;
     }
     tl_stats_reset();
     return 0;
 #undef FAIL
+}
+
+int tl_open(tl_info_t *info, char *err, int errlen)
+{
+    const int r = tl_open_try(info, err, errlen, 0);
+    return r == TL_REBUILD ? tl_open_try(info, err, errlen, 1) : r;   /* the store no longer matches */
 }
 
 /* ================================================================================================
@@ -1281,10 +1402,10 @@ int tl_forward(int32_t token, int pos, int32_t *top1, float *l1, int32_t *top2, 
     STAGE(t_embed);
     for (int l = 0; l < M.n_layer; l++) {
         const tlayer_t *L = &M.L[l];
-        if (ps_read(L->ps_attn, G_A, (uint32_t)dim * 4u) || ps_read(L->ps_ffn, G_F, (uint32_t)dim * 4u)) goto fail;
-        if (L->bq.present && ps_read(L->ps_bq, BQ, (uint32_t)M.q_dim * 4u)) goto fail;
-        if (L->bk.present && ps_read(L->ps_bk, BK, (uint32_t)kv_dim * 4u)) goto fail;
-        if (L->bv.present && ps_read(L->ps_bv, BV, (uint32_t)kv_dim * 4u)) goto fail;
+        if (small_read(&L->n_attn, (uint32_t)dim, G_A) || small_read(&L->n_ffn, (uint32_t)dim, G_F)) goto fail;
+        if (L->bq.present && small_read(&L->bq, (uint32_t)M.q_dim, BQ)) goto fail;
+        if (L->bk.present && small_read(&L->bk, (uint32_t)kv_dim, BK)) goto fail;
+        if (L->bv.present && small_read(&L->bv, (uint32_t)kv_dim, BV)) goto fail;
 
         rmsnorm(XB, X, G_A, dim, M.eps);
         if (matvec_qkv(L, XB)) goto fail;
@@ -1317,7 +1438,7 @@ int tl_forward(int32_t token, int pos, int32_t *top1, float *l1, int32_t *top2, 
     }
 
     /* model_head: final norm, then every vocabulary row, keeping only the two best */
-    if (ps_read(M.ps_onorm, G_A, (uint32_t)dim * 4u)) goto fail;
+    if (small_read(&M.onorm, (uint32_t)dim, G_A)) goto fail;
     rmsnorm(XB, X, G_A, dim, M.eps);
     g_b1 = -INFINITY; g_b2 = -INFINITY; g_i1 = 0; g_i2 = -1;
     if (matvec(M.tied ? &M.embd : &M.out, XB, NULL, M.vocab)) goto fail;
@@ -1541,10 +1662,10 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
 
     for (int l = 0; l < M.n_layer; l++) {
         const tlayer_t *L = &M.L[l];
-        if (ps_read(L->ps_attn, G_A, (uint32_t)dim * 4u) || ps_read(L->ps_ffn, G_F, (uint32_t)dim * 4u)) goto fail;
-        if (L->bq.present && ps_read(L->ps_bq, BQ, (uint32_t)M.q_dim * 4u)) goto fail;
-        if (L->bk.present && ps_read(L->ps_bk, BK, (uint32_t)kv_dim * 4u)) goto fail;
-        if (L->bv.present && ps_read(L->ps_bv, BV, (uint32_t)kv_dim * 4u)) goto fail;
+        if (small_read(&L->n_attn, (uint32_t)dim, G_A) || small_read(&L->n_ffn, (uint32_t)dim, G_F)) goto fail;
+        if (L->bq.present && small_read(&L->bq, (uint32_t)M.q_dim, BQ)) goto fail;
+        if (L->bk.present && small_read(&L->bk, (uint32_t)kv_dim, BK)) goto fail;
+        if (L->bv.present && small_read(&L->bv, (uint32_t)kv_dim, BV)) goto fail;
 
         /* q, k, v: one quantization of each position's normed input, gguf_dot_q on every row (matvec_group) */
         for (int p = 0; p < n; p++) {
@@ -1598,7 +1719,7 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
     {
         const tten_t *head = M.tied ? &M.embd : &M.out;
         const int hp = head->type == GGML_Q4_K;
-        if (ps_read(M.ps_onorm, G_A, (uint32_t)dim * 4u)) goto fail;
+        if (small_read(&M.onorm, (uint32_t)dim, G_A)) goto fail;
         for (int p = 0; p < n; p++) {
             rmsnorm(XB, PB.x[p], G_A, dim, M.eps);
             gguf_quantize_act(XB, head->cols, PB.xq[p], PB.xs[p]);

@@ -1,0 +1,131 @@
+
+[suite 2026-09-27 22:28:35] suite start: 3 entries x 1 runs, bench x 0, tests file C:/Users/Danie/AppData/Local/Temp/claude/D--espicpc/26cc7934-6933-4694-bbbe-c6c98ad69441/scratchpad/tests_reuse.txt
+
+[suite 2026-09-27 22:28:35] port COM38 open
+
+[suite 2026-09-27 22:28:35] >>> I
+22:28:35 |       Y0   no quad setting survives 1024 kB
+22:28:38 |       Y0   single 0x03 edge write  3 read 13, running at write  6 read 18 burst 40 setup 16 ->  2.17 MB/s
+22:28:41 |       Y0   single 0x0B edge write  3 read  8, running at write  6 read 11 burst 56 setup 16 ->  2.84 MB/s
+22:28:44 |       Y1   no quad setting survives 1024 kB
+22:28:47 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+22:28:49 |       Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+22:28:51 |       Y2   no quad setting survives 1024 kB
+22:28:54 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+22:28:56 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.84 MB/s
+22:28:59 |       Y3   no quad setting survives 1024 kB
+22:29:01 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+22:29:04 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+22:29:06 |       Y4   no quad setting survives 1024 kB
+22:29:09 |       Y4   single 0x03 edge write  4 read 10, running at write  7 read 13 burst 56 setup 16 ->  2.64 MB/s
+22:29:11 |       Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+22:29:13 |       Y5   no quad setting survives 1024 kB
+22:29:16 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+22:29:18 |       Y5   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+22:29:21 | 
+22:29:21 |   proving every byte: fill all 8 banks (64 MB) with bank-tagged data, then read all back
+22:29:21 |     CS0  filled 8 MB in 0.3 s
+22:29:21 |     CS1  filled 8 MB in 0.3 s
+22:29:23 |     Y4   filled 8 MB in 1.8 s
+22:29:25 |     Y3   filled 8 MB in 1.3 s
+22:29:27 |     Y1   filled 8 MB in 1.8 s
+22:29:28 |     Y5   filled 8 MB in 1.3 s
+22:29:29 |     Y2   filled 8 MB in 1.3 s
+22:29:31 |     Y0   filled 8 MB in 1.7 s
+22:29:32 |     CS0  quad        read back 8 MB in 0.9 s (9.30 MB/s): 0 wrong
+22:29:33 |     CS1  quad        read back 8 MB in 1.1 s (7.31 MB/s): 0 wrong
+22:29:36 |     Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+22:29:38 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+22:29:41 |     Y1   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+22:29:44 |     Y5   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+22:29:47 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+22:29:50 |     Y0   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+22:29:50 |   PSRAM in use: 8 banks, 67108864 bytes
+22:29:50 | 
+22:29:50 |   SD card
+22:29:50 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+22:29:50 |     qwen3b.gguf: 1929903072 bytes
+22:29:51 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+22:29:55 |     sequential read: 32 MB in 4.62 s = 7.26 MB/s
+22:29:55 | 
+22:29:55 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+22:29:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+22:29:59 |     3.4 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+22:29:59 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+22:29:59 |     3085938688 parameters in the file
+22:29:59 |     read from the card per token: 1923948176 bytes
+22:29:59 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+22:29:59 |     PSRAM used 58392576 of 67108864: the attention cache, 3072 positions -- nothing of the model
+22:29:59 | 
+22:29:59 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[suite 2026-09-27 22:29:59] >>> ::hold
+22:30:00 | HOLD waiting for prompts
+
+[suite 2026-09-27 22:30:00] >>> I
+22:30:00 | I bench-one psram_llm v8 banks 8 ps_bytes 67108864 max_seq 3072 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 22:30:00] identity: I bench-one psram_llm v8 banks 8 ps_bytes 67108864 max_seq 3072 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 22:30:00] >>> ::sdio fifo
+22:30:01 |     SD up (FIFO_SDIO), clock 49500 kHz
+22:30:01 |     qwen3b.gguf: 1929903072 bytes
+22:30:01 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 133 ms)
+22:30:01 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+22:30:01 | SDIO fifo
+
+[suite 2026-09-27 22:30:01] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-27 22:30:01] >>> ::prefill 1
+22:30:01 | PREFILL 1
+
+[suite 2026-09-27 22:30:01] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-27 22:30:03] >>> ::gen 2
+22:30:04 | GEN 2
+
+[suite 2026-09-27 22:30:04] test france_reuse run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 22:30:04] >>> The capital of France is
+22:30:04 | 
+22:30:04 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+22:30:04 | prompt ids: 785 6722 315 9625 374
+22:33:50 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+22:33:50 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+22:33:50 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+22:33:50 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+22:33:50 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+22:33:50 |   >> The capital of France is Paris
+22:33:50 |     prefill=0..4: 226.0 s: SD 1834.8 MB in 98.0 s (18.73 MB/s), PSRAM 278 KB read 92.8 KB written in 2.55 s, compute 125.5 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+22:33:50 | STAGES prefill=0..4 embed=0.003 qkv=12.13 att=3.069 wo=9.40 ffn=176.91 head=24.48 hidden=0.00 temp_c=43.1
+22:35:43 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+22:35:43 |   >> The capital of France is Paris.
+22:35:43 |     step=5: 112.5 s: SD 1834.8 MB in 83.3 s (22.03 MB/s), PSRAM 111 KB read 18.6 KB written in 0.54 s, compute 28.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+22:35:43 | STAGES step=5 embed=0.001 qkv=6.59 att=0.649 wo=4.95 ffn=85.52 head=14.76 hidden=0.00 temp_c=41.9
+22:37:35 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+22:37:35 |   >> The capital of France is Paris. Paris
+22:37:35 |     step=6: 112.5 s: SD 1834.8 MB in 83.3 s (22.03 MB/s), PSRAM 130 KB read 18.6 KB written in 0.55 s, compute 28.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+22:37:35 | STAGES step=6 embed=0.001 qkv=6.59 att=0.663 wo=4.95 ffn=85.52 head=14.76 hidden=0.00 temp_c=42.5
+22:37:35 | 
+22:37:35 |   ANSWER: " Paris. Paris"
+22:37:35 |   3 passes over the weights in 451 s (prompt 226 s), 150.3 s each; 5.38 GB read from the card
+22:37:35 |   PSRAM self-check over the whole run: 0 reads corrected, 0 writes re-done, 0 unresolved
+22:37:35 | RUN n_prompt=5 n_gen=2 prefill=1 passes=3 total_s=451.0 prompt_s=226.0 per_pass_s=150.32 sd_gb=5.375 sd_mbs=20.81 sd_s=264.5 compute_s=182.8 hidden_s=0.0 ps_s=3.6 ps_fix_r=0 ps_fix_w=0 ps_bad=0 temp_max_c=43.1
+
+[suite 2026-09-27 22:38:06] test france_reuse run 1 done: {"prompt_ids_match": true, "steps": 7, "matched": 7, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-27 22:38:06] round 1 complete; passes.md updated
+
+[suite 2026-09-27 22:38:06] suite complete
+
+[suite 2026-09-27 22:38:06] >>> ::stats
+22:38:06 |   DONE. Type another prompt and press Enter.
+22:38:06 | STATS bank 0 CS0 quad write 3 read 16 burst 96 rate_mb_s 9.30
+22:38:06 | STATS bank 1 CS1 quad write 3 read 24 burst 96 rate_mb_s 7.31
+22:38:06 | STATS bank 2 Y4 single 0x0B write 7 read 10 burst 56 rate_mb_s 2.95
+22:38:06 | STATS bank 3 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+22:38:06 | STATS bank 4 Y1 single 0x0B write 7 read 10 burst 56 rate_mb_s 2.95
+22:38:06 | STATS bank 5 Y5 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+22:38:06 | STATS bank 6 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.84
+22:38:06 | STATS bank 7 Y0 single 0x0B write 6 read 11 burst 56 rate_mb_s 2.84
+22:38:06 | STATS ps_fix_r 0 ps_fix_w 0 ps_bad 0 temp_c 43.8 gen 2 max_seq 3072 uptime_s 575

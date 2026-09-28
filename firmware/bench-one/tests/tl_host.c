@@ -32,6 +32,52 @@ static uint64_t FS;
 static uint8_t *PS;
 static uint32_t PS_SIZE;
 
+/* The tokenizer's card store (tl_plat.h). In memory unless TL_TOKSTORE names a file, which then persists
+ * between runs as qwen3b.tok does on the card -- so a second run proves the reuse path. */
+static uint8_t *TK;
+static uint32_t TK_SIZE;
+static FILE    *TKF;
+int plat_tok_open(uint32_t bytes)
+{
+    const char *path = getenv("TL_TOKSTORE");
+    if (path) {
+        if (TKF) { fclose(TKF); TKF = NULL; }
+        if (!bytes) {
+            TKF = fopen(path, "r+b");
+            if (!TKF) return -1;
+            if (fseek(TKF, 0, SEEK_END)) return -1;
+            TK_SIZE = (uint32_t)ftell(TKF);
+            return 0;
+        }
+        TKF = fopen(path, "w+b");
+        if (!TKF || fseek(TKF, (long)bytes - 1, SEEK_SET) || fputc(0, TKF) == EOF) return -1;
+        TK_SIZE = bytes;
+        return 0;
+    }
+    if (!bytes) return TK ? 0 : -1;          /* a memory store does not outlive the process */
+    free(TK);
+    TK = (uint8_t *)malloc(bytes);
+    if (!TK) return -1;
+    memset(TK, 0xA5, bytes);
+    TK_SIZE = bytes;
+    return 0;
+}
+int plat_tok_read(uint32_t a, void *dst, uint32_t n)
+{
+    if ((uint64_t)a + n > TK_SIZE) return -1;
+    if (TKF) return (fseek(TKF, (long)a, SEEK_SET) || fread(dst, 1, n, TKF) != n) ? -1 : 0;
+    memcpy(dst, TK + a, n);
+    return 0;
+}
+int plat_tok_write(uint32_t a, const void *src, uint32_t n)
+{
+    if ((uint64_t)a + n > TK_SIZE) return -1;
+    if (TKF) return (fseek(TKF, (long)a, SEEK_SET) || fwrite(src, 1, n, TKF) != n) ? -1 : 0;
+    memcpy(TK + a, src, n);
+    return 0;
+}
+int plat_tok_flush(void) { return TKF ? fflush(TKF) : 0; }
+
 int plat_sd_read(uint64_t off, void *dst, uint32_t n)
 {
 #if defined(_WIN32)
@@ -151,8 +197,15 @@ int main(int argc, char **argv)
             in.n_merges, in.max_seq);
     fprintf(stderr, "params %.0f  file %llu bytes  read per token %llu bytes\n", in.params,
             (unsigned long long)in.file_bytes, (unsigned long long)in.sd_bytes_per_token);
-    fprintf(stderr, "PSRAM used %u of %u: tokenizer %u, gains+biases %u, cache %u\n",
-            in.ps_used, PS_SIZE, in.ps_tokenizer, in.ps_small, in.ps_kv);
+    fprintf(stderr, "PSRAM used %u of %u: the attention cache (%d positions), nothing else; tokenizer store %u bytes (%s)\n",
+            in.ps_used, PS_SIZE, in.max_seq, in.tok_store_bytes, in.tok_built ? "built now" : "reused");
+    {   /* NONE OF THE MODEL IS LEFT IN PSRAM: after open every byte is still the power-up garbage or the erased
+         * tokenizer scratch. Then new garbage, so a tokenizer lookup that still read PSRAM would answer wrong. */
+        uint32_t bad = 0;
+        for (uint32_t i = 0; i < PS_SIZE; i++) bad += PS[i] != 0xA5 && PS[i] != 0x00;
+        if (bad) { fprintf(stderr, "tl_open left %u bytes of model data in PSRAM\n", bad); return 1; }
+        memset(PS, 0x5A, PS_SIZE);
+    }
 
     /* TL_TOKREC=path: the same, for records separated by NUL bytes (so a record can hold newlines) */
     if (getenv("TL_TOKREC")) {

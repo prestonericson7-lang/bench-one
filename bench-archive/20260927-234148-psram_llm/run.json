@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-234148",
+  "sketch": "psram_llm",
+  "git": "511d0b3",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v8b: ::sdclksweep (card clock 66/99 MHz, 8 MB checked byte for byte), ::sdclk",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 570394
+}

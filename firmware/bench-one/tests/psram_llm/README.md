@@ -39,6 +39,10 @@ story and every measurement: `docs/54`.
 | `::overlap 0\|1` | DMA only: work the rows of the block already read while the next block comes off the card (default 1) |
 | `::align 0\|1` | DMA only: read the whole sectors around a block, one card command instead of two or three (default 1) |
 | `::slice N` | rows per `yield()` during a DMA wait: 0 = one row (default), N = N µs of rows. These four move only the time; the step lines must not change |
+| `::sdclksweep` | the card clock above SdFat's 49.5 MHz (66, 99 MHz): 8 MB in four places read twice at each and checked byte for byte; keeps the fastest by measured rate (`CLKSWEEP …` lines). **Runs at every boot** |
+| `::sdclk N` | card clock = 198 MHz / N (2–16); `::sdclk 0` = SdFat's 49.5 MHz. A failed read above 49.5 MHz drops back for good and retries |
+| `::sdsweep` | the DMA path's read watermark × burst length × burst enables, each 2 MB checked against FIFO; keeps the fastest that reads right (`SWEEP …` lines) |
+| `::sdcfg W B L`, `::sdregs` | set the DMA watermark/burst by hand (`::sdcfg 0` = SdFat's); dump the SD controller's registers |
 | `::bench` | card at 4/16/64 KB and random 4 KB; the M7 kernels on real Q4_K and Q6_K rows, and the Q4_K dot timed in stages (`BENCH q4k_stage`); v6 adds the batched kernel with 8 vectors (`BENCH kernel_x8`); PSRAM raw and self-checked on a free bank |
 | `::stats` | banks, settings, PSRAM self-check counters, temperature |
 | `::hold` | nothing; a host sends it in the 30 s boot window so the default prompt does not run |

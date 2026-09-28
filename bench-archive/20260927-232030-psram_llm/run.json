@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-232030",
+  "sketch": "psram_llm",
+  "git": "511d0b3",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v8b: ::sdsweep (DMA watermark/burst sweep, every setting checked byte for byte against FIFO), ::sdcfg, ::sdregs; cold code in FLASHMEM",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 567514
+}

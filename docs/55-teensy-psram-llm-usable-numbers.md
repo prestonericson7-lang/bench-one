@@ -28,15 +28,15 @@ every boot: 6.8 s), then answered France exactly, 7 of 7 (`20260927-222806-psram
 
 ## What a user gets
 
-| | v8 (everything on the card) | v7b | archive (v8 / v7b) |
-|---|---|---|---|
-| a real chat question (45 tokens with the chat template) to its **first answer token** | **1,706.4 s (28.4 min)** | 1,707.9 s | `20260927-211340` / `183958` |
-| each answer token after that | **113.0 s** | 113.2 s | same |
-| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same |
-| reading a prompt | 8 tokens per 294–297 s pass: about **97 tokens an hour** | same | same |
-| writing an answer, one user | about **32 tokens an hour** | same | |
-| longest conversation the cache holds | **3,072 positions** | 2,048 | |
-| PSRAM corrections over the boot | 0 | 0 | |
+| | v8b (card at 66 MHz) | v8 (49.5 MHz) | v7b | archive (v8b / v8 / v7b) |
+|---|---|---|---|---|
+| a real chat question (45 tokens with the chat template) to its **first answer token** | **1,615.4 s (26.9 min)** | 1,706.4 s | 1,707.9 s | `20260927-234517` / `211340` / `183958` |
+| each answer token after that | **105.7 s** | 113.0 s | 113.2 s | same |
+| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same |
+| reading a prompt | 8 tokens per 279–282 s pass: about **103 tokens an hour** | 97 | 97 | same |
+| writing an answer, one user | about **34 tokens an hour** | 32 | 32 | |
+| longest conversation the cache holds | 3,072 positions with 8 banks (2,647 with the 6 this boot had) | 3,072 | 2,048 | |
+| PSRAM corrections over the boot | 0 | 0 | 0 | |
 
 Eight prompts at once (4 plain, 4 chat, 16 tokens each, v6): 39 passes, 211 positions (72 of them shared
 openings), **2.63 h** for all eight, 8 of 8 equal to the PC; a pass feeding eight answers costs 302 s for 8
@@ -45,15 +45,22 @@ tokens against 113 s for 1: **3.0× the tokens an hour** (`20260927-122709-psram
 So it is a working, exact 3-billion-parameter assistant for **batch work** — questions queued and answered
 overnight — and not an interactive one.
 
-## Where a pass goes (v8)
+## Where a pass goes (v8b, card at 66 MHz)
 
 | pass | total | SD card | arithmetic (Teensy RAM) | PSRAM |
 |---|---|---|---|---|
-| one answer token | 113.0 s | 83.3 s (74%, 22.03 MB/s) | 28.8 s (25%) | 0.95 s (0.8%) |
-| eight prompt tokens | 293.8–297.3 s | 98.0 s (33%, 18.73 MB/s) | 192 s (65%) | 4.2–6.8 s (2%) |
+| one answer token | 105.7 s | 76.0 s (72%, 24.13 MB/s) | 28.8 s (27%) | 0.91 s (0.9%) |
+| eight prompt tokens | 278.7–282.0 s | 82.9 s (30%, 22.12 MB/s) | 192 s (69%) | 4.1–6.6 s (2%) |
 
 Every token reads the whole model off the card: 1,834.8 MB (the norms and biases add 0.9 MB and 0.2 s).
 The card sets the one-token speed; the M7's arithmetic sets the batched speed.
+
+**The card's clock.** SdFat runs the card at 49.5 MHz, the SD High Speed limit. At every boot v8b now reads
+8 MB in four places at 66 and 99 MHz, twice each, checks every byte against the 49.5 MHz read, and keeps the
+fastest divider by measured rate: 22.9 → **24.0 MB/s** at 66 MHz, and 23.9 at 99, so 66 is kept — above it
+the card, not the bus, is the ceiling. A read that fails above 49.5 MHz (every block carries a CRC16 the
+controller checks) drops the clock back for good. Reading the card by DMA was measured at 7.3 MB/s in all 36
+watermark/burst settings and is not used. Details of both sweeps: docs/54.
 
 ## The PSRAM as working memory
 
@@ -67,6 +74,15 @@ Per bank, from the boot proof that fills and reads back all 64 MB (`20260927-164
 
 Every transfer is self-checked (reads done twice, writes read back): 1.45 MB/s read and 1.84 MB/s write on a
 single-bit bank (`::bench`, 0 errors).
+
+**The banks come and go, and the boot proof catches it.** Over the 24 hours the board has now run (die
+41.9–52.2 °C throughout, fan and heatsink on; the chip's own panic point is 90 °C) the number of banks the
+boot proof accepted was 8 on seven boots, 7 on five and 6 on four. Y0 has been marginal all day (dropped at
+12:27 with 52 wrong bytes in 8 MB, accepted on the next four boots, dropped again at 23:21 with 94 and at
+23:45 with 64, when it also qualified only in the slower `0x03` mode). Y4 qualified on every boot until
+23:21 and has failed every timing setting on the three boots since. A dropped bank costs cache positions
+(3,072 → 2,647 with six banks), never correctness: the model is only laid out on banks that just read back
+all 8 MB right, and the running self-check has corrected 0 bytes since the qualification fix.
 
 **The cost of a long conversation is PSRAM time, and it is linear.** Every pass reads each prompt's whole
 cache back: measured **+0.010 s per position** of context per prompt (v8 eight-prompt passes: 4.20, 4.86,

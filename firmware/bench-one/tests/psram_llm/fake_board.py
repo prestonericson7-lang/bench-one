@@ -72,7 +72,7 @@ class FakeBoard:
     def send(self, line):
         self.log.write(("\n[suite %s] >>> %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), line)).encode("utf-8", "replace"))
         if line in ("I", "i"):
-            return self._say(["I bench-one psram_llm v7 banks 7 ps_bytes 58720256 max_seq 2048 gen %d sdio %s overlap %d align 1 slice 0 FAKE"
+            return self._say(["I bench-one psram_llm v8 banks 7 ps_bytes 58720256 max_seq 3072 gen %d sdio %s overlap %d align 1 slice 0 clk 66000 FAKE"
                               % (self.gen, "dma" if self.dma else "fifo", self.overlap)])
         if line.startswith("::gen"):
             self.gen = max(1, min(512, int(line[5:] or 16)))

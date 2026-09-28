@@ -211,6 +211,44 @@ than v6 (226.1 against 233.5 s, 112.6 against 114.0 s). It loses because the rea
 rate it would be a card-bound pass (~99 s for one position against 114, and ~195 s against 302 for 8 prompts
 together), so the DMA rate is the thing to fix; until then every test after the A/B runs in FIFO.
 
+## The card's speed, 2026-09-27 night: the DMA cap is not in any register; the clock was
+
+**Is the DMA path capped by its bursts?** SdFat's `cardInit` writes the whole watermark register as
+`RDWML(16) | WRWML(16)`, leaving the read-burst-length field at its reset value, and never sets the burst
+enables in `PROT_CTRL`. `::sdsweep` (v8b) reads the same 2 MB of the model at every read watermark (16, 32,
+64, 128 words) × burst length (4, 8, 16) × burst enables (1, 3, 7), checks each byte against the FIFO read
+of it, and keeps the fastest that reads right (`bench-archive/20260927-232030-psram_llm-sdsweep`):
+
+| | MB/s |
+|---|---|
+| FIFO (reference) | 22.91 |
+| DMA as SdFat sets it (wml 16, brst 8, blen 0) | 7.32 |
+| DMA, all 36 other settings | 7.31–7.33, every byte right |
+
+Flat to 0.3%. Whatever caps this card's DMA path, it is not the watermark, the burst length or the burst
+enables. Bill Greiman's own explanation, from the SdFat SDIO thread, fits the numbers: in DMA mode the card
+sees 512-byte transfers, and modern cards want multiples of their 512 KiB record unit. So the DMA
+investigation ends here: FIFO is the way this card is read.
+
+**Is the clock the ceiling?** FIFO reads at 22.9 MB/s, 92.5% of what four data lines carry at 49.5 MHz —
+the High Speed mode's 50 MHz, which is where SdFat stops (UHS-I above it needs 1.8 V signalling; this slot
+has none). The uSDHC divides a 198 MHz base; SdFat picks /4. `::sdclksweep` tries /3 (66 MHz) and /2
+(99 MHz): 8 MB in four places, read twice at each divider and checked byte for byte against the 49.5 MHz
+read; every block on the bus also carries a CRC16 the controller checks, so a marginal clock fails a read
+rather than passing wrong bytes (`bench-archive/20260927-234148-psram_llm-sdclk`):
+
+| card clock | FIFO, 64 KB reads | 16 MB checked |
+|---|---|---|
+| 49.5 MHz (SdFat's) | 22.92 MB/s | reference |
+| **66 MHz** | **24.03 MB/s** | 0 wrong, 0 failed |
+| 99 MHz | 23.86 MB/s | 0 wrong, 0 failed |
+
+Both clocks read every byte right, and the rate stops rising at 66 MHz: from there the **card** is the
+ceiling, not the bus. v8b runs the sweep at every boot, keeps the fastest divider by *measured* rate (66 MHz
+on this card; 99 buys nothing), and drops back to 49.5 MHz for good the first time a read fails above it.
+In a pass the card time fell from 98.0 s to **82.9 s** (18.73 → 22.12 MB/s over a whole 1.83 GB pass, seeks
+and all) — see docs/55 for what that did to the chat test.
+
 ## Reading the card while computing (v7 source)
 
 A v6 pass is card time PLUS arithmetic time (83.1 + 30.0 s), because in FIFO_SDIO mode the CPU itself copies

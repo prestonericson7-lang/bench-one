@@ -179,7 +179,7 @@ static bool sweep(bank_t &b)
     return true;
 }
 
-static bool confirm(bank_t &b)
+FLASHMEM static bool confirm(bank_t &b)
 {
     for (int attempt = 0; attempt < 8; attempt++) {
         apply(b);
@@ -205,7 +205,7 @@ static bool confirm(bank_t &b)
     return false;
 }
 
-static bool qualify(bank_t &out)
+FLASHMEM static bool qualify(bank_t &out)
 {
     static const uint8_t SETUPS[2] = { 0, 16 };
     bank_t best;
@@ -232,7 +232,7 @@ static bool qualify(bank_t &out)
 }
 
 /* drive.py stable(): the same span read back again and again from one fill, every byte compared. */
-static bool stable(const bank_t &b)
+FLASHMEM static bool stable(const bank_t &b)
 {
     apply(b);
     fill(0, SPAN);
@@ -243,7 +243,7 @@ static bool stable(const bank_t &b)
     return true;
 }
 
-static void psram_bring_up(void)
+FLASHMEM static void psram_bring_up(void)
 {
     say("\n  PSRAM discovery: asking all ten selects for an identity");
     static const struct { uint8_t kind, y; const char *name; } ROUTES[10] = {
@@ -358,6 +358,54 @@ static void sd_idle(void) { if (g_sd_up) sd.card()->syncDevice(); }
 /* the card's bus clock as SdFat set it (SdioCard; sd.card() is its base interface) */
 static unsigned long sd_khz(void) { return (unsigned long)static_cast<SdioCard *>(sd.card())->kHzSdClk(); }
 
+/* THE DMA PATH'S BURSTS (v8b). v7b measured DMA_SDIO at 7.26 MB/s against FIFO's 18.5 at the same 49.5 MHz
+ * clock, flat across read sizes and target memories: a limit inside the controller's DMA, not the card.
+ * SdFat's cardInit writes the whole watermark register, SDHC_WML = RDWML(16) | WRWML(16), leaving the read
+ * burst length field at 0, and never sets PROT_CTRL's burst-length enables (bits 14:12). ::sdsweep tries
+ * read watermark x read burst length x burst enables on DMA reads of the same 2 MB, checks every byte against
+ * the FIFO read of it, and keeps the fastest that reads right. cardInit writes the register again on every
+ * sd.begin, so the kept setting is reapplied after each (sd_cfg_reapply). */
+static uint8_t g_rwml, g_rbrst, g_blen;
+static bool    g_sdcfg;                      /* false: SdFat's own settings */
+static bool    g_dma;                        /* the card came up in DMA_SDIO (see THE CARD AND THE ARITHMETIC) */
+FLASHMEM static void sd_regs(const char *why)
+{
+    say("    uSDHC %s: WTMK_LVL 0x%08lX PROT_CTRL 0x%08lX MIX_CTRL 0x%08lX SYS_CTRL 0x%08lX VEND_SPEC 0x%08lX VEND_SPEC2 0x%08lX",
+        why, (unsigned long)USDHC1_WTMK_LVL, (unsigned long)USDHC1_PROT_CTRL, (unsigned long)USDHC1_MIX_CTRL,
+        (unsigned long)USDHC1_SYS_CTRL, (unsigned long)USDHC1_VEND_SPEC, (unsigned long)USDHC1_VEND_SPEC2);
+}
+static void sd_burst_apply(uint8_t wml, uint8_t brst, uint8_t blen)
+{
+    USDHC1_WTMK_LVL  = (USDHC1_WTMK_LVL & ~(0xFFu | (0x1Fu << 8))) | wml | ((uint32_t)brst << 8);
+    USDHC1_PROT_CTRL = (USDHC1_PROT_CTRL & ~(7u << 12)) | ((uint32_t)blen << 12);
+}
+/* THE CARD'S CLOCK (v8b). FIFO reads run at 22.9 MB/s, 92.5% of what four data lines carry at 49.5 MHz; the
+ * SD spec's next step (UHS-I) needs 1.8 V signalling, which this slot does not have. The uSDHC divides a
+ * 198 MHz base (PLL2 PFD0 396 MHz / 2, SdFat's initClock); SdFat picks /4 = 49.5 MHz, the High Speed mode's
+ * 50 MHz limit. /3 = 66 MHz and /2 = 99 MHz are beyond that spec. Every data block on the bus carries a CRC16
+ * the controller checks, so a bad transfer fails the read instead of passing wrong bytes -- and ::sdclksweep
+ * checks every byte anyway, against the same 8 MB read at 49.5 MHz. A divider that reads every byte right
+ * twice over is kept (g_sddvs) and reapplied after every sd.begin. */
+static uint8_t g_sddvs;                      /* 0: SdFat's own divider */
+static unsigned long sd_clk_now(void)
+{
+    const uint32_t s = USDHC1_SYS_CTRL, fs = (s >> 8) & 0xFF, dvs = (s >> 4) & 0xF;
+    return 198000ul / ((fs ? 2u * fs : 1u) * (dvs + 1u));
+}
+static bool sd_set_dvs(uint8_t dvs)
+{
+    USDHC1_SYS_CTRL = (USDHC1_SYS_CTRL & ~(0xFu << 4)) | ((uint32_t)dvs << 4);
+    const uint32_t t0 = micros();
+    while (!(USDHC1_PRES_STATE & (1u << 3)))                 /* SDSTB: the new clock is stable */
+        if (micros() - t0 > 10000u) return false;
+    return true;
+}
+static void sd_cfg_reapply(void)
+{
+    if (g_dma && g_sdcfg) sd_burst_apply(g_rwml, g_rbrst, g_blen);
+    if (g_sddvs) sd_set_dvs(g_sddvs);
+}
+
 /* THE CARD AND THE ARITHMETIC AT THE SAME TIME (v7).
  *
  * In FIFO_SDIO mode the CPU itself copies every word out of the card controller and spins between sectors
@@ -373,7 +421,7 @@ static unsigned long sd_khz(void) { return (unsigned long)static_cast<SdioCard *
  * Arm the work only around the card read itself: Serial.available() calls yield() whenever nothing has
  * arrived (cores/teensy4/usb_serial.c), so a poll_stop() with the work armed would run rows BEFORE the
  * transfer starts -- no overlap, but counted as hidden. plat_sd_read_overlap polls first, then arms. */
-static bool g_dma;                           /* the card came up in DMA_SDIO */
+/* g_dma: declared with the SD globals above */
 static int  g_overlap = 1;                   /* ::overlap 0|1 */
 static int  g_align = 1;                     /* ::align 0|1: whole sectors per pipeline read, DMA only */
 static uint32_t g_slice_us;                  /* ::slice N: 0 = one row per yield() */
@@ -391,7 +439,7 @@ void yield(void)                             /* replaces the core's weak yield (
 }
 
 /* the model file open, and whether its clusters are one run (then every seek is one addition) */
-static bool model_file_open(void)
+FLASHMEM static bool model_file_open(void)
 {
     mf = sd.open("qwen3b.gguf", O_RDONLY);
     if (!mf) return false;
@@ -418,7 +466,7 @@ static bool model_file_open(void)
  * walks the cluster chain (40 ms a read, measured 2026-09-27). */
 static FsFile tf;
 static bool   tf_open;
-int plat_tok_open(uint32_t bytes)
+FLASHMEM int plat_tok_open(uint32_t bytes)
 {
     if (tf_open) { tf.close(); tf_open = false; }
     if (!bytes) {
@@ -456,7 +504,7 @@ int plat_tok_flush(void) { return (tf_open && tf.sync()) ? 0 : -1; }
 
 /* ::sdio fifo|dma -- restart the card in the other mode, for an A/B on one build: close every handle, close
  * the transfer (sd_idle: the card is left idle, never mid-transfer), end, begin in the new mode, reopen. */
-static bool sdio_switch(bool dma)
+FLASHMEM static bool sdio_switch(bool dma)
 {
     sd_idle();
     const bool had_tok = tf_open;
@@ -472,7 +520,8 @@ static bool sdio_switch(bool dma)
     }
     g_sd_up = true;
     g_dma = dma;
-    say("    SD up (%s), clock %lu kHz", dma ? "DMA_SDIO" : "FIFO_SDIO", sd_khz());
+    sd_cfg_reapply();
+    say("    SD up (%s), clock %lu kHz", dma ? "DMA_SDIO" : "FIFO_SDIO", sd_clk_now());
     if (!model_file_open()) return false;
     return !had_tok || plat_tok_open(0) == 0;
 }
@@ -511,7 +560,20 @@ int plat_sd_read(uint64_t off, void *dst, uint32_t n)
 }
 
 /* n bytes at off into dst; succeeds when at least `need` of them arrived */
+/* A card read above SdFat's clock that fails (the controller checks every block's CRC16, so a marginal clock
+ * shows up as a failed read, not as wrong bytes) drops the card back to SdFat's 49.5 MHz for good, restarts
+ * it, and reads again. */
+static int mf_read_once(uint64_t off, void *dst, uint32_t n, uint32_t need);
 static int mf_read_at(uint64_t off, void *dst, uint32_t n, uint32_t need)
+{
+    const int r = mf_read_once(off, dst, n, need);
+    if (!r || !g_sddvs) return r;
+    say("    card read failed at %lu kHz: back to SdFat's clock, card restarted, read again", sd_clk_now());
+    g_sddvs = 0;
+    if (!sdio_switch(g_dma)) return -1;
+    return mf_read_once(off, dst, n, need);
+}
+static int mf_read_once(uint64_t off, void *dst, uint32_t n, uint32_t need)
 {
     if (mf_contig) {
         if (!mf.seekSet(off)) return -1;
@@ -665,6 +727,13 @@ void plat_emit(const char *s, int n) { Serial.write((const uint8_t *)s, (size_t)
  *    ::overlap 0|1  DMA only: the arithmetic runs while the card reads (default 1)
  *    ::align 0|1    DMA only: a pipeline read takes the whole sectors around its block, one command (default 1)
  *    ::slice N      rows per yield(): 0 = one row (default), N = rows for N us per call
+ *    ::sdsweep      the DMA path at every read watermark / burst length / burst enable, each 2 MB checked
+ *                   byte for byte against FIFO; keeps the fastest that reads right ("SWEEP ..." lines)
+ *    ::sdcfg W B L  DMA read watermark W words, burst B words, burst enables L; "::sdcfg 0" = SdFat's own
+ *    ::sdregs       the SD controller's registers
+ *    ::sdclksweep   the card clock above SdFat's 49.5 MHz (66, 99), 8 MB checked byte for byte at each;
+ *                   keeps the fastest that reads right ("CLKSWEEP ..." lines)
+ *    ::sdclk N      card clock = 198 MHz / N (2..16); "::sdclk 0" = SdFat's own
  *                   (every one of these four gives the same step lines; they move only the time)
  *    anything else  a prompt. \n \t \\ are unescaped, so code and chat templates fit on one line
  *
@@ -679,7 +748,7 @@ static int      g_gen = 16;
 static uint8_t *sdbuf;
 static float   *bx;
 static int8_t  *bxq;
-static bool scratch_init(void)
+FLASHMEM static bool scratch_init(void)
 {
     uint32_t n = 0;
     uint8_t *s = (uint8_t *)tl_scratch(&n);
@@ -958,7 +1027,7 @@ static void run_multi(void)
 }
 
 /* The M7 on real rows already in RAM: what the arithmetic costs once the card is out of the way. */
-static void bench_kernel(const char *label, int layer, int which)
+FLASHMEM static void bench_kernel(const char *label, int layer, int which)
 {
     uint64_t off; uint32_t type, rows, cols, rb;
     if (tl_matrix(layer, which, &off, &type, &rows, &cols, &rb)) { say("BENCH kernel %s absent", label); return; }
@@ -1033,7 +1102,132 @@ static void bench_kernel(const char *label, int layer, int which)
 }
 
 /* the card at three read sizes into the cached arena, and at 4 KB into DTCM, in the mode it is in */
-static void card_bench(void)
+/* 2 MB of the model at off in 64 KB reads: MB/s over the reads alone, and FNV-1a 64 of the bytes. The
+ * target is the cached arena, so in DMA mode its lines are dropped before each read and after it (aligned
+ * 64 KB reads are pure DMA, nothing copied by the CPU): the sum is of what the card delivered. */
+FLASHMEM static bool sd_region(uint64_t off, uint64_t *sum, float *mbs)
+{
+    const uint32_t N = 2u << 20, K = 64u * 1024u;
+    uint64_t h = 1469598103934665603ull;
+    uint32_t us = 0;
+    for (uint32_t got = 0; got < N; got += K, off += K) {
+        arm_dcache_flush_delete(sdbuf, K);
+        const uint32_t t0 = micros();
+        if (mf_read_at(off, sdbuf, K, K)) return false;
+        us += micros() - t0;
+        if (g_dma) arm_dcache_delete(sdbuf, K);
+        for (uint32_t i = 0; i < K; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+    }
+    *sum = h;
+    *mbs = 2.0f * 1.048576f / (us / 1e6f);
+    return true;
+}
+
+/* ::sdsweep -- see "THE DMA PATH'S BURSTS". FIFO first, for the reference sum; then every DMA setting. A
+ * setting whose read fails restarts the card before the next. The fastest setting that read every byte
+ * right is kept (g_sdcfg) and the card is left in the mode it was in. */
+FLASHMEM static void sd_sweep(void)
+{
+    say("SWEEP begin temp_c %.1f", tempmonGetTemp());
+    const bool was_dma = g_dma;
+    uint64_t ref = 0, s = 0;
+    float rf = 0, r = 0;
+    if (g_dma && !sdio_switch(false)) { say("SWEEP end: FIFO restart failed"); return; }
+    if (!sd_region(512ull << 20, &ref, &rf)) { say("SWEEP end: FIFO read failed"); return; }
+    say("SWEEP fifo mb_s %.2f sum %08lx%08lx", rf, (unsigned long)(ref >> 32), (unsigned long)ref);
+    g_sdcfg = false;
+    if (!sdio_switch(true)) { say("SWEEP end: DMA restart failed"); return; }
+    sd_regs("DMA as SdFat sets it");
+    const uint32_t w0 = USDHC1_WTMK_LVL, p0 = USDHC1_PROT_CTRL;
+    bool ok = sd_region(512ull << 20, &s, &r);
+    say("SWEEP dma sdfat wml %lu brst %lu blen %lu mb_s %.2f data %s", (unsigned long)(w0 & 0xFF),
+        (unsigned long)((w0 >> 8) & 0x1F), (unsigned long)((p0 >> 12) & 7), r, !ok ? "READ-FAILED" : s == ref ? "OK" : "WRONG");
+    float best = (ok && s == ref) ? r : 0;
+    uint8_t bw = 0, bb = 0, bl = 0;
+    static const uint8_t WML[4] = { 16, 32, 64, 128 };
+    static const uint8_t BRS[3] = { 4, 8, 16 };
+    static const uint8_t BLE[3] = { 1, 3, 7 };
+    for (int a = 0; a < 4; a++)
+        for (int b = 0; b < 3; b++)
+            for (int c = 0; c < 3; c++) {
+                if (BRS[b] > WML[a]) continue;
+                USDHC1_WTMK_LVL = w0; USDHC1_PROT_CTRL = p0;
+                sd_burst_apply(WML[a], BRS[b], BLE[c]);
+                ok = sd_region(512ull << 20, &s, &r);
+                const bool good = ok && s == ref;
+                say("SWEEP dma wml %u brst %u blen %u mb_s %.2f data %s", WML[a], BRS[b], BLE[c], ok ? r : 0.0f,
+                    !ok ? "READ-FAILED" : good ? "OK" : "WRONG");
+                if (!ok) {
+                    say("SWEEP restarting the card after a failed read");
+                    if (!sdio_switch(true)) { say("SWEEP end: DMA restart failed"); return; }
+                }
+                if (good && r > best) { best = r; bw = WML[a]; bb = BRS[b]; bl = BLE[c]; }
+            }
+    USDHC1_WTMK_LVL = w0; USDHC1_PROT_CTRL = p0;
+    if (bw) {
+        g_rwml = bw; g_rbrst = bb; g_blen = bl; g_sdcfg = true;
+        sd_burst_apply(bw, bb, bl);
+        say("SWEEP best wml %u brst %u blen %u mb_s %.2f (kept for DMA)", bw, bb, bl, best);
+    } else {
+        say("SWEEP best is SdFat's own setting, mb_s %.2f", best);
+    }
+    if (!was_dma && !sdio_switch(false)) { say("SWEEP end: FIFO restart failed"); return; }
+    say("SWEEP end temp_c %.1f", tempmonGetTemp());
+}
+
+/* ::sdclksweep -- see "THE CARD'S CLOCK". FIFO, 8 MB in four places at SdFat's 49.5 MHz for the reference
+ * sums; then each faster divider reads the same 8 MB twice. The first divider that fails or reads one wrong
+ * byte ends the sweep, and the card is restarted at SdFat's clock before anything else. */
+FLASHMEM static void sd_clk_sweep(void)
+{
+    static const uint64_t OFF[4] = { 64ull << 20, 512ull << 20, 1024ull << 20, 1536ull << 20 };
+    say("CLKSWEEP begin temp_c %.1f", tempmonGetTemp());
+    const bool was_dma = g_dma;
+    g_sddvs = 0;
+    if (!sdio_switch(false)) { say("CLKSWEEP end: FIFO restart failed"); return; }
+    uint64_t ref[4];
+    float r = 0, sum = 0;
+    for (int i = 0; i < 4; i++) {
+        if (!sd_region(OFF[i], &ref[i], &r)) { say("CLKSWEEP end: reference read failed"); return; }
+        sum += r;
+    }
+    const uint8_t dvs0 = (uint8_t)((USDHC1_SYS_CTRL >> 4) & 0xF);
+    say("CLKSWEEP khz %lu divider %u mb_s %.2f (SdFat's, the reference)", sd_clk_now(), dvs0 + 1u, sum / 4);
+    /* kept: the divider with the best MEASURED rate, and only if it beats SdFat's clock by 2% -- a faster clock
+     * that the card cannot feed buys nothing (this card: 22.9 MB/s at 49.5 MHz, 24.0 at 66, 23.9 at 99) */
+    uint8_t best = 0;
+    float best_mbs = sum / 4 * 1.02f;
+    for (int dvs = (int)dvs0 - 1; dvs >= 1; dvs--) {
+        sd_idle();
+        if (!sd_set_dvs((uint8_t)dvs)) { say("CLKSWEEP divider %d: clock did not settle", dvs + 1); break; }
+        int wrong = 0, failed = 0, n = 0;
+        sum = 0;
+        for (int pass = 0; pass < 2 && !failed; pass++)
+            for (int i = 0; i < 4 && !failed; i++) {
+                uint64_t h;
+                if (!sd_region(OFF[i], &h, &r)) { failed = 1; break; }
+                wrong += h != ref[i];
+                sum += r; n++;
+            }
+        say("CLKSWEEP khz %lu divider %d mb_s %.2f regions %d wrong %d failed %d", sd_clk_now(), dvs + 1,
+            n ? sum / n : 0.0f, n, wrong, failed);
+        if (failed || wrong) break;
+        if (sum / n > best_mbs) { best = (uint8_t)dvs; best_mbs = sum / n; }
+    }
+    /* back to SdFat's clock through a full restart (a failed read may have left the card mid-command) */
+    if (!sdio_switch(was_dma)) { say("CLKSWEEP end: restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+    if (best) {
+        g_sddvs = best;
+        sd_idle();
+        sd_set_dvs(best);
+        say("CLKSWEEP best khz %lu divider %u mb_s %.2f (kept)", sd_clk_now(), best + 1u, best_mbs);
+    } else {
+        say("CLKSWEEP best is SdFat's clock");
+    }
+    say("CLKSWEEP end temp_c %.1f", tempmonGetTemp());
+}
+
+FLASHMEM static void card_bench(void)
 {
     static const uint32_t SZ[3] = { 4096, 16384, 65536 };
     for (int k = 0; k < 3; k++) {
@@ -1058,11 +1252,11 @@ static void card_bench(void)
             if (plat_sd_read(off, dt, sizeof dt)) { ok = false; break; }
         const float s = (micros() - t0) / 1e6f;
         say("BENCH sd_seq_dtcm read_size %lu mb_s %.2f sdio %s clock_khz %lu%s", (unsigned long)sizeof dt,
-            16.0 * 1.048576 / s, g_dma ? "dma" : "fifo", sd_khz(), ok ? "" : " FAILED");
+            16.0 * 1.048576 / s, g_dma ? "dma" : "fifo", sd_clk_now(), ok ? "" : " FAILED");
     }
 }
 
-static void bench(void)
+FLASHMEM static void bench(void)
 {
     say("BENCH begin temp_c %.1f", tempmonGetTemp());
     /* both card modes on the same boot, then back to the one it was in (every command leaves the card idle) */
@@ -1122,7 +1316,7 @@ static void bench(void)
     say("BENCH end temp_c %.1f", tempmonGetTemp());
 }
 
-static void stats(void)
+FLASHMEM static void stats(void)
 {
     for (int i = 0; i < nuse; i++)
         say("STATS bank %d %s %s write %d read %d burst %d rate_mb_s %.2f", i, use[i].name, MODE_NAME[use[i].mode],
@@ -1134,11 +1328,12 @@ static void stats(void)
 
 static void dispatch_one(char *line);
 static void dispatch(char *line) { dispatch_one(line); sd_idle(); }   /* every command ends with the card idle */
-static void dispatch_one(char *line)
+FLASHMEM static void dispatch_one(char *line)
 {
     if (!strcmp(line, "I") || !strcmp(line, "i")) {
-        say("I bench-one psram_llm v8 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu", nuse,
-            (unsigned long)plat_ps_size(), info.max_seq, g_gen, g_dma ? "dma" : "fifo", g_overlap, g_align, (unsigned long)g_slice_us);
+        say("I bench-one psram_llm v8 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu clk %lu", nuse,
+            (unsigned long)plat_ps_size(), info.max_seq, g_gen, g_dma ? "dma" : "fifo", g_overlap, g_align, (unsigned long)g_slice_us,
+            sd_clk_now());
         return;
     }
     if (!strncmp(line, "::gen", 5)) {
@@ -1162,6 +1357,30 @@ static void dispatch_one(char *line)
     }
     if (!strncmp(line, "::overlap", 9)) { g_overlap = atoi(line + 9) ? 1 : 0; say("OVERLAP %d (card %s)", g_overlap, g_dma ? "DMA_SDIO" : "FIFO_SDIO: no overlap possible"); return; }
     if (!strncmp(line, "::align", 7)) { g_align = atoi(line + 7) ? 1 : 0; say("ALIGN %d (card %s)", g_align, g_dma ? "DMA_SDIO" : "FIFO_SDIO: reads stay exact"); return; }
+    if (!strcmp(line, "::sdsweep")) { sd_sweep(); return; }
+    if (!strcmp(line, "::sdclksweep")) { sd_clk_sweep(); return; }
+    if (!strncmp(line, "::sdclk", 7)) {                      /* ::sdclk N: divide 198 MHz by N (2..16); 0 = SdFat's */
+        const unsigned long d = strtoul(line + 7, NULL, 10);
+        if (d >= 2 && d <= 16) { g_sddvs = (uint8_t)(d - 1); sd_idle(); sd_set_dvs(g_sddvs); }
+        else { g_sddvs = 0; if (!sdio_switch(g_dma)) { say("SDCLK failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; } }
+        say("SDCLK khz %lu divider %lu", sd_clk_now(), ((USDHC1_SYS_CTRL >> 4) & 0xF) + 1ul);
+        return;
+    }
+    if (!strcmp(line, "::sdregs"))  { sd_regs(g_dma ? "DMA" : "FIFO"); say("SDREGS cfg %d wml %u brst %u blen %u", g_sdcfg, g_rwml, g_rbrst, g_blen); return; }
+    if (!strncmp(line, "::sdcfg", 7)) {
+        char *e1, *e2, *e3;                       /* strtoul, not sscanf: scanf costs RAM1 28 KB of tables */
+        const unsigned long w = strtoul(line + 7, &e1, 10), b = strtoul(e1, &e2, 10), l = strtoul(e2, &e3, 10);
+        const int n = (e1 != line + 7) + (e2 != e1) + (e3 != e2);
+        if (n == 3 && w >= 1 && w <= 128 && b >= 1 && b <= 31 && b <= w && l <= 7) {
+            g_rwml = (uint8_t)w; g_rbrst = (uint8_t)b; g_blen = (uint8_t)l; g_sdcfg = true;
+            sd_cfg_reapply();
+        } else {
+            g_sdcfg = false;                          /* SdFat's own: restart the card so cardInit sets them */
+            if (!sdio_switch(g_dma)) { say("SDCFG failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+        }
+        say("SDCFG %s wml %u brst %u blen %u", g_sdcfg ? "set" : "sdfat", g_rwml, g_rbrst, g_blen);
+        return;
+    }
     if (!strncmp(line, "::slice", 7)) {
         long v = atol(line + 7);
         if (v < 0) v = 0;
@@ -1199,7 +1418,7 @@ static void dispatch_one(char *line)
     run_prompt(line);
 }
 
-void setup()
+FLASHMEM void setup()
 {
     /* from psram_worker setup(), verbatim: FlexSPI off and its pads handed to GPIO9 */
     FLEXSPI2_MCR0 |= FLEXSPI_MCR0_MDIS;
@@ -1244,6 +1463,7 @@ void setup()
             say("    SD up on attempt %d (%s), clock %lu kHz", a, fifo ? "FIFO_SDIO" : "DMA_SDIO", sd_khz());
             g_sd_up = true;
             g_dma = !fifo;
+            sd_regs("at boot");
             sd_ok = true;
         } else {
             say("    SD begin attempt %d (%s) failed: SdFat error 0x%02X data 0x%08lX", a, fifo ? "FIFO_SDIO" : "DMA_SDIO",
@@ -1253,6 +1473,7 @@ void setup()
     }
     if (!sd_ok) { halt("the SD card would not initialise; power-cycle the Teensy (unplug USB for 2 s)"); return; }
     if (!model_file_open()) { halt("qwen3b.gguf not found on the card"); return; }
+    sd_clk_sweep();                               /* the fastest card clock this card reads right at, checked */
     {
         const uint32_t N = 32u * 1024u * 1024u;
         const uint32_t t0 = micros();

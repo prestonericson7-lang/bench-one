@@ -42,15 +42,17 @@ def fit(xs, ys):
 
 
 BOOT = re.compile(r'^\s+SD up on attempt \d+ \((DMA|FIFO)_SDIO\)')
-IDENT = re.compile(r'^I bench-one psram_llm v(\d+) .*?(?: sdio (dma|fifo) overlap (\d)(?: align (\d) slice (\d+))?)?(?: FAKE)?$')
+IDENT = re.compile(r'^I bench-one psram_llm v(\d+) .*?(?: sdio (dma|fifo) overlap (\d)(?: align (\d) slice (\d+)(?: clk (\d+))?)?)?(?: FAKE)?$')
 
 
 def way_name(w):
+    clk = ", card clock %.1f MHz" % (w["khz"] / 1000.0) if w.get("khz") else ""
     if w["sdio"] == "fifo":
-        return "FIFO"
+        return "FIFO" + clk
     if w["sdio"] == "?":
         return "card mode not in the log"
-    return "DMA, overlap %d, align %d, slice %s" % (w["overlap"], w["align"], "%d us" % w["slice"] if w["slice"] else "one row")
+    return "DMA, overlap %d, align %d, slice %s%s%s" % (w["overlap"], w["align"], "%d us" % w["slice"] if w["slice"] else "one row",
+                                                        ", bursts " + w["burst"] if w.get("burst") else "", clk)
 
 
 def main():
@@ -64,15 +66,29 @@ def main():
             w = dict(sdio=m.group(1).lower(), overlap=1, align=1, slice=0)
             continue
         m = IDENT.match(s)
-        if m:
+        if m:                                                      # the identity line does not state the card clock or
+            keep = {k: w[k] for k in ("khz", "burst") if k in w}   # the DMA bursts: those carry over (set before it at boot)
             if int(m.group(1)) < 7:
                 w = dict(sdio="fifo", overlap=0, align=0, slice=0)
             elif m.group(2):
-                w = dict(sdio=m.group(2), overlap=int(m.group(3)), align=int(m.group(4) or 1), slice=int(m.group(5) or 0))
+                if m.group(6):
+                    keep["khz"] = int(m.group(6))
+                w = dict(sdio=m.group(2), overlap=int(m.group(3)), align=int(m.group(4) or 1), slice=int(m.group(5) or 0), **keep)
             continue
         m = re.match(r'^SDIO (dma|fifo)$', s)
         if m:
             w = dict(w, sdio=m.group(1))
+            continue
+        m = re.match(r'^(?:CLKSWEEP best khz|SDCLK khz) (\d+)', s)
+        if m:                                                      # v8b: the card clock in force (kHz)
+            w = dict(w, khz=int(m.group(1)))
+            continue
+        if re.match(r'^CLKSWEEP best is SdFat', s):
+            w = dict(w, khz=49500)
+            continue
+        m = re.match(r'^(?:SDCFG (set|sdfat)|SWEEP best) wml (\d+) brst (\d+) blen (\d+)', s)
+        if m:                                                      # v8b: the DMA burst setting in force
+            w = dict(w, burst="" if m.group(1) == "sdfat" else "wml %s brst %s blen %s" % (m.group(2), m.group(3), m.group(4)))
             continue
         m = re.match(r'^(OVERLAP|ALIGN|SLICE) (\d+)', s)
         if m:

@@ -1,6 +1,7 @@
 /* model_q.c -- see model_q.h. The Llama-shaped decoder, with real weights. */
 
 #include "model_q.h"
+#include "tl_math.h"   /* exp, sin/cos, RoPE frequency: the same bits as the Teensy */
 
 #include <math.h>
 #include <stdarg.h>
@@ -593,7 +594,7 @@ static void softmax(float *v, int n)
     float mx = v[0];
     for (int i = 1; i < n; i++) if (v[i] > mx) mx = v[i];
     float sum = 0.0f;
-    for (int i = 0; i < n; i++) { v[i] = expf(v[i] - mx); sum += v[i]; }
+    for (int i = 0; i < n; i++) { v[i] = tlm_expf(v[i] - mx); sum += v[i]; }
     const float inv = 1.0f / sum;
     for (int i = 0; i < n; i++) v[i] *= inv;
 }
@@ -611,9 +612,10 @@ static void rope(float *v, int n_heads, int head_dim, int pos, float base)
     for (int h = 0; h < n_heads; h++) {
         float *p = v + (size_t)h * head_dim;
         for (int i = 0; i < half; i++) {
-            const float freq = powf(base, -2.0f * (float)i / (float)head_dim);
+            const float freq = tlm_rope_freq(base, i, head_dim);
             const float th = (float)pos * freq;
-            const float c = cosf(th), s = sinf(th);
+            float c, s;
+            tlm_sincosf(th, &s, &c);
             const float x0 = p[i], x1 = p[i + half];
             p[i]        = x0 * c - x1 * s;
             p[i + half] = x0 * s + x1 * c;
@@ -716,7 +718,7 @@ static void expert_ffn(model_t *m, const mlayer_t *L, int e, const float *xin, f
     matvec(m, &u, xin, m->hb2, ff);
     for (int i = 0; i < ff; i++) {
         const float gg = m->hb[i];
-        m->hb[i] = (gg / (1.0f + expf(-gg))) * m->hb2[i];
+        m->hb[i] = (gg / (1.0f + tlm_expf(-gg))) * m->hb2[i];
     }
     matvec(m, &d, m->hb, m->xb2, dim);
     for (int i = 0; i < dim; i++) acc[i] += w * m->xb2[i];
@@ -766,7 +768,7 @@ static void experts_fused(model_t *m, const mlayer_t *L, const int *pick, const 
         const float *uu = m->hb2 + (size_t)j * ff;
         for (int i = 0; i < ff; i++) {
             const float gg = hh[i];
-            hh[i] = (gg / (1.0f + expf(-gg))) * uu[i];
+            hh[i] = (gg / (1.0f + tlm_expf(-gg))) * uu[i];
         }
         gguf_quantize_act(hh, (uint64_t)ff, m->e_xq + (size_t)j * ff, m->e_xs + (size_t)j * nsb);
     }
@@ -975,7 +977,7 @@ void model_layers(model_t *m, int pos, int stream)
             /* SwiGLU: silu on the gate, elementwise product with up. */
             for (int i = 0; i < m->hidden; i++) {
                 const float g = m->hb[i];
-                m->hb[i] = (g / (1.0f + expf(-g))) * m->hb2[i];
+                m->hb[i] = (g / (1.0f + tlm_expf(-g))) * m->hb2[i];
             }
             matvec(m, &L->w_down, m->hb, m->xb2, dim);
             for (int i = 0; i < dim; i++) m->x[i] += m->xb2[i];
@@ -1204,7 +1206,7 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
             const float *h2 = H2 + (size_t)j * m->hidden;
             for (int i = 0; i < m->hidden; i++) {
                 const float gv = h1[i];
-                h1[i] = (gv / (1.0f + expf(-gv))) * h2[i];
+                h1[i] = (gv / (1.0f + tlm_expf(-gv))) * h2[i];
             }
         }
         matmul_rows(m, &L->w_down, H1, n, Q);

@@ -1,0 +1,26 @@
+# kind | prompt   (\n = newline). Chat prompts use the template the instruct model was tuned on.
+fact | The capital of France is
+fact | The capital of Japan is
+fact | Water boils at a temperature of
+fact | The largest planet in the solar system is
+fact | The chemical symbol for gold is
+arith | Q: What is 17 + 25?\nA:
+arith | Q: What is 12 * 12?\nA:
+arith | Q: What is 1000 - 358?\nA:
+arith | Q: What is 7 * 8?\nA:
+code | def is_prime(n):\n
+code | def fibonacci(n):\n
+code | def reverse_string(s):\n
+code | # Return the sum of a list\ndef sum_list(xs):\n
+code | SELECT name FROM users WHERE
+code | #include <stdio.h>\nint main(void) {\n    printf("
+code | const add = (a, b) =>
+chat | <|im_start|>user\nName three primary colors.<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nWhat is a microcontroller? Answer in one sentence.<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nTranslate "good morning" into French.<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nWrite a haiku about memory chips.<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nWhat is 15% of 200?<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nWrite a Python one-liner that reverses a list called xs.<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nFind the bug:\ndef add(a, b):\n    return a - b<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nWhat does PSRAM stand for?<|im_end|>\n<|im_start|>assistant\n
+chat | <|im_start|>user\nIs 91 a prime number? Answer yes or no, then why.<|im_end|>\n<|im_start|>assistant\n

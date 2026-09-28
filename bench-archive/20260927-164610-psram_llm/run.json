@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-164610",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v7b: PSRAM edge probed with four kinds of data (Y1 fault), SD clock logged, card bench in both modes; A/B + night-2 + together8b; rounds x3",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 544444
+}

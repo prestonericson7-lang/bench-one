@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-162754",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v7: card by DMA while computing, whole-sector reads; A/B slice/align/overlap/FIFO; night-2 tests + together8b; rounds x3",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 541564
+}

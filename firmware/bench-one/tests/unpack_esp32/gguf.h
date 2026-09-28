@@ -202,6 +202,17 @@ void gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum);
 float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
                           const int32_t *xsum, uint64_t n);
 
+/* One row against np activation vectors (1..GGUF_NPOS_MAX): out[p] is exactly what the single-vector call
+ * returns for vector p, bit for bit. On the Cortex-M7 each group of weights is unpacked once for all np
+ * vectors instead of once per vector; elsewhere these simply loop over the single-vector kernels.
+ * gguf_dot_q_n is batched for Q6_K on the M7 and loops over gguf_dot_q for every other type; the batched
+ * Q4_K path is gguf_dot_q4k_presum_n (its result equals gguf_dot_q's, the sums being the same integers). */
+#define GGUF_NPOS_MAX 8
+void gguf_dot_q4k_presum_n(const void *raw, int np, const int8_t *const *xq, const float *const *xs,
+                           const int32_t *const *xsum, uint64_t n, float *out);
+void gguf_dot_q_n(uint32_t type, const void *raw, int np, const int8_t *const *xq, const float *const *xs,
+                  uint64_t n, float *out);
+
 /* Q4_K with stages removed, for attributing cost. NOT a kernel to call for a result.
  *
  *   stage 0   the real thing, identical to gguf_dot_q

@@ -1,0 +1,10 @@
+# psram_llm test set 1 -- id | tokens to generate | prompt (\n = newline; the board unescapes it)
+# Chosen to find what a 3B coder model on this hardware is good at, at ~2 minutes a token:
+#   code_prime  its trade: complete a function from its signature
+#   arith       a fact it must compute, not recall
+#   chat        the instruct template it was tuned on, so the reply is an answer, not a continuation
+#   france      the baseline every earlier run used
+code_prime | 12 | def is_prime(n):\n
+arith | 6 | Q: What is 17 + 25?\nA:
+chat | 10 | <|im_start|>user\nName three primary colors.<|im_end|>\n<|im_start|>assistant\n
+france | 16 | The capital of France is

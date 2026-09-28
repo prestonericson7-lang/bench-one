@@ -2,5 +2,7 @@
   "foreign": {
     "20548360": "STATUS radio=FAIL osc=XTAL mode=0 freq=915.0 sf=9 bw=125 cr=4/8 pwr=22 sync=0x12 pkts=0 lastRSSI=0"
   },
-  "worker": []
+  "worker": [
+    "20579140"
+  ]
 }

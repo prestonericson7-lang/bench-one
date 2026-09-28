@@ -1,6 +1,7 @@
 /* tokenizer.c -- see tokenizer.h. Byte-level BPE with the vocabulary taken from the model file. */
 
 #include "tokenizer.h"
+#include "pretok_qwen2.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -150,6 +151,7 @@ int tokenizer_init(tokenizer_t *tk, gguf_t *g)
     tk->merge = m ? m->sv : NULL;
     tk->bos = (int32_t)gguf_int(g, "tokenizer.ggml.bos_token_id", -1);
     tk->eos = (int32_t)gguf_int(g, "tokenizer.ggml.eos_token_id", -1);
+    tk->pre_qwen2 = strcmp(gguf_str(g, "tokenizer.ggml.pre", ""), "qwen2") == 0;
 
     tk->vmap = map_new(tk->n_vocab);
     if (!tk->vmap) { snprintf(g->err, sizeof(g->err), "out of memory"); return -1; }
@@ -245,63 +247,102 @@ static int chunk_len(const char *s)
     return i ? i : 1;
 }
 
-/* A symbol buffer has to hold the LONGEST piece a merge can produce, not the longest byte. Pieces
- * in this vocabulary reach 30 bytes, and a buffer of 8 would truncate silently inside snprintf --
- * producing a valid-looking string that is not in the vocabulary, so the merge would be abandoned
- * and the word would tokenize as fragments. Slower, still fluent, quietly worse. */
-#define MAX_SYM  256
-#define SYM_LEN   64
+/* BPE over one chunk, any length. Symbols start as single bytes (mapped through the permutation) and
+ * merge pairwise, lowest rank first (leftmost on a tie), until no pair is in the merge list.
+ *
+ * A SYMBOL IS A SPAN of one buffer holding the whole chunk, byte-level encoded, not a copy in a fixed
+ * slot. Until 2026-09-27 each symbol was a 64-byte slot, with a comment saying no piece came near that;
+ * 201 pieces of this vocabulary are 64 bytes or longer (the longest 256, a merge line 257), and a merge
+ * that would have reached 64 ended ALL merging for the chunk -- a comment rule of dashes came out as
+ * eight tokens where llama.cpp makes three. And a chunk was capped at 256 bytes, so a longer run of '='
+ * lost its tail. Spans have no ceiling; the rank of every adjacent pair is kept and only the two pairs
+ * a merge touches are looked up again, so a long run costs a lookup per merge, not a scan of lookups.
+ *
+ * KEY_MAX bounds a lookup key. No merge line is longer than 257 bytes and every symbol is a single byte
+ * or a vocabulary piece (a merge whose result is not a piece is refused), so a longer key cannot match
+ * anything and is simply not looked up. */
+#define KEY_MAX 1024
 
-/* BPE over one chunk. Symbols start as single bytes (mapped through the permutation) and merge
- * pairwise, lowest rank first, until no pair is in the merge list. */
+static int32_t pair_rank(const tokenizer_t *tk, const char *buf, const int *st, int i, char *key)
+{
+    const int la = st[i + 1] - st[i], lb = st[i + 2] - st[i + 1];
+    if (!tk->mmap_ || la + lb + 2 > KEY_MAX) return -1;
+    /* The merge list is keyed on the two pieces separated by a space, which is unambiguous because a
+     * literal space is never a piece -- it is U+0120 after the permutation. */
+    memcpy(key, buf + st[i], (size_t)la);
+    key[la] = ' ';
+    memcpy(key + la + 1, buf + st[i + 1], (size_t)lb);
+    key[la + 1 + lb] = 0;
+    return map_get(tk->mmap_, key, -1);
+}
+
 static int bpe_chunk(const tokenizer_t *tk, const char *s, int len, int32_t *out, int max, int n_out)
 {
-    char sym[MAX_SYM][SYM_LEN];
-    int  nsym = 0;
+    char *buf  = (char *)malloc((size_t)len * 2 + 1);       /* each byte is 1 or 2 bytes of UTF-8 */
+    int  *st   = (int *)malloc(((size_t)len + 1) * sizeof(int));  /* symbol i is buf[st[i] .. st[i+1]) */
+    int  *rank = (int *)malloc(((size_t)len + 1) * sizeof(int));  /* rank of pair (i, i+1), -1 none   */
+    char  key[KEY_MAX];
+    int   nsym = 0, bl = 0;
+    if (!buf || !st || !rank) { free(buf); free(st); free(rank); return -1; }
 
-    for (int i = 0; i < len && nsym < MAX_SYM; i++) {
-        const uint16_t cp = tk->byte_cp[(unsigned char)s[i]];
-        const int k = cp_to_utf8(cp, sym[nsym]);
-        sym[nsym][k] = 0;
-        nsym++;
+    for (int i = 0; i < len; i++) {
+        st[nsym++] = bl;
+        bl += cp_to_utf8(tk->byte_cp[(unsigned char)s[i]], buf + bl);
     }
+    st[nsym] = bl;
+    for (int i = 0; i + 1 < nsym; i++) rank[i] = pair_rank(tk, buf, st, i, key);
 
     for (;;) {
         int best = -1, best_rank = 0x7FFFFFFF;
-        char joined[2 * SYM_LEN + 2];
-        for (int i = 0; i + 1 < nsym; i++) {
-            /* The merge list is keyed on the two pieces separated by a space, which is unambiguous
-             * because a literal space is never a piece -- it is U+0120 after the permutation. */
-            if (strlen(sym[i]) + strlen(sym[i + 1]) + 2 > sizeof(joined)) continue;
-            snprintf(joined, sizeof(joined), "%s %s", sym[i], sym[i + 1]);
-            const int32_t r = tk->mmap_ ? map_get(tk->mmap_, joined, -1) : -1;
-            if (r >= 0 && r < best_rank) { best_rank = r; best = i; }
-        }
+        for (int i = 0; i + 1 < nsym; i++)
+            if (rank[i] >= 0 && rank[i] < best_rank) { best_rank = rank[i]; best = i; }
         if (best < 0) break;
-
-        char merged[2 * SYM_LEN];
-        /* A merge that would not fit a symbol slot is refused rather than truncated. snprintf would
-         * silently shorten it, the shortened string would not be in the vocabulary, and the word
-         * would tokenize as fragments -- still fluent, quietly worse, impossible to spot in output.
-         * No piece in this vocabulary is anywhere near SYM_LEN, so this never fires; it is here so
-         * that if it ever does, it stops instead of lying. */
-        if (strlen(sym[best]) + strlen(sym[best + 1]) >= SYM_LEN) break;
-        snprintf(merged, sizeof(merged), "%s%s", sym[best], sym[best + 1]);
         /* A merge whose result is not in the vocabulary cannot be emitted, so treat it as absent
          * rather than producing an id of -1 that would index out of the embedding table. */
-        if (map_get(tk->vmap, merged, -1) < 0) break;
-        memcpy(sym[best], merged, strlen(merged) + 1);
-        for (int i = best + 1; i + 1 < nsym; i++) memcpy(sym[i], sym[i + 1], sizeof(sym[i]));
+        const int lm = st[best + 2] - st[best];
+        if (lm >= KEY_MAX) break;
+        memcpy(key, buf + st[best], (size_t)lm);
+        key[lm] = 0;
+        if (map_get(tk->vmap, key, -1) < 0) break;
+        for (int i = best + 1; i < nsym; i++) st[i] = st[i + 1];
+        for (int i = best + 1; i + 1 < nsym - 1; i++) rank[i] = rank[i + 1];
         nsym--;
+        if (best > 0) rank[best - 1] = pair_rank(tk, buf, st, best - 1, key);
+        if (best + 1 < nsym) rank[best] = pair_rank(tk, buf, st, best, key);
     }
 
     for (int i = 0; i < nsym; i++) {
-        const int32_t id = map_get(tk->vmap, sym[i], -1);
+        const int l = st[i + 1] - st[i];
+        int32_t id = -1;
+        if (l < KEY_MAX) {
+            memcpy(key, buf + st[i], (size_t)l);
+            key[l] = 0;
+            id = map_get(tk->vmap, key, -1);
+        }
         if (id < 0) continue;          /* unreachable for byte-level: every single byte is a token */
-        if (n_out >= max) return -1;
+        if (n_out >= max) { n_out = -1; break; }
         out[n_out++] = id;
     }
+    free(buf); free(st); free(rank);
     return n_out;
+}
+
+/* The special token written literally at s, if there is one: the text from s up to the first '>' is a
+ * token the file marks control (3) or user-defined (4) -- <|im_start|>, <|im_end|>, <tool_call> ... every
+ * one of them in this vocabulary starts with '<' and ends at its only '>'. Returns its id, or -1. */
+static int32_t special_at(const tokenizer_t *tk, const char *s, int *len)
+{
+    if (s[0] != '<' || !tk->type) return -1;
+    const char *e = strchr(s + 1, '>');
+    if (!e || e - s + 1 >= 64) return -1;
+    char buf[64];
+    const int l = (int)(e - s + 1);
+    memcpy(buf, s, (size_t)l);
+    buf[l] = 0;
+    const int32_t id = map_get(tk->vmap, buf, -1);
+    if (id < 0 || (tk->type[id] != 3 && tk->type[id] != 4)) return -1;
+    *len = l;
+    return id;
 }
 
 int tokenizer_encode(const tokenizer_t *tk, const char *text, int32_t *out, int max)
@@ -310,32 +351,30 @@ int tokenizer_encode(const tokenizer_t *tk, const char *text, int32_t *out, int 
     const char *s = text;
 
     while (*s) {
-        /* Control tokens are literal text in the prompt and must not be split. Matched first and by
-         * exact string, because "<|im_start|>" run through BPE would become eight useless pieces and
-         * the model would never see the turn boundary it was trained on. */
-        if (s[0] == '<' && s[1] == '|') {
-            const char *e = strstr(s, "|>");
-            if (e) {
-                char buf[64];
-                const size_t l = (size_t)(e + 2 - s);
-                if (l < sizeof(buf)) {
-                    memcpy(buf, s, l);
-                    buf[l] = 0;
-                    const int32_t id = map_get(tk->vmap, buf, -1);
-                    if (id >= 0) {
-                        if (n >= max) return -1;
-                        out[n++] = id;
-                        s += l;
-                        continue;
-                    }
-                }
-            }
+        /* Special tokens are literal text in the prompt and are split out FIRST, wherever they are, as
+         * llama.cpp does: "<|im_start|>" run through BPE would become eight useless pieces and the model
+         * would never see the turn boundary it was trained on. Until 2026-09-27 they were matched only
+         * where a chunk began, so "colors.<|im_end|>" lost its end-of-turn to the punctuation run ".<|". */
+        int l;
+        const int32_t sid = special_at(tk, s, &l);
+        if (sid >= 0) {
+            if (n >= max) return -1;
+            out[n++] = sid;
+            s += l;
+            continue;
         }
-        const int len = chunk_len(s);
-        if (len <= 0) break;
-        n = bpe_chunk(tk, s, len, out, max, n);
-        if (n < 0) return -1;
-        s += len;
+        /* the fragment up to the next special token (or the end) is pre-tokenized on its own */
+        int frag = 0;
+        while (s[frag] && !(s[frag] == '<' && special_at(tk, s + frag, &l) >= 0)) frag++;
+        while (frag > 0) {
+            int len = tk->pre_qwen2 ? pt_qwen2_len((const unsigned char *)s, frag) : chunk_len(s);
+            if (len > frag) len = frag;
+            if (len <= 0) return n;
+            n = bpe_chunk(tk, s, len, out, max, n);
+            if (n < 0) return -1;
+            s += len;
+            frag -= len;
+        }
     }
     return n;
 }

@@ -1,0 +1,60 @@
+{"n": 1, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 20, "float_llama": 20, "fast_llama_margins": [0.03966520000000173, 0.04940986633300781], "float_llama_margins": [0.003238700000000705, 0.04940986633300781]}
+{"n": 2, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 2, "float_llama": 2, "fast_llama_margins": [0.07497790000000037, 0.08256733417510986], "float_llama_margins": [0.1493300999999967, 0.08256733417510986]}
+{"n": 3, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 4, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 5, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 6, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 7, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 8, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 23, "float_llama": 23, "fast_llama_margins": [0.1820202000000002, 0.06672286987304688], "float_llama_margins": [0.1875610000000023, 0.06672286987304688]}
+{"n": 9, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": 0, "fast_llama": 0, "float_llama": null, "fast_float_margins": [0.2126045000000012, 0.6803187999999984], "fast_llama_margins": [0.2126045000000012, 0.6605701446533203]}
+{"n": 10, "kind": "fact", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 11, "kind": "arith", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 12, "kind": "arith", "prompt_same": true, "n_gen": 41, "fast_float": 10, "fast_llama": 16, "float_llama": 10, "fast_float_margins": [0.06572149999999866, 0.022380800000000534], "fast_llama_margins": [0.009338299999999577, 0.016132354736328125], "float_llama_margins": [0.022380800000000534, 0.10726749897003174]}
+{"n": 13, "kind": "arith", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 7, "float_llama": 7, "fast_llama_margins": [0.14049909999999954, 0.07561099529266357], "float_llama_margins": [0.022384599999998755, 0.07561099529266357]}
+{"n": 14, "kind": "arith", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 4, "float_llama": 4, "fast_llama_margins": [0.6026839999999982, 0.010176658630371094], "float_llama_margins": [0.13496499999999934, 0.010176658630371094]}
+{"n": 15, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 16, "kind": "chat", "prompt_same": true, "n_gen": 4, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 17, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 18, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 19, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 20, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 21, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 22, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 1, "float_llama": 1, "fast_llama_margins": [0.29197690000000165, 0.09045028686523438], "float_llama_margins": [0.32879440000000315, 0.09045028686523438]}
+{"n": 23, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": 24, "fast_llama": 34, "float_llama": 24, "fast_float_margins": [0.018728299999999365, 0.011531800000000203], "fast_llama_margins": [0.061160100000000384, 0.10158920288085938], "float_llama_margins": [0.011531800000000203, 0.055641114711761475]}
+{"n": 24, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 25, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 26, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 34, "float_llama": 34, "fast_llama_margins": [0.0058192999999988615, 0.3017253875732422], "float_llama_margins": [0.0027237000000006617, 0.3017253875732422]}
+{"n": 27, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 33, "float_llama": 33, "fast_llama_margins": [0.07019809999999893, 0.09462547302246094], "float_llama_margins": [0.09894369999999952, 0.09462547302246094]}
+{"n": 28, "kind": "code", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 29, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 30, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 31, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 32, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 33, "kind": "chat", "prompt_same": true, "n_gen": 36, "fast_float": 17, "fast_llama": 19, "float_llama": 17, "fast_float_margins": [0.022623100000000562, 0.004831299999999317], "fast_llama_margins": [0.293365399999999, 0.018110275268554688], "float_llama_margins": [0.004831299999999317, 0.14130014181137085]}
+{"n": 34, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": 24, "fast_llama": null, "float_llama": 24, "fast_float_margins": [0.036996899999998334, 0.045289900000000216], "float_llama_margins": [0.045289900000000216, 0.1667327880859375]}
+{"n": 35, "kind": "chat", "prompt_same": true, "n_gen": 32, "fast_float": null, "fast_llama": 13, "float_llama": 13, "fast_llama_margins": [0.16054349999999928, 0.04980653524398804], "float_llama_margins": [0.0721835999999989, 0.04980653524398804]}
+{"n": 36, "kind": "chat", "prompt_same": true, "n_gen": 9, "fast_float": null, "fast_llama": 6, "float_llama": 6, "fast_llama_margins": [0.14342500000000058, 0.20883947610855103], "float_llama_margins": [0.03204540000000122, 0.20883947610855103]}
+{"n": 37, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 31, "float_llama": 31, "fast_llama_margins": [0.07662770000000307, 0.022623062133789062], "float_llama_margins": [0.050539000000000556, 0.022623062133789062]}
+{"n": 38, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": 32, "fast_llama": null, "float_llama": 32, "fast_float_margins": [0.037008300000000105, 0.03120609999999857], "float_llama_margins": [0.03120609999999857, 0.30035579204559326]}
+{"n": 39, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 40, "kind": "chat", "prompt_same": true, "n_gen": 9, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 41, "kind": "chat", "prompt_same": true, "n_gen": 13, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 42, "kind": "chat", "prompt_same": true, "n_gen": 2, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 43, "kind": "chat", "prompt_same": true, "n_gen": 6, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 44, "kind": "chat", "prompt_same": true, "n_gen": 20, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 45, "kind": "chat", "prompt_same": true, "n_gen": 12, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 46, "kind": "chat", "prompt_same": true, "n_gen": 20, "fast_float": 4, "fast_llama": 17, "float_llama": 4, "fast_float_margins": [0.00039190000000033365, 0.03426939999999945], "fast_llama_margins": [0.06095399999999884, 0.0033330917358398438], "float_llama_margins": [0.03426939999999945, 0.005362391471862793]}
+{"n": 47, "kind": "chat", "prompt_same": true, "n_gen": 2, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 48, "kind": "chat", "prompt_same": true, "n_gen": 3, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 49, "kind": "chat", "prompt_same": true, "n_gen": 8, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 50, "kind": "chat", "prompt_same": true, "n_gen": 15, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 51, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 52, "kind": "chat", "prompt_same": true, "n_gen": 14, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 53, "kind": "chat", "prompt_same": true, "n_gen": 15, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 54, "kind": "chat", "prompt_same": true, "n_gen": 2, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 55, "kind": "chat", "prompt_same": true, "n_gen": 24, "fast_float": null, "fast_llama": 0, "float_llama": 0, "fast_llama_margins": [0.5372314999999972, 0.1715010404586792], "float_llama_margins": [0.789401999999999, 0.1715010404586792]}
+{"n": 56, "kind": "chat", "prompt_same": true, "n_gen": 2, "fast_float": 0, "fast_llama": 0, "float_llama": null, "fast_float_margins": [0.18122290000000163, 0.04590409999999778], "fast_llama_margins": [0.18122290000000163, 0.22007179260253906]}
+{"n": 57, "kind": "chat", "prompt_same": true, "n_gen": 12, "fast_float": 0, "fast_llama": 0, "float_llama": null, "fast_float_margins": [0.018161799999997896, 0.2020206999999985], "fast_llama_margins": [0.018161799999997896, 0.5454598665237427]}
+{"n": 58, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": 38, "float_llama": 38, "fast_llama_margins": [0.017034500000001174, 0.35830485820770264], "float_llama_margins": [0.12384420000000063, 0.35830485820770264]}
+{"n": 59, "kind": "chat", "prompt_same": true, "n_gen": 41, "fast_float": null, "fast_llama": null, "float_llama": null}
+{"n": 60, "kind": "chat", "prompt_same": true, "n_gen": 16, "fast_float": null, "fast_llama": null, "float_llama": null}

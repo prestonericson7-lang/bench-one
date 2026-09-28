@@ -1,0 +1,4 @@
+# Long answers: does the model stay coherent over 200 tokens (what an afternoon of board time buys)?
+chat | Write a Python function that checks whether a string is a palindrome, ignoring case and spaces. Include a docstring and two example calls.
+chat | Explain in one paragraph how a microSD card stores data and why reads are faster in large blocks.
+code | class Stack:\n    """A last-in, first-out stack."""\n\n    def __init__(self):\n

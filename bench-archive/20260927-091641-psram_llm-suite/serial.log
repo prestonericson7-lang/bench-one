@@ -1,0 +1,144 @@
+
+[suite 2026-09-27 09:16:41] suite start: 6 entries x 3 runs, bench x 3, tests file D:\espicpc\firmware\bench-one\tests\psram_llm\tests_night2.txt
+
+[suite 2026-09-27 09:16:41] waiting for the Teensy to be power-cycled: USB unplugged, then plugged back in
+
+[suite 2026-09-27 11:57:44] Teensy left the bus
+
+[suite 2026-09-27 11:58:00] Teensy back on the bus; it boots by itself
+
+[suite 2026-09-27 11:58:02] port COM38 open
+
+[suite 2026-09-27 11:58:02] >>> I
+11:58:02 | 
+11:58:02 | ========================================================================
+11:58:02 |   psram_llm v5 -- a 3B-parameter language model on a Teensy 4.1
+11:58:02 |   weights: streamed from the microSD, every token
+11:58:02 |   memory:  the PSRAM banks -- tokenizer, norms, attention cache
+11:58:02 |   cpu 600 MHz, 41.2 C
+11:58:02 | ========================================================================
+11:58:02 | 
+11:58:02 |   PSRAM discovery: asking all ten selects for an identity
+11:58:02 |     CS0  PRESENT  id 0D 5D
+11:58:02 |     CS1  PRESENT  id 0D 5D
+11:58:02 |     Y0   PRESENT  id 0D 5D
+11:58:02 |     Y1   PRESENT  id 0D 5D
+11:58:02 |     Y2   PRESENT  id 0D 5D
+11:58:02 |     Y3   PRESENT  id 0D 5D
+11:58:02 |     Y4   PRESENT  id 0D 5D
+11:58:02 |     Y5   PRESENT  id 0D 5D
+11:58:02 |     Y6   absent   id 00 00
+11:58:02 |     Y7   absent   id 00 00
+11:58:02 |   8 chips answered
+11:58:02 | 
+11:58:02 |   qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+11:58:03 |       CS0  quad        edge write  0 read 12, running at write  3 read 16 burst 96 setup  0 ->  9.25 MB/s
+11:58:04 |       CS1  quad        edge write  0 read 14, running at write  3 read 20 burst 96 setup  0 ->  8.19 MB/s
+11:58:05 |       Y0   no quad setting survives 1024 kB
+11:58:07 |         296 wrong over 1024 kB at write 6 read 18 burst 40
+11:58:08 |         384 wrong over 1024 kB at write 6 read 20 burst 40
+11:58:11 |       Y0   single 0x03 edge write  3 read 13, running at write  6 read 24 burst 32 setup 16 ->  1.70 MB/s
+11:58:12 |         344 wrong over 1024 kB at write 6 read 11 burst 56
+11:58:13 |         344 wrong over 1024 kB at write 6 read 12 burst 56
+11:58:13 |         176 wrong over 1024 kB at write 6 read 13 burst 48
+11:58:14 |         192 wrong over 1024 kB at write 6 read 14 burst 48
+11:58:15 |         192 wrong over 1024 kB at write 6 read 16 burst 48
+11:58:15 |         176 wrong over 1024 kB at write 6 read 18 burst 40
+11:58:16 |         345 wrong over 1024 kB at write 6 read 20 burst 40
+11:58:19 |       Y0   single 0x0B edge write  3 read  8, running at write  6 read 24 burst 32 setup 16 ->  1.67 MB/s
+11:58:23 |       Y1   no quad setting survives 1024 kB
+11:58:26 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+11:58:28 |       Y1   single 0x0B edge write  4 read  6, running at write  7 read  9 burst 64 setup 16 ->  3.11 MB/s
+11:58:31 |       Y2   no quad setting survives 1024 kB
+11:58:33 |       Y2   single 0x03 edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.87 MB/s
+11:58:35 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+11:58:38 |       Y3   no quad setting survives 1024 kB
+11:58:41 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+11:58:43 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+11:58:45 |       Y4   no quad setting survives 1024 kB
+11:58:47 |       Y4   no single 0x03 setting survives 1024 kB
+11:58:48 |       Y4   no single 0x0B setting survives 1024 kB
+11:58:48 |       Y4: not usable
+11:58:48 |       Y5   no quad setting survives 1024 kB
+11:58:51 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+11:58:54 |       Y5   single 0x0B edge write 16 read  5, running at write 24 read  8 burst 24 setup 16 ->  2.95 MB/s
+11:58:57 | 
+11:58:57 |   proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+11:58:57 |     CS0  filled 8 MB in 0.3 s
+11:58:58 |     CS1  filled 8 MB in 0.3 s
+11:58:59 |     Y1   filled 8 MB in 1.8 s
+11:59:06 |     Y5   filled 8 MB in 6.2 s
+11:59:07 |     Y3   filled 8 MB in 1.3 s
+11:59:08 |     Y2   filled 8 MB in 1.3 s
+11:59:10 |     Y0   filled 8 MB in 1.8 s
+11:59:11 |     CS0  quad        read back 8 MB in 0.9 s (9.25 MB/s): 0 wrong
+11:59:12 |     CS1  quad        read back 8 MB in 1.0 s (8.19 MB/s): 0 wrong
+11:59:14 |     Y1   single 0x0B read back 8 MB in 2.7 s (3.11 MB/s): 0 wrong
+11:59:18 |     Y5   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+11:59:20 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+11:59:23 |     Y2   single 0x03 read back 8 MB in 2.9 s (2.87 MB/s): 0 wrong
+11:59:28 |     Y0   single 0x03 read back 8 MB in 4.9 s (1.70 MB/s): 0 wrong
+11:59:28 |   PSRAM in use: 7 banks, 58720256 bytes
+11:59:28 | 
+11:59:28 |   SD card
+11:59:28 |     SD up on attempt 1 (FIFO_SDIO)
+11:59:28 |     qwen3b.gguf: 1929903072 bytes
+11:59:30 |     sequential read: 32 MB in 1.86 s = 18.05 MB/s
+11:59:30 | 
+11:59:30 |   opening the model: tokenizer into PSRAM, norms and biases into PSRAM, cache laid out
+11:59:39 |     9.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+11:59:39 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+11:59:39 |     3085938688 parameters in the file
+11:59:39 |     read from the card per token: 1922981520 bytes
+11:59:39 |     PSRAM used 48195856 of 58720256: tokenizer 8300816, norms+biases 966656, attention cache 38928384 (2048 positions)
+11:59:39 | 
+11:59:39 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[suite 2026-09-27 11:59:39] >>> ::hold
+11:59:40 | HOLD waiting for prompts
+
+[suite 2026-09-27 11:59:40] >>> I
+11:59:40 | I bench-one psram_llm v5 banks 7 ps_bytes 58720256 max_seq 2048 gen 16
+
+[suite 2026-09-27 11:59:40] identity: I bench-one psram_llm v5 banks 7 ps_bytes 58720256 max_seq 2048 gen 16
+
+[suite 2026-09-27 11:59:40] >>> ::bench
+11:59:41 | BENCH begin temp_c 43.1
+11:59:41 | BENCH sd_seq read_size 4096 mb_s 17.49
+11:59:42 | BENCH sd_seq read_size 16384 mb_s 17.49
+11:59:43 | BENCH sd_seq read_size 65536 mb_s 17.49
+11:59:54 | BENCH sd_random read_size 4096 count 256 ms_each 40.199 mb_s 0.10 fails 0
+11:59:55 | BENCH kernel ffn_gate_L0 type 12 path presum rows 56 cols 2048 mb_s 61.96 mweights_s 115.51
+11:59:56 | BENCH kernel ffn_gate_L0 type 12 path dot_q rows 56 cols 2048 mb_s 57.35 mweights_s 106.91
+11:59:57 | BENCH q4k_stage ffn_gate_L0 stage 0 cycles_per_weight 5.704 mweights_s 105.19
+11:59:58 | BENCH q4k_stage ffn_gate_L0 stage 1 cycles_per_weight 4.406 mweights_s 136.19
+11:59:59 | BENCH q4k_stage ffn_gate_L0 stage 2 cycles_per_weight 3.576 mweights_s 167.79
+12:00:00 | BENCH kernel ffn_down_L0 type 14 path dot_q rows 7 cols 11008 mb_s 60.91 mweights_s 77.86
+12:00:01 | BENCH kernel attn_v_L0 type 14 path dot_q rows 39 cols 2048 mb_s 62.01 mweights_s 79.27
+12:00:02 | BENCH kernel token_embd type 14 path dot_q rows 39 cols 2048 mb_s 62.03 mweights_s 79.28
+12:00:03 | BENCH psram_raw bank Y0 mode single 0x03 write_mb_s 4.72 read_mb_s 1.70 wrong 0
+12:00:05 | BENCH psram_checked bank Y0 write_mb_s 1.27 read_mb_s 0.86 errors 0
+12:00:05 | BENCH end temp_c 43.8
+
+[suite 2026-09-27 12:00:05] >>> ::prefill 1
+12:00:05 | PREFILL 1
+
+[suite 2026-09-27 12:00:05] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-27 12:00:11] >>> ::gen 16
+12:00:11 | GEN 16
+
+[suite 2026-09-27 12:00:11] test france run 1: gen 16 prompt 'The capital of France is'
+
+[suite 2026-09-27 12:00:11] >>> The capital of France is
+12:00:12 | 
+12:00:12 |   prompt: "The capital of France is"  (5 tokens, generating 16, prompt batched through tl_prefill)
+12:00:12 | prompt ids: 785 6722 315 9625 374
+12:19:16 | step 0 pos 0 fed 785 -> top1 220 16.2387676 top2 323 15.7758703 text " "
+12:19:16 | step 1 pos 1 fed 6722 -> top1 315 18.2110214 top2 3283 18.1931744 text " of"
+12:19:16 | step 2 pos 2 fed 315 -> top1 279 16.4419804 top2 264 15.0220432 text " the"
+12:19:16 | step 3 pos 3 fed 9625 -> top1 374 21.1096191 top2 11 20.664608 text " is"
+12:19:16 | step 4 pos 4 fed 374 -> top1 12095 19.1332893 top2 1304 14.9736881 text " Paris"
+12:19:16 |   >> The capital of France is Paris
+12:19:16 |     prefill=0..4: 1144.1 s: SD 1833.9 MB in 992.9 s (1.85 MB/s), PSRAM 1222 KB read 92.8 KB written in 2.81 s, compute 148.4 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+12:19:16 | STAGES prefill=0..4 embed=0.007 qkv=16.84 att=2.725 wo=12.71 ffn=1081.42 head=30.41 temp_c=50.3

@@ -154,9 +154,69 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
         }
     }
 
+    /* Q4_K's presum kernel -- what the Teensy runs for every Q4_K matrix but q/k/v -- against the same
+     * scalar results: the activation sums hoisted out must leave every bit where it was. */
+    int presum_differ = 0;
+    if (type == GGML_Q4_K) {
+        int32_t *xsum = (int32_t *)malloc((size_t)(cols / 32 + 1) * sizeof(int32_t));
+        if (!xsum) { printf("  out of memory\n"); return 1; }
+        gguf_act_sums(xq, (uint64_t)cols, xsum);
+        for (int r = 0; r < rows; r++) {
+            const float c = gguf_dot_q4k_presum(w + (size_t)r * rowb, xq, xs, xsum, (uint64_t)cols);
+            uint32_t ua, uc;
+            memcpy(&ua, &a[r], 4);
+            memcpy(&uc, &c, 4);
+            presum_differ += (ua != uc);
+        }
+        free(xsum);
+    }
+
+    /* The batched kernels -- one row against GGUF_NPOS_MAX different vectors -- against the single-vector
+     * kernel run on each vector: every output must carry the same bits. */
+    int batch_differ = 0;
+    {
+        const int NP = GGUF_NPOS_MAX;
+        int8_t  *bq[GGUF_NPOS_MAX];
+        float   *bs[GGUF_NPOS_MAX];
+        int32_t *bm[GGUF_NPOS_MAX];
+        for (int p = 0; p < NP; p++) {
+            bq[p] = (int8_t *)malloc((size_t)cols);
+            bs[p] = (float *)malloc((size_t)(cols / 32 + 1) * sizeof(float));
+            bm[p] = (int32_t *)malloc((size_t)(cols / 32 + 1) * sizeof(int32_t));
+            if (!bq[p] || !bs[p] || !bm[p]) { printf("  out of memory\n"); return 1; }
+            for (int i = 0; i < cols; i++) xf[i] = ((float)(rnd() % 20001) - 10000.0f) / (1000.0f + 700.0f * p);
+            gguf_quantize_act(xf, (uint64_t)cols, bq[p], bs[p]);
+            gguf_act_sums(bq[p], (uint64_t)cols, bm[p]);
+        }
+        for (int r = 0; r < rows; r++) {
+            const uint8_t *row = w + (size_t)r * rowb;
+            for (int np = 1; np <= NP; np += (np < 2 ? 1 : 3)) {       /* 1, 2, 5, 8 vectors */
+                float o[GGUF_NPOS_MAX];
+                if (type == GGML_Q4_K)
+                    gguf_dot_q4k_presum_n(row, np, (const int8_t *const *)bq, (const float *const *)bs,
+                                          (const int32_t *const *)bm, (uint64_t)cols, o);
+                else
+                    gguf_dot_q_n(type, row, np, (const int8_t *const *)bq, (const float *const *)bs, (uint64_t)cols, o);
+                for (int p = 0; p < np; p++) {
+                    const float s = gguf_dot_q(type, row, bq[p], bs[p], (uint64_t)cols);
+                    uint32_t u1, u2;
+                    memcpy(&u1, &o[p], 4);
+                    memcpy(&u2, &s, 4);
+                    batch_differ += (u1 != u2);
+                }
+            }
+        }
+        for (int p = 0; p < NP; p++) { free(bq[p]); free(bs[p]); free(bm[p]); }
+    }
+
     const double bytes = (double)rowb * rows;
     printf("  %s, %d rows of %d, %.1f MB, %d passes each\n", name, rows, cols,
            bytes / 1048576.0, reps);
+    if (type == GGML_Q4_K)
+        printf("    presum kernel: %s\n", presum_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
+    printf("    batched kernel, 1/2/5/8 vectors per row: %s\n",
+           batch_differ ? "DIFFERS from the single-vector kernel" : "IDENTICAL to the single-vector kernel on every row and vector");
+    differ += presum_differ + batch_differ;
     if (differ) {
         printf("    DIFFER on %d of %d rows, worst %.3e at row %d (%.9g against %.9g)\n",
                differ, rows, (double)worst, worst_row,

@@ -1,0 +1,99 @@
+
+[suite 2026-09-27 03:42:08] suite start: 4 tests x 3 runs, bench x 3, tests file D:\espicpc\firmware\bench-one\tests\psram_llm\tests_night1.txt
+
+[suite 2026-09-27 03:42:08] port COM38 open
+
+[suite 2026-09-27 03:42:08] >>> I
+03:42:09 |       Y0   no quad setting survives 1024 kB
+03:42:10 |         169 wrong over 1024 kB at write 6 read 18 burst 40
+03:42:11 |         192 wrong over 1024 kB at write 6 read 20 burst 40
+03:42:14 |       Y0   single 0x03 edge write  3 read 13, running at write  6 read 24 burst 32 setup 16 ->  1.69 MB/s
+03:42:15 |         248 wrong over 1024 kB at write 5 read 11 burst 56
+03:42:15 |         88 wrong over 1024 kB at write 5 read 12 burst 56
+03:42:16 |         96 wrong over 1024 kB at write 5 read 13 burst 48
+03:42:17 |         128 wrong over 1024 kB at write 5 read 14 burst 48
+03:42:17 |         144 wrong over 1024 kB at write 5 read 16 burst 48
+03:42:18 |         88 wrong over 1024 kB at write 5 read 18 burst 40
+03:42:19 |         232 wrong over 1024 kB at write 5 read 20 burst 40
+03:42:21 |       Y0   single 0x0B edge write  2 read  8, running at write  5 read 24 burst 32 setup 16 ->  1.66 MB/s
+03:42:22 |       Y0: 1 wrong on stability pass 1; leaving it out
+03:42:22 |       Y0: not usable
+03:42:23 |       Y1   no quad setting survives 1024 kB
+03:42:25 |       Y1   single 0x03 edge write  4 read  7, running at write  7 read 10 burst 64 setup 16 ->  3.00 MB/s
+03:42:28 |       Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+03:42:30 |       Y2   no quad setting survives 1024 kB
+03:42:33 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+03:42:35 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.84 MB/s
+03:42:38 |       Y3   no quad setting survives 1024 kB
+03:42:41 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+03:42:43 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+03:42:45 |       Y4   no quad setting survives 1024 kB
+03:42:48 |       Y4   single 0x03 edge write  4 read  7, running at write  7 read 10 burst 64 setup 16 ->  3.00 MB/s
+03:42:50 |       Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+03:42:53 |       Y5   no quad setting survives 1024 kB
+03:42:55 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+03:42:58 |       Y5   single 0x0B edge write  0 read  6, running at write  3 read  9 burst 64 setup 16 ->  3.12 MB/s
+03:43:00 | 
+03:43:00 |   proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+03:43:01 |     CS0  filled 8 MB in 0.3 s
+03:43:01 |     CS1  filled 8 MB in 0.6 s
+03:43:02 |     Y5   filled 8 MB in 1.3 s
+03:43:04 |     Y4   filled 8 MB in 1.8 s
+03:43:06 |     Y1   filled 8 MB in 1.8 s
+03:43:07 |     Y3   filled 8 MB in 1.3 s
+03:43:08 |     Y2   filled 8 MB in 1.3 s
+03:43:09 |     CS0  quad        read back 8 MB in 1.0 s (8.61 MB/s): 0 wrong
+03:43:10 |     CS1  quad        read back 8 MB in 1.0 s (8.19 MB/s): 0 wrong
+03:43:13 |     Y5   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+03:43:16 |     Y4   single 0x03 read back 8 MB in 2.8 s (3.00 MB/s): 0 wrong
+03:43:19 |     Y1   single 0x03 read back 8 MB in 2.8 s (3.00 MB/s): 1 wrong  -> DROPPED
+03:43:21 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+03:43:24 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+03:43:24 |   PSRAM in use: 6 banks, 50331648 bytes
+03:43:24 | 
+03:43:24 |   SD card
+03:43:24 |     SD begin attempt 1 (FIFO_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:25 |     SD begin attempt 2 (DMA_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:25 |     SD begin attempt 3 (FIFO_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:26 |     SD begin attempt 4 (DMA_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:27 |     SD begin attempt 5 (FIFO_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:28 |     SD begin attempt 6 (DMA_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:29 |     SD begin attempt 7 (FIFO_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:32 |     SD begin attempt 8 (DMA_SDIO) failed: SdFat error 0x17 data 0x00000001
+03:43:34 |     extended ACMD41 wait, up to 30 s (SdFat allows 1 s)
+03:43:34 |       CMD8 ok, response 0x00000120
+03:43:34 |       0 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:35 |       1 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:36 |       2 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:37 |       3 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:38 |       4 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:39 |       5 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:40 |       6 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:41 |       7 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:42 |       8 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:43 |       9 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:43 |       10 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:44 |       11 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:45 |       12 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:46 |       13 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:47 |       14 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:48 |       15 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:49 |       16 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:50 |       17 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:51 |       18 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:52 |       19 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:53 |       20 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:54 |       21 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:55 |       22 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:56 |       23 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:57 |       24 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:58 |       25 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:43:59 |       26 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:44:00 |       27 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:44:01 |       28 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:44:03 |       29 s: ACMD41 no reply, OCR 0x00000120 (bit 31 = ready)
+03:44:04 |       never ready in 30 s (3000 ACMD41s): the card is hung and needs its power cut
+03:44:04 | 
+03:44:04 |   HALTED: the SD card would not initialise; power-cycle the Teensy (unplug USB for 2 s)
+
+[suite 2026-09-27 03:44:04] board halted during boot:   HALTED: the SD card would not initialise; power-cycle the Teensy (unplug USB for 2 s)

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-023701",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 7200,
+  "note": "psram_llm run 2: margin 3 steps off the edge + self-checking PSRAM transfers; expect tl_open to complete, counters show corrections",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 455164
+}

@@ -1,0 +1,24 @@
+
+========================================================================
+  psram_llm v7 -- a 3B-parameter language model on a Teensy 4.1
+  weights: streamed from the microSD, every token
+  memory:  the PSRAM banks -- tokenizer, norms, attention cache
+  cpu 600 MHz, 45.1 C
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 13, running at write  3 read 18 burst 96 setup  0 ->  8.79 MB/s
+      CS1  quad        edge write  2 read 14, running at write  5 read 20 burst 96 setup  0 ->  8.19 MB/s

@@ -1,0 +1,8 @@
+The capital of France is
+def is_prime(n):\n
+Q: What is 17 + 25?\nA:
+const add = (a, b) =>
+<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nName three primary colors.<|im_end|>\n<|im_start|>assistant\n
+<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nTranslate "good morning" into French.<|im_end|>\n<|im_start|>assistant\n
+<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat does PSRAM stand for?<|im_end|>\n<|im_start|>assistant\n
+<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nSummarize in one sentence: the Teensy 4.1 has a 600 MHz Cortex-M7 -- and pads for PSRAM.\n\n  Done.<|im_end|>\n<|im_start|>assistant\n

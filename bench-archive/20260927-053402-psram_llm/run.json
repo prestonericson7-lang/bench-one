@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-053402",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 120,
+  "note": "v5 flash while halted: tl_step/::multi (8 prompts per pass), Qwen2 pre-tokenizer + special-token split + span BPE (= llama.cpp on 47k records), q4k stage bench; card still hung until USB power cycle",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 518524
+}

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-023139",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 7200,
+  "note": "psram_llm first run: Qwen2.5-Coder-3B from SD, working memory in PSRAM, France prompt (board serial 20579140, owner-confirmed)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 452284
+}

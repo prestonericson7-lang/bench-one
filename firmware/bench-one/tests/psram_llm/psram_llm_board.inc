@@ -751,17 +751,19 @@ static int      g_gen = 16;
 /* The card test and the benchmarks borrow the core's arena between passes (tl_scratch) rather than keep
  * their own 119 KB of OCRAM, which the batched prompt path needs. */
 #define SDBUF_BYTES (64u * 1024u)
-static uint8_t *sdbuf;
-static float   *bx;
-static int8_t  *bxq;
+static uint8_t  *sdbuf;
+static float    *bx;
+static int8_t   *bxq;
+static uint32_t *bxw;                        /* the activation vector pre-widened (BENCH path widened) */
 FLASHMEM static bool scratch_init(void)
 {
     uint32_t n = 0;
     uint8_t *s = (uint8_t *)tl_scratch(&n);
-    if (n < SDBUF_BYTES + 11008u * 4u + 11008u) return false;
+    if (n < SDBUF_BYTES + 11008u * 4u + 11008u + 11008u * 2u) return false;
     sdbuf = s;
-    bx = (float *)(s + SDBUF_BYTES);
+    bx  = (float *)(s + SDBUF_BYTES);
     bxq = (int8_t *)(s + SDBUF_BYTES + 11008u * 4u);
+    bxw = (uint32_t *)(s + SDBUF_BYTES + 11008u * 4u + 11008u);
     return true;
 }
 static float    bxs[11008 / 32 + 1];
@@ -1162,6 +1164,26 @@ FLASHMEM static void bench_kernel(const char *label, int layer, int which)
         say("BENCH kernel %s type %lu path %s rows %lu cols %lu mb_s %.2f mweights_s %.2f", label, (unsigned long)type,
             (type == GGML_Q4_K && path == 0) ? "presum" : "dot_q", (unsigned long)nr, (unsigned long)cols,
             (double)nr * rb * reps / 1048576.0 / s, (double)nr * cols * reps / 1e6 / s);
+    }
+    /* The one-token kernels as the core runs them since v9f: the activation vector's lane pairs made once
+     * (gguf_widen_act) and loaded, instead of widened per weight word of every row. */
+    if (type == GGML_Q4_K || type == GGML_Q6_K) {
+        uint32_t *xw = bxw;
+        gguf_widen_act(bxq, cols, xw);
+        uint32_t reps = 0;
+        volatile float sink = 0;
+        const uint32_t t0 = micros();
+        do {
+            for (uint32_t r = 0; r < nr; r++) {
+                const uint8_t *p = sdbuf + (size_t)r * rb;
+                sink += type == GGML_Q4_K ? gguf_dot_q4k_presum_w(p, bxq, xw, bxs, bxsum, cols)
+                                          : gguf_dot_q6k_w(p, bxq, xw, bxs, cols);
+            }
+            reps++;
+        } while (micros() - t0 < 1000000u);
+        const float s = (micros() - t0) / 1e6f;
+        say("BENCH kernel %s type %lu path widened rows %lu cols %lu mb_s %.2f mweights_s %.2f", label, (unsigned long)type,
+            (unsigned long)nr, (unsigned long)cols, (double)nr * rb * reps / 1048576.0 / s, (double)nr * cols * reps / 1e6 / s);
     }
     /* The batched kernel: the same rows against 8 activation vectors in one call (the same vector 8 times --
      * the arithmetic does not depend on the values). Reported per vector, to set against the lines above. */

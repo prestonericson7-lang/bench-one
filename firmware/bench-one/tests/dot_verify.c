@@ -171,6 +171,28 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
         free(xsum);
     }
 
+    /* The widened-activation kernels (the one-token path on the Teensy): the vector's lane pairs made once,
+     * against the same scalar results -- same integers, same doubles, so every bit must stay. */
+    int wid_differ = 0;
+    if (type == GGML_Q4_K || type == GGML_Q6_K) {
+        uint32_t *xw = (uint32_t *)malloc((size_t)(cols / 4 + 2) * 2 * sizeof(uint32_t));
+        int32_t *xsum = (int32_t *)malloc((size_t)(cols / 32 + 1) * sizeof(int32_t));
+        if (!xw || !xsum) { printf("  out of memory\n"); return 1; }
+        gguf_act_sums(xq, (uint64_t)cols, xsum);
+        gguf_widen_act(xq, (uint64_t)cols, xw);
+        for (int r = 0; r < rows; r++) {
+            const uint8_t *row = w + (size_t)r * rowb;
+            const float c = type == GGML_Q4_K ? gguf_dot_q4k_presum_w(row, xq, xw, xs, xsum, (uint64_t)cols)
+                                              : gguf_dot_q6k_w(row, xq, xw, xs, (uint64_t)cols);
+            uint32_t ua, uc;
+            memcpy(&ua, &a[r], 4);
+            memcpy(&uc, &c, 4);
+            wid_differ += (ua != uc);
+        }
+        free(xw);
+        free(xsum);
+    }
+
     /* The batched kernels -- one row against GGUF_NPOS_MAX different vectors -- against the single-vector
      * kernel run on each vector: every output must carry the same bits. */
     int batch_differ = 0;
@@ -216,7 +238,9 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
         printf("    presum kernel: %s\n", presum_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
     printf("    batched kernel, 1/2/5/8 vectors per row: %s\n",
            batch_differ ? "DIFFERS from the single-vector kernel" : "IDENTICAL to the single-vector kernel on every row and vector");
-    differ += presum_differ + batch_differ;
+    if (type == GGML_Q4_K || type == GGML_Q6_K)
+        printf("    widened-activation kernel: %s\n", wid_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
+    differ += presum_differ + batch_differ + wid_differ;
     if (differ) {
         printf("    DIFFER on %d of %d rows, worst %.3e at row %d (%.9g against %.9g)\n",
                differ, rows, (double)worst, worst_row,

@@ -213,6 +213,15 @@ void gguf_dot_q4k_presum_n(const void *raw, int np, const int8_t *const *xq, con
 void gguf_dot_q_n(uint32_t type, const void *raw, int np, const int8_t *const *xq, const float *const *xs,
                   uint64_t n, float *out);
 
+/* One row against one activation vector whose 16-bit lane pairs were made once (gguf_widen_act: two
+ * words per four activations, even lanes then odd lanes) instead of per weight word of every row. On the
+ * M7 these replace two SXTB16 per four weights with two loads; elsewhere they forward to the kernels
+ * above. Bit-identical to gguf_dot_q4k_presum / gguf_dot_q (tests/dot_verify.c). xw must hold n/2 words. */
+void  gguf_widen_act(const int8_t *xq, uint64_t n, uint32_t *xw);
+float gguf_dot_q4k_presum_w(const void *raw, const int8_t *xq, const uint32_t *xw, const float *xs,
+                            const int32_t *xsum, uint64_t n);
+float gguf_dot_q6k_w(const void *raw, const int8_t *xq, const uint32_t *xw, const float *xs, uint64_t n);
+
 /* Q4_K with stages removed, for attributing cost. NOT a kernel to call for a result.
  *
  *   stage 0   the real thing, identical to gguf_dot_q

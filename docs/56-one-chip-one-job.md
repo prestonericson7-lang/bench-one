@@ -199,6 +199,66 @@ Eight prompts together under the rule (`20260928-055523-psram_llm-suite`):
 
 Yesterday's estimate for eight users was 4.8 h a round; the same group is now under two hours.
 
+## The batched kernels, two vectors at a time
+
+With the card hidden, an eight-position pass is 192 s of arithmetic, and that arithmetic ran at 4.3 cycles
+per multiply-add against the SMLAD instruction's 0.5. The compiled inner loop of the batched Q4_K kernel
+said why: 24 instructions for four SMLADs, because it kept a group's 32 lane words and every vector's four
+accumulators alive at once, the compiler put them all on the stack (56 stack accesses in the function), and
+it re-widened the activation bytes for every row.
+
+v9d restructures both batched kernels (Q4_K with presums; Q6_K, which carries the down projection, the
+values and the whole output head -- about 40% of the multiply-adds): each weight word's lane words are made
+where they are used and feed two vectors whose accumulators stay in registers. The integer sums are the same
+integers in another order, which is exact; each vector's double accumulation is the single kernel's
+expression, unchanged (for Q4_K the per-sub-block products `(double)d * sc` and `(double)dmin * m`, shared
+by every vector, are computed once -- the same first product the single kernel evaluates). `dot_verify`
+proves both bit-identical to the single-vector kernels for 1, 2, 5 and 8 vectors on 1,024 rows, on the host
+and on the M7 code emulated. The Q4_K loop is now 34 instructions for sixteen SMLADs.
+
+On the board (`::bench`, the same rows, eight vectors, aggregate multiply-adds per second):
+
+| kernel | v9 | v9d | v9e |
+|---|---|---|---|
+| Q4_K presum, eight vectors | 139.4 M/s | **183.4 M/s** (+32%) | 183.4 |
+| Q6_K, eight vectors | 121.5 M/s | 114.5 M/s (worse: the lane words were rebuilt per pair; a Q6_K lane word costs two source words, a shift, a mask, an OR and an SSUB8) | 120.7–121.0 |
+
+v9e keeps Q6_K's shared lane build per offset (16 words) and puts only the two-vector accumulator loop under
+it: level with the old kernel, not ahead of it. Q6_K's cost is not in its integer loop but in its double
+tail -- one scale per 16 weights against Q4_K's per 32, and the vector's own scale is the first factor, so
+none of it can be shared across vectors without changing the expression. At 4.96 cycles a multiply-add,
+about 1.5 of them are that tail. It stays. The chat test on v9d (`20260928-080231`; a boot on which only 5 of the 8 chips qualified -- CS1 out for the
+first time -- and the layout took 9 layers a chip, 1,738 positions):
+
+| | v9c | v9d | **v9e** (`20260928-082914`, 7 chips) |
+|---|---|---|---|
+| an 8-position pass | 193.7 s | 164.3 s (FFN 152 → 126 s) | **161.7–163.9 s** |
+| the 5-position tail pass | 144.5 s | 143.9 s | 143.8 s (card-bound: 37 s of card wait left over 105 s of arithmetic) |
+| first answer token | 1,118.4 s | 970.9 s | **957.9 s (16.0 min)** |
+| each answer token after | 105.1 s | 105.1 s | 105.1 s |
+| the whole test | 1,538.6 s | 1,391.2 s | **1,378.2 s** |
+| steps equal to the PC | 49 of 49 | 49 of 49 | **49 of 49** |
+
+**A negative result, kept.** The one-token kernels widen the activation bytes into lane pairs for every
+weight word of every row, although the vector is the same for every row. v9f makes the lane pairs once per
+matrix (`gguf_widen_act`) and has the kernels load them (`gguf_dot_q4k_presum_w`, `gguf_dot_q6k_w`): two
+loads per four weights instead of two SXTB16, bit-identical (`dot_verify`, both PC builds). On the board
+(`20260928-090356`) a one-token pass computed for **28.7 s, exactly as before** (qkv 6.13, wo 4.63 s, unchanged
+to the hundredth): the loop is bound by load latency and the SMLAD dependency chains, not by its instruction
+count, so trading ALU instructions for loads moves nothing. Measured directly (`::bench`, `20260928-100627`,
+`path widened` beside the originals): Q4_K presum 114.2 → 112.1 M/s, Q6_K on 11,008-wide rows 77.0 → 76.3,
+on 2,048-wide rows 78.5 → 81.2 -- a wash within ±3%. The one-token path went back to its original kernels;
+the widened ones stay in `gguf_dot.c` with their `dot_verify` check and bench line, so the idea is not
+tried twice.
+
+Where that leaves the two kinds of pass on this board: an eight-position pass is arithmetic-bound at about
+160 s with the card's ~150 s of reading hidden under it; a one-token pass is card-bound at FIFO's 76 s plus
+29 s of arithmetic that cannot hide behind a slower DMA read. Both walls are the card interface: FIFO cannot
+free the CPU, and the CPU-free path streams 30% slower. The lever past both is a second storage channel
+read by DMA -- the Teensy 4.1's USB host port (480 Mb/s, EHCI with its own DMA) with half the weights on a
+USB drive would run beside the card and under the arithmetic; that is hardware the bench does not have
+yet, so it is a proposal with the arithmetic, not a measurement.
+
 ## For the FPGA
 
 This is the layout to carry over: independent memories, each owning whole layers, a checksum beside every

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-101322",
+  "sketch": "psram_llm",
+  "git": "97360d6",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v9g: the one-token path back on its original kernels (the widened variants measured a wash and stay only in gguf_dot.c and the bench); batched Q4_K two vectors at a time; realistic chat test",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 604954
+}

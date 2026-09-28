@@ -28,13 +28,13 @@ every boot: 6.8 s), then answered France exactly, 7 of 7 (`20260927-222806-psram
 
 ## What a user gets
 
-| | **v9c (card path per pass)** | v9 (chips as memories) | v8b (card at 66 MHz) | v8 | v7b | archive (v9c / v9 / v8b / v8 / v7b) |
+| | **v9g (faster batched kernels)** | v9c (card path per pass) | v9 (chips as memories) | v8b | v7b | archive (v9e / v9c / v9 / v8b / v7b) |
 |---|---|---|---|---|---|---|
-| a real chat question (45 tokens with the chat template) to its **first answer token** | **1,118.4 s (18.6 min)** | 1,589.9 s | 1,615.4 s | 1,706.4 s | 1,707.9 s | `20260928-052543` / `013821` / `20260927-234517` / `211340` / `183958` |
-| each answer token after that | **105.1 s** | 105.1 s | 105.7 s | 113.0 s | 113.2 s | same |
+| a real chat question (45 tokens with the chat template) to its **first answer token** | **955.5 s (15.9 min)** | 1,118.4 s | 1,589.9 s | 1,615.4 s | 1,707.9 s | `20260928-101322` / `052543` / `013821` / `20260927-234517` / `183958` |
+| each answer token after that | **105.1 s** | 105.1 s | 105.1 s | 105.7 s | 113.2 s | same |
 | the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same | same | same |
-| reading a prompt | 8 tokens per 194–196 s pass: about **149 tokens an hour** | 105 | 103 | 97 | 97 | same |
-| writing an answer, one user | about **34 tokens an hour** | 34 | 34 | 32 | 32 | |
+| reading a prompt | 8 tokens per 162–164 s pass: about **177 tokens an hour** | 149 | 105 | 103 | 97 | same |
+| writing an answer, one user | about **34 tokens an hour** | 34 | 34 | 34 | 32 | |
 | longest conversation the cache holds | **2,608 positions, and any one chip can fail** (docs/56) | 3,072, no spare | 3,072 | 2,048 | |
 | PSRAM over the run | 6.5 s, 59 chip selects, 1 write redone (chip Y4), 0 rows re-read | 34.8 s | | | |
 
@@ -50,7 +50,7 @@ overnight — and not an interactive one.
 | pass | total | SD card | arithmetic (Teensy RAM) | PSRAM |
 |---|---|---|---|---|
 | one answer token (FIFO) | 105.1 s | 76.0 s (72%, 24.13 MB/s) | 28.8 s (27%) | 0.22 s (0.2%) |
-| eight prompt tokens (ADMA2, arithmetic under the read) | 193.7–195.8 s | 1.6 s left waiting; 145.7 s hidden under the arithmetic | 192 s (99%) | 0.23–1.35 s |
+| eight prompt tokens (ADMA2, arithmetic under the read) | 161.7–163.9 s | 1.9 s left waiting; ~150 s hidden under the arithmetic | 160 s (99%) | 0.26–1.55 s |
 
 A prompt pass is now the arithmetic alone; a one-token pass is the card alone plus 29 s. How the card read
 became free for batched passes, and why not for single ones: docs/56.

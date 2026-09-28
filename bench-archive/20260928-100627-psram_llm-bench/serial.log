@@ -1,0 +1,121 @@
+
+[board_cmd 2026-09-28 10:07:01] >>> I
+10:07:01 |       Y0   no quad setting survives 1024 kB
+10:07:03 |         144 wrong over 1024 kB at write 6 read 18 burst 40
+10:07:03 |         128 wrong over 1024 kB at write 6 read 20 burst 40
+10:07:06 |       Y0   single 0x03 edge write  3 read 13, running at write  6 read 24 burst 32 setup 16 ->  1.78 MB/s
+10:07:07 |         48 wrong over 1024 kB at write 5 read 11 burst 56
+10:07:08 |         88 wrong over 1024 kB at write 5 read 12 burst 56
+10:07:08 |         128 wrong over 1024 kB at write 5 read 13 burst 48
+10:07:09 |         208 wrong over 1024 kB at write 5 read 14 burst 48
+10:07:10 |         48 wrong over 1024 kB at write 5 read 16 burst 48
+10:07:10 |         176 wrong over 1024 kB at write 5 read 18 burst 40
+10:07:11 |         128 wrong over 1024 kB at write 5 read 20 burst 40
+10:07:14 |       Y0   single 0x0B edge write  2 read  8, running at write  5 read 24 burst 32 setup 16 ->  1.74 MB/s
+10:07:18 |       Y1   no quad setting survives 1024 kB
+10:07:20 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+10:07:22 |       Y1   single 0x0B edge write  5 read  6, running at write  8 read  9 burst 64 setup 16 ->  3.12 MB/s
+10:07:25 |       Y2   no quad setting survives 1024 kB
+10:07:28 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+10:07:30 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.84 MB/s
+10:07:32 |       Y3   no quad setting survives 1024 kB
+10:07:35 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+10:07:37 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+10:07:40 |       Y4   no quad setting survives 1024 kB
+10:07:42 |       Y4   single 0x03 edge write  5 read 10, running at write  8 read 13 burst 56 setup 16 ->  2.64 MB/s
+10:07:45 |       Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+10:07:47 |       Y5   no quad setting survives 1024 kB
+10:07:48 |       Y5   no single 0x03 setting survives 1024 kB
+10:07:50 |       Y5   single 0x0B edge write  0 read  6, running at write  3 read  9 burst 64 setup 16 ->  3.12 MB/s
+10:07:52 |   proving every byte: fill all 8 banks (64 MB) with bank-tagged data, then read all back
+10:07:53 |     CS0  filled 8 MB in 0.3 s
+10:07:53 |     CS1  filled 8 MB in 0.3 s
+10:07:55 |     Y1   filled 8 MB in 1.9 s
+10:07:56 |     Y5   filled 8 MB in 1.3 s
+10:07:58 |     Y4   filled 8 MB in 1.8 s
+10:07:59 |     Y3   filled 8 MB in 1.3 s
+10:08:00 |     Y2   filled 8 MB in 1.3 s
+10:08:02 |     Y0   filled 8 MB in 1.8 s
+10:08:03 |     CS0  quad        read back 8 MB in 1.0 s (8.82 MB/s): 0 wrong
+10:08:04 |     CS1  quad        read back 8 MB in 1.1 s (7.33 MB/s): 0 wrong
+10:08:07 |     Y1   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+10:08:10 |     Y5   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+10:08:13 |     Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+10:08:15 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+10:08:18 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+10:08:23 |     Y0   single 0x03 read back 8 MB in 4.7 s (1.78 MB/s): 0 wrong
+10:08:23 |   PSRAM in use: 8 banks, 67108864 bytes
+10:08:23 |   SD card
+10:08:23 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+10:08:23 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+10:08:23 |     qwen3b.gguf: 1929903072 bytes
+10:08:24 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 805 ms)
+10:08:24 | CLKSWEEP begin temp_c 42.5
+10:08:24 |     SD up (FIFO_SDIO), clock 49500 kHz
+10:08:24 |     qwen3b.gguf: 1929903072 bytes
+10:08:24 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 133 ms)
+10:08:25 | CLKSWEEP khz 49500 divider 4 mb_s 22.93 (SdFat's, the reference)
+10:08:25 | CLKSWEEP khz 66000 divider 3 mb_s 24.03 regions 8 wrong 0 failed 0
+10:08:26 | CLKSWEEP khz 99000 divider 2 mb_s 23.86 regions 8 wrong 0 failed 0
+10:08:26 |     SD up (DMA_SDIO), clock 49500 kHz
+10:08:26 |     qwen3b.gguf: 1929903072 bytes
+10:08:27 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 805 ms)
+10:08:27 | CLKSWEEP best khz 66000 divider 3 mb_s 24.03 (kept)
+10:08:27 | CLKSWEEP end temp_c 42.5
+10:08:32 |     sequential read: 32 MB in 4.46 s = 7.52 MB/s
+10:08:32 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+10:08:32 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:08:35 |     3.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+10:08:35 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+10:08:35 |     3085938688 parameters in the file
+10:08:35 |     read from the card per token: 1923948176 bytes
+10:08:35 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+10:08:35 |     PSRAM: 8 chips, the attention cache on 6 of them, one layer per region (1397888 bytes), 2608 positions; 48 layer slots, 12 spare (any one chip can fail) -- nothing of the model
+10:08:35 |     layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 Y1 Y1 Y1 Y1 Y1 Y1 Y5 Y5 Y5 Y5 Y5 Y5 Y4 Y4 Y4 Y4 Y4 Y4 Y3 Y3 Y3 Y3 Y3 Y3
+10:08:35 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[board_cmd 2026-09-28 10:08:35] >>> ::hold
+10:08:35 | HOLD waiting for prompts
+
+[board_cmd 2026-09-28 10:08:35] >>> I
+10:08:35 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[board_cmd 2026-09-28 10:08:35] >>> ::bench
+10:08:35 | BENCH begin temp_c 43.1
+10:08:37 | BENCH sd_seq read_size 4096 mb_s 7.51 sdio dma
+10:08:39 | BENCH sd_seq read_size 16384 mb_s 7.51 sdio dma
+10:08:42 | BENCH sd_seq read_size 65536 mb_s 7.51 sdio dma
+10:08:44 | BENCH sd_seq_dtcm read_size 4096 mb_s 7.51 sdio dma clock_khz 66000
+10:08:44 |     SD up (FIFO_SDIO), clock 66000 kHz
+10:08:44 |     qwen3b.gguf: 1929903072 bytes
+10:08:44 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 115 ms)
+10:08:44 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:08:45 | BENCH sd_seq read_size 4096 mb_s 18.53 sdio fifo
+10:08:46 | BENCH sd_seq read_size 16384 mb_s 18.54 sdio fifo
+10:08:47 | BENCH sd_seq read_size 65536 mb_s 18.54 sdio fifo
+10:08:48 | BENCH sd_seq_dtcm read_size 4096 mb_s 18.54 sdio fifo clock_khz 66000
+10:08:48 |     SD up (DMA_SDIO), clock 66000 kHz
+10:08:48 |     qwen3b.gguf: 1929903072 bytes
+10:08:48 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 785 ms)
+10:08:48 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:08:49 | BENCH sd_random read_size 4096 count 256 ms_each 0.681 mb_s 5.73 fails 0
+10:08:50 | BENCH kernel ffn_gate_L0 type 12 path presum rows 56 cols 2048 mb_s 61.25 mweights_s 114.18
+10:08:51 | BENCH kernel ffn_gate_L0 type 12 path dot_q rows 56 cols 2048 mb_s 56.40 mweights_s 105.14
+10:08:52 | BENCH kernel ffn_gate_L0 type 12 path widened rows 56 cols 2048 mb_s 60.14 mweights_s 112.10
+10:08:53 | BENCH kernel_x8 ffn_gate_L0 type 12 vectors 8 mweights_s_per_vector 183.47
+10:08:54 | BENCH q4k_stage ffn_gate_L0 stage 0 cycles_per_weight 5.755 mweights_s 104.25
+10:08:55 | BENCH q4k_stage ffn_gate_L0 stage 1 cycles_per_weight 4.423 mweights_s 135.65
+10:08:56 | BENCH q4k_stage ffn_gate_L0 stage 2 cycles_per_weight 3.594 mweights_s 166.93
+10:08:57 | BENCH kernel ffn_down_L0 type 14 path dot_q rows 7 cols 11008 mb_s 60.25 mweights_s 77.02
+10:08:58 | BENCH kernel ffn_down_L0 type 14 path widened rows 7 cols 11008 mb_s 59.72 mweights_s 76.34
+10:08:59 | BENCH kernel_x8 ffn_down_L0 type 14 vectors 8 mweights_s_per_vector 121.50
+10:09:00 | BENCH kernel attn_v_L0 type 14 path dot_q rows 39 cols 2048 mb_s 61.39 mweights_s 78.47
+10:09:01 | BENCH kernel attn_v_L0 type 14 path widened rows 39 cols 2048 mb_s 63.53 mweights_s 81.21
+10:09:02 | BENCH kernel_x8 attn_v_L0 type 14 vectors 8 mweights_s_per_vector 121.73
+10:09:03 | BENCH kernel token_embd type 14 path dot_q rows 39 cols 2048 mb_s 61.40 mweights_s 78.49
+10:09:04 | BENCH kernel token_embd type 14 path widened rows 39 cols 2048 mb_s 63.57 mweights_s 81.26
+10:09:05 | BENCH kernel_x8 token_embd type 14 vectors 8 mweights_s_per_vector 121.75
+10:09:05 | BENCH psram_raw bank Y2 mode single 0x0B write_mb_s 6.44 read_mb_s 2.84 wrong 0
+10:09:06 | BENCH psram_plat bank Y2 verified_write_mb_s 2.01 read_mb_s 2.91 errors 0
+10:09:06 | BENCH cache_layer bank CS0 positions 1024 write_s 0.142 read_s 0.061 ms_per_position_read 0.060 rows_reread 0 bank_switches 1
+10:09:06 | BENCH end temp_c 41.9

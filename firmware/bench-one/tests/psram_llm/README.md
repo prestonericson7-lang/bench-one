@@ -113,17 +113,22 @@ board as commands (e.g. `::prefill 0` before an A/B test); `@multi <id> | <token
 `id | prompt` lines is a group answered together. `summary.md` also checks that tests reaching the same prompt
 by different paths (batched, per token, inside a group) printed identical step lines.
 
-## State on 2026-09-27
+## State on 2026-09-28
 
-- **On the board: v8** (flashed 21:13): the whole model on the card, the PSRAM only the attention cache
-  (3,072 positions). First boot built `qwen3b.tok` (8,301,328 bytes, one contiguous run) in a 13.5 s open.
-- **The usable numbers:** `docs/55`. A 45-token chat prompt reaches its first answer token in 28.4 min, then
-  113.0 s a token; every step exact against the PC.
-- **The realistic test** (about 40 min):
+- **On the board: v9g.** The whole model on the card; the PSRAM as independent chips, one layer's cache per
+  chip, a checksum per row, spare layer slots and retire-and-rerun on a chip fault (`docs/56`); the card path
+  chosen per pass (>= 3 positions: ADMA2 with the arithmetic run under the read; fewer: FIFO); the batched
+  Q4_K kernel two vectors at a time (+32%).
+- **The usable numbers:** `docs/55`. A 45-token chat prompt reaches its first answer token in about 16 min
+  (yesterday 28.5), then 105 s a token; eight prompts together in 1.8 h (yesterday 2.6); every step exact
+  against the PC.
+- **The realistic test** (about 25 min):
 
   ```bash
   python firmware/bench-one/tests/psram_llm/suite.py --tests firmware/bench-one/tests/psram_llm/tests_realistic.txt --runs 1 --bench 1 --ref tl_ref.exe
   ```
+
+  `tests_together8.txt` is the eight-prompt group (about 1.8 h); `tests_adma.txt` the card-path A/B.
 
 ## If the card will not start
 

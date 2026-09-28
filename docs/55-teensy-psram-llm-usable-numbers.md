@@ -28,15 +28,15 @@ every boot: 6.8 s), then answered France exactly, 7 of 7 (`20260927-222806-psram
 
 ## What a user gets
 
-| | v8b (card at 66 MHz) | v8 (49.5 MHz) | v7b | archive (v8b / v8 / v7b) |
-|---|---|---|---|---|
-| a real chat question (45 tokens with the chat template) to its **first answer token** | **1,615.4 s (26.9 min)** | 1,706.4 s | 1,707.9 s | `20260927-234517` / `211340` / `183958` |
-| each answer token after that | **105.7 s** | 113.0 s | 113.2 s | same |
-| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same |
-| reading a prompt | 8 tokens per 279–282 s pass: about **103 tokens an hour** | 97 | 97 | same |
-| writing an answer, one user | about **34 tokens an hour** | 32 | 32 | |
-| longest conversation the cache holds | 3,072 positions with 8 banks (2,647 with the 6 this boot had) | 3,072 | 2,048 | |
-| PSRAM corrections over the boot | 0 | 0 | 0 | |
+| | v9 (chips as memories) | v8b (card at 66 MHz) | v8 (49.5 MHz) | v7b | archive (v9 / v8b / v8 / v7b) |
+|---|---|---|---|---|---|
+| a real chat question (45 tokens with the chat template) to its **first answer token** | **1,589.9 s (26.5 min)** | 1,615.4 s | 1,706.4 s | 1,707.9 s | `20260928-013821` / `20260927-234517` / `211340` / `183958` |
+| each answer token after that | **105.1 s** | 105.7 s | 113.0 s | 113.2 s | same |
+| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same | same |
+| reading a prompt | 8 tokens per 275–277 s pass: about **105 tokens an hour** | 103 | 97 | 97 | same |
+| writing an answer, one user | about **34 tokens an hour** | 34 | 32 | 32 | |
+| longest conversation the cache holds | **2,608 positions, and any one chip can fail** (docs/56) | 3,072, no spare | 3,072 | 2,048 | |
+| PSRAM over the run | 6.5 s, 59 chip selects, 1 write redone (chip Y4), 0 rows re-read | 34.8 s | | | |
 
 Eight prompts at once (4 plain, 4 chat, 16 tokens each, v6): 39 passes, 211 positions (72 of them shared
 openings), **2.63 h** for all eight, 8 of 8 equal to the PC; a pass feeding eight answers costs 302 s for 8
@@ -45,12 +45,12 @@ tokens against 113 s for 1: **3.0× the tokens an hour** (`20260927-122709-psram
 So it is a working, exact 3-billion-parameter assistant for **batch work** — questions queued and answered
 overnight — and not an interactive one.
 
-## Where a pass goes (v8b, card at 66 MHz)
+## Where a pass goes (v9, card at 66 MHz)
 
 | pass | total | SD card | arithmetic (Teensy RAM) | PSRAM |
 |---|---|---|---|---|
-| one answer token | 105.7 s | 76.0 s (72%, 24.13 MB/s) | 28.8 s (27%) | 0.91 s (0.9%) |
-| eight prompt tokens | 278.7–282.0 s | 82.9 s (30%, 22.12 MB/s) | 192 s (69%) | 4.1–6.6 s (2%) |
+| one answer token | 105.1 s | 76.0 s (72%, 24.14 MB/s) | 28.8 s (27%) | 0.24 s (0.2%) |
+| eight prompt tokens | 274.8–277.0 s | 83.0 s (30%, 22.11 MB/s) | 192 s (70%) | 0.25–1.50 s (0.1–0.5%) |
 
 Every token reads the whole model off the card: 1,834.8 MB (the norms and biases add 0.9 MB and 0.2 s).
 The card sets the one-token speed; the M7's arithmetic sets the batched speed.
@@ -85,10 +85,11 @@ boot proof accepted was 8 on seven boots, 7 on five and 6 on four. Y0 has been m
 all 8 MB right, and the running self-check has corrected 0 bytes since the qualification fix.
 
 **The cost of a long conversation is PSRAM time, and it is linear.** Every pass reads each prompt's whole
-cache back: measured **+0.010 s per position** of context per prompt (v8 eight-prompt passes: 4.20, 4.86,
-5.51, 6.17, 6.82 s — +0.66 s every 8 positions; one-token passes 0.95–0.98 s at positions 45–48). At the full
-3,072 positions that slope gives about +31 s a token — roughly 144 s instead of 113. That figure is the
-measured slope extended, not a run.
+cache back: v9 measures **+0.0049 s per position** of context per prompt (eight-slot passes 0.25, 0.56, 0.88,
+1.19, 1.50 s — +0.31 s every 8 positions; one-token passes 0.24–0.26 s at positions 45–48; v8b was twice
+that). At the full 2,608 positions that slope gives about +13 s a token — roughly 118 s instead of 105. That
+figure is the measured slope extended, not a run. Why it halved, and why a chip can now fail without ending
+the run: docs/56.
 
 **Why the weights are not in PSRAM:** they are the model, and the model stays on the card — and 1.93 GB would
 not fit in 64 MB, whose 2.8–8.8 MB/s is slower than the card's 18.5–22 MB/s anyway.

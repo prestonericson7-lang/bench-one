@@ -4,8 +4,10 @@ Qwen2.5-Coder-3B (Q4_K_M, **3,085,938,688 parameters**, 1,929,903,072-byte GGUF)
 is 1 MB. **The whole model stays on the built-in microSD**: every weight, norm and bias is read from
 `qwen3b.gguf` every token, and the tokenizer's lookup tables are in `qwen3b.tok` beside it (built by the board
 from the model the first time, checked every boot). **The PSRAM is the model's working memory only**: the
-attention cache, 3,072 positions. The Teensy's own RAM does the arithmetic. Usable numbers: `docs/55`; the
-story and every measurement: `docs/54`.
+attention cache -- and the eight chips are used as eight memories (v9, `docs/56`): each layer's cache lives
+inside one chip with a checksum per row, spare layer slots on the other chips absorb a chip that fails
+mid-run, and a pass selects a chip seven times instead of hundreds. The Teensy's own RAM does the arithmetic.
+Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 
 ## Files
 
@@ -30,7 +32,7 @@ story and every measurement: `docs/54`.
 | send | effect |
 |---|---|
 | a prompt | runs it; `\n` `\t` `\\` are unescaped so code and chat templates fit one line |
-| `I` | `I bench-one psram_llm v8 banks N ps_bytes N max_seq N gen N sdio dma overlap 1 align 1 slice 0` |
+| `I` | `I bench-one psram_llm v9 banks N ps_bytes N max_seq N gen N sdio dma overlap 1 align 1 slice 0 clk N` |
 | `::gen N` | tokens to generate, 1–512 (default 16) |
 | `::prefill 0\|1` | prompt through `tl_prefill` (default 1) or one token per pass |
 | `::multi K` | the next K prompt lines (1–8) are answered together, one pass over the weights for all of them; lines `S<k> step …`, `ANSWER S<k>: …`, one `RUN multi=…`. `::multi 0` cancels |

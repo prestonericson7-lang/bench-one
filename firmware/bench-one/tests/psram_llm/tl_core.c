@@ -208,35 +208,58 @@ static int pipe_rows(uint32_t rb)
     return per;
 }
 
-static uint32_t g_ps_size;
-static int ps_read(uint32_t a, void *dst, uint32_t n)
+/* ---- the PSRAM: independent chips, each holding whole layers (tl_plat.h) ------------------------------
+ * ONE CHIP, ONE JOB. The chips are not one memory: each has its own timing, and moving the bus from one to
+ * another is a chip reset with a 2 ms wait (the board's apply()). Until v8 the core saw one flat address
+ * space and laid the cache across it as four long arrays, so attention on one layer touched K on one chip,
+ * its scales on another, V on a third -- about eight re-selects a layer, ~290 a token, thousands at long
+ * context, and a chip that failed took an arbitrary slice out of the middle of every array. Now a layer's
+ * whole cache -- keys, values, scales and a checksum per row -- lives inside ONE chip, a layer's attention
+ * never leaves it, and a chip that fails loses only whole layers, which move to spare room on the others
+ * (tl_bank_fault) and are recomputed by re-running the prompt. A read is one raw transfer: the row checksum
+ * (FNV-1a 32, written with the row) says whether it was right, and a row that was not is read again. */
+#ifndef TL_MAX_BANKS
+#define TL_MAX_BANKS   16
+#endif
+#ifndef TL_SPARE_MIN
+#define TL_SPARE_MIN   1024       /* keep a spare bank's worth of layer slots when the cache still holds this many positions */
+#endif
+static int      g_nbank;
+static uint32_t g_bank_bytes[TL_MAX_BANKS];
+static int      g_bank_dead[TL_MAX_BANKS];
+static int      g_fault_bank = -1;             /* the bank of the last PSRAM failure (tl_fault_bank) */
+#define SCR 0                                  /* the tokenizer's build scratch: bank 0, erased after */
+static uint32_t g_ps_size;                     /* bytes of that scratch bank */
+
+static int ps_read(int b, uint32_t off, void *dst, uint32_t n)
 {
     if (!n) return 0;
-    if ((uint64_t)a + n > g_ps_size) {
-        snprintf(g_err, sizeof g_err, "PSRAM read outside the store: %lu+%lu > %lu", (unsigned long)a, (unsigned long)n, (unsigned long)g_ps_size);
+    if (b < 0 || b >= g_nbank || (uint64_t)off + n > g_bank_bytes[b]) {
+        snprintf(g_err, sizeof g_err, "PSRAM read outside bank %d: %lu+%lu", b, (unsigned long)off, (unsigned long)n);
         return -1;
     }
     const double t = plat_now();
-    const int r = plat_ps_read(a, dst, n);
+    const int r = plat_ps_read(b, off, dst, n);
     S.t_ps += plat_now() - t;
     S.ps_read += n;
-    if (r) snprintf(g_err, sizeof g_err, "PSRAM read failed at %lu (+%lu)", (unsigned long)a, (unsigned long)n);
+    if (r) { snprintf(g_err, sizeof g_err, "PSRAM bank %d read failed at %lu (+%lu)", b, (unsigned long)off, (unsigned long)n); g_fault_bank = b; }
     return r;
 }
-static int ps_write(uint32_t a, const void *src, uint32_t n)
+static int ps_write(int b, uint32_t off, const void *src, uint32_t n)
 {
     if (!n) return 0;
-    if ((uint64_t)a + n > g_ps_size) {
-        snprintf(g_err, sizeof g_err, "PSRAM write outside the store: %lu+%lu > %lu", (unsigned long)a, (unsigned long)n, (unsigned long)g_ps_size);
+    if (b < 0 || b >= g_nbank || (uint64_t)off + n > g_bank_bytes[b]) {
+        snprintf(g_err, sizeof g_err, "PSRAM write outside bank %d: %lu+%lu", b, (unsigned long)off, (unsigned long)n);
         return -1;
     }
     const double t = plat_now();
-    const int r = plat_ps_write(a, src, n);
+    const int r = plat_ps_write(b, off, src, n);
     S.t_ps += plat_now() - t;
     S.ps_written += n;
-    if (r) snprintf(g_err, sizeof g_err, "PSRAM write failed at %lu (+%lu)", (unsigned long)a, (unsigned long)n);
+    if (r) { snprintf(g_err, sizeof g_err, "PSRAM bank %d write failed at %lu (+%lu)", b, (unsigned long)off, (unsigned long)n); g_fault_bank = b; }
     return r;
 }
+int tl_fault_bank(void) { return g_fault_bank; }
 
 /* ---- the model --------------------------------------------------------------------------- */
 typedef struct {
@@ -265,8 +288,10 @@ static struct {
     int      pre_qwen2;                          /* tokenizer.ggml.pre is "qwen2"     */
     int32_t  spec[TL_MAX_SPECIAL];               /* token_type 3 (control) or 4 (user-defined) */
     int      n_spec;
-    /* attention cache in PSRAM */
-    uint32_t k_base, v_base, ks_base, vs_base;
+    /* attention cache in PSRAM: one layer per region, one region inside one bank (PL below); a region is
+     * K rows, then key scales, V rows, value scales, then a checksum per K row and per V row */
+    uint32_t r_ks, r_v, r_vs, r_sk, r_sv, layer_bytes;
+    int      layer_slots, spare_slots, one_bank_spare, banks_used;
     uint32_t ps_used;
     int      open;
 } M;
@@ -317,6 +342,10 @@ static float   ATT[TL_MAX_HEADS * TL_MAX_SEQ] TL_BIG;
 
 static int8_t  KC[TL_KCHUNK * TL_MAX_KVDIM];
 static float   KCS[TL_KCHUNK * TL_MAX_KVH];
+static uint32_t SUMC[TL_KCHUNK];              /* the chunk's row checksums, read beside the rows */
+typedef struct { int bank; uint32_t base; } tl_place_t;
+static tl_place_t PL[TL_MAX_LAYERS];          /* where each layer's cache region is */
+static int      g_bank_slots[TL_MAX_BANKS], g_bank_used[TL_MAX_BANKS];
 static int8_t  KQ8[TL_MAX_KVDIM], VQ8[TL_MAX_KVDIM];
 static float   KSC[TL_MAX_KVH], VSC[TL_MAX_KVH];
 static float   G_A[TL_MAX_DIM], G_F[TL_MAX_DIM], BQ[TL_MAX_DIM], BK[TL_MAX_KVDIM], BV[TL_MAX_KVDIM];
@@ -433,13 +462,14 @@ static int r_scalar(uint32_t t, int64_t *iv, double *fv, char *sv, int svlen)
     }
 }
 
-/* ---- PSRAM allocation ----------------------------------------------------------------------- */
+/* ---- scratch allocation in bank SCR, for building the tokenizer's tables once ------------------------ */
 static uint32_t g_ps_cur;
 static int ps_alloc(uint32_t n, uint32_t *addr)
 {
     g_ps_cur = (g_ps_cur + 3u) & ~3u;
     if ((uint64_t)g_ps_cur + n > g_ps_size) {
-        snprintf(g_err, sizeof g_err, "PSRAM full: need %lu more bytes at %lu of %lu", (unsigned long)n, (unsigned long)g_ps_cur, (unsigned long)g_ps_size);
+        snprintf(g_err, sizeof g_err, "the tokenizer's tables need %lu more bytes at %lu; bank %d has %lu (one bank must hold them while they are built)",
+                 (unsigned long)n, (unsigned long)g_ps_cur, SCR, (unsigned long)g_ps_size);
         return -1;
     }
     *addr = g_ps_cur;
@@ -451,7 +481,7 @@ static int ps_zero(uint32_t a, uint32_t n)
     memset(ROW, 0, TL_ROWBUF);
     while (n) {
         const uint32_t k = n < TL_ROWBUF ? n : TL_ROWBUF;
-        if (ps_write(a, ROW, k)) return -1;
+        if (ps_write(SCR, a, ROW, k)) return -1;
         a += k; n -= k;
     }
     return 0;
@@ -479,7 +509,7 @@ typedef struct {
 static int g_tok_card;                   /* 0 while the tables are being built in PSRAM, 1 once on the card */
 static int tok_rd(uint32_t a, void *dst, uint32_t n)
 {
-    if (!g_tok_card) return ps_read(a, dst, n);
+    if (!g_tok_card) return ps_read(SCR, a, dst, n);
     if (!n) return 0;
     const int r = plat_tok_read(TOK_HDR + a, dst, n);
     if (r) snprintf(g_err, sizeof g_err, "tokenizer store read failed at %lu (+%lu)", (unsigned long)a, (unsigned long)n);
@@ -512,24 +542,24 @@ static int stream_strings(uint64_t n, uint32_t *off_tab, uint32_t *blob, uint32_
         s[len] = 0;
         const uint32_t cl = (uint32_t)strlen(s);
         ob[no++] = rel;
-        if (no == 256) { if (ps_write(oaddr, ob, 1024)) return -1; oaddr += 1024; no = 0; }
+        if (no == 256) { if (ps_write(SCR, oaddr, ob, 1024)) return -1; oaddr += 1024; no = 0; }
         for (uint32_t k = 0; k < cl; ) {
             uint32_t c = cl - k;
             if (c > sizeof bb - nbb) c = (uint32_t)sizeof bb - nbb;
             memcpy(bb + nbb, s + k, c); nbb += c; k += c;
             if (nbb == sizeof bb) {
                 if ((uint64_t)baddr + nbb > g_ps_size) { snprintf(g_err, sizeof g_err, "PSRAM full while storing strings"); return -1; }
-                if (ps_write(baddr, bb, nbb)) return -1;
+                if (ps_write(SCR, baddr, bb, nbb)) return -1;
                 baddr += nbb; nbb = 0;
             }
         }
         rel += cl;
     }
     ob[no++] = rel;                                   /* the n+1'th entry: end of the last string */
-    if (ps_write(oaddr, ob, no * 4u)) return -1;
+    if (ps_write(SCR, oaddr, ob, no * 4u)) return -1;
     if (nbb) {
         if ((uint64_t)baddr + nbb > g_ps_size) { snprintf(g_err, sizeof g_err, "PSRAM full while storing strings"); return -1; }
-        if (ps_write(baddr, bb, nbb)) return -1;
+        if (ps_write(SCR, baddr, bb, nbb)) return -1;
     }
     g_ps_cur = *blob + rel;
     *count = (uint32_t)n;
@@ -582,8 +612,8 @@ static int map_put(uint32_t map, uint32_t cap, uint32_t off_tab, uint32_t blob, 
     uint32_t i = (uint32_t)(fnv1a(k) & (cap - 1));
     for (;;) {
         uint32_t slot;
-        if (ps_read(map + 4u * i, &slot, 4)) return -1;
-        if (!slot) { slot = v + 1; return ps_write(map + 4u * i, &slot, 4); }
+        if (ps_read(SCR, map + 4u * i, &slot, 4)) return -1;
+        if (!slot) { slot = v + 1; return ps_write(SCR, map + 4u * i, &slot, 4); }
         if (ps_string(off_tab, blob, slot - 1, cand, TL_KEYMAX) < 0) return -1;
         if (!strcmp(cand, k)) return 0;
         i = (i + 1) & (cap - 1);
@@ -602,11 +632,11 @@ static int build_map(uint32_t n, uint32_t off_tab, uint32_t blob, uint32_t *map,
     static char s[TL_KEYMAX];
     for (uint32_t j0 = 0; j0 < n; j0 += 256) {
         const uint32_t k = (n - j0) < 256 ? (n - j0) : 256;
-        if (ps_read(off_tab + 4u * j0, ob, (k + 1) * 4u)) return -1;
+        if (ps_read(SCR, off_tab + 4u * j0, ob, (k + 1) * 4u)) return -1;
         for (uint32_t j = 0; j < k; j++) {
             const uint32_t len = ob[j + 1] - ob[j];
             if (len >= TL_KEYMAX) { snprintf(g_err, sizeof g_err, "string %lu too long", (unsigned long)(j0 + j)); return -1; }
-            if (ps_read(blob + ob[j], s, len)) return -1;
+            if (ps_read(SCR, blob + ob[j], s, len)) return -1;
             s[len] = 0;
             if (map_put(*map, cap, off_tab, blob, s, j0 + j)) return -1;
         }
@@ -921,12 +951,18 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
     nsc = 0; g_arch[0] = 0; g_err[0] = 0;
     tl_stats_reset();
     g_fsize = plat_sd_size();
-    g_ps_size = plat_ps_size();
-    g_ps_cur = 0;
     g_tok_card = 0;
     build_byte_map();
 
 #define FAIL() do { if (err && errlen > 0) snprintf(err, (size_t)errlen, "%s", g_err[0] ? g_err : "failed"); return -1; } while (0)
+
+    g_nbank = plat_ps_banks();
+    if (g_nbank > TL_MAX_BANKS) g_nbank = TL_MAX_BANKS;
+    if (g_nbank < 1) { snprintf(g_err, sizeof g_err, "no PSRAM bank qualified"); FAIL(); }
+    for (int b = 0; b < g_nbank; b++) { g_bank_bytes[b] = plat_ps_bank_bytes(b); g_bank_dead[b] = 0; }
+    g_ps_size = g_bank_bytes[SCR];
+    g_ps_cur = 0;
+    g_fault_bank = -1;
 
     /* The tokenizer store on the card: used as it is only if it was built from this very file and every
      * table byte still sums to what was written. Anything else is rebuilt from the model. */
@@ -1116,7 +1152,7 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         uint64_t h = 1469598103934665603ull;
         for (uint32_t a = 0; a < tok_bytes; a += TL_ROWBUF) {
             const uint32_t k = tok_bytes - a < TL_ROWBUF ? tok_bytes - a : TL_ROWBUF;
-            if (ps_read(a, ROW, k)) FAIL();
+            if (ps_read(SCR, a, ROW, k)) FAIL();
             h = fnv_add(h, ROW, k);
             if (plat_tok_write(TOK_HDR + a, ROW, k)) { snprintf(g_err, sizeof g_err, "tokenizer store write failed at %lu", (unsigned long)a); FAIL(); }
         }
@@ -1151,19 +1187,60 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
     if (small_check(&M.onorm, (uint32_t)M.dim)) FAIL();
     per_tok += (uint64_t)M.onorm.rows * M.onorm.row_bytes;
 
-    /* ---- PSRAM: the attention cache, and nothing else ---- */
+    /* ---- PSRAM: the attention cache, one layer per region, one region per bank, and nothing else ----
+     * A layer's region at S positions is S x (2 kv_dim + 2 n_kv x 4 + 8) bytes; a bank holds floor(bytes / region)
+     * whole layers. S is the largest count for which the banks hold every layer AND a spare bank's worth of
+     * layer slots (so a bank that fails mid-run can be retired), as long as that leaves TL_SPARE_MIN positions;
+     * otherwise the largest S for which they hold every layer. Nothing ever straddles two banks. */
     {
-        const uint64_t per_pos = (uint64_t)M.n_layer * (2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv);
-        const uint64_t left = g_ps_size > g_ps_cur + 16u ? (uint64_t)(g_ps_size - g_ps_cur - 16u) : 0;
-        uint64_t ms = left / per_pos;
-        if (ms > TL_MAX_SEQ) ms = TL_MAX_SEQ;
-        if (ms < 16) { snprintf(g_err, sizeof g_err, "PSRAM left for the cache holds %llu positions", (unsigned long long)ms); FAIL(); }
-        M.max_seq = (int)ms;
-        const uint32_t kb = (uint32_t)((uint64_t)M.n_layer * M.max_seq * M.kv_dim);
-        const uint32_t sb = (uint32_t)((uint64_t)M.n_layer * M.max_seq * M.n_kv * 4u);
-        if (ps_alloc(kb, &M.k_base) || ps_alloc(kb, &M.v_base) || ps_alloc(sb, &M.ks_base) || ps_alloc(sb, &M.vs_base)) FAIL();
+        const uint64_t per_pos = 2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv + 8u;
+        int s_red = 0, s_max = 0;
+        for (int lo = 16, hi = TL_MAX_SEQ; lo <= hi; ) {              /* slots fall as S grows: binary search */
+            const int mid = (lo + hi) / 2;
+            int total = 0, biggest = 0;
+            for (int b = 0; b < g_nbank; b++) {
+                const int k = (int)(g_bank_bytes[b] / (per_pos * (uint64_t)mid));
+                total += k;
+                if (k > biggest) biggest = k;
+            }
+            if (total >= M.n_layer) { s_max = mid; if (total >= M.n_layer + biggest) s_red = mid; lo = mid + 1; }
+            else hi = mid - 1;
+        }
+        if (s_max < 16) { snprintf(g_err, sizeof g_err, "%d PSRAM banks do not hold %d layers of cache at 16 positions", g_nbank, M.n_layer); FAIL(); }
+        /* s_red found by the search above is the largest S with the spare condition ONLY IF the condition is monotone
+         * in S, which it is not quite (biggest falls in steps); re-scan downward from s_max for the true largest */
+        s_red = 0;
+        for (int S2 = s_max; S2 >= TL_SPARE_MIN && !s_red; S2--) {
+            int total = 0, biggest = 0;
+            for (int b = 0; b < g_nbank; b++) {
+                const int k = (int)(g_bank_bytes[b] / (per_pos * (uint64_t)S2));
+                total += k;
+                if (k > biggest) biggest = k;
+            }
+            if (total >= M.n_layer + biggest) s_red = S2;
+        }
+        M.max_seq = s_red ? s_red : s_max;
+        M.layer_bytes = (uint32_t)(per_pos * (uint64_t)M.max_seq);
+        const uint32_t S = (uint32_t)M.max_seq, kd = (uint32_t)M.kv_dim, sd = (uint32_t)M.n_kv * 4u;
+        M.r_ks = S * kd; M.r_v = M.r_ks + S * sd; M.r_vs = M.r_v + S * kd; M.r_sk = M.r_vs + S * sd; M.r_sv = M.r_sk + S * 4u;
+        int l = 0;
+        M.layer_slots = 0; M.banks_used = 0;
+        for (int b = 0; b < g_nbank; b++) {
+            g_bank_slots[b] = (int)(g_bank_bytes[b] / M.layer_bytes);
+            g_bank_used[b] = 0;
+            M.layer_slots += g_bank_slots[b];
+            while (l < M.n_layer && g_bank_used[b] < g_bank_slots[b]) {
+                PL[l].bank = b; PL[l].base = (uint32_t)g_bank_used[b] * M.layer_bytes;
+                g_bank_used[b]++; l++;
+            }
+            if (g_bank_used[b]) M.banks_used++;
+        }
+        M.spare_slots = M.layer_slots - M.n_layer;
+        M.one_bank_spare = 1;
+        for (int b = 0; b < g_nbank; b++)                             /* every bank's layers fit in the others' free slots */
+            if (g_bank_used[b] && M.spare_slots - (g_bank_slots[b] - g_bank_used[b]) < g_bank_used[b]) M.one_bank_spare = 0;
+        M.ps_used = (uint32_t)M.n_layer * M.layer_bytes;
     }
-    M.ps_used = g_ps_cur;
     M.open = 1;
 
     if (info) {
@@ -1172,8 +1249,10 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         info->n_kv = M.n_kv; info->head_dim = M.head_dim; info->q_dim = M.q_dim; info->vocab = M.vocab;
         info->max_seq = M.max_seq; info->bos = M.bos; info->eos = M.eos;
         info->file_bytes = g_fsize; info->sd_bytes_per_token = per_tok; info->ps_used = M.ps_used;
-        info->n_merges = M.n_merges; info->ps_kv = M.ps_used; info->params = (double)nparams;
+        info->n_merges = M.n_merges; info->params = (double)nparams;
         info->tok_store_bytes = TOK_HDR + tok_bytes; info->tok_built = !reuse;
+        info->banks = g_nbank; info->banks_used = M.banks_used; info->layer_slots = M.layer_slots;
+        info->spare_slots = M.spare_slots; info->one_bank_spare = M.one_bank_spare; info->layer_bytes = M.layer_bytes;
     }
     tl_stats_reset();
     return 0;
@@ -1304,22 +1383,64 @@ static int matvec_qkv(const tlayer_t *L, const float *x)
     return stream_rows(&L->wv, M.kv_dim, 0, VB);
 }
 
-static uint32_t kaddr(int l, int t)  { return M.k_base  + (uint32_t)(((uint64_t)l * M.max_seq + (uint64_t)t) * M.kv_dim); }
-static uint32_t vaddr(int l, int t)  { return M.v_base  + (uint32_t)(((uint64_t)l * M.max_seq + (uint64_t)t) * M.kv_dim); }
-static uint32_t ksaddr(int l, int t) { return M.ks_base + (uint32_t)(((uint64_t)l * M.max_seq + (uint64_t)t) * M.n_kv * 4u); }
-static uint32_t vsaddr(int l, int t) { return M.vs_base + (uint32_t)(((uint64_t)l * M.max_seq + (uint64_t)t) * M.n_kv * 4u); }
+/* Offsets inside a layer's region (tl_plat.h: the whole region is inside one bank). which: 0 keys, 1 values. */
+static uint32_t o_row(int which, int t) { return (which ? M.r_v : 0u) + (uint32_t)t * (uint32_t)M.kv_dim; }
+static uint32_t o_sc (int which, int t) { return (which ? M.r_vs : M.r_ks) + (uint32_t)t * (uint32_t)M.n_kv * 4u; }
+static uint32_t o_sum(int which, int t) { return (which ? M.r_sv : M.r_sk) + (uint32_t)t * 4u; }
 
-/* This position's key and value into the cache: int8 with a scale per head (kv_store), then to PSRAM.
- * Shared by tl_forward and tl_prefill, so both write the cache the same way. */
+/* FNV-1a 32 over a row and its scales: written with the row, checked on every read of it */
+static uint32_t row_sum(const void *row, uint32_t nrow, const void *sc, uint32_t nsc)
+{
+    uint32_t h = 2166136261u;
+    const uint8_t *p = (const uint8_t *)row;
+    for (uint32_t i = 0; i < nrow; i++) { h ^= p[i]; h *= 16777619u; }
+    p = (const uint8_t *)sc;
+    for (uint32_t i = 0; i < nsc; i++) { h ^= p[i]; h *= 16777619u; }
+    return h;
+}
+
+/* This position's key and value into the cache: int8 with a scale per head (kv_store), then to the layer's
+ * bank with a checksum per row. Shared by tl_forward and tl_prefill, so both write the cache the same way. */
 static int kv_put(int l, int pos, const float *k, const float *v)
 {
     const int hd = M.head_dim, nkv = M.n_kv;
+    const uint32_t kd = (uint32_t)M.kv_dim, sd = (uint32_t)nkv * 4u;
     for (int h = 0; h < nkv; h++) {
         kv_store(k + (size_t)h * hd, KQ8 + (size_t)h * hd, &KSC[h], hd);
         kv_store(v + (size_t)h * hd, VQ8 + (size_t)h * hd, &VSC[h], hd);
     }
-    if (ps_write(kaddr(l, pos), KQ8, (uint32_t)M.kv_dim) || ps_write(vaddr(l, pos), VQ8, (uint32_t)M.kv_dim) ||
-        ps_write(ksaddr(l, pos), KSC, (uint32_t)nkv * 4u) || ps_write(vsaddr(l, pos), VSC, (uint32_t)nkv * 4u)) return -1;
+    const uint32_t sk = row_sum(KQ8, kd, KSC, sd), sv = row_sum(VQ8, kd, VSC, sd);
+    const int b = PL[l].bank;
+    const uint32_t a = PL[l].base;
+    if (ps_write(b, a + o_row(0, pos), KQ8, kd) || ps_write(b, a + o_sc(0, pos), KSC, sd) || ps_write(b, a + o_sum(0, pos), &sk, 4) ||
+        ps_write(b, a + o_row(1, pos), VQ8, kd) || ps_write(b, a + o_sc(1, pos), VSC, sd) || ps_write(b, a + o_sum(1, pos), &sv, 4)) return -1;
+    return 0;
+}
+
+/* n cached rows of layer l from position t0 (keys or values, with their scales) into KC and KCS, every row
+ * checked against its checksum. A row that fails is read again, up to three times; one that never reads
+ * right is the bank's failure (tl_fault_bank). All in the layer's one bank. */
+static int cache_read(int l, int which, int t0, int n)
+{
+    const int b = PL[l].bank;
+    const uint32_t a = PL[l].base, kd = (uint32_t)M.kv_dim, sd = (uint32_t)M.n_kv * 4u;
+    if (ps_read(b, a + o_row(which, t0), KC, (uint32_t)n * kd) || ps_read(b, a + o_sc(which, t0), KCS, (uint32_t)n * sd) ||
+        ps_read(b, a + o_sum(which, t0), SUMC, (uint32_t)n * 4u)) return -1;
+    for (int j = 0; j < n; j++) {
+        int tries = 0;
+        while (row_sum(KC + (size_t)j * kd, kd, (const uint8_t *)KCS + (size_t)j * sd, sd) != SUMC[j]) {
+            if (++tries > 3) {
+                S.ps_rows_bad++;
+                g_fault_bank = b;
+                snprintf(g_err, sizeof g_err, "PSRAM bank %d: row %d of layer %d never read back right", b, t0 + j, l);
+                return -1;
+            }
+            if (ps_read(b, a + o_row(which, t0 + j), KC + (size_t)j * kd, kd) ||
+                ps_read(b, a + o_sc(which, t0 + j), (uint8_t *)KCS + (size_t)j * sd, sd) ||
+                ps_read(b, a + o_sum(which, t0 + j), &SUMC[j], 4)) return -1;
+        }
+        if (tries) S.ps_rows_reread++;
+    }
     return 0;
 }
 
@@ -1335,7 +1456,7 @@ static int attention(int l, int base, int pos, const float *q, float *out)
     const int npos = pos + 1;
     for (int t0 = 0; t0 < npos; t0 += TL_KCHUNK) {
         const int n = (npos - t0) < TL_KCHUNK ? (npos - t0) : TL_KCHUNK;
-        if (ps_read(kaddr(l, base + t0), KC, (uint32_t)(n * kv_dim)) || ps_read(ksaddr(l, base + t0), KCS, (uint32_t)(n * nkv) * 4u)) return -1;
+        if (cache_read(l, 0, base + t0, n)) return -1;
         for (int h = 0; h < nh; h++) {
             const float *qh = q + (size_t)h * hd;
             const int kvh = h / group;
@@ -1352,7 +1473,7 @@ static int attention(int l, int base, int pos, const float *q, float *out)
     for (int i = 0; i < M.q_dim; i++) out[i] = 0.0f;
     for (int t0 = 0; t0 < npos; t0 += TL_KCHUNK) {
         const int n = (npos - t0) < TL_KCHUNK ? (npos - t0) : TL_KCHUNK;
-        if (ps_read(vaddr(l, base + t0), KC, (uint32_t)(n * kv_dim)) || ps_read(vsaddr(l, base + t0), KCS, (uint32_t)(n * nkv) * 4u)) return -1;
+        if (cache_read(l, 1, base + t0, n)) return -1;
         for (int h = 0; h < nh; h++) {
             const int kvh = h / group;
             const float *att = ATT + (size_t)h * M.max_seq;
@@ -1364,6 +1485,63 @@ static int attention(int l, int base, int pos, const float *q, float *out)
             }
         }
     }
+    return 0;
+}
+
+int tl_layer_bank(int l) { return (M.open && l >= 0 && l < M.n_layer) ? PL[l].bank : -1; }
+
+/* A bank has failed: retire it and move each of its layers to a free slot on a live bank. What those layers
+ * held is gone, so the caller re-runs the prompt; every position is then recomputed, exactly. */
+int tl_bank_fault(int bank)
+{
+    if (!M.open || bank < 0 || bank >= g_nbank) { snprintf(g_err, sizeof g_err, "no such bank %d", bank); return -1; }
+    if (g_bank_dead[bank]) { snprintf(g_err, sizeof g_err, "bank %d already retired", bank); return -1; }
+    int need = 0, have = 0;
+    for (int l = 0; l < M.n_layer; l++) need += PL[l].bank == bank;
+    for (int b = 0; b < g_nbank; b++) if (b != bank && !g_bank_dead[b]) have += g_bank_slots[b] - g_bank_used[b];
+    if (have < need) { snprintf(g_err, sizeof g_err, "bank %d held %d layers; only %d spare slots on the live banks", bank, need, have); return -1; }
+    g_bank_dead[bank] = 1;
+    for (int l = 0; l < M.n_layer; l++) {
+        if (PL[l].bank != bank) continue;
+        int c = -1;
+        for (int b = 0; b < g_nbank; b++) if (b != bank && !g_bank_dead[b] && g_bank_used[b] < g_bank_slots[b]) { c = b; break; }
+        PL[l].bank = c; PL[l].base = (uint32_t)g_bank_used[c] * M.layer_bytes;
+        g_bank_used[c]++;
+    }
+    g_bank_used[bank] = 0; g_bank_slots[bank] = 0;
+    M.layer_slots = 0; M.banks_used = 0;
+    for (int b = 0; b < g_nbank; b++) { M.layer_slots += g_bank_slots[b]; M.banks_used += g_bank_used[b] > 0; }
+    M.spare_slots = M.layer_slots - M.n_layer;
+    M.one_bank_spare = 1;
+    for (int b = 0; b < g_nbank; b++)
+        if (g_bank_used[b] && M.spare_slots - (g_bank_slots[b] - g_bank_used[b]) < g_bank_used[b]) M.one_bank_spare = 0;
+    g_fault_bank = -1;
+    return 0;
+}
+
+/* The cache the way attention uses it, timed (tl_core.h). Layer 0's region; between prompts only. */
+int tl_cache_bench(int n, double *t_write, double *t_read, uint32_t *reread)
+{
+    if (!M.open) return -1;
+    if (n > M.max_seq) n = M.max_seq;
+    const uint32_t r0 = S.ps_rows_reread;
+    double t = plat_now();
+    for (int p = 0; p < n; p++) {
+        for (int i = 0; i < M.kv_dim; i++) {                       /* rows that look like keys and values */
+            KB[i] = (float)((i * 7 + p * 13) % 61 - 30) * 0.05f;
+            VB[i] = (float)((i * 11 + p * 3) % 53 - 26) * 0.04f;
+        }
+        if (kv_put(0, p, KB, VB)) return -1;
+    }
+    *t_write = plat_now() - t;
+    t = plat_now();
+    for (int w = 0; w < 2; w++)
+        for (int t0 = 0; t0 < n; t0 += TL_KCHUNK) {
+            const int c = (n - t0) < TL_KCHUNK ? (n - t0) : TL_KCHUNK;
+            if (cache_read(0, w, t0, c)) return -1;
+        }
+    *t_read = plat_now() - t;
+    *reread = S.ps_rows_reread - r0;
     return 0;
 }
 
@@ -1802,18 +1980,22 @@ int tl_multi_begin(tl_seq_t *s, int ns)
     return 0;
 }
 
-/* rows [from, from+n) of every layer's cache to [to, to+n): keys, values and both scale arrays */
+/* rows [from, from+n) of every layer's cache to [to, to+n): keys, values, both scale arrays and both
+ * checksum arrays -- within each layer's one bank */
 static int kv_copy(int from, int to, int n)
 {
     const uint32_t kd = (uint32_t)M.kv_dim, sd = (uint32_t)M.n_kv * 4u;
-    for (int l = 0; l < M.n_layer; l++)
+    for (int l = 0; l < M.n_layer; l++) {
+        const int b = PL[l].bank;
+        const uint32_t a = PL[l].base;
         for (int t0 = 0; t0 < n; t0 += TL_KCHUNK) {
             const uint32_t c = (uint32_t)((n - t0) < TL_KCHUNK ? (n - t0) : TL_KCHUNK);
-            if (ps_read(kaddr(l, from + t0), KC, c * kd) || ps_write(kaddr(l, to + t0), KC, c * kd) ||
-                ps_read(vaddr(l, from + t0), KC, c * kd) || ps_write(vaddr(l, to + t0), KC, c * kd) ||
-                ps_read(ksaddr(l, from + t0), KCS, c * sd) || ps_write(ksaddr(l, to + t0), KCS, c * sd) ||
-                ps_read(vsaddr(l, from + t0), KCS, c * sd) || ps_write(vsaddr(l, to + t0), KCS, c * sd)) return -1;
+            for (int w = 0; w < 2; w++)
+                if (ps_read(b, a + o_row(w, from + t0), KC, c * kd)   || ps_write(b, a + o_row(w, to + t0), KC, c * kd) ||
+                    ps_read(b, a + o_sc(w, from + t0), KCS, c * sd)   || ps_write(b, a + o_sc(w, to + t0), KCS, c * sd) ||
+                    ps_read(b, a + o_sum(w, from + t0), SUMC, c * 4u) || ps_write(b, a + o_sum(w, to + t0), SUMC, c * 4u)) return -1;
         }
+    }
     return 0;
 }
 

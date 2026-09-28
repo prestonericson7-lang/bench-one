@@ -194,6 +194,30 @@ def main():
             note("  - prompt %d together: %s" % (k, "IDENTICAL" if ok else "DIFFERENT"))
     note("")
 
+    # ---- 3b a PSRAM bank fails mid-run --------------------------------------------------------------------------
+    # tl_host's stand-in kills one bank on its n-th write (TL_PS_FAULT); the core retires it, moves its layers to
+    # spare slots and the host re-runs the prompt. The lines must still equal the reference, and the host's own
+    # comparison of the re-run against what it printed before the fault must say identical (exit 2 otherwise).
+    note("## 3b. A PSRAM bank fails mid-run (TL_PS_FAULT: bank 3 dies on its 200th write)")
+    note("")
+    for mode, env in (("per token", {}), ("prompt batched", {"TL_PREFILL": "1"})):
+        got = os.path.join(out, "fault_0_%s.txt" % ("b" if env else "t"))
+        e = dict(env, TL_PS_FAULT="3:200")
+        rc, err = run("tl_host.exe", [prompts[0], str(a.gen)], e, got)
+        ok = rc == 0 and same(os.path.join(out, "ref_0.txt"), got)
+        fails += 0 if ok else 1
+        rec = next((s.strip() for s in err.splitlines() if s.startswith("recovery:")), "no recovery line (rc %d)" % rc)
+        note("- prompt 0, %s: %s; %s" % (mode, "IDENTICAL" if ok else "DIFFERENT", rec))
+    pre = os.path.join(out, "fault_multi_")
+    rc, err = run("tl_host.exe", ["-", str(a.gen)], {"TL_MULTI": mfile, "TL_MULTI_OUT": pre, "TL_PS_FAULT": "3:200"},
+                  os.path.join(out, "fault_multi.out"))
+    n_ok = sum(1 for k in range(len(prompts))
+               if os.path.exists(pre + "%d.txt" % k) and same(os.path.join(out, "ref_%d.txt" % k), pre + "%d.txt" % k))
+    fails += 0 if (rc == 0 and n_ok == len(prompts)) else 1
+    note("- all %d prompts together: %d identical after the fault (%s)" % (len(prompts), n_ok,
+         next((s.strip() for s in err.splitlines() if "retired" in s), "no retirement line (rc %d)" % rc)))
+    note("")
+
     # ---- 4 the Teensy's own kernels, emulated (README: dot_verify_m7.exe, tl_host_m7.exe) ---------------------
     dv, hm = os.path.join(TESTS, "dot_verify_m7.exe"), os.path.join(TESTS, "tl_host_m7.exe")
     if os.path.exists(dv) or os.path.exists(hm):

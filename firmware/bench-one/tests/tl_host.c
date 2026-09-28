@@ -29,8 +29,20 @@
 
 static FILE    *F;
 static uint64_t FS;
-static uint8_t *PS;
-static uint32_t PS_SIZE;
+static uint32_t PS_SIZE;                     /* bytes per PSRAM bank */
+
+/* After a pass fails: if a PSRAM bank did it, retire the bank (its layers move to spare slots) and say so;
+ * returns 1 when the caller should re-run the prompt from position 0, 0 when the failure stands. Once. */
+static int recover(int *attempt, const char *what)
+{
+    const int fb = tl_fault_bank();
+    fprintf(stderr, "%s: %s\n", what, tl_last_error());
+    if (fb < 0 || *attempt >= 1) return 0;
+    if (tl_bank_fault(fb)) { fprintf(stderr, "bank %d cannot be replaced: %s\n", fb, tl_last_error()); return 0; }
+    (*attempt)++;
+    fprintf(stderr, "PSRAM bank %d retired, its layers moved to spare slots; re-running the prompt from position 0\n", fb);
+    return 1;
+}
 
 /* The tokenizer's card store (tl_plat.h). In memory unless TL_TOKSTORE names a file, which then persists
  * between runs as qwen3b.tok does on the card -- so a second run proves the reuse path. */
@@ -111,17 +123,26 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
     return plat_sd_read(off, dst, n);
 }
 uint64_t plat_sd_size(void) { return FS; }
-uint32_t plat_ps_size(void) { return PS_SIZE; }
-int plat_ps_read(uint32_t a, void *d, uint32_t n)
+/* The PSRAM stand-in: TL_PSRAM_BANKS independent banks (default 8) of TL_PSRAM_BANK_MB (default 8), as the
+ * Teensy's chips are. TL_PS_FAULT="b:n" kills bank b on its n-th write -- the write fails and every later
+ * transfer to that bank fails -- which is how the fault path (tl_bank_fault, then the prompt re-run) is
+ * proven to print the same lines as a run with no fault. */
+static uint8_t *PSB[16];
+static int      PSB_N, PSB_DEAD[16], FAULT_B = -1;
+static long     FAULT_N = -1, FAULT_W;
+int plat_ps_banks(void) { return PSB_N; }
+uint32_t plat_ps_bank_bytes(int b) { (void)b; return PS_SIZE; }
+int plat_ps_read(int b, uint32_t a, void *d, uint32_t n)
 {
-    if ((uint64_t)a + n > PS_SIZE) return -1;
-    memcpy(d, PS + a, n);
+    if (b < 0 || b >= PSB_N || PSB_DEAD[b] || (uint64_t)a + n > PS_SIZE) return -1;
+    memcpy(d, PSB[b] + a, n);
     return 0;
 }
-int plat_ps_write(uint32_t a, const void *s, uint32_t n)
+int plat_ps_write(int b, uint32_t a, const void *s, uint32_t n)
 {
-    if ((uint64_t)a + n > PS_SIZE) return -1;
-    memcpy(PS + a, s, n);
+    if (b < 0 || b >= PSB_N || PSB_DEAD[b] || (uint64_t)a + n > PS_SIZE) return -1;
+    if (b == FAULT_B && ++FAULT_W >= FAULT_N) { PSB_DEAD[b] = 1; fprintf(stderr, "  [fault injected: bank %d died on its write %ld]\n", b, FAULT_W); return -1; }
+    memcpy(PSB[b] + a, s, n);
     return 0;
 }
 double plat_now(void)
@@ -182,11 +203,15 @@ int main(int argc, char **argv)
 #else
     fseeko(F, 0, SEEK_END); FS = (uint64_t)ftello(F);
 #endif
-    const char *mb = getenv("TL_PSRAM_MB");
-    PS_SIZE = (uint32_t)((mb ? atoi(mb) : 48) * 1024u * 1024u);
-    PS = (uint8_t *)malloc(PS_SIZE);
-    if (!PS) { fprintf(stderr, "no memory for the PSRAM stand-in\n"); return 1; }
-    memset(PS, 0xA5, PS_SIZE);
+    PSB_N = getenv("TL_PSRAM_BANKS") ? atoi(getenv("TL_PSRAM_BANKS")) : 8;
+    if (PSB_N < 1 || PSB_N > 16) { fprintf(stderr, "TL_PSRAM_BANKS must be 1..16\n"); return 1; }
+    PS_SIZE = (uint32_t)((getenv("TL_PSRAM_BANK_MB") ? atoi(getenv("TL_PSRAM_BANK_MB")) : 8) * 1024u * 1024u);
+    for (int b = 0; b < PSB_N; b++) {
+        PSB[b] = (uint8_t *)malloc(PS_SIZE);
+        if (!PSB[b]) { fprintf(stderr, "no memory for the PSRAM stand-in\n"); return 1; }
+        memset(PSB[b], 0xA5, PS_SIZE);
+    }
+    if (getenv("TL_PS_FAULT") && *getenv("TL_PS_FAULT") && sscanf(getenv("TL_PS_FAULT"), "%d:%ld", &FAULT_B, &FAULT_N) != 2) { fprintf(stderr, "TL_PS_FAULT is bank:nth_write\n"); return 1; }
 
     tl_info_t in;
     char err[200];
@@ -197,14 +222,22 @@ int main(int argc, char **argv)
             in.n_merges, in.max_seq);
     fprintf(stderr, "params %.0f  file %llu bytes  read per token %llu bytes\n", in.params,
             (unsigned long long)in.file_bytes, (unsigned long long)in.sd_bytes_per_token);
-    fprintf(stderr, "PSRAM used %u of %u: the attention cache (%d positions), nothing else; tokenizer store %u bytes (%s)\n",
-            in.ps_used, PS_SIZE, in.max_seq, in.tok_store_bytes, in.tok_built ? "built now" : "reused");
-    {   /* NONE OF THE MODEL IS LEFT IN PSRAM: after open every byte is still the power-up garbage or the erased
-         * tokenizer scratch. Then new garbage, so a tokenizer lookup that still read PSRAM would answer wrong. */
+    fprintf(stderr, "PSRAM: %d banks of %u; the attention cache on %d of them, %d positions, one layer per region "
+            "(%u bytes), %d layer slots, %d spare (%s); nothing of the model. Tokenizer store %u bytes (%s)\n",
+            in.banks, PS_SIZE, in.banks_used, in.max_seq, in.layer_bytes, in.layer_slots, in.spare_slots,
+            in.one_bank_spare ? "any one bank can fail" : "not a whole bank's worth", in.tok_store_bytes,
+            in.tok_built ? "built now" : "reused");
+    for (int l = 0; l < in.n_layer; l++) fprintf(stderr, "%s%d:%d", l ? " " : "  layer:bank ", l, tl_layer_bank(l));
+    fprintf(stderr, "\n");
+    {   /* NONE OF THE MODEL IS LEFT IN PSRAM: after open every byte of every bank is still the power-up garbage
+         * or the erased tokenizer scratch. Then new garbage, so a tokenizer lookup that still read PSRAM would
+         * answer wrong. */
         uint32_t bad = 0;
-        for (uint32_t i = 0; i < PS_SIZE; i++) bad += PS[i] != 0xA5 && PS[i] != 0x00;
+        for (int b = 0; b < PSB_N; b++) {
+            for (uint32_t i = 0; i < PS_SIZE; i++) bad += PSB[b][i] != 0xA5 && PSB[b][i] != 0x00;
+            memset(PSB[b], 0x5A, PS_SIZE);
+        }
         if (bad) { fprintf(stderr, "tl_open left %u bytes of model data in PSRAM\n", bad); return 1; }
-        memset(PS, 0x5A, PS_SIZE);
     }
 
     /* TL_TOKREC=path: the same, for records separated by NUL bytes (so a record can hold newlines) */
@@ -299,12 +332,31 @@ int main(int argc, char **argv)
         }
         fclose(pf);
         if (getenv("TL_MULTI_SHARE")) tl_multi_share(atoi(getenv("TL_MULTI_SHARE")));   /* default on */
-        if (tl_multi_begin(sq, ns)) { fprintf(stderr, "multi: %s\n", tl_last_error()); return 1; }
-        for (int i = 0; i < ns; i++)
-            if (sq[i].donor >= 0) fprintf(stderr, "  prompt %d copies its first %d positions from prompt %d\n", i, sq[i].share, sq[i].donor);
-        int passes = 0, fed = 0, r;
-        while ((r = tl_multi_pass(sq, ns, multi_line, so)) > 0) { passes++; fed += r; fprintf(stderr, "  pass %d: %d positions\n", passes, r); }
-        if (r < 0) { fprintf(stderr, "multi: %s\n", tl_last_error()); return 1; }
+        int passes = 0, fed = 0, r, attempt = 0;
+        for (;;) {                                         /* once, or again from the start after a bank fault */
+            passes = 0; fed = 0;
+            if (tl_multi_begin(sq, ns)) {
+                if (recover(&attempt, "multi")) goto again;
+                return 1;
+            }
+            for (int i = 0; i < ns; i++)
+                if (sq[i].donor >= 0) fprintf(stderr, "  prompt %d copies its first %d positions from prompt %d\n", i, sq[i].share, sq[i].donor);
+            while ((r = tl_multi_pass(sq, ns, multi_line, so)) > 0) { passes++; fed += r; fprintf(stderr, "  pass %d: %d positions\n", passes, r); }
+            if (r == 0) break;
+            if (!recover(&attempt, "multi")) return 1;
+        again:                                             /* the output files start over, as the sequences do */
+            for (int i = 0; i < ns; i++) {
+                fclose(so[i]);
+                char fn[512];
+                snprintf(fn, sizeof fn, "%s%d.txt", outp, i);
+                so[i] = fopen(fn, "wb");
+                if (!so[i]) { fprintf(stderr, "cannot write %s\n", fn); return 1; }
+                fprintf(so[i], "prompt ids:");
+                for (int j = 0; j < sq[i].n_prompt; j++) fprintf(so[i], " %d", (int)sids[i][j]);
+                fprintf(so[i], "\n");
+                sq[i].fed = 0; sq[i].done = 0;
+            }
+        }
         int solo = 0;
         for (int i = 0; i < ns; i++) {
             fclose(so[i]);
@@ -394,11 +446,22 @@ int main(int argc, char **argv)
     const int use_prefill = getenv("TL_PREFILL") && atoi(getenv("TL_PREFILL"));
     static int32_t pt1[512], pt2[512];
     static float pl1[512], pl2[512];
+    /* A PSRAM bank that fails mid-run (TL_PS_FAULT) is recovered from as the board does: its layers move to
+     * spare slots (tl_bank_fault) and the prompt is re-run from position 0. Lines printed before the fault are
+     * not printed again: the re-run's versions go to stderr as "R step ..." and are compared with them, so a
+     * recovery that computed anything differently fails here (exit 2) instead of being trusted. */
+    static char printed[1024][1200];
+    int nprinted = 0, replayed = 0, replay_bad = 0, attempt = 0;
+restart:
+    gl = 0;
     if (use_prefill) {
         for (int p0 = 0; p0 < n; p0 += tl_batch()) {
             const int k = (n - p0) < tl_batch() ? (n - p0) : tl_batch();
             tl_stats_reset();
-            if (tl_prefill(ids + p0, k, p0, pt1 + p0, pl1 + p0, pt2 + p0, pl2 + p0)) { fprintf(stderr, "prefill: %s\n", tl_last_error()); return 1; }
+            if (tl_prefill(ids + p0, k, p0, pt1 + p0, pl1 + p0, pt2 + p0, pl2 + p0)) {
+                if (recover(&attempt, "prefill")) goto restart;
+                return 1;
+            }
             tl_stats_t st;
             tl_stats(&st);
             fprintf(stderr, "  prefill positions %d..%d: %.2f s, SD %.1f MB\n", p0, p0 + k - 1, st.t_total, st.sd_bytes / 1048576.0);
@@ -410,19 +473,38 @@ int main(int argc, char **argv)
         float l1, l2;
         tl_stats_reset();
         if (use_prefill && step < n) { t1 = pt1[step]; l1 = pl1[step]; t2 = pt2[step]; l2 = pl2[step]; }
-        else if (tl_forward(fed, step, &t1, &l1, &t2, &l2)) { fprintf(stderr, "forward: %s\n", tl_last_error()); return 1; }
+        else if (tl_forward(fed, step, &t1, &l1, &t2, &l2)) {
+            if (recover(&attempt, "forward")) goto restart;
+            return 1;
+        }
         const int k = tl_decode(t1, txt, (int)sizeof txt - 1);
         esc(txt, k, e, (int)sizeof e);
-        printf("step %d pos %d fed %d -> top1 %d %.9g top2 %d %.9g text \"%s\"\n",
-               step, step, (int)fed, (int)t1, l1, (int)t2, l2, e);
-        fflush(stdout);
+        char line[1200];
+        snprintf(line, sizeof line, "step %d pos %d fed %d -> top1 %d %.9g top2 %d %.9g text \"%s\"\n",
+                 step, step, (int)fed, (int)t1, l1, (int)t2, l2, e);
+        if (step < nprinted) {                              /* re-run after a fault: compare, do not reprint */
+            replayed++;
+            if (strcmp(line, printed[step])) replay_bad++;
+            fprintf(stderr, "R %s", line);
+        } else {
+            fputs(line, stdout);
+            fflush(stdout);
+            if (step < 1024) snprintf(printed[step], sizeof printed[step], "%s", line);
+            nprinted = step + 1;
+        }
         tl_stats_t st;
         tl_stats(&st);
-        fprintf(stderr, "  step %d: %.2f s, SD %.1f MB, PSRAM read %.1f KB written %.1f KB\n", step, st.t_total,
-                st.sd_bytes / 1048576.0, st.ps_read / 1024.0, st.ps_written / 1024.0);
+        fprintf(stderr, "  step %d: %.2f s, SD %.1f MB, PSRAM read %.1f KB written %.1f KB%s\n", step, st.t_total,
+                st.sd_bytes / 1048576.0, st.ps_read / 1024.0, st.ps_written / 1024.0,
+                st.ps_rows_reread ? " (rows re-read)" : "");
         if (step >= n - 1 && gl + k < (int)sizeof gen) { memcpy(gen + gl, txt, (size_t)k); gl += k; }
         next = t1;
         if (step >= n - 1 && t1 == in.eos) break;
+    }
+    if (attempt) {
+        fprintf(stderr, "recovery: %d lines re-run after the bank fault and compared with those printed before it: %s\n",
+                replayed, replay_bad ? "DIFFERENT" : "identical");
+        if (replay_bad) return 2;
     }
     gen[gl] = 0;
     fprintf(stderr, "\n%s%s\n", argv[2], gen);

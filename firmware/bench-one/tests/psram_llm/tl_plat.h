@@ -41,12 +41,20 @@ int      plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(v
 /* Size of the model file in bytes. */
 uint64_t plat_sd_size(void);
 
-/* Usable PSRAM bytes, i.e. one past the highest valid virtual address. */
-uint32_t plat_ps_size(void);
+/* THE PSRAM IS A SET OF INDEPENDENT CHIPS, NOT ONE MEMORY. Each bank is one chip (or one chip select) with
+ * its own timing; a transfer never crosses from one to another, and the core never asks it to: it lays a
+ * whole layer's cache inside one bank, so every read of that layer stays on one chip (v9; before it, one
+ * flat address space had the board re-select a chip -- a reset sequence with a 2 ms wait -- up to eight
+ * times a layer). Banks are numbered 0.. in the board's order of preference (fastest first). */
+int      plat_ps_banks(void);
+uint32_t plat_ps_bank_bytes(int bank);
 
-/* Transfer n bytes at virtual PSRAM address addr. addr + n <= plat_ps_size(). */
-int      plat_ps_read (uint32_t addr, void *dst, uint32_t n);
-int      plat_ps_write(uint32_t addr, const void *src, uint32_t n);
+/* n bytes at offset off of bank b. A READ is one raw transfer -- the core keeps a checksum per cache row and
+ * re-reads a row that fails it, so the board must not read twice. A WRITE is read back and compared by the
+ * board, and re-done until it reads back right (or fails). off + n <= plat_ps_bank_bytes(b). A failure is
+ * the bank's: the core then moves that bank's layers to spare room on the others (tl_bank_fault). */
+int      plat_ps_read (int bank, uint32_t off, void *dst, uint32_t n);
+int      plat_ps_write(int bank, uint32_t off, const void *src, uint32_t n);
 
 /* THE MODEL STAYS ON THE CARD; THE PSRAM IS ONLY THE MODEL'S WORKING MEMORY (its attention cache).
  * The tokenizer's lookup tables live in a second file on the card beside the model -- the Teensy's

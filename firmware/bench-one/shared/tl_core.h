@@ -27,9 +27,12 @@ typedef struct {
     int      n_layer, dim, hidden, n_heads, n_kv, head_dim, q_dim, vocab, max_seq;
     int32_t  bos, eos;
     uint64_t file_bytes, sd_bytes_per_token;
-    uint32_t ps_used;                 /* PSRAM bytes allocated: the attention cache, nothing else */
+    uint32_t ps_used;                 /* PSRAM bytes laid out: the attention cache, nothing else */
     uint32_t n_merges;
-    uint32_t ps_kv;                   /* = ps_used                                    */
+    int      banks, banks_used;       /* chips the board offered; chips holding layers            */
+    int      layer_slots, spare_slots;/* whole-layer slots the layout has; those left free       */
+    int      one_bank_spare;          /* 1: the spare slots can take every layer of any one bank  */
+    uint32_t layer_bytes;             /* one layer's cache, max_seq positions, checksums included */
     uint32_t tok_store_bytes;         /* the tokenizer's tables in the card store (tl_plat.h) */
     int      tok_built;               /* 1: built from the model file on this open; 0: the store matched */
     double   params;                  /* weights in the file, counted from tensor shapes */
@@ -42,6 +45,8 @@ typedef struct {
     double   t_hidden;          /* arithmetic done while the card was reading (plat_sd_read_overlap);
                                    t_sd counts only the card time the pass waited for */
     uint64_t sd_bytes, ps_read, ps_written;
+    uint32_t ps_rows_reread;    /* cache rows whose checksum failed once and read right on a retry */
+    uint32_t ps_rows_bad;       /* rows that never read right (the pass failed; tl_fault_bank says where) */
 } tl_stats_t;
 
 /* Parse the model through plat_sd_read; find the tokenizer's tables in the card store, or build them there
@@ -61,6 +66,20 @@ int  tl_forward(int32_t token, int pos, int32_t *top1, float *l1, int32_t *top2,
 
 void tl_stats(tl_stats_t *s);
 void tl_stats_reset(void);
+
+/* A PSRAM failure names its bank. After a pass fails, tl_fault_bank() is that bank (or -1: not a PSRAM fault);
+ * tl_bank_fault(b) retires the bank and moves its layers into spare slots on the others. Everything cached so
+ * far is lost -- the caller re-runs the prompt from position 0, which recomputes it exactly. Returns 0, or -1
+ * when there is no room (tl_last_error says). */
+int  tl_fault_bank(void);
+int  tl_bank_fault(int bank);
+
+/* Which bank holds layer l's cache (a board's log line), -1 if none. */
+int  tl_layer_bank(int l);
+
+/* The cache the way attention uses it, timed: n positions of layer 0 written (kv rows + checksums), then read
+ * back in attention's chunks with every checksum verified. Seconds, and rows the check re-read. */
+int  tl_cache_bench(int n, double *t_write, double *t_read, uint32_t *reread);
 
 /* Where one weight matrix lives in the file, for benchmarks that want real rows. which: 0 attn_q,
  * 1 attn_k, 2 attn_v, 3 attn_output, 4 ffn_gate, 5 ffn_up, 6 ffn_down, 7 token_embd (layer ignored).

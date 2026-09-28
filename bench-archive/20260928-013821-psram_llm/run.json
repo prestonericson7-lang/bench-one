@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-013821",
+  "sketch": "psram_llm",
+  "git": "f765f82",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v9: one chip one job -- each layer's cache inside one PSRAM chip, checksum per row (single reads), spare layer slots + retire-and-rerun on a chip fault; realistic chat test + cache bench",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 584794
+}

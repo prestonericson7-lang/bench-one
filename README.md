@@ -62,6 +62,10 @@ prompts together in 1.81 hours; every step equal to the PC reference to the last
   measured constants and checked against them; the levers not yet pulled (speculative decoding from
   the prompt, the 30B mixture-of-experts at the 3B's speed, the M7's stall budget, bytes per token);
   the technology that follows; the order to measure.
+- **[docs/60 — Implementation at every scale](docs/60-implementation-at-every-scale.md)** — the ladder
+  from one $50 module to a shelf, a fabric node, the bench machine, the shed and a network: parts (mostly
+  on hand), cost, power, what each produces, what must be built and proven to climb; the five axes on
+  which this changes AI and the order of moves.
 
 ## Earlier state — 2026-09-12 (the chain)
 

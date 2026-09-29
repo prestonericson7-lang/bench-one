@@ -21,6 +21,7 @@ If you know what you want, use the table. If you do not, start at
 | See a 3-billion-parameter model run on one Teensy, explained for anyone | [docs/57](docs/57-what-we-built-and-what-it-does.md) — every measured number in plain English; then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers and [docs/56](docs/56-one-chip-one-job.md) for the design |
 | Know where this goes next, and what has to be proven at each step | [docs/58](docs/58-roadmap-what-this-makes-possible.md) — the roadmap; every line labelled measured, arithmetic or proposal |
 | Understand the machine's equations and the levers not yet pulled | [docs/59](docs/59-going-deeper.md) — one token, positions per pass, the node ceiling, splitting across boards; speculative decoding, the 30B, the stall budget, bytes per token |
+| See how it is built at each scale, and how it changes AI | [docs/60](docs/60-implementation-at-every-scale.md) — module, shelf, fabric node, bench machine, shed, network: parts, cost, power, output, gates; the five axes and the order of moves |
 | See the machine actually work | [docs/40](docs/40-psram-bank-brought-up.md) — 8 MB of PSRAM verified on hardware, and what it cost |
 | Read one number correctly | [docs/41](docs/41-the-tuned-settings-were-a-cliff-edge.md) — why the settings in 40 stopped working the same day, and the six rules that came out of it |
 | See it do arithmetic | [docs/42](docs/42-matrix-arithmetic-on-the-teensy.md) — 499 MFLOP/s GEMM, 24 Mverts/s, and 234 MMAC/s on 4-bit weights |

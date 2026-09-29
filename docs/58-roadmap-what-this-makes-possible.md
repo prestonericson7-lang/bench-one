@@ -121,7 +121,7 @@ under every claim in section 5.
 arithmetic that cannot hide behind a FIFO read: **about 12 s per node per pass**. Pipelined with nine
 requests in flight, one token every ~12 s of throughput; a single request still waits 9 × 12 ≈ 108 s a
 token (F8: pipelining buys capacity). Cutting latency means splitting *inside* a layer, which exchanges an
-8 KB activation several times per layer across a link — unmeasured on Teensy links, and docs/33's warning
+8 KB activation several times per layer across a link — unmeasured on Teensy links, and docs/25's warning
 that it costs more than it saves was for RAM, not time. *Assumptions not yet measured:* nine cards sustain
 their rate at once (independent boards; plausible), and the Teensy-to-Teensy link rate.
 
@@ -188,7 +188,7 @@ A queue front-end on a board already on the shelf; 24 hours of real questions th
 ### Stage 3 — two boards, then nine (months)
 
 Layers split across Teensys, each with its own card (T5). Two first: measure the link, then the output
-must be byte-identical to one board's (the test that caught every distributed bug on the PC, docs/33).
+must be byte-identical to one board's (the test that caught every distributed bug on the PC, docs/25).
 Then nine, for throughput. **Gate:** two boards identical to one; then tokens an hour on nine against the
 12 s arithmetic above.
 

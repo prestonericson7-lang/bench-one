@@ -58,6 +58,10 @@ prompts together in 1.81 hours; every step equal to the PC reference to the last
 - **[docs/58 — Roadmap: what this makes possible](docs/58-roadmap-what-this-makes-possible.md)** — the
   general principle behind each measured result, the technologies they open, and five staged gates;
   every line labelled measured, arithmetic or proposal.
+- **[docs/59 — Going deeper](docs/59-going-deeper.md)** — the machine's equations derived from its
+  measured constants and checked against them; the levers not yet pulled (speculative decoding from
+  the prompt, the 30B mixture-of-experts at the 3B's speed, the M7's stall budget, bytes per token);
+  the technology that follows; the order to measure.
 
 ## Earlier state — 2026-09-12 (the chain)
 

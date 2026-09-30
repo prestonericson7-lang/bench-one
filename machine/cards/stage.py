@@ -39,8 +39,12 @@ def main():
         sums = []
         for s in srcs:
             t = os.path.join(d, os.path.basename(s))
-            if not (os.path.exists(t) and os.path.getsize(t) == os.path.getsize(s)):
+            # copy unless the staged file is the same size AND at least as new as the source (a same-size
+            # newer source -- a rebuilt 100-byte checksum file -- must be copied; the first version skipped it)
+            same = os.path.exists(t) and os.path.getsize(t) == os.path.getsize(s) and os.path.getmtime(t) >= os.path.getmtime(s)
+            if not same:
                 shutil.copyfile(s, t)
+                shutil.copystat(s, t)
             sums.append(f"{sha256(t)}  {os.path.basename(t)}")
             print(f"{card}/{os.path.basename(t)}  {os.path.getsize(t):,} bytes")
         if card == "zynq":

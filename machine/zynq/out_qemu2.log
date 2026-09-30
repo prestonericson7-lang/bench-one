@@ -1,0 +1,13 @@
+  PASS  both nodes up as zynq1 / zynq2
+  PASS  cable 1: zynq1 pings zynq2 over the link
+  PASS  machine-bench sees the peer
+  PASS  engine on zynq1: bit-exact
+  PASS  engine on zynq2 driven from zynq1
+  PASS  tl_ref ran on the ARM CPU; its lines are on the card
+  PASS  run_model --fast produced tokens
+  PASS  one engine attached (measured split)
+  PASS  BOTH engines attached across the link
+  PASS  perplexity with and without the engine (2 lines)
+  PASS  report on the card
+  transcripts: /root/zynq/machine-two/transcript-1.txt /root/zynq/machine-two/transcript-2.txt ; reports: /root/zynq/machine-two/reports/
+TWO-NODE QEMU TEST: PASS

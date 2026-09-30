@@ -168,7 +168,11 @@ in `/boot/reports/` on their cards.
   under emulation the "engine" is the same slow CPU, so the measured split rightly keeps most rows local
   — on the boards the PL's rate decides). Free memory during the run: 149 MB (15 MB before the swap
   export went). Timings under TCG (≈100 s a token) are not numbers. The perplexity step outlasted the
-  80-minute window; a rerun with emulation-sized steps is in `qemu-two-node/checks.txt`.
+  80-minute window on the first run; **the record run with emulation-sized steps: PASS on all 11
+  checks** (`qemu-two-node/checks.txt`, `machine-bench-zynq1-record.txt`): `tl_ref` again identical to
+  the PC line for line; perplexity on the 0.5B over 8 scored tokens 6.209 on the CPU alone, 6.221 with
+  12.9% of the rows (head included) on the engine, top-1 agreement 85.7% both — the real armhf binaries,
+  a real quality figure, a short sample.
 - **The image in QEMU** (`zynq/qemu_machine_test.sh`): boots the machine image on `xilinx-zynq-a9` twice,
   with `zynq-node.txt` = 1 and = 2, and checks the hostname, the address, the two models, that the static
   tools execute on the card's glibc, and that `machine-bench` runs and writes its report to the card.

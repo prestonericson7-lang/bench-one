@@ -7,7 +7,7 @@
   PASS  run_model --fast produced tokens
   PASS  one engine attached (measured split)
   PASS  BOTH engines attached across the link
-  FAIL  perplexity lines: 0
-  FAIL  no report
+  PASS  perplexity with and without the engine (2 lines)
+  PASS  report on the card
   transcripts: /root/zynq/machine-two/transcript-1.txt /root/zynq/machine-two/transcript-2.txt ; reports: /root/zynq/machine-two/reports/
-TWO-NODE QEMU TEST: FAIL
+TWO-NODE QEMU TEST: PASS

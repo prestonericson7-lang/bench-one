@@ -14,6 +14,14 @@
  *  loading
  * ------------------------------------------------------------------------------------------ */
 
+/* a tensor's bytes are freed only if they were read into memory; a mapped one belongs to the file map */
+static void qfree(qten_t *q)
+{
+    if (!q->mapped) free(q->raw);
+    q->raw = NULL;
+    q->mapped = 0;
+}
+
 static int load_q(model_t *m, gguf_t *g, qten_t *q, const char *fmt, ...)
 {
     char name[160];
@@ -40,6 +48,14 @@ static int load_q(model_t *m, gguf_t *g, qten_t *q, const char *fmt, ...)
     }
 
     const uint64_t nb = gguf_nbytes(t);
+    const uint8_t *p = gguf_raw_ptr(g, t);
+    if (p) {                                   /* the file is mapped: point at it, page it in as used */
+        q->raw = (uint8_t *)p;
+        q->mapped = 1;
+        m->weight_bytes += nb;
+        return 0;
+    }
+    q->mapped = 0;
     q->raw = (uint8_t *)malloc((size_t)nb);
     if (!q->raw) {
         snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB", name, nb / 1048576.0);
@@ -167,13 +183,20 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         m->out_head.cols = (uint32_t)t->dims[0];
         m->out_head.rows = (uint32_t)n;
         m->out_head.row_bytes = rb;
-        m->out_head.raw = (uint8_t *)malloc((size_t)(rb * n));
-        if (!m->out_head.raw) {
-            snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB of slice",
-                     nm, rb * n / 1048576.0);
-            return -1;
+        const uint8_t *p = gguf_raw_ptr(g, t);
+        if (p) {                               /* mapped: the slice is rows v_lo.. of the map, no copy */
+            m->out_head.raw = (uint8_t *)(p + (uint64_t)v_lo * rb);
+            m->out_head.mapped = 1;
+        } else {
+            m->out_head.mapped = 0;
+            m->out_head.raw = (uint8_t *)malloc((size_t)(rb * n));
+            if (!m->out_head.raw) {
+                snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB of slice",
+                         nm, rb * n / 1048576.0);
+                return -1;
+            }
+            if (gguf_read_raw_rows(g, t, (uint64_t)v_lo, n, m->out_head.raw)) return -1;
         }
-        if (gguf_read_raw_rows(g, t, (uint64_t)v_lo, n, m->out_head.raw)) return -1;
         m->weight_bytes += rb * n;
 
         m->out_norm = load_f32(m, g, 1, "output_norm.weight");
@@ -319,19 +342,19 @@ void model_free(model_t *m)
             mlayer_t *L = &m->L[l];
             free(L->attn_norm); free(L->ffn_norm);
             free(L->bq); free(L->bk); free(L->bv);
-            free(L->wq.raw); free(L->wk.raw); free(L->wv.raw); free(L->wo.raw);
-            free(L->w_gate.raw); free(L->w_up.raw); free(L->w_down.raw);
+            qfree(&L->wq); qfree(&L->wk); qfree(&L->wv); qfree(&L->wo);
+            qfree(&L->w_gate); qfree(&L->w_up); qfree(&L->w_down);
             free(L->q_norm); free(L->k_norm); free(L->router);
-            free(L->e_gate.raw); free(L->e_up.raw); free(L->e_down.raw);
+            qfree(&L->e_gate); qfree(&L->e_up); qfree(&L->e_down);
         }
         free(m->L);
     }
     free(m->expert_hits);
     free(m->router_p);
     free(m->e_out); free(m->e_xq); free(m->e_xs);
-    /* out_head now owns its own slice buffer even on a tied model, so both are freed. */
-    free(m->embd.raw);
-    free(m->out_head.raw);
+    /* out_head owns its own slice buffer even on a tied model (or a pointer into the map): both freed. */
+    qfree(&m->embd);
+    qfree(&m->out_head);
     free(m->rowbuf);
     free(m->out_norm);
     free(m->k_cache); free(m->v_cache); free(m->k_scale); free(m->v_scale);

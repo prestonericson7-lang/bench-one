@@ -56,3 +56,56 @@ PASS perplexity: 19.749 with one engine == 19.749 with two
 PASS retire: zaccel: 127.0.0.1:18202: socket error or timeout (connection closed) -- that engine is retired, its rows are t
 PASS complete: an answer after the loss (86 bytes)
 TWO ENGINES: PASS
+=== head offload + row bands: run_tests.sh (2026-09-30T01:12:31-07:00)
+  L0 w_up                      decode  rel err 0.0104  max |d| 0.0638
+  L0 w_up                      prefill rel err 0.0081  max |d| 0.0455
+  L0 w_down (3 column chunks)  decode  rel err 0.0115  max |d| 0.0993
+  L0 w_down (3 column chunks)  prefill rel err 0.0091  max |d| 0.0838
+  L17 wk                       decode  rel err 0.0106  max |d| 0.0575
+  L17 wk                       prefill rel err 0.0088  max |d| 0.0411
+  KERNELS: PASS
+PASS kernels: worst relative error 0.0115
+    zaccel: 50.0% of 3085697024 weights on 1 engine (share 0.500 fixed, int8 per-row, Hadamard-rotated, +head): 127.0.0.1:18194(cpu)
+  RESULT: identical text
+PASS text: identical with half the rows offloaded
+  == baseline: every row on this CPU (GGUF Q4_K/Q6_K, fused integer path)
+    PERPLEXITY                 19.349   <- lower is better
+  == half the rows on the Zynq (int8 per-row weights, int8 activations)
+    PERPLEXITY                 19.791   <- lower is better
+  == every row on the Zynq
+    PERPLEXITY                 19.436   <- lower is better
+PASS quality: perplexity 19.349 -> 19.791 (half) / 19.436 (all), within 3%
+    zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+  zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+PASS the Zynq dying mid-generation costs nothing but speed
+LLM OFFLOAD TESTS: PASS
+=== head offload + row bands: test_two_engines.sh
+      |                      ^~~~~~~~~~
+/mnt/d/espicpc/firmware/bench-one/shared/gguf.c: In function ‘gguf_close’:
+/mnt/d/espicpc/firmware/bench-one/shared/gguf.c:220:17: warning: implicit declaration of function ‘munmap’ [-Wimplicit-function-declaration]
+  220 |     if (g->map) munmap(g->map, (size_t)g->map_len);
+      |                 ^~~~~~
+FAIL build
+=== mmap loader + head + bands: run_tests.sh (2026-09-30T01:22:34-07:00)
+  KERNELS: PASS
+PASS kernels: worst relative error 0.0115
+    zaccel: 50.0% of 3085697024 weights on 1 engine (share 0.500 fixed, int8 per-row, Hadamard-rotated, +head): 127.0.0.1:18194(cpu)
+  RESULT: identical text
+PASS text: identical with half the rows offloaded
+  == baseline: every row on this CPU (GGUF Q4_K/Q6_K, fused integer path)
+    PERPLEXITY                 19.349   <- lower is better
+  == half the rows on the Zynq (int8 per-row weights, int8 activations)
+    PERPLEXITY                 19.791   <- lower is better
+  == every row on the Zynq
+    PERPLEXITY                 19.436   <- lower is better
+PASS quality: perplexity 19.349 -> 19.791 (half) / 19.436 (all), within 3%
+    zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+  zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+PASS the Zynq dying mid-generation costs nothing but speed
+LLM OFFLOAD TESTS: PASS
+=== mmap loader + head + bands: test_two_engines.sh
+PASS text: two engines == one engine, byte for byte (86 bytes)
+PASS perplexity: 19.791 with one engine == 19.791 with two
+PASS retire: zaccel: 127.0.0.1:18202: socket error or timeout (connection closed) -- that engine is retired, its rows are t
+PASS complete: an answer after the loss (86 bytes)
+TWO ENGINES: PASS

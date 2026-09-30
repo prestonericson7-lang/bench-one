@@ -7,9 +7,19 @@ VID 303A:1001); audio codec + amplifier, microphone, 3.5 mm and an **MX1.25 spea
 40-pin header; an ESP32-C6 on board for Wi-Fi/Bluetooth. **No screen is owned** (no DSI panel), and the
 8 Ω speaker is.
 
-Ethernet pins as published for this board by the ESPHome device page (a secondary source, to be
-confirmed against Waveshare's schematic before use): IP101 PHY, MDC GPIO31, MDIO GPIO52, PHY power
-GPIO51, RMII clock on GPIO50.
+## Pins (two independent board-support sources agree; checked against the silkscreen on the day)
+
+From `esp-cpp/espp` `components/esp32-p4-nano/include/esp32-p4-nano.hpp` (a BSP that runs this board)
+and `shyndman/esphome-configs` `docs/esp32-p4-nano-pinout.md`:
+
+| function | chip | GPIO |
+|---|---|---|
+| Ethernet RMII | **IP101GRI** on the P4's internal EMAC | REF_CLK 50 (50 MHz), MDC 31, MDIO 52, PHY reset 51, TXD0 34, TXD1 35, TX_EN 49, RXD0 29, RXD1 30, CRS_DV 28 |
+| TF card, 4-bit SDMMC | | CLK 43, CMD 44, D0 39, D1 40, D2 41, D3 42 |
+| audio | **ES8311** codec at I2C 0x18, **NS4150B** amplifier | I2C SDA 7, SCL 8; I2S MCLK 13, BCLK 12, WS 10, DAC out 11, mic in 9; amplifier enable (PA) 53 |
+| USB Serial/JTAG (the USB-C, flashing + console) | | D− 24, D+ 25 |
+| USB OTG 2.0 HS (the USB-A) | | D− 26, D+ 27 |
+| 40-pin header GPIO | | 0–6, 20–23, 32, 33, 36–38, 45–48, 54, 83 (GPIO 34–38 shared with Ethernet TX / free per the note) |
 
 ## Role
 

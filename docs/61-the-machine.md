@@ -40,6 +40,17 @@ NAME.gguf` and compiles. `machine/cards/` says what goes on every card and stage
 `machine/zynq/qemu_machine_test.sh` boots the image in QEMU as node 1 and node 2 and checks the
 identity, the models, the tools and the self-test on the real root filesystem.
 
+## Two boards emulated, and what that found
+
+`machine/zynq/qemu_two_node_test.sh` boots two QEMU Zynqs from the image on a socket link and has node 1
+run the bench-day command against the 0.5B. The first runs found, in order: a console driver whose
+sentinel matched an earlier command's; the engines bit-exact on both nodes and the peer driven over the
+link; then every model step killed by the OOM killer — the runtime read the whole model into RAM, and
+the board's 223 MB already carried a 128 MB tmpfs swap export for a Pi that is not there. Both fixed:
+the model file is now mapped (`gguf.c`, `model_q.c`) and the export is masked in the machine image.
+The offload also gained the output head (row bands, 16-bit engine rows). Results in
+`machine/README.md`.
+
 ## What is not done, said plainly
 
 Linux has never reached user space on either FPGA board; the engines exist in simulation, QEMU and a

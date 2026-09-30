@@ -1,0 +1,13 @@
+prompt ids: 750 75698 1445 1648
+step 0 pos 0 fed 750 -> top1 4352 15.7835073 top2 1779 15.2836838 text "module"
+step 1 pos 1 fed 75698 -> top1 1445 19.2750187 top2 23735 17.9734135 text "(n"
+step 2 pos 2 fed 1445 -> top1 982 19.8494663 top2 1648 17.0702496 text "):\x0A"
+step 3 pos 3 fed 1648 -> top1 715 16.0150642 top2 198 15.4694405 text " \x0A"
+step 4 pos 4 fed 715 -> top1 262 20.6582623 top2 743 17.658474 text "   "
+step 5 pos 5 fed 262 -> top1 421 17.7144871 top2 671 16.3725281 text " if"
+step 6 pos 6 fed 421 -> top1 308 19.7946301 top2 320 16.5564098 text " n"
+step 7 pos 7 fed 308 -> top1 2651 21.4204159 top2 621 20.1665764 text " <="
+step 8 pos 8 fed 2651 -> top1 220 21.7786655 top2 16 15.3453627 text " "
+step 9 pos 9 fed 220 -> top1 15 21.3690834 top2 16 21.2392292 text "0"
+step 10 pos 10 fed 15 -> top1 25 19.459837 top2 510 17.4720154 text ":"
+step 11 pos 11 fed 25 -> top1 715 19.6366024 top2 220 17.1643162 text " \x0A"

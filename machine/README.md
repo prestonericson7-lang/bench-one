@@ -15,7 +15,7 @@ machine is cables and cards; the only wire is the speaker lead on the P4.
 |---|---|---|
 | Teensy 4.1 + PSRAM | the 3B exact at 105 s a token, two days of logs (docs/57); the 0.5B proven identical through its core on the PC (bench-archive/20260929-215440); `::model` built into the firmware | flashing that firmware (PC idle, card idle) and copying the 0.5B onto its card (needs the card in a reader) |
 | FPGA boards | bitstream (GPU + matrix engine + registers + eth1 core) synthesised, timing closed; the engine bit-exact in simulation; the whole Linux image boots in QEMU; the SD card written and hash-verified | **Linux has never reached user space on the board.** The one real boot (2026-09-24) panicked in cpufreq; that is fixed in the image on the card, untested. Every later capture is empty (board unplugged). The engines are the least-proven part of the machine, so FPGA #1's boot report is step one |
-| two engines as one | the offload client splits rows across engines; two engines produce the same bytes as one (PC test, this session) | on the boards |
+| two engines as one | two engines produce the same bytes as one (PC); **emulated on two boards**: both attached across the link, engines bit-exact, the exact reference on the ARM CPU identical to the PC's | on the boards, with the PL |
 | STM32H743 ×2 | specs recorded | vendor and pins unknown until a silkscreen photo; no firmware yet |
 | ESP32-P4-NANO | facts recorded | needs eth1 on an FPGA first; no firmware yet |
 
@@ -23,7 +23,7 @@ machine is cables and cards; the only wire is the speaker lead on the P4.
 
 | item | role | link into the machine |
 |---|---|---|
-| **FPGA #1** `zynq1` 10.20.0.2 | matrix engine + the machine's host: runs the model on its own processor with both engines taking the rows; runs `machine-bench` | cable 1 to FPGA #2; console to the PC |
+| **FPGA #1** `zynq1` 10.20.0.2 | matrix engine + the machine's host: runs the model on its own processor (223 MB of Linux; the model file is mapped, not loaded) with both engines taking the rows, the output head included; runs `machine-bench` | cable 1 to FPGA #2; console to the PC |
 | **FPGA #2** `zynq2` 10.20.0.3 | matrix engine | cable 1; console to the PC |
 | **Teensy 4.1 + 8 PSRAM** | the exact reference: the 3B as today; later the machine's small model, so every engine answer can be checked to the digit | USB to the PC today; later into an FPGA's USB-A |
 | **STM32H743 ×2** (phase 2) | exact modules on a second CPU family: `tl_core` streaming from a TF card, 32 MB SDRAM as the cache ([stm32/README.md](stm32/README.md)) | OTG USB-C into an FPGA's USB-A host port; console USB-C to the PC hub |
@@ -123,7 +123,7 @@ in `/boot/reports/` on their cards.
   text at half offload, perplexity within 3%, the dying-engine fallback intact.
 - **The card image**: built 2026-09-29 by `mk_sd_image.sh` with the machine and both models installed —
   `hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz` (2.69 GB; raw 4,226 MiB, sha256
-  `19dd87556ba2bd70378b34975674cf12ed1dffb09a4464bd8a17f1617ebe9f70`). Its first-stage files — `boot.bin`,
+  `f04e7194a20c6a37a2c5c1dc472ea81def6f096ecc5a16b25202f636cf43b53d`). Its first-stage files — `boot.bin`,
   `u-boot.img`, `zImage`, the DTB, `pl.bit` — are the same bytes card #1 carries today (unchanged since
   2026-09-26). Root partition 4 GB: the system (468 MB) plus `/opt/machine/models` (2,485 MB).
   `zynq-node.txt` = 1 on the image; for card #2 the file on its BOOT drive is changed to 2.
@@ -139,6 +139,36 @@ in `/boot/reports/` on their cards.
 - **The cards** ([cards/](cards/)): what goes on each and `stage.py`, which gathers the image, the node
   file and the model into `D:\start\machine-cards\<card>\` with checksums so each card is one step in the
   reader.
+- **Two engines as one, plus the output head** (`accel/llm/zaccel_offload.c`, second pass): the offload
+  now covers the output head too — 28% of the 0.5B's multiply-adds and 10% of the 3B's were staying on
+  the host CPU — which needed **row bands**, because the engine's row count is 16 bits and the head has
+  151,936 rows; bands of 16,384 rows are also the unit of quantisation, so an upload's working memory
+  stays under ~50 MB on the board's 256 MB. `$ZACCEL_HEAD=0` keeps the head on the CPU. On the 3B (PC):
+  identical text at half offload with the head, perplexity 19.349 → 19.791 (half) / 19.436 (all),
+  within 3%; two engines still byte-identical to one.
+- **The model is mapped, not read** (`shared/gguf.c`, `model_q.c`): the runtime used to `malloc` and
+  `fread` every tensor — 676 MB for the 0.5B on a board whose Linux has 223 MB. Found by the two-board
+  emulation: `tl_ref` and `run_model` OOM-killed with 15 MB free. On POSIX the file is now mapped
+  read-only and tensors point into the map; the page cache streams what is used, the way the Teensy
+  streams its card. Windows keeps the read path. The Pi is unaffected except for using less RAM.
+- **The swap export is gone from the machine image**: `zynqram`, a 128 MB tmpfs file exported to the
+  Orange Pi as swap, was taking 129 MB of the board's 223 MB with no Pi to use it. Masked in
+  `zynq/install.sh`; the Pi's image keeps it.
+- **Two boards emulated** (`zynq/qemu_two_node_test.sh`): two QEMU `xilinx-zynq-a9` machines from the
+  card image, node 1 and node 2, joined by a socket link in place of cable 1; node 1 runs the bench-day
+  command `machine-bench all` against the 0.5B — facts, its engine, the peer's engine over the link,
+  `tl_ref`, the fused path, one engine, both engines, perplexity — and the exact reference's lines are
+  pulled off the card for a byte comparison with the PC. **Result 2026-09-30**
+  (`zynq/qemu-two-node/`): both nodes up as `zynq1` / `zynq2`; ping across the link; `machine-bench`
+  sees the peer; the engine on each node **bit-exact** (74 answers checked, 0 wrong — the server's CPU
+  fallback, QEMU having no PL); the peer's engine driven from node 1; **`tl_ref` on the ARM Cortex-A9:
+  12 step lines byte-identical to the PC's x86 `tl_ref`** on the 0.5B (`tl_ref-qwen05b-arm.txt` against
+  `-pc.txt`) — the third architecture of the exactness profile, in emulation; `run_model --fast` produced
+  tokens; one engine attached by measured split (12.9%); **both engines attached across the link** (5.2%;
+  under emulation the "engine" is the same slow CPU, so the measured split rightly keeps most rows local
+  — on the boards the PL's rate decides). Free memory during the run: 149 MB (15 MB before the swap
+  export went). Timings under TCG (≈100 s a token) are not numbers. The perplexity step outlasted the
+  80-minute window; a rerun with emulation-sized steps is in `qemu-two-node/checks.txt`.
 - **The image in QEMU** (`zynq/qemu_machine_test.sh`): boots the machine image on `xilinx-zynq-a9` twice,
   with `zynq-node.txt` = 1 and = 2, and checks the hostname, the address, the two models, that the static
   tools execute on the card's glibc, and that `machine-bench` runs and writes its report to the card.

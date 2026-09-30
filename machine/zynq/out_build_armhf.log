@@ -1,0 +1,26 @@
+/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
+(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
+(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
+(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /tmp/cca637SA.o: in function `zaccel_connect':
+libzaccel.c:(.text+0x592): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /tmp/cc7PHYgQ.o: in function `zaccel_connect':
+libzaccel.c:(.text+0x592): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/mnt/d/espicpc/machine/zynq/out/armhf/SHA256SUMS:   ASCII text
+/mnt/d/espicpc/machine/zynq/out/armhf/ppl:          ELF 32-bit LSB executable, statically linked, BuildID[sha1]=eb56f4a94d6ffdd15b1f1f09128e2cd1bf4236d3, for GNU/Linux 3.2.0, not stripped
+/mnt/d/espicpc/machine/zynq/out/armhf/run_model:    ELF 32-bit LSB executable, statically linked, BuildID[sha1]=d0791b2d9177d8216d1ddf31eff6e26a2884a195, for GNU/Linux 3.2.0, not stripped
+/mnt/d/espicpc/machine/zynq/out/armhf/test_lib:     ELF 32-bit LSB executable, statically linked, BuildID[sha1]=345e741daa84af980eb07b1ff8ee0dcf42523e0a, for GNU/Linux 3.2.0, not stripped
+/mnt/d/espicpc/machine/zynq/out/armhf/tl_ref:       ELF 32-bit LSB executable, statically linked, BuildID[sha1]=e5e7c225f83a250acad09a429f0a9ce64e4a6515, for GNU/Linux 3.2.0, not stripped
+/mnt/d/espicpc/machine/zynq/out/armhf/zaccel-bench: ELF 32-bit LSB executable, statically linked, BuildID[sha1]=765cd37bcb31090b6a7135b4b4a3a6faef3e3810, for GNU/Linux 3.2.0, not stripped
+total 3484
+drwxrwxrwx 1 root root    512 Sep 30 01:22 .
+drwxrwxrwx 1 root root    512 Sep 29 21:51 ..
+-rwxrwxrwx 1 root root    450 Sep 29 20:45 SHA256SUMS
+-rwxrwxrwx 1 root root 761704 Sep 30 01:22 ppl
+-rwxrwxrwx 1 root root 756252 Sep 30 01:22 run_model
+-rwxrwxrwx 1 root root 650012 Sep 30 01:23 test_lib
+-rwxrwxrwx 1 root root 706544 Sep 30 01:22 tl_ref
+-rwxrwxrwx 1 root root 686824 Sep 30 01:22 zaccel-bench
+BUILD OK: /mnt/d/espicpc/machine/zynq/out/armhf

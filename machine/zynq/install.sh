@@ -13,6 +13,13 @@ ln -sf /etc/systemd/system/zynq-node.service "$ROOT/etc/systemd/system/sysinit.t
 # the earlier attempt as a networkd drop-in ran inside networkd's sandbox and changed nothing: remove it
 rm -f "$ROOT/etc/systemd/system/systemd-networkd.service.d/zynq-node.conf"
 rmdir "$ROOT/etc/systemd/system/systemd-networkd.service.d" 2>/dev/null || true
+# The machine has no Orange Pi to serve swap to: the 128 MB tmpfs "zynqram" export would take more
+# than half of the board's 223 MB (found in QEMU: tl_ref and run_model OOM-killed with 15 MB free).
+# Drop the export and its nbd-server here; the Pi image is untouched.
+rm -f "$ROOT/etc/systemd/system/multi-user.target.wants/zynqram-prep.service" \
+      "$ROOT/etc/systemd/system/nbd-server.service.requires/zynqram-prep.service" \
+      "$ROOT/etc/systemd/system/multi-user.target.wants/nbd-server.service"
+ln -sfn /dev/null "$ROOT/etc/systemd/system/nbd-server.service"          # masked
 install -D -m 0755 "$H/machine-bench"      "$ROOT/usr/local/bin/machine-bench"
 mkdir -p "$ROOT/usr/local/lib/machine" "$ROOT/opt/machine/models" "$ROOT/boot/reports"
 for b in run_model ppl tl_ref zaccel-bench test_lib; do

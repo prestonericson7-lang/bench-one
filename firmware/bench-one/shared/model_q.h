@@ -54,6 +54,7 @@ typedef struct {
     uint32_t cols;        /* inputs  */
     uint64_t row_bytes;
     uint8_t *raw;
+    uint8_t  mapped;      /* raw points into the GGUF file's read-only map: never written, never freed */
 } qten_t;
 
 typedef struct {

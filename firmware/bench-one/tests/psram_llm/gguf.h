@@ -95,13 +95,19 @@ typedef struct {
     gguf_kv     *kv;
     gguf_tensor *t;
     uint64_t     data_start;   /* absolute byte offset of the tensor blob */
+    uint8_t     *map;          /* the whole file mapped read-only (POSIX; NULL if not mapped) */
+    uint64_t     map_len;
     char         err[256];
 } gguf_t;
 
 /* Open and parse the header. Returns 0 on success; on failure g->err says why. The file stays open
- * for tensor reads, so call gguf_close when done. */
+ * for tensor reads, so call gguf_close when done. On POSIX the file is also mapped read-only, so a
+ * host with less RAM than the model (the Zynq's 256 MB) streams it through the page cache instead of
+ * reading it into memory; gguf_raw_ptr() hands out pointers into that map. */
 int  gguf_open(gguf_t *g, const char *path);
 void gguf_close(gguf_t *g);
+/* A tensor's raw bytes inside the map, or NULL when the file is not mapped (then read it). */
+const uint8_t *gguf_raw_ptr(const gguf_t *g, const gguf_tensor *t);
 
 /* Metadata lookup. The `arch` helpers prepend the architecture name, since nearly every key in a
  * GGUF file is namespaced by it -- "qwen2.block_count", not "block_count". */

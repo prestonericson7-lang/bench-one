@@ -2,10 +2,11 @@
  *  zaccel_offload.c -- the Zynq matrix engines taking a share of the model's matrix-vector work
  * ===========================================================================================
  *
- *  Every dense matrix of every resident layer is split by rows: rows [0, nz) live on the engines,
- *  requantized to int8 with one scale per row, and rows [nz, n) stay on this CPU in their GGUF form.
- *  A matvec sends the activation (int8, one scale for the vector) to every engine, computes its own
- *  rows meanwhile, then joins: out[r] = acc[r] * wscale[r] * xscale for the engines' rows.
+ *  Every dense matrix of every resident layer, and the output head, is split by rows: rows [0, nz)
+ *  live on the engines, requantized to int8 with one scale per row, and rows [nz, n) stay on this CPU
+ *  in their GGUF form. A matvec sends the activation (int8, one scale for the vector) to every engine,
+ *  computes its own rows meanwhile, then joins: out[r] = acc[r] * wscale[r] * xscale for the engines'
+ *  rows.
  *
  *  SEVERAL ENGINES. --zaccel HOST[:PORT][,HOST2[:PORT2]...] names up to ZMAX_ENG engines (two Zynq
  *  boards in the machine, machine/README.md). The engines' rows [0, nz) are divided among them in
@@ -13,6 +14,11 @@
  *  matvec drives all of them at once from one thread each. Every row is still computed whole by
  *  exactly one engine, so the answer with two engines is BYTE-IDENTICAL to the answer with one
  *  (accel/llm/test_two_engines.sh holds it to that).
+ *
+ *  ROW BANDS. The engine's row count is 16 bits (accel/SPEC.md §1) and the output head has 151,936
+ *  rows, so a slice is uploaded as bands of at most ZBAND_ROWS rows, each its own tensor per column
+ *  chunk. The bands are also the unit of quantization, which keeps the upload's working memory to a
+ *  few tens of MB on a board whose Linux has 256 MB.
  *
  *  THE SPLIT IS MEASURED, NOT GUESSED. At attach time every side is timed on a real matrix of the
  *  model: this CPU's rows per second, and each engine's fixed cost per call (network round trip) plus
@@ -36,6 +42,9 @@
  *  is retired for the rest of the run; the others carry on. With every engine gone the offload is
  *  off. The answer is always complete.
  *
+ *  $ZACCEL_HEAD=0 keeps the output head on the CPU (its quantization cost is a ppl.c question per
+ *  model; the default offloads it). $ZACCEL_WBITS=4 uses int4 weights on the engines.
+ *
  *  Numbers only count on the boards against the real engines. On a PC this checks correctness and
  *  the quality cost of the int8 requantization (tests/ppl.c), nothing else.
  * ===========================================================================================
@@ -51,26 +60,38 @@
 #include <string.h>
 #include <time.h>
 
-#define ZCOLS    4096        /* the engine's widest row (accel/SPEC.md §1) */
-#define ZPARTS   8
-#define ZBATCH   8           /* the engine's batch: one weight read serves 8 positions */
-#define ZMAX_ENG 4           /* engines a host list may name */
+#define ZCOLS      4096      /* the engine's widest row (accel/SPEC.md §1) */
+#define ZPARTS     8
+#define ZBATCH     8         /* the engine's batch: one weight read serves 8 positions */
+#define ZMAX_ENG   4         /* engines a host list may name */
+#define ZBAND_ROWS 16384u    /* rows per uploaded tensor: under the 16-bit limit, and the quantization
+                              * buffers for one band of the widest matrix stay under ~50 MB */
 
+static int env_flag(const char *name, int dflt)
+{
+    const char *e = getenv(name);
+    return (e && *e) ? atoi(e) : dflt;
+}
 /* Weight width on the engines: 8 (default) or 4 ($ZACCEL_WBITS=4). int4 halves the bytes, so an
  * engine reads twice the weights per second and twice as many rows fit in its memory; whether the
  * model can afford it is a ppl.c question, answered per model, never assumed. */
 static int wbits(void)
 {
     static int b = 0;
-    if (!b) { const char *e = getenv("ZACCEL_WBITS"); b = (e && atoi(e) == 4) ? 4 : 8; }
+    if (!b) b = env_flag("ZACCEL_WBITS", 8) == 4 ? 4 : 8;
     return b;
 }
 
 typedef struct { zaccel_tensor_t t; uint32_t c0, nc; } zpart_t;
-typedef struct {                 /* one engine's slice of one matrix: rows [r0, r0 + nr) */
+typedef struct {                 /* one band of one engine's slice: rows [r0, r0 + nr), as column chunks */
     uint32_t r0, nr;
     int      nparts;
     zpart_t  part[ZPARTS];
+} zband_t;
+typedef struct {                 /* one engine's slice of one matrix: rows [r0, r0 + nr) in bands */
+    uint32_t r0, nr;
+    int      nband;
+    zband_t *band;
 } zslice_t;
 typedef struct {
     const qten_t *w;
@@ -87,7 +108,7 @@ typedef struct {
     double         rz, t0;       /* measured: rows per second, fixed seconds per call */
     int            dead;         /* retired after a failure: its rows are the CPU's now */
     uint64_t       calls, fails;
-    int32_t       *tmp;          /* [ZBATCH][max_rows] integer results of one part */
+    int32_t       *tmp;          /* [ZBATCH][ZBAND_ROWS] integer results of one band's part */
     int8_t        *blk;          /* [ZBATCH][ZCOLS] one column chunk of the activations */
 } zeng_t;
 
@@ -100,7 +121,6 @@ typedef struct {
     float    *xr;                /* the rotated activations, float: [ZBATCH][max_cols] */
     float    *sxp;               /* activation scale per vector per column chunk: [ZBATCH][ZPARTS] */
     float    *facc;              /* partial sums, scaled: [max_rows][ZBATCH] */
-    size_t    rows_cap;
     int       dead;              /* every engine failed: everything back on the CPU */
     uint64_t  calls, fails;
 } zoff_t;
@@ -139,13 +159,18 @@ static void hrotate(float *v, uint32_t cols, int b)
     }
 }
 
-static void zslice_free(zoff_t *zo, int e, zslice_t *s)
+static void zband_free(zoff_t *zo, int e, zband_t *b)
 {
     if (!zo->eng[e].dead)
-        for (int i = 0; i < s->nparts; i++) zaccel_free(zo->eng[e].z, &s->part[i].t);
+        for (int i = 0; i < b->nparts; i++) zaccel_free(zo->eng[e].z, &b->part[i].t);
+    b->nparts = 0;
+}
+static void zslice_free(zoff_t *zo, int e, zslice_t *s)
+{
+    for (int k = 0; k < s->nband; k++) zband_free(zo, e, &s->band[k]);
+    free(s->band);
     memset(s, 0, sizeof *s);
 }
-
 static void zdrop(zoff_t *zo, zmat_t *zm)
 {
     for (int e = 0; e < zo->neng; e++) zslice_free(zo, e, &zm->sl[e]);
@@ -153,41 +178,86 @@ static void zdrop(zoff_t *zo, zmat_t *zm)
     memset(zm, 0, sizeof *zm);
 }
 
-/* rows [r0, r0 + nr) of the quantized matrix q (row stride cols) -> engine e, as column chunks */
-static int zslice_upload(zoff_t *zo, int e, const int8_t *q, uint32_t cols, uint32_t r0, uint32_t nr,
+/* rows [r0, r0 + nr) of w: dequantized, rotated, int8 with a scale per row (into ws[r0..]), returned
+ * as one buffer [nr][cols] the caller frees. NULL = out of memory. */
+static int8_t *zquant_rows(const qten_t *w, int hb, uint32_t r0, uint32_t nr, float *ws)
+{
+    int8_t *q = (int8_t *)malloc((size_t)nr * w->cols);
+    float *row = (float *)malloc(w->cols * sizeof(float));
+    if (!q || !row) { free(q); free(row); return NULL; }
+    const int qmax = wbits() == 4 ? 7 : 127;
+    for (uint32_t r = 0; r < nr; r++) {
+        gguf_dequant(w->type, w->raw + (size_t)(r0 + r) * w->row_bytes, w->cols, row);
+        hrotate(row, w->cols, hb);
+        float amax = 0.0f;
+        for (uint32_t c = 0; c < w->cols; c++) amax = fmaxf(amax, fabsf(row[c]));
+        const float s = amax > 0.0f ? amax / (float)qmax : 1.0f;
+        ws[r0 + r] = s;
+        for (uint32_t c = 0; c < w->cols; c++) {
+            long v = lrintf(row[c] / s);
+            q[(size_t)r * w->cols + c] = (int8_t)(v > qmax ? qmax : v < -qmax ? -qmax : v);
+        }
+    }
+    free(row);
+    return q;
+}
+
+/* one band (rows [r0, r0 + nr), already quantized in q with stride cols) -> engine e, as column chunks.
+ * 0 ok, 1 the engine is full, -1 error. */
+static int zband_upload(zoff_t *zo, int e, const int8_t *q, uint32_t cols, uint32_t r0, uint32_t nr,
+                        zband_t *b, char *msg, int msglen)
+{
+    memset(b, 0, sizeof *b);
+    b->r0 = r0; b->nr = nr;
+    const uint32_t mode = wbits() == 4 ? ZACCEL_MODE_INT4 : ZACCEL_MODE_INT8;
+    for (uint32_t c0 = 0; c0 < cols; c0 += ZCOLS) {
+        const uint32_t nc = (cols - c0) < ZCOLS ? (cols - c0) : ZCOLS;
+        if (b->nparts == ZPARTS) { snprintf(msg, msglen, "row too wide (%u columns)", cols); zband_free(zo, e, b); return -1; }
+        const size_t rb = zaccel_row_bytes(mode, nc);
+        uint8_t *packed = (uint8_t *)calloc((size_t)nr, rb);
+        int8_t *sub = (int8_t *)malloc((size_t)nr * nc);
+        if (!packed || !sub) { free(packed); free(sub); snprintf(msg, msglen, "out of memory"); zband_free(zo, e, b); return -1; }
+        for (uint32_t r = 0; r < nr; r++) memcpy(sub + (size_t)r * nc, q + (size_t)r * cols + c0, nc);
+        if (mode == ZACCEL_MODE_INT4) zaccel_pack_int4(sub, nr, nc, packed);
+        else zaccel_pack_int8(sub, nr, nc, packed);
+        zpart_t *p = &b->part[b->nparts];
+        int rc = zaccel_load(zo->eng[e].z, mode, nr, nc, packed, &p->t);
+        free(packed); free(sub);
+        if (rc) {
+            snprintf(msg, msglen, "%s: LOAD failed: %s", zo->eng[e].name, zaccel_strerror(rc));
+            zband_free(zo, e, b);
+            return rc == ZACCEL_ST_NOMEM ? 1 : -1;
+        }
+        p->c0 = c0; p->nc = nc;
+        b->nparts++;
+    }
+    return 0;
+}
+
+/* engine e's slice, rows [r0, r0 + nr): quantized and uploaded band by band */
+static int zslice_upload(zoff_t *zo, int e, const qten_t *w, int hb, float *ws, uint32_t r0, uint32_t nr,
                          zslice_t *s, char *msg, int msglen)
 {
     memset(s, 0, sizeof *s);
     s->r0 = r0; s->nr = nr;
     if (nr == 0) return 0;
-    const uint32_t mode = wbits() == 4 ? ZACCEL_MODE_INT4 : ZACCEL_MODE_INT8;
-    for (uint32_t c0 = 0; c0 < cols; c0 += ZCOLS) {
-        const uint32_t nc = (cols - c0) < ZCOLS ? (cols - c0) : ZCOLS;
-        if (s->nparts == ZPARTS) { snprintf(msg, msglen, "row too wide (%u columns)", cols); zslice_free(zo, e, s); return -1; }
-        const size_t rb = zaccel_row_bytes(mode, nc);
-        uint8_t *packed = (uint8_t *)calloc((size_t)nr, rb);
-        int8_t *sub = (int8_t *)malloc((size_t)nr * nc);
-        if (!packed || !sub) { free(packed); free(sub); snprintf(msg, msglen, "out of memory"); zslice_free(zo, e, s); return -1; }
-        for (uint32_t r = 0; r < nr; r++) memcpy(sub + (size_t)r * nc, q + (size_t)(r0 + r) * cols + c0, nc);
-        if (mode == ZACCEL_MODE_INT4) zaccel_pack_int4(sub, nr, nc, packed);
-        else zaccel_pack_int8(sub, nr, nc, packed);
-        zpart_t *p = &s->part[s->nparts];
-        int rc = zaccel_load(zo->eng[e].z, mode, nr, nc, packed, &p->t);
-        free(packed); free(sub);
-        if (rc) {
-            snprintf(msg, msglen, "%s: LOAD failed: %s", zo->eng[e].name, zaccel_strerror(rc));
-            zslice_free(zo, e, s);
-            return rc == ZACCEL_ST_NOMEM ? 1 : -1;
-        }
-        p->c0 = c0; p->nc = nc;
-        s->nparts++;
+    s->nband = (int)((nr + ZBAND_ROWS - 1) / ZBAND_ROWS);
+    s->band = (zband_t *)calloc((size_t)s->nband, sizeof(zband_t));
+    if (!s->band) { snprintf(msg, msglen, "out of memory"); s->nband = 0; return -1; }
+    for (int k = 0; k < s->nband; k++) {
+        const uint32_t br0 = r0 + (uint32_t)k * ZBAND_ROWS;
+        const uint32_t bnr = (r0 + nr - br0) < ZBAND_ROWS ? (r0 + nr - br0) : ZBAND_ROWS;
+        int8_t *q = zquant_rows(w, hb, br0, bnr, ws);
+        if (!q) { snprintf(msg, msglen, "out of memory"); zslice_free(zo, e, s); return -1; }
+        int rc = zband_upload(zo, e, q, w->cols, br0, bnr, &s->band[k], msg, msglen);
+        free(q);
+        if (rc) { s->nband = k; zslice_free(zo, e, s); return rc; }
     }
     return 0;
 }
 
-/* rows [0, nz) of w, rotated, -> int8 with a scale per row, then each engine's slice uploaded.
- * nzk[e] rows for engine e, in order; sum = nz. Returns 0, 1 (an engine is full: nothing uploaded),
- * or -1 (error). */
+/* rows [0, nz) of w onto the engines: nzk[e] rows for engine e, in order; sum = nz. Returns 0,
+ * 1 (an engine is full: nothing of this matrix uploaded), or -1 (error). */
 static int zupload(zoff_t *zo, const qten_t *w, const uint32_t *nzk, zmat_t *zm, char *msg, int msglen)
 {
     memset(zm, 0, sizeof *zm);
@@ -197,58 +267,45 @@ static int zupload(zoff_t *zo, const qten_t *w, const uint32_t *nzk, zmat_t *zm,
     for (int e = 0; e < zo->neng; e++) nz += nzk[e];
     if (nz == 0) return 0;
     zm->ws = (float *)malloc(nz * sizeof(float));
-    int8_t *q = (int8_t *)malloc((size_t)nz * w->cols);
-    float *row = (float *)malloc(w->cols * sizeof(float));
-    if (!zm->ws || !q || !row) { free(q); free(row); free(zm->ws); zm->ws = NULL; snprintf(msg, msglen, "out of memory"); return -1; }
-    const int qmax = wbits() == 4 ? 7 : 127;
-    for (uint32_t r = 0; r < nz; r++) {
-        gguf_dequant(w->type, w->raw + (size_t)r * w->row_bytes, w->cols, row);
-        hrotate(row, w->cols, zm->hb);
-        float amax = 0.0f;
-        for (uint32_t c = 0; c < w->cols; c++) amax = fmaxf(amax, fabsf(row[c]));
-        const float s = amax > 0.0f ? amax / (float)qmax : 1.0f;
-        zm->ws[r] = s;
-        for (uint32_t c = 0; c < w->cols; c++) {
-            long v = lrintf(row[c] / s);
-            q[(size_t)r * w->cols + c] = (int8_t)(v > qmax ? qmax : v < -qmax ? -qmax : v);
-        }
-    }
-    free(row);
+    if (!zm->ws) { snprintf(msg, msglen, "out of memory"); return -1; }
     uint32_t r0 = 0;
     for (int e = 0; e < zo->neng; e++) {
-        int rc = zslice_upload(zo, e, q, w->cols, r0, nzk[e], &zm->sl[e], msg, msglen);
+        int rc = zslice_upload(zo, e, w, zm->hb, zm->ws, r0, nzk[e], &zm->sl[e], msg, msglen);
         if (rc) {                                   /* undo the slices already on the other engines */
             for (int k = 0; k < e; k++) zslice_free(zo, k, &zm->sl[k]);
-            free(q); free(zm->ws); memset(zm, 0, sizeof *zm);
+            free(zm->ws); memset(zm, 0, sizeof *zm);
             return rc;
         }
         r0 += nzk[e];
     }
-    free(q);
     zm->nz = nz;
     int hb = zm->hb;                                /* a whole number of blocks per chunk */
     for (int e = 0; e < zo->neng; e++)
-        for (int i = 0; i < zm->sl[e].nparts; i++) if (zm->sl[e].part[i].nc % (uint32_t)hb) zm->hb = 1;
+        for (int k = 0; k < zm->sl[e].nband; k++)
+            for (int i = 0; i < zm->sl[e].band[k].nparts; i++)
+                if (zm->sl[e].band[k].part[i].nc % (uint32_t)hb) zm->hb = 1;
     if (zm->hb != hb) { snprintf(msg, msglen, "internal: Hadamard block %d straddles a column chunk", hb); return -1; }
     return 0;
 }
 
-/* the column chunks of any slice of this matrix (all slices chunk columns identically) */
-static const zslice_t *zchunks(const zmat_t *zm, int neng)
+/* the column chunks of this matrix (every band of every slice chunks columns identically) */
+static const zband_t *zchunks(const zmat_t *zm, int neng)
 {
-    for (int e = 0; e < neng; e++) if (zm->sl[e].nparts) return &zm->sl[e];
-    return &zm->sl[0];
+    for (int e = 0; e < neng; e++)
+        if (zm->sl[e].nband) return &zm->sl[e].band[0];
+    return NULL;
 }
 
 /* activation vector v of this matrix: rotate a copy, then int8 per column chunk, each its own scale */
 static void zprep(zoff_t *zo, const zmat_t *zm, const float *x, int v)
 {
     const uint32_t cols = zm->w->cols;
-    const zslice_t *cs = zchunks(zm, zo->neng);
+    const zband_t *cs = zchunks(zm, zo->neng);
     float *xr = zo->xr + (size_t)v * cols;
     int8_t *q = zo->xq + (size_t)v * cols;
     memcpy(xr, x, cols * sizeof(float));
     hrotate(xr, cols, zm->hb);
+    if (!cs) return;
     for (int i = 0; i < cs->nparts; i++) {
         const uint32_t c0 = cs->part[i].c0, nc = cs->part[i].nc;
         float amax = 0.0f;
@@ -262,8 +319,8 @@ static void zprep(zoff_t *zo, const zmat_t *zm, const float *x, int v)
     }
 }
 
-/* engine e's slice of one matvec (nb = 1) or of nb prefill positions: facc rows [r0, r0 + nr).
- * Reads xq / sxp (written by zprep before the workers start), writes only its own tmp, blk and
+/* engine e's slice of one matvec (nb = 1) or of nb prefill positions: facc rows [r0, r0 + nr), band by
+ * band. Reads xq / sxp (written by zprep before the workers start), writes only its own tmp, blk and
  * its own rows of facc. */
 typedef struct { zoff_t *zo; zmat_t *zm; int e, nb, rc; } zjob_t;
 static void *zrun(void *arg)
@@ -271,23 +328,26 @@ static void *zrun(void *arg)
     zjob_t *j = (zjob_t *)arg;
     zoff_t *zo = j->zo; zmat_t *zm = j->zm; zeng_t *E = &zo->eng[j->e];
     const zslice_t *s = &zm->sl[j->e];
-    const uint32_t cols = zm->w->cols, nr = s->nr, r0 = s->r0;
+    const uint32_t cols = zm->w->cols;
     const int nb = j->nb;
     j->rc = 0;
-    if (nr == 0 || E->dead) return NULL;
-    for (uint32_t r = 0; r < nr; r++) for (int v = 0; v < nb; v++) zo->facc[(size_t)(r0 + r) * nb + v] = 0.0f;
-    for (int i = 0; i < s->nparts; i++) {
-        const uint32_t c0 = s->part[i].c0, nc = s->part[i].nc;
-        const int8_t *A = zo->xq + c0;
-        if (nb > 1) {
-            for (int v = 0; v < nb; v++) memcpy(E->blk + (size_t)v * nc, zo->xq + (size_t)v * cols + c0, nc);
-            A = E->blk;
+    if (s->nr == 0 || E->dead) return NULL;
+    for (uint32_t r = 0; r < s->nr; r++) for (int v = 0; v < nb; v++) zo->facc[(size_t)(s->r0 + r) * nb + v] = 0.0f;
+    for (int k = 0; k < s->nband; k++) {
+        const zband_t *b = &s->band[k];
+        for (int i = 0; i < b->nparts; i++) {
+            const uint32_t c0 = b->part[i].c0, nc = b->part[i].nc;
+            const int8_t *A = zo->xq + c0;
+            if (nb > 1) {
+                for (int v = 0; v < nb; v++) memcpy(E->blk + (size_t)v * nc, zo->xq + (size_t)v * cols + c0, nc);
+                A = E->blk;
+            }
+            int rc = zaccel_gemv(E->z, &b->part[i].t, (uint32_t)nb, A, E->tmp, NULL, NULL);
+            if (rc) { j->rc = rc; return NULL; }
+            for (uint32_t r = 0; r < b->nr; r++)                                /* Y[r][v] */
+                for (int v = 0; v < nb; v++)
+                    zo->facc[(size_t)(b->r0 + r) * nb + v] += (float)E->tmp[(size_t)r * nb + v] * zo->sxp[v * ZPARTS + i];
         }
-        int rc = zaccel_gemv(E->z, &s->part[i].t, (uint32_t)nb, A, E->tmp, NULL, NULL);
-        if (rc) { j->rc = rc; return NULL; }
-        for (uint32_t r = 0; r < nr; r++)                                   /* Y[r][v] */
-            for (int v = 0; v < nb; v++)
-                zo->facc[(size_t)(r0 + r) * nb + v] += (float)E->tmp[(size_t)r * nb + v] * zo->sxp[v * ZPARTS + i];
     }
     E->calls++;
     return NULL;
@@ -405,6 +465,10 @@ static void each_matrix(model_t *m, void (*fn)(void *, const qten_t *), void *ct
         for (int i = 0; i < 7; i++)
             if (all[i]->raw && all[i]->rows && all[i]->cols) fn(ctx, all[i]);
     }
+    /* the output head: read in full every token (docs/59), 28% of a 0.5B's multiply-adds and 10% of the
+     * 3B's; its logits feed the argmax directly, so $ZACCEL_HEAD=0 keeps it exact on the CPU if a
+     * model's ppl says so */
+    if (env_flag("ZACCEL_HEAD", 1) && m->out_head.raw && m->out_head.rows && m->out_head.cols) fn(ctx, &m->out_head);
 }
 typedef struct { const qten_t **v; int n; uint64_t weights; uint32_t max_rows, max_cols; } collect_t;
 static void collect(void *ctx, const qten_t *w)
@@ -490,7 +554,7 @@ long long model_zaccel_attach(model_t *m, const char *host, double share, char *
     zo->facc = (float *)calloc((size_t)ZBATCH * c.max_rows + 1, sizeof(float));
     int ok = c.v && zo->mats && zo->xq && zo->xr && zo->sxp && zo->facc;
     for (int e = 0; e < zo->neng && ok; e++) {
-        zo->eng[e].tmp = (int32_t *)calloc((size_t)ZBATCH * c.max_rows + 1, sizeof(int32_t));
+        zo->eng[e].tmp = (int32_t *)calloc((size_t)ZBATCH * ZBAND_ROWS + 1, sizeof(int32_t));
         zo->eng[e].blk = (int8_t *)calloc((size_t)ZBATCH * ZCOLS, 1);
         ok = zo->eng[e].tmp && zo->eng[e].blk;
     }
@@ -543,10 +607,11 @@ long long model_zaccel_attach(model_t *m, const char *host, double share, char *
         }
         /* the engines run at once: together they are one engine of rate sum(rz) and the slowest
          * round trip; each matrix's nz is split among them by rate. Rates scale with row width;
-         * each 4096-column chunk is a call. */
+         * each 4096-column chunk of each band is a call. */
         for (int i = 0; i < nmat; i++) {
             const double k = (double)w->cols / c.v[i]->cols;
-            const uint32_t nz = best_nz(c.v[i]->rows, rc * k, t0_max * ((c.v[i]->cols + ZCOLS - 1) / ZCOLS), rz_sum * k);
+            const double calls = (double)((c.v[i]->cols + ZCOLS - 1) / ZCOLS) * (double)((c.v[i]->rows + ZBAND_ROWS - 1) / ZBAND_ROWS);
+            const uint32_t nz = best_nz(c.v[i]->rows, rc * k, t0_max * calls, rz_sum * k);
             uint32_t done = 0;
             for (int e = 0; e < zo->neng; e++) {
                 uint32_t part = (e == zo->neng - 1) ? nz - done : (uint32_t)(nz * (zo->eng[e].rz / rz_sum));
@@ -584,12 +649,13 @@ long long model_zaccel_attach(model_t *m, const char *host, double share, char *
             else snprintf(one, sizeof one, "%s%s(%s %.0f rows/s +%.0f us)", e ? "+" : "", zo->eng[e].name, zo->eng[e].in.engine ? "pl" : "cpu", zo->eng[e].rz, zo->eng[e].t0 * 1e6);
             strncat(engs, one, sizeof engs - strlen(engs) - 1);
         }
+        const char *head = env_flag("ZACCEL_HEAD", 1) ? "+head" : "layers only";
         if (share >= 0.0)
-            snprintf(msg, msglen, "%.1f%% of %llu weights on %d engine%s (share %.3f fixed, int%d per-row, Hadamard-rotated): %s",
-                     100.0 * weights / (double)c.weights, (unsigned long long)c.weights, zo->neng, zo->neng > 1 ? "s" : "", share, wbits(), engs);
+            snprintf(msg, msglen, "%.1f%% of %llu weights on %d engine%s (share %.3f fixed, int%d per-row, Hadamard-rotated, %s): %s",
+                     100.0 * weights / (double)c.weights, (unsigned long long)c.weights, zo->neng, zo->neng > 1 ? "s" : "", share, wbits(), head, engs);
         else
-            snprintf(msg, msglen, "%.1f%% of %llu weights on %d engine%s (measured: CPU %.0f rows/s; int%d): %s",
-                     100.0 * weights / (double)c.weights, (unsigned long long)c.weights, zo->neng, zo->neng > 1 ? "s" : "", rc, wbits(), engs);
+            snprintf(msg, msglen, "%.1f%% of %llu weights on %d engine%s (measured: CPU %.0f rows/s; int%d, %s): %s",
+                     100.0 * weights / (double)c.weights, (unsigned long long)c.weights, zo->neng, zo->neng > 1 ? "s" : "", rc, wbits(), head, engs);
     }
     free(c.v);
     return weights;

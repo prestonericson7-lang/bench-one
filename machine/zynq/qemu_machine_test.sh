@@ -34,6 +34,7 @@ s = socket.create_connection(("127.0.0.1", port), timeout=5)
 s.settimeout(1.0)
 buf = b""; f = open(log, "wb")
 def read_until(marker, limit):
+    # waits for marker in NEW output and consumes through it (an earlier sentinel must not satisfy a later wait)
     global buf
     t0 = time.time()
     while time.time() - t0 < limit:
@@ -43,7 +44,10 @@ def read_until(marker, limit):
             c = b""
         if c:
             buf += c; f.write(c); f.flush()
-            if marker in buf: return True
+            k = buf.find(marker)
+            if k >= 0:
+                buf = buf[k + len(marker):]
+                return True
     return False
 # autologin gives a root shell on ttyPS0; the report prints first
 read_until(b"ZYNQ-REPORT END", 420)

@@ -1,41 +1,15 @@
-/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
-(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
-/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
-(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
-/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /usr/lib/gcc-cross/arm-linux-gnueabihf/11/libgomp.a(oacc-profiling.o): in function `goacc_profiling_initialize':
-(.text+0x650): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
-/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /tmp/ccE131Qo.o: in function `zaccel_connect':
-libzaccel.c:(.text+0x592): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
-/usr/lib/gcc-cross/arm-linux-gnueabihf/11/../../../../arm-linux-gnueabihf/bin/ld: /tmp/ccRt82Lv.o: in function `zaccel_connect':
-libzaccel.c:(.text+0x592): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
-/mnt/d/espicpc/machine/zynq/out/armhf/SHA256SUMS:   ASCII text
-/mnt/d/espicpc/machine/zynq/out/armhf/ppl:          ELF 32-bit LSB executable, statically linked, BuildID[sha1]=0387e3d3ab2eba372d94553d2bc7cde1f789713e, for GNU/Linux 3.2.0, not stripped
-/mnt/d/espicpc/machine/zynq/out/armhf/run_model:    ELF 32-bit LSB executable, statically linked, BuildID[sha1]=28999af06c91297f2430ac1ca2d065d026a3045a, for GNU/Linux 3.2.0, not stripped
-/mnt/d/espicpc/machine/zynq/out/armhf/test_lib:     ELF 32-bit LSB executable, statically linked, BuildID[sha1]=345e741daa84af980eb07b1ff8ee0dcf42523e0a, for GNU/Linux 3.2.0, not stripped
-/mnt/d/espicpc/machine/zynq/out/armhf/tl_ref:       ELF 32-bit LSB executable, statically linked, BuildID[sha1]=503d98fa8a673603c2c96fe835222a3e2add410e, for GNU/Linux 3.2.0, not stripped
-/mnt/d/espicpc/machine/zynq/out/armhf/zaccel-bench: ELF 32-bit LSB executable, statically linked, BuildID[sha1]=765cd37bcb31090b6a7135b4b4a3a6faef3e3810, for GNU/Linux 3.2.0, not stripped
-total 3480
-drwxrwxrwx 1 root root    512 Sep 29 20:45 .
-drwxrwxrwx 1 root root    512 Sep 29 20:27 ..
--rwxrwxrwx 1 root root    450 Sep 29 20:37 SHA256SUMS
--rwxrwxrwx 1 root root 761744 Sep 29 20:45 ppl
--rwxrwxrwx 1 root root 752116 Sep 29 20:45 run_model
--rwxrwxrwx 1 root root 650012 Sep 29 20:45 test_lib
--rwxrwxrwx 1 root root 706484 Sep 29 20:45 tl_ref
--rwxrwxrwx 1 root root 686824 Sep 29 20:45 zaccel-bench
-BUILD OK: /mnt/d/espicpc/machine/zynq/out/armhf
 pl.bit = /mnt/d/espicpc/hardware/pz7020-starlite/vivado/build/system.bit
  Volume in drive : is BOOT       
- Volume Serial Number is 5DF8-74E7
+ Volume Serial Number is BCC9-DE28
 Directory for ::/
 
-boot     bin    131700 2026-09-29  20:45 
-u-boot   img   1329648 2026-09-29  20:45 
-boot     scr      2309 2026-09-29  20:45 
-ZIMAGE        11846144 2026-09-29  20:45  zImage
-ZYNQ-P~1 DTB     12132 2026-09-29  20:45  zynq-pz7020-starlite.dtb
-pl       bit   2498199 2026-09-29  20:45 
-ZYNQ-N~1 TXT         2 2026-09-29  20:45  zynq-node.txt
+boot     bin    131700 2026-09-29  22:19 
+u-boot   img   1329648 2026-09-29  22:19 
+boot     scr      2309 2026-09-29  22:19 
+ZIMAGE        11846144 2026-09-29  22:19  zImage
+ZYNQ-P~1 DTB     12132 2026-09-29  22:19  zynq-pz7020-starlite.dtb
+pl       bit   2498199 2026-09-29  22:19 
+ZYNQ-N~1 TXT         2 2026-09-29  22:19  zynq-node.txt
         7 files          15 820 134 bytes
                         116 313 600 bytes free
 
@@ -46,6 +20,8 @@ modules: 6.12.0-dirty
 install_zynq.sh: zynqram export installed into /root/zynq/rootfs
 nbd-server: present
 networkd: present
+model: qwen05b.gguf
+model: qwen3b.gguf
 machine: installed into /root/zynq/rootfs
 Model:  (file)
 Disk /root/zynq/pz7020-starlite-sd.img: 4226MiB
@@ -57,6 +33,6 @@ Number  Start    End      Size     Type     File system  Flags
  1      1.00MiB  129MiB   128MiB   primary  fat32        boot, lba
  2      129MiB   4225MiB  4096MiB  primary  ext4
 
-02b778bc25c3eb363a18da4b8ec9f0ba93b654b73582207d8675b1acb1f13819  /root/zynq/pz7020-starlite-sd.img
--rwxrwxrwx 1 root root 187219092 Sep 29 20:46 /mnt/d/espicpc/hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz
+19dd87556ba2bd70378b34975674cf12ed1dffb09a4464bd8a17f1617ebe9f70  /root/zynq/pz7020-starlite-sd.img
+NOXZ set: raw image only (xz it before a card is written)
 SD IMAGE DONE: /root/zynq/pz7020-starlite-sd.img (+ .xz in /mnt/d/espicpc/hardware/pz7020-starlite/linux/out). Write with the unbuffered writer, then boot jumper = SD.

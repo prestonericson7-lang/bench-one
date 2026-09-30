@@ -1,0 +1,6 @@
+﻿psram_llm_board.cpp written
+Memory Usage on Teensy 4.1:
+  FLASH: code:178216, data:29016, headers:8828   free for files:7910404
+   RAM1: variables:321568, code:159992, padding:3848   free for local variables:38880
+   RAM2: variables:497408  free for malloc/new:26880
+

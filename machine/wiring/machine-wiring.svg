@@ -6,8 +6,8 @@
 <circle cx="64" cy="346" r="22" fill="#6fdc8c"/>
 <text x="64.0" y="354.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">1</text>
 <text x="110.0" y="354.0" font-size="23" fill="#6fdc8c" text-anchor="start" font-weight="bold">Nothing powered.</text>
-<text x="110.0" y="384.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Card #1 (32 GB, already written) in FPGA #1's underside slot. Card #2 (32 GB, I write it) in FPGA #2. Boot jumper cap</text>
-<text x="110.0" y="410.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">on SD on both (right-hand pair, beside the USB-A port).</text>
+<text x="110.0" y="384.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">Card #1 (32 GB) in FPGA #1's underside slot, card #2 (32 GB) in FPGA #2 -- both written by me with the machine image</text>
+<text x="110.0" y="410.0" font-size="20" fill="#c3ccd5" text-anchor="start" font-weight="normal">beforehand. Boot jumper cap on SD on both (right-hand pair, beside the USB-A port).</text>
 <circle cx="64" cy="446" r="22" fill="#6fdc8c"/>
 <text x="64.0" y="454.0" font-size="22" fill="#0b0f14" text-anchor="middle" font-weight="bold">2</text>
 <text x="110.0" y="454.0" font-size="23" fill="#6fdc8c" text-anchor="start" font-weight="bold">Cable 1.</text>

@@ -1,0 +1,18 @@
+== node 1
+  PASS  node 1: booted to the report
+  PASS  node 1: zynq-node ran (kernel log)
+  PASS  node 1: hostname zynq1
+  PASS  node 1: eth0 10.20.0.2
+  PASS  3B model on the card
+  PASS  0.5B model on the card
+  PASS  the static armhf run_model executes on this rootfs
+  PASS  machine-bench facts ran
+  PASS  report written to /boot/reports
+  transcript: /root/zynq/machine-test/transcript-1.txt
+== node 2
+  PASS  node 2: booted to the report
+  PASS  node 2: zynq-node ran (kernel log)
+  PASS  node 2: hostname zynq2
+  PASS  node 2: eth0 10.20.0.3
+  transcript: /root/zynq/machine-test/transcript-2.txt
+MACHINE QEMU TEST: PASS

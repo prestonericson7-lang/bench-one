@@ -44,6 +44,7 @@ Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 | `::sdclksweep` | the card clock above SdFat's 49.5 MHz (66, 99 MHz): 8 MB in four places read twice at each and checked byte for byte; keeps the fastest by measured rate (`CLKSWEEP …` lines). **Runs at every boot** |
 | `::sdclk N` | card clock = 198 MHz / N (2–16); `::sdclk 0` = SdFat's 49.5 MHz. A failed read above 49.5 MHz drops back for good and retries |
 | `::admamin N` | a pass with N or more positions reads the card by ADMA2 with the arithmetic run under the read, a smaller one by FIFO (default 3, measured in `docs/56`); `::admamin 0` = no automatic switching |
+| `::model NAME.gguf` | records NAME in `model.txt` on the card and restarts the board, which then opens that file (tokenizer store NAME.tok, built once). `::model` alone prints the current one. Default `qwen3b.gguf`; the `I` line ends with `model NAME`. The restart happens with the card idle |
 | `::sdpath file\|adma` | how a pipeline read reaches the card: SdFat's file layer, or (in DMA mode) whole sectors straight to the card object with an ADMA2 descriptor table for the core's buffer |
 | `::sdadma` | the card by ADMA2 at three read sizes, 2 MB each checked byte for byte against FIFO and against SdFat's simple DMA (`ADMA …` lines) |
 | `::sdsweep` | the simple-DMA path's read watermark × burst length × burst enables, each 2 MB checked against FIFO; keeps the fastest that reads right (`SWEEP …` lines) |

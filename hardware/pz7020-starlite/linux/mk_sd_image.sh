@@ -115,5 +115,6 @@ dd if="$W/p2.img" of="$IMG" bs=1M seek=$((1 + BOOT_MB)) conv=notrunc status=none
 parted -s "$IMG" unit MiB print
 sha256sum "$IMG" | tee "$OUT/sd-image.sha256"
 # copy to the repo out dir compressed (the raw image is > 1.6 GB)
-xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"
+if [ -n "${NOXZ:-}" ]; then echo "NOXZ set: raw image only (xz it before a card is written)"; else
+xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"; fi
 echo "SD IMAGE DONE: $IMG (+ .xz in $OUT). Write with the unbuffered writer, then boot jumper = SD."

@@ -7,13 +7,18 @@ set -euo pipefail
 ROOT=${1:-/}
 H=$(cd "$(dirname "$0")" && pwd)
 install -D -m 0755 "$H/zynq-node"          "$ROOT/usr/local/bin/zynq-node"
-install -D -m 0644 "$H/zynq-node.conf"     "$ROOT/etc/systemd/system/systemd-networkd.service.d/zynq-node.conf"
+install -D -m 0644 "$H/zynq-node.service"  "$ROOT/etc/systemd/system/zynq-node.service"
+mkdir -p "$ROOT/etc/systemd/system/sysinit.target.wants"
+ln -sf /etc/systemd/system/zynq-node.service "$ROOT/etc/systemd/system/sysinit.target.wants/zynq-node.service"
+# the earlier attempt as a networkd drop-in ran inside networkd's sandbox and changed nothing: remove it
+rm -f "$ROOT/etc/systemd/system/systemd-networkd.service.d/zynq-node.conf"
+rmdir "$ROOT/etc/systemd/system/systemd-networkd.service.d" 2>/dev/null || true
 install -D -m 0755 "$H/machine-bench"      "$ROOT/usr/local/bin/machine-bench"
 mkdir -p "$ROOT/usr/local/lib/machine" "$ROOT/opt/machine/models" "$ROOT/boot/reports"
 for b in run_model ppl tl_ref zaccel-bench test_lib; do
   if [ -f "$H/out/armhf/$b" ]; then install -m 0755 "$H/out/armhf/$b" "$ROOT/usr/local/lib/machine/$b"; else echo "note: $b not built (machine/zynq/build.sh)"; fi
 done
-sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-node" "$ROOT/usr/local/bin/machine-bench" "$ROOT/etc/systemd/system/systemd-networkd.service.d/zynq-node.conf"
-# a model placed beside this script's out/ dir is carried in the image (the download is the owner's call)
+sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-node" "$ROOT/usr/local/bin/machine-bench" "$ROOT/etc/systemd/system/zynq-node.service"
+# a model placed in out/models/ is carried in the image (the download is the owner's call)
 for m in "$H"/out/models/*.gguf; do [ -f "$m" ] && install -m 0644 "$m" "$ROOT/opt/machine/models/" && echo "model: $(basename "$m")"; done
 echo "machine: installed into $ROOT"

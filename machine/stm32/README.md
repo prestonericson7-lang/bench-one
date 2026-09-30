@@ -53,8 +53,8 @@ the ROM bootloader over the CH340 (`stm32flash`, BOOT0 high) or SWD if a probe i
 ## Arithmetic, labelled
 
 A 480 MHz M7 does the Teensy's arithmetic at 0.8×: the 3B's 28.8 s a token becomes about 36 s, so with
-a card at (say) 20 MB/s a 3B token is roughly 96 + 36 ≈ 130 s; a 0.5B Q8_0 file (531 MB) about 27 + 6 ≈
-33 s a token, or eight positions per pass in about 50 s. All arithmetic until the card rate is measured.
+a card at (say) 20 MB/s a 3B token is roughly 96 + 36 ≈ 130 s; a 0.5B Q8_0 file (676 MB) about 34 + 6 ≈
+40 s a token, or eight positions per pass in about 60 s. All arithmetic until the card rate is measured.
 
 ## Bring-up, one instrumented build per question (the flash-loop rule stands)
 

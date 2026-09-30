@@ -98,7 +98,7 @@ y = 240
 Y1 = y
 heading(Y1, "1.  Do it in this order  (bench day)")
 steps = [
-    ("Nothing powered.", "Card #1 (32 GB, already written) in FPGA #1's underside slot. Card #2 (32 GB, I write it) in FPGA #2. Boot jumper cap on SD on both (right-hand pair, beside the USB-A port).", C["board"]),
+    ("Nothing powered.", "Card #1 (32 GB) in FPGA #1's underside slot, card #2 (32 GB) in FPGA #2 -- both written by me with the machine image beforehand. Boot jumper cap on SD on both (right-hand pair, beside the USB-A port).", C["board"]),
     ("Cable 1.", "Ethernet, FPGA #1 UPPER jack  <->  FPGA #2 UPPER jack. A normal cable; no switch.", C["eth"]),
     ("Cables 2 and 3.", "FPGA #1 LOWER USB-C (J2) -> PC USB.  FPGA #2 LOWER USB-C (J2) -> PC USB.  These are consoles; they do NOT power the boards.", C["usb"]),
     ("Cable 4.", "Teensy micro-USB -> PC USB. It boots, proves its PSRAM and waits. Leave it.", C["teensy"]),

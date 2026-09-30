@@ -35,7 +35,7 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 TESTS = os.path.abspath(os.path.join(HERE, ".."))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
-MODEL = "D:/start/ollama-models/blobs/sha256-4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba"
+MODEL = os.environ.get("MODEL", "D:/start/ollama-models/blobs/sha256-4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba")  # MODEL=... for another GGUF
 sys.path.insert(0, HERE)
 import chat_template  # noqa: E402
 

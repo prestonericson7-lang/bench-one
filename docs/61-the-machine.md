@@ -30,9 +30,20 @@ second phase, each behind its own gate. The PC listens to consoles.
 - `machine/wiring/`: the drawing and its pages. `machine/bench/machine_watch.py`: the PC's console
   recorder. `machine/stm32/`, `machine/p4/`: the phase-2 plans with what each needs before firmware.
 
+## The cards are ready before they are plugged in
+
+The image carries both models (`/opt/machine/models/qwen3b.gguf`, the Teensy's 3B; `qwen05b.gguf`, the
+0.5B Q8_0 downloaded and checksum-verified 2026-09-29) on a 4 GB root, with the first-stage files byte
+for byte those card #1 already boots. The 0.5B ran through the exact core on the PC: all sections
+identical (`bench-archive/20260929-215440-psram_llm-pcverify`). The Teensy firmware gained `::model
+NAME.gguf` and compiles. `machine/cards/` says what goes on every card and stages it with checksums.
+`machine/zynq/qemu_machine_test.sh` boots the image in QEMU as node 1 and node 2 and checks the
+identity, the models, the tools and the self-test on the real root filesystem.
+
 ## What is not done, said plainly
 
 Linux has never reached user space on either FPGA board; the engines exist in simulation, QEMU and a
 hash-verified card. The STM32 boards' vendor is unidentified until a silkscreen photo arrives. The P4
-waits on eth1. The small model is a download that needs the owner's word. The first number the machine
-produces will be FPGA #1's boot report, and nothing above it is claimed until that prints.
+waits on eth1. The Teensy's new firmware and the 0.5B on its card wait for a flash and a card reader.
+The first number the machine produces will be FPGA #1's boot report, and nothing above it is claimed
+until that prints.

@@ -442,13 +442,38 @@ void yield(void)                             /* replaces the core's weak yield (
     } while (micros() - t0 < g_slice_us);
 }
 
+/* WHICH MODEL: qwen3b.gguf unless model.txt on the card names another file (written by ::model NAME,
+ * which then restarts the board). The tokenizer store is the same name with .tok. */
+static char g_model_name[48] = "qwen3b.gguf";
+static char g_tok_name[48]   = "qwen3b.tok";
+FLASHMEM static void model_name_load(void)
+{
+    FsFile f = sd.open("model.txt", O_RDONLY);
+    if (!f) return;
+    char b[48];
+    const int n = f.read(b, sizeof b - 1);
+    f.close();
+    if (n <= 0) return;
+    b[n] = 0;
+    for (int i = 0; b[i]; i++) if (b[i] == '\r' || b[i] == '\n' || b[i] == ' ') { b[i] = 0; break; }
+    const size_t L = strlen(b);
+    if (L < 6 || L > 40 || strcmp(b + L - 5, ".gguf") || !sd.exists(b)) {
+        say("    model.txt names %s: not on the card, opening %s instead", b, g_model_name);
+        return;
+    }
+    strcpy(g_model_name, b);
+    strcpy(g_tok_name, b);
+    strcpy(g_tok_name + L - 5, ".tok");
+    say("    model.txt: %s (tokenizer store %s)", g_model_name, g_tok_name);
+}
+
 /* the model file open, and whether its clusters are one run (then every seek is one addition) */
 FLASHMEM static bool model_file_open(void)
 {
-    mf = sd.open("qwen3b.gguf", O_RDONLY);
+    mf = sd.open(g_model_name, O_RDONLY);
     if (!mf) return false;
     mf_size = mf.fileSize();
-    say("    qwen3b.gguf: %llu bytes", (unsigned long long)mf_size);
+    say("    %s: %llu bytes", g_model_name, (unsigned long long)mf_size);
     uint32_t s0 = 0, s1 = 0;
     const uint32_t t0 = millis();
     mf_contig = mf.contiguousRange(&s0, &s1);
@@ -458,7 +483,7 @@ FLASHMEM static bool model_file_open(void)
         say("    contiguous on the card, sectors %lu..%lu (%s): every seek is one addition (checked in %lu ms)",
             (unsigned long)s0, (unsigned long)s1, ft == FAT_TYPE_EXFAT ? "exFAT" : "FAT32", (unsigned long)(millis() - t0));
     } else {
-        for (int i = 0; i < MF_POOL; i++) { mfp[i] = sd.open("qwen3b.gguf", O_RDONLY); mfp_pos[i] = 0; mfp_used[i] = 0; }
+        for (int i = 0; i < MF_POOL; i++) { mfp[i] = sd.open(g_model_name, O_RDONLY); mfp_pos[i] = 0; mfp_used[i] = 0; }
         say("    FRAGMENTED on the card (%s): backward seeks walk the cluster chain; %d forward-moving read handles instead",
             ft == FAT_TYPE_EXFAT ? "exFAT" : "FAT32", MF_POOL);
     }
@@ -475,23 +500,23 @@ FLASHMEM int plat_tok_open(uint32_t bytes)
 {
     if (tf_open) { tf.close(); tf_open = false; }
     if (!bytes) {
-        tf = sd.open("qwen3b.tok", O_RDWR);
+        tf = sd.open(g_tok_name, O_RDWR);
         if (!tf) return -1;
         uint32_t s0 = 0, s1 = 0;
         const bool contig = tf.contiguousRange(&s0, &s1);
-        say("    qwen3b.tok: %lu bytes on the card%s", (unsigned long)tf.fileSize(), contig ? ", contiguous" : ", FRAGMENTED (slow lookups)");
+        say("    %s: %lu bytes on the card%s", g_tok_name, (unsigned long)tf.fileSize(), contig ? ", contiguous" : ", FRAGMENTED (slow lookups)");
         tf_open = true;
         return 0;
     }
-    if (sd.exists("qwen3b.tok")) sd.remove("qwen3b.tok");
-    tf = sd.open("qwen3b.tok", O_RDWR | O_CREAT | O_TRUNC);
+    if (sd.exists(g_tok_name)) sd.remove(g_tok_name);
+    tf = sd.open(g_tok_name, O_RDWR | O_CREAT | O_TRUNC);
     if (!tf) return -1;
     if (!tf.preAllocate(bytes)) {
-        say("    qwen3b.tok: no contiguous %lu bytes free on the card", (unsigned long)bytes);
-        tf.close(); sd.remove("qwen3b.tok");
+        say("    %s: no contiguous %lu bytes free on the card", g_tok_name, (unsigned long)bytes);
+        tf.close(); sd.remove(g_tok_name);
         return -1;
     }
-    say("    qwen3b.tok: %lu bytes allocated on the card in one run; writing the tokenizer's tables", (unsigned long)bytes);
+    say("    %s: %lu bytes allocated on the card in one run; writing the tokenizer's tables", g_tok_name, (unsigned long)bytes);
     tf_open = true;
     return 0;
 }
@@ -1571,10 +1596,26 @@ static void dispatch(char *line) { dispatch_one(line); sd_idle(); }   /* every c
 FLASHMEM static void dispatch_one(char *line)
 {
     if (!strcmp(line, "I") || !strcmp(line, "i")) {
-        say("I bench-one psram_llm v9 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu clk %lu", nuse,
+        say("I bench-one psram_llm v9 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu clk %lu model %s", nuse,
             (unsigned long)nuse * BANKSZ, info.max_seq, g_gen, g_dma ? "dma" : "fifo", g_overlap, g_align, (unsigned long)g_slice_us,
-            sd_clk_now());
+            sd_clk_now(), g_model_name);
         return;
+    }
+    if (!strncmp(line, "::model", 7)) {                      /* ::model NAME.gguf: record it, restart, open it */
+        const char *a = line + 7;
+        while (*a == ' ') a++;
+        if (!*a) { say("MODEL %s (tokenizer store %s)", g_model_name, g_tok_name); return; }
+        const size_t L = strlen(a);
+        if (L < 6 || L > 40 || strcmp(a + L - 5, ".gguf") || !sd.exists(a)) { say("MODEL %s: not a .gguf on the card", a); return; }
+        FsFile f = sd.open("model.txt", O_RDWR | O_CREAT | O_TRUNC);
+        if (!f) { say("MODEL: cannot write model.txt"); return; }
+        f.write(a, L); f.write("\n", 1); f.close();
+        say("MODEL %s saved to model.txt; restarting the board to open it (about a minute)", a);
+        sd_idle();                                          /* the card is idle: a restart here cannot hang it */
+        Serial.flush();
+        delay(300);
+        SCB_AIRCR = 0x05FA0004;                              /* Teensy 4 system reset */
+        for (;;) {}
     }
     if (!strncmp(line, "::gen", 5)) {
         int v = atoi(line + 5);
@@ -1726,7 +1767,12 @@ FLASHMEM void setup()
         }
     }
     if (!sd_ok) { halt("the SD card would not initialise; power-cycle the Teensy (unplug USB for 2 s)"); return; }
-    if (!model_file_open()) { halt("qwen3b.gguf not found on the card"); return; }
+    model_name_load();                            /* model.txt, if ::model chose another file */
+    if (!model_file_open()) {
+        static char hm[80];
+        snprintf(hm, sizeof hm, "%s not found on the card", g_model_name);
+        halt(hm); return;
+    }
     sd_clk_sweep();                               /* the fastest card clock this card reads right at, checked */
     {
         const uint32_t N = 32u * 1024u * 1024u;
@@ -1752,8 +1798,8 @@ FLASHMEM void setup()
         (unsigned long)info.n_merges);
     say("    %.0f parameters in the file", info.params);
     say("    read from the card per token: %llu bytes", (unsigned long long)info.sd_bytes_per_token);
-    say("    the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's"
-        " tables in qwen3b.tok (%lu bytes, %s)", (unsigned long)info.tok_store_bytes,
+    say("    the model stays on the card: weights, norms and biases read from %s every pass; the tokenizer's"
+        " tables in %s (%lu bytes, %s)", g_model_name, g_tok_name, (unsigned long)info.tok_store_bytes,
         info.tok_built ? "built from the model just now" : "checked against the model and reused");
     say("    PSRAM: %d chips, the attention cache on %d of them, one layer per region (%lu bytes), %d positions;"
         " %d layer slots, %d spare (%s) -- nothing of the model", info.banks, info.banks_used,

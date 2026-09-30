@@ -1,0 +1,21 @@
+# /etc/systemd/system/zynq-node.service -- the board's place in the machine, before networking starts.
+#
+# NOT an ExecStartPre of systemd-networkd: that unit runs under ProtectSystem=strict and a reduced
+# capability set, so a script started from it cannot write /etc, set the hostname or log to the kernel
+# (found by booting the image in QEMU, 2026-09-29: networkd "started" and nothing had changed).
+[Unit]
+Description=Machine identity from /boot/zynq-node.txt (hostname, address, MAC) before networkd
+DefaultDependencies=no
+RequiresMountsFor=/boot
+After=boot.mount systemd-remount-fs.service
+Before=network-pre.target systemd-networkd.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zynq-node
+RemainAfterExit=yes
+StandardOutput=journal+console
+
+[Install]
+WantedBy=sysinit.target

@@ -7,8 +7,10 @@
 #   eth0      10.20.0.2 / 10.20.0.3  (+ 10.77.0.x kept for the Pi cable, + DHCP + link-local as before)
 #   MAC       02:5a:70:20:00:01 / :02 -- fixed, so the peer's ARP table and the PC's port names stay put
 #             (the Zynq GEM has no MAC of its own; U-Boot would invent a new one every boot)
-# Runs as ExecStartPre of systemd-networkd (machine/zynq/zynq-node.conf), so the .network file exists
-# before networkd reads its configuration. Idempotent; safe to run again from a shell.
+# Runs from zynq-node.service, an early one-shot ordered before network-pre.target, so the .network file
+# exists before networkd reads its configuration. (Not an ExecStartPre of networkd: that unit's sandbox
+# makes /etc read-only and drops the capability to set the hostname -- QEMU, 2026-09-29.) Idempotent;
+# safe to run again from a shell.
 set -u
 F=/boot/zynq-node.txt
 if [ ! -f "$F" ] && ! mountpoint -q /boot 2>/dev/null; then
@@ -31,8 +33,8 @@ LinkLocalAddressing=ipv4
 Address=10.20.0.$IP/24
 Address=10.77.0.$IP/24
 EOF
-echo "zynq$N" > /etc/hostname
-hostname "zynq$N" 2>/dev/null || true
+echo "zynq$N" > /etc/hostname                       # for the next boot (systemd reads it before this unit)
+echo "zynq$N" > /proc/sys/kernel/hostname 2>/dev/null || true   # for this boot; needs no hostname binary
 # the peers by name, so scripts say zynq2 rather than an address
 grep -v " zynq[1-4]$" /etc/hosts > /etc/hosts.new 2>/dev/null || true
 for k in 1 2 3 4; do echo "10.20.0.$((1 + k)) zynq$k" >> /etc/hosts.new; done

@@ -111,9 +111,10 @@ PY
 
 case "$WHAT" in
     all)    facts; engine; model; teensy ;;
+    facts)  facts ;;
     engine) facts; engine ;;
     model)  facts; model ;;
     teensy) facts; teensy ;;
-    *) echo "usage: machine-bench [all|engine|model [GGUF]|teensy]"; exit 3 ;;
+    *) echo "usage: machine-bench [all|facts|engine|model [GGUF]|teensy]"; exit 3 ;;
 esac
 say "report: $REP"

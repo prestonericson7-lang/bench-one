@@ -1,0 +1,119 @@
+#!/bin/bash
+# machine-bench -- the machine measures itself. Runs on an FPGA board (normally zynq1), prints every
+# line to the console (the PC's watcher records it) and writes the same to /boot/reports/ on the FAT
+# partition, which any PC can read from the card. Numbers from this board and its peers are the
+# machine's numbers; the PC's never are.
+#
+#   machine-bench                 everything below, in order; each step is skipped with a reason
+#                                 when its precondition is missing, never faked
+#   machine-bench engine          only the local engine check
+#   machine-bench model [GGUF]    only the model runs (default: the first *.gguf found)
+#   machine-bench teensy          only the Teensy on this board's USB host port
+#
+# Peers are found by name: zynq2 (10.20.0.3) over cable 1. A model file is looked for in
+# /opt/machine/models, /media/usb*/ and /boot/models (a USB stick or card reader in the USB-A port
+# is mounted read-only if it holds one).
+set -u
+WHAT=${1:-all}
+MODEL_ARG=${2:-}
+ME=$(hostname)
+OUT=/boot/reports; mkdir -p "$OUT" 2>/dev/null
+STAMP=$(date +%Y%m%d-%H%M%S)
+REP="$OUT/machine-bench-$ME-$STAMP.txt"
+exec > >(tee -a "$REP" 2>/dev/null || cat) 2>&1
+say() { printf '\n==== %s\n' "$*"; }
+BIN=/usr/local/lib/machine
+PEERS="zynq1 zynq2 zynq3 zynq4"
+# the tools are static binaries: hand them numeric addresses (a static glibc cannot look names up)
+ip_of() { getent hosts "$1" 2>/dev/null | awk '{print $1; exit}'; }
+
+find_model() {
+    [ -n "$MODEL_ARG" ] && { echo "$MODEL_ARG"; return; }
+    for d in /media/usb0 /media/usb1; do
+        for dev in /dev/sda1 /dev/sdb1 /dev/sda /dev/sdb; do
+            [ -b "$dev" ] || continue
+            mountpoint -q "$d" || { mkdir -p "$d"; mount -o ro "$dev" "$d" 2>/dev/null; }
+        done
+    done
+    ls /opt/machine/models/*.gguf /media/usb*/*.gguf /boot/models/*.gguf 2>/dev/null | head -1
+}
+
+facts() {
+    say "this board: $ME  ($(date -Is))"
+    uname -a
+    cat /proc/cpuinfo | grep -m1 "model name"; free -m | head -2
+    ip -4 -o addr show eth0 2>/dev/null | awk '{print "eth0", $4}'
+    ip -4 -o addr show eth1 2>/dev/null | awk '{print "eth1", $4}'
+    cat /proc/device-tree/model 2>/dev/null; echo
+    grep -o "fpgagpu.pl_loaded=1" /proc/cmdline >/dev/null && echo "pl: bitstream loaded by U-Boot" || echo "pl: NOT loaded (pl.bit missing or fpga loadb failed)"
+    for u in zaccel-server fpgagpud nbd-server systemd-networkd; do printf '%-18s %s\n' "$u" "$(systemctl is-active $u 2>/dev/null)"; done
+    ls /dev/uio* 2>/dev/null | tr '\n' ' '; echo
+    for f in /sys/class/uio/uio*/name; do [ -f "$f" ] && printf '%s=%s ' "$(basename $(dirname $f))" "$(cat $f)"; done; echo
+    say "peers over cable 1"
+    for p in $PEERS; do [ "$p" = "$ME" ] && continue; ping -c2 -W1 "$p" >/dev/null 2>&1 && echo "$p: up" || echo "$p: no answer"; done
+}
+
+engine() {
+    say "the matrix engine on $ME: bit-exact check and rate (zaccel-bench)"
+    if [ -x "$BIN/zaccel-bench" ]; then
+        ZACCEL_HOST=127.0.0.1 timeout 900 "$BIN/zaccel-bench" 2>&1 | tail -n 40
+    else echo "skip: $BIN/zaccel-bench not installed"; fi
+    for p in $PEERS; do
+        [ "$p" = "$ME" ] && continue
+        ping -c1 -W1 "$p" >/dev/null 2>&1 || continue
+        say "the matrix engine on $p ($(ip_of "$p")), driven from $ME"
+        ZACCEL_HOST=$(ip_of "$p") timeout 900 "$BIN/zaccel-bench" 2>&1 | tail -n 20
+    done
+}
+
+model() {
+    M=$(find_model)
+    if [ -z "$M" ] || [ ! -f "$M" ]; then say "model: none found (put a .gguf on a USB stick in the USB-A port, or in /opt/machine/models)"; return; fi
+    say "model: $M ($(stat -c %s "$M") bytes)"
+    P="def fibonacci(n):"
+    say "a. this CPU alone, exact reference (tl_ref, 8 tokens)"
+    timeout 3600 "$BIN/tl_ref" "$M" "$P" 8 2>&1 | tail -n 12
+    say "b. this CPU alone, fused integer path (run_model --fast)"
+    timeout 3600 "$BIN/run_model" "$M" "$P" 16 --fast 2>&1 | grep -E "prefill|decode|per decoded|loaded|^[^ ]" | tail -n 12
+    say "c. this CPU + this board's engine (--zaccel 127.0.0.1)"
+    timeout 3600 "$BIN/run_model" "$M" "$P" 16 --fast --zaccel 127.0.0.1 2>&1 | grep -E "zaccel|prefill|decode|per decoded|^[^ ]" | tail -n 14
+    for p in $PEERS; do
+        [ "$p" = "$ME" ] && continue
+        ping -c1 -W1 "$p" >/dev/null 2>&1 || continue
+        say "d. this CPU + BOTH engines (--zaccel 127.0.0.1,$(ip_of "$p"))"
+        timeout 3600 "$BIN/run_model" "$M" "$P" 16 --fast --zaccel "127.0.0.1,$(ip_of "$p")" 2>&1 | grep -E "zaccel|prefill|decode|per decoded|^[^ ]" | tail -n 14
+    done
+    say "e. quality: perplexity, CPU alone vs with the engine(s) (256 tokens)"
+    timeout 7200 "$BIN/ppl" "$M" --fast --limit 256 2>&1 | grep -E "PERPLEXITY|top-1"
+    timeout 7200 "$BIN/ppl" "$M" --fast --limit 256 --zaccel 127.0.0.1 2>&1 | grep -E "zaccel|PERPLEXITY|top-1"
+}
+
+teensy() {
+    say "the Teensy on this board's USB host port"
+    T=$(ls /dev/ttyACM* 2>/dev/null | head -1)
+    if [ -z "$T" ]; then echo "none (no /dev/ttyACM*; the Teensy is on the PC today, cable 4)"; return; fi
+    python3 - "$T" <<'PY'
+import sys, time, serial
+s = serial.Serial(sys.argv[1], 115200, timeout=2)
+s.write(b"::hold\n"); time.sleep(0.5); s.write(b"I\n")
+t0 = time.time()
+while time.time() - t0 < 10:
+    ln = s.readline().decode("utf-8", "replace").rstrip()
+    if ln: print(ln)
+    if ln.startswith("I bench-one"): break
+s.write(b"::stats\n")
+t0 = time.time()
+while time.time() - t0 < 5:
+    ln = s.readline().decode("utf-8", "replace").rstrip()
+    if ln: print(ln)
+PY
+}
+
+case "$WHAT" in
+    all)    facts; engine; model; teensy ;;
+    engine) facts; engine ;;
+    model)  facts; model ;;
+    teensy) facts; teensy ;;
+    *) echo "usage: machine-bench [all|engine|model [GGUF]|teensy]"; exit 3 ;;
+esac
+say "report: $REP"

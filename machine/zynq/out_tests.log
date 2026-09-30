@@ -1,0 +1,58 @@
+=== run_tests.sh (single engine regression)
+  attach: 50.0% of 2774532096 weights on 1 engine (share 0.500 fixed, int8 per-row, Hadamard-rotated): 127.0.0.1:18198(cpu)
+  L0 wq                        decode  rel err 0.0090  max |d| 0.0776
+  L0 wq                        prefill rel err 0.0077  max |d| 0.0644
+  L0 w_up                      decode  rel err 0.0104  max |d| 0.0638
+  L0 w_up                      prefill rel err 0.0081  max |d| 0.0455
+  L0 w_down (3 column chunks)  decode  rel err 0.0115  max |d| 0.0993
+  L0 w_down (3 column chunks)  prefill rel err 0.0091  max |d| 0.0838
+  L17 wk                       decode  rel err 0.0106  max |d| 0.0575
+  L17 wk                       prefill rel err 0.0088  max |d| 0.0411
+  KERNELS: PASS
+PASS kernels: worst relative error 0.0115
+    zaccel: 50.0% of 2774532096 weights on 1 engine (share 0.500 fixed, int8 per-row, Hadamard-rotated): 127.0.0.1:18194(cpu)
+  RESULT: identical text
+PASS text: identical with half the rows offloaded
+  == baseline: every row on this CPU (GGUF Q4_K/Q6_K, fused integer path)
+    PERPLEXITY                 19.349   <- lower is better
+  == half the rows on the Zynq (int8 per-row weights, int8 activations)
+    PERPLEXITY                 19.749   <- lower is better
+  == every row on the Zynq
+    PERPLEXITY                 19.455   <- lower is better
+PASS quality: perplexity 19.349 -> 19.749 (half) / 19.455 (all), within 3%
+    zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+  zaccel: 127.0.0.1:18199: socket error or timeout (connection closed) -- that engine is retired, its rows are the CPU's now; no engine left, offload off
+PASS the Zynq dying mid-generation costs nothing but speed
+LLM OFFLOAD TESTS: PASS
+=== test_two_engines.sh
+=== test_two_engines.sh (2026-09-29T20:37:08-07:00)
+FAIL text differs (or empty)
+--- one:
+
+========================================================================
+  a real model, running
+========================================================================
+  qwen2 36 layers, dim 2048, 151936 token vocabulary
+--- two:
+
+========================================================================
+  a real model, running
+========================================================================
+  qwen2 36 layers, dim 2048, 151936 token vocabulary
+PASS perplexity: 19.749 with one engine == 19.749 with two
+note: engine B was not seen dying mid-run (run too short?)
+PASS complete: text still produced after the loss (341 bytes)
+TWO ENGINES: FAIL
+=== test_two_engines.sh rerun (2026-09-29T20:45:15-07:00)
+PASS text: two engines == one engine, byte for byte (86 bytes)
+PASS perplexity: 19.749 with one engine == 19.749 with two
+PASS retire: the dead engine was retired mid-run:     ifzaccel: 127.0.0.1:18202: socket error or timeout (connection closed) -- that engine is retired, its rows
+FAIL text after the loss differs
+PASS complete: text still produced after the loss (209 bytes)
+TWO ENGINES: FAIL
+=== test_two_engines.sh final (2026-09-29T20:51:38-07:00)
+PASS text: two engines == one engine, byte for byte (86 bytes)
+PASS perplexity: 19.749 with one engine == 19.749 with two
+PASS retire: zaccel: 127.0.0.1:18202: socket error or timeout (connection closed) -- that engine is retired, its rows are t
+PASS complete: an answer after the loss (86 bytes)
+TWO ENGINES: PASS

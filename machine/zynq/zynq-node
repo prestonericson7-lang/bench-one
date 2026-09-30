@@ -1,0 +1,41 @@
+#!/bin/sh
+# zynq-node -- give this board its place in the machine BEFORE networking starts.
+#
+# Both FPGA boards boot the same image. The one file that differs is /boot/zynq-node.txt on the FAT
+# partition (written with the card: "1" or "2"; absent = 1). From it:
+#   hostname  zynq1 / zynq2
+#   eth0      10.20.0.2 / 10.20.0.3  (+ 10.77.0.x kept for the Pi cable, + DHCP + link-local as before)
+#   MAC       02:5a:70:20:00:01 / :02 -- fixed, so the peer's ARP table and the PC's port names stay put
+#             (the Zynq GEM has no MAC of its own; U-Boot would invent a new one every boot)
+# Runs as ExecStartPre of systemd-networkd (machine/zynq/zynq-node.conf), so the .network file exists
+# before networkd reads its configuration. Idempotent; safe to run again from a shell.
+set -u
+F=/boot/zynq-node.txt
+if [ ! -f "$F" ] && ! mountpoint -q /boot 2>/dev/null; then
+    mkdir -p /boot && mount -o ro /dev/mmcblk0p1 /boot 2>/dev/null || true
+fi
+N=$(tr -dc 0-9 < "$F" 2>/dev/null | head -c 1)
+case "$N" in 1|2|3|4) ;; *) N=1 ;; esac
+IP=$((1 + N))
+mkdir -p /etc/systemd/network
+cat > /etc/systemd/network/20-eth0.network <<EOF
+[Match]
+Name=eth0
+
+[Link]
+MACAddress=02:5a:70:20:00:0$N
+
+[Network]
+DHCP=ipv4
+LinkLocalAddressing=ipv4
+Address=10.20.0.$IP/24
+Address=10.77.0.$IP/24
+EOF
+echo "zynq$N" > /etc/hostname
+hostname "zynq$N" 2>/dev/null || true
+# the peers by name, so scripts say zynq2 rather than an address
+grep -v " zynq[1-4]$" /etc/hosts > /etc/hosts.new 2>/dev/null || true
+for k in 1 2 3 4; do echo "10.20.0.$((1 + k)) zynq$k" >> /etc/hosts.new; done
+mv /etc/hosts.new /etc/hosts
+echo "zynq-node: node $N -> zynq$N 10.20.0.$IP" > /dev/kmsg 2>/dev/null || true
+exit 0

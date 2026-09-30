@@ -1,0 +1,97 @@
+{
+ "width": 1600,
+ "height": 6826,
+ "bg": "#0b0f14",
+ "pages": [
+  {
+   "name": "1-in-this-order",
+   "title": "1 / 9   Do it in this order",
+   "box": [
+    20,
+    194,
+    1580,
+    1138
+   ]
+  },
+  {
+   "name": "2-the-machine",
+   "title": "2 / 9   The machine: every cable",
+   "box": [
+    20,
+    1172,
+    1580,
+    2198
+   ]
+  },
+  {
+   "name": "3-cables-today",
+   "title": "3 / 9   Cable by cable: today",
+   "box": [
+    20,
+    2242,
+    1580,
+    2932
+   ]
+  },
+  {
+   "name": "4-cables-phase2",
+   "title": "4 / 9   Cable by cable: phase 2",
+   "box": [
+    20,
+    2966,
+    1580,
+    3784
+   ]
+  },
+  {
+   "name": "5-fpga-ports",
+   "title": "5 / 9   The FPGA board: which port is which",
+   "box": [
+    20,
+    3818,
+    1580,
+    4424
+   ]
+  },
+  {
+   "name": "6-teensy",
+   "title": "6 / 9   Teensy 4.1 + PSRAM",
+   "box": [
+    20,
+    4478,
+    1580,
+    4884
+   ]
+  },
+  {
+   "name": "7-stm32",
+   "title": "7 / 9   STM32H743 boards (phase 2)",
+   "box": [
+    20,
+    4918,
+    1580,
+    5444
+   ]
+  },
+  {
+   "name": "8-esp32-p4",
+   "title": "8 / 9   ESP32-P4-NANO (phase 2)",
+   "box": [
+    20,
+    5488,
+    1580,
+    5994
+   ]
+  },
+  {
+   "name": "9-what-you-see",
+   "title": "9 / 9   What you should see",
+   "box": [
+    20,
+    6038,
+    1580,
+    6766
+   ]
+  }
+ ]
+}

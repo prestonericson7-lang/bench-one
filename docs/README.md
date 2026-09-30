@@ -128,6 +128,7 @@ This is where the project stops guessing. Most of the architecture follows from 
 | [57 — What we built, what it does, and how we know](57-what-we-built-and-what-it-does.md) | **the plain-English account**: every measured number, each traced to its log, for a reader who knows none of this |
 | [58 — Roadmap: what this makes possible](58-roadmap-what-this-makes-possible.md) | what each measured result means in general, the technologies that follow, five stages with gates; measured / arithmetic / proposal on every line |
 | [59 — Going deeper](59-going-deeper.md) | the equations from the measured constants, checked against measured points; the levers not yet pulled and their arithmetic; the inventions that follow; the lost techniques re-read; the order to measure |
+| [61 — The machine: the five items made into one](61-the-machine.md) | two FPGA engines linked on their own ports, the Teensy as reference, STM32s and P4 behind gates; what changed and what is not done |
 | [60 — Implementation at every scale](60-implementation-at-every-scale.md) | the ladder: module, shelf, fabric node, bench machine, shed, network — parts on hand, cost, power, output, what to build and prove at each rung; the five axes on which it changes AI and the order of moves |
 
 ## Reference

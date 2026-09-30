@@ -66,6 +66,9 @@ prompts together in 1.81 hours; every step equal to the PC reference to the last
   from one $50 module to a shelf, a fabric node, the bench machine, the shed and a network: parts (mostly
   on hand), cost, power, what each produces, what must be built and proven to climb; the five axes on
   which this changes AI and the order of moves.
+- **[machine/README.md](machine/README.md)** — the five items (two FPGA engines, the Teensy, two STM32s,
+  the ESP32-P4) made into one machine: wiring pages, roles, the two-engine offload, the bench-day gates,
+  and the honest state of each item ([docs/61](docs/61-the-machine.md)).
 
 ## Earlier state — 2026-09-12 (the chain)
 

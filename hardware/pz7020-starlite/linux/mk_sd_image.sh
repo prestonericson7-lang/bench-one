@@ -23,6 +23,9 @@ truncate -s ${BOOT_MB}M "$W/p1.img"
 mkfs.vfat -F 32 -n BOOT "$W/p1.img" >/dev/null
 for f in boot.bin u-boot.img boot.scr zImage $DT.dtb; do mcopy -i "$W/p1.img" "$OUT/$f" ::/; done
 [ -f "$PL_BIT" ] && mcopy -i "$W/p1.img" "$PL_BIT" ::/pl.bit && echo "pl.bit = $PL_BIT"
+# the board's place in the machine (machine/zynq/zynq-node): 1 = zynq1 10.20.0.2, 2 = zynq2 10.20.0.3.
+# The same image serves every board; change this one file on the card's BOOT partition for board #2.
+echo "${NODE:-1}" > "$W/zynq-node.txt" && mcopy -i "$W/p1.img" "$W/zynq-node.txt" ::/zynq-node.txt
 mdir -i "$W/p1.img" ::/
 # --- kernel modules into the rootfs (build_kernel.sh may have finished after build_rootfs.sh) ---
 [ -f "$OUT/modules.tar.gz" ] && tar --keep-directory-symlink -xzf "$OUT/modules.tar.gz" -C "$ROOT/" && echo "modules: $(ls "$ROOT/lib/modules")"
@@ -96,6 +99,8 @@ install -D -m 0644 "$L/zynq-report.service" "$ROOT/etc/systemd/system/zynq-repor
 ln -sf /etc/systemd/system/zynq-report.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-report.service"
 install -D -m 0644 "$L/serial-autologin.conf" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
 sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-report" "$ROOT/etc/systemd/system/zynq-report.service" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
+# --- the machine (machine/README.md): per-board identity, the self-test, the model tools for this CPU ---
+bash "$REPO/machine/zynq/install.sh" "$ROOT"
 # --- p2: ext4 populated from the rootfs tree (no mount needed) ---
 truncate -s ${ROOT_MB}M "$W/p2.img"
 mke2fs -q -t ext4 -L rootfs -d "$ROOT" "$W/p2.img"

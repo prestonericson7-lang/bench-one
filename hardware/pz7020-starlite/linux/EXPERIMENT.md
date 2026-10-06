@@ -33,3 +33,7 @@ off FCLK0 at 1.91 s. That cause is inferred from the card (`machine/cards/fpga1-
 - `qemu_spl_chain_test.sh` prints nothing in QEMU (the test SPL never hands over to U-Boot there). The same
   SPL bytes ran on the board on 2026-10-05, so this is a gap in the emulation, not in the card.
 - No watchdog driver is enabled (`CONFIG_CADENCE_WATCHDOG` off): a hung board stays hung until power-cycled.
+- The bitstream also uses FCLK1 (200 MHz, timing met), only for the second Ethernet port's GMII-to-RGMII
+  converter. GEM1 is disabled in the device tree and the first stage never enables FCLK1, so nothing at boot
+  touches it. When the eth1 recipe (`machine/zynq/ETH1.md`) is applied, `fclk-enable` must become `<0x3>`.
+- Vivado's timing report for this bitstream: all user constraints met; FCLK0 domain WNS +0.957 ns at 10 ns.

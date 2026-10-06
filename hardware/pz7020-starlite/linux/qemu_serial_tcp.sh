@@ -13,11 +13,13 @@ OUT=${OUT:-$REPO/hardware/pz7020-starlite/linux/out}
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
 PORT=${PORT:-5555}
 TIMEOUT=${TIMEOUT:-600}
+# EXTRA: more kernel arguments, e.g. EXTRA=fpgagpu.pl_loaded=1 to drive board_experiment.py's PL steps
+EXTRA=${EXTRA:-}
 cp "$IMG" /root/zynq/qemu-sd.img && sd_pow2 /root/zynq/qemu-sd.img
 echo "QEMU waiting for a console client on tcp port $PORT"
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -display none -monitor none \
   -serial tcp:0.0.0.0:$PORT,server=on,wait=on \
   -kernel "$OUT/zImage" -dtb "$OUT/zynq-pz7020-starlite.dtb" \
-  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0" \
+  -append "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 $EXTRA" \
   -drive file=/root/zynq/qemu-sd.img,if=sd,format=raw </dev/null
 echo "qemu exit $?"

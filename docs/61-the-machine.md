@@ -49,7 +49,10 @@ link; then every model step killed by the OOM killer — the runtime read the wh
 the board's 223 MB already carried a 128 MB tmpfs swap export for a Pi that is not there. Both fixed:
 the model file is now mapped (`gguf.c`, `model_q.c`), and the export was masked in the machine image.
 The mask was undone on 2026-10-05: card #1 also serves the Orange Pi, and that export is the Pi's swap.
-With it on, the board has 57 MB free of 223 instead of 149, so the two-board run is repeated that way.
+With it on, the board has 57 MB free of 223 instead of 149. Repeated that way, the two-board run
+passed 8 of 11: at the engine-attach steps node 1 ran out of memory, and the kernel killed the engine
+server and then `run_model`. The swap export and the machine's host role do not fit together in 223 MB
+in emulation; whether they fit on the board, where the engine's memory is outside Linux, is unmeasured.
 The offload also gained the output head (row bands, 16-bit engine rows). Results in
 `machine/README.md`.
 

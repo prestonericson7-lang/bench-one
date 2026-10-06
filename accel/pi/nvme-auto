@@ -99,8 +99,10 @@ else
     else
       rm -f "$tmp"
     fi
+    # unmount first: a desktop automount, or an earlier nvme-auto that mounted the ESP, holds the drive
+    # and wipefs then refuses with "Device or resource busy" (and erases nothing)
     log "to give the whole drive to this Pi (ERASES EVERYTHING on it):"
-    log "  sudo wipefs -a $disk && sudo dd if=/dev/zero of=$disk bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto"
+    log "  sudo umount ${disk}p* ; sudo wipefs -a $disk && sudo dd if=/dev/zero of=$disk bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto"
     exit 0
   fi
   log "using existing $(fstype "$target") filesystem on $target (not reformatted)"

@@ -1,0 +1,33 @@
+qemu exit 124 (124 = timeout, expected: we never log in)
+---- boot log excerpts ----
+1:[    0.000000] Booting Linux on physical CPU 0x0
+5:[    0.000000] OF: fdt: Machine model: Puzhi PZ7020-StarLite
+24:[    0.000000] Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 cpufreq.off=1
+69:[    0.099167] Memory: 160356K/524288K available (16384K kernel code, 2610K rwdata, 7108K rodata, 2048K init, 432K bss, 297008K reserved, 65536K cma-reserved, 0K highmem)
+96:[    0.260921] e0000000.serial: ttyPS0 at MMIO 0xe0000000 (irq = 26, base_baud = 859788) is a xuartps
+97:[    0.263451] printk: legacy console [ttyPS0] enabled
+98:[    0.263451] printk: legacy console [ttyPS0] enabled
+206:[    1.394619] mmc0: SDHCI controller on e0100000.mmc [e0100000.mmc] using ADMA
+219:[    1.493354] mmc0: new high speed SDHC card at address 4567
+221:[    1.509495] mmcblk0: mmc0:4567 QEMU! 8.00 GiB
+223:[    1.548863]  mmcblk0: p1 p2
+226:[    2.022763] EXT4-fs (mmcblk0p2): mounted filesystem df4b6d79-082b-4e2d-af0f-6c01c4edd889 r/w with ordered data mode. Quota mode: disabled.
+231:[    3.864834] systemd[1]: System time before build time, advancing clock.
+232:[    4.202958] systemd[1]: systemd 252.39-1~deb12u2 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+233:[    4.204733] systemd[1]: Detected architecture arm.
+235:Welcome to [1mDebian GNU/Linux 12 (bookworm)[0m!
+237:[    4.236410] systemd[1]: Hostname set to <zynq>.
+238:[    8.684674] systemd[1]: Queued start job for default target graphical.target.
+239:[    8.719411] systemd[1]: Created slice system-getty.slice - Slice /system/getty.
+241:[    8.731945] systemd[1]: Created slice system-modprobe.slice - Slice /system/modprobe.
+243:[    8.741905] systemd[1]: Created slice system-serial\x2dgetty.slice - Slice /system/serial-getty.
+245:[    8.748939] systemd[1]: Created slice user.slice - User and Session Slice.
+247:[    8.755665] systemd[1]: Started systemd-ask-password-console.path - Dispatch Password Requests to Console Directory Watch.
+249:[    8.763088] systemd[1]: Started systemd-ask-password-wall.path - Forward Password Requests to Wall Directory Watch.
+251:[    8.768089] systemd[1]: proc-sys-fs-binfmt_misc.automount - Arbitrary Executable File Formats File System Automount Point was skipped because of an unmet condition check (ConditionPathExists=/proc/sys/fs/binfmt_misc).
+252:[    8.770588] systemd[1]: Expecting device dev-mmcblk0p1.device - /dev/mmcblk0p1...
+254:[    8.773456] systemd[1]: Expecting device dev-ttyPS0.device - /dev/ttyPS0...
+255:         Expecting device [0;1;39mdev-ttyPS0.device[0m - /dev/ttyPS0...
+256:[    8.775939] systemd[1]: Reached target cryptsetup.target - Local Encrypted Volumes.
+258:[    8.778968] systemd[1]: Reached target integritysetup.target - Local Integrity Protected Volumes.
+QEMU BOOT: reached the login prompt

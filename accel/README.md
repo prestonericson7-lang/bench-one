@@ -38,12 +38,20 @@ D9SHG (= that part). The listing's "1GB" is wrong. The 32-bit / 1 GB PS config w
    formatted ext4 and mounted at **/mnt/nvme**, at every boot from then on (`nvme-auto`; a drive that
    already holds data is never formatted, and an EFI boot partition left by another OS does not count as
    storage -- such a drive is left alone and the log prints the one command that hands it to the Pi).
-   The Pi's actual drive is a used Windows laptop disk (Samsung MZVLB256HAHQ: EFI + reserved + Windows +
-   recovery), so the desktop lists it as "unknown" until it is claimed, which **erases it**:
+   The Pi's actual drive (Samsung MZVLB256HAHQ-000H1, 238.5 GB), from the Pi's own logs read off its
+   card 2026-10-05: **one partition** (`nvme0n1: p1`) holding a 256 MB FAT filesystem with 159 MB on it,
+   mounted as "the NVMe" by both nvme-auto versions so far. nvme-auto now makes the drive's unpartitioned
+   space -- if it is bigger than the largest existing filesystem -- a new ext4 "nvme" partition and
+   mounts that, changing nothing already on the drive, and logs the layout it found to
+   `/var/lib/accel/nvme-auto.log` (`pi/test_nvme_pi_drive.sh`: that layout as GPT basic-data, MBR FAT32
+   and EFI-typed, every file of the FAT partition checked byte for byte afterwards; run with this PC's
+   tools and, with `PI_IMG=`, inside the Pi's own Ubuntu 26.04 userland with its util-linux 2.41.3).
+   Nothing is erased. That second run found that the Pi's `sfdisk` reports an MBR type as `ef`, not
+   `0xef`, so an MBR EFI partition would have counted as storage; fixed, and the test fails on the old
+   file and passes on the new one.
+   To give a whole drive to the Pi (it **erases** it), the log prints the command:
    `sudo umount /dev/nvme0n1p* ; sudo wipefs -a /dev/nvme0n1 && sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto`
-   -- proven on a loop-device replica of that layout by `pi/test_nvme_claim.sh` (one ext4 partition
-   "nvme", one fstab line by UUID, mounted at /mnt/nvme; the unmount first, because a desktop automount
-   or an earlier nvme-auto holding the drive makes `wipefs` refuse).
+   (`pi/test_nvme_claim.sh`; the unmount first, because a drive held by a mount makes `wipefs` refuse).
    The packages install even while the vendor's own first-run holds the package database (it did on the
    first real boot, 2026-09-26), and the install leaves the Pi's `/boot` files untouched. The card also carries a test model,
    `/opt/accel/models/qwen2.5-coder-3b.gguf` (the Ollama `qwen2.5-coder:3b` blob), so `bench-day` with no

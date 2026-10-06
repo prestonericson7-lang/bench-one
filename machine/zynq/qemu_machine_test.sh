@@ -54,6 +54,10 @@ read_until(b"ZYNQ-REPORT END", 420)
 read_until(b"root@zynq", 60) or s.sendall(b"\r")
 time.sleep(1); s.sendall(b"\r"); read_until(b"# ", 20)
 cmds = [b"hostname", b"ip -4 -o addr show eth0 | awk '{print $4}'", b"cat /proc/sys/kernel/hostname",
+        b"echo FCLK0_ENABLE_COUNT=$(cat /sys/kernel/debug/clk/fclk0/clk_enable_count)",
+        b"echo SERVICES $(systemctl is-active zaccel-server fpgagpud nbd-server zynqram-prep zynq-node zynq-plcheck | tr '\\n' ' ')",
+        b"echo PLCHECK $(grep -a verdict: /boot/reports/plcheck.txt | tail -1)",
+        b"echo MEMFREE_MB $(free -m | awk '/^Mem:/ {print $2, $7}')",
         b"ls -la /opt/machine/models /usr/local/lib/machine", b"/usr/local/lib/machine/run_model 2>&1 | head -2",
         b"machine-bench facts", b"echo __DO''NE__"]       # the echo of the typed line must not match the sentinel
 for c in cmds:
@@ -75,6 +79,13 @@ for N in 1 2; do
     grep -aqx "zynq$N" "$T" && ok "node $N: hostname zynq$N" || bad "node $N: hostname not zynq$N"
     grep -aq "10.20.0.$((1 + N))/24" "$T" && ok "node $N: eth0 10.20.0.$((1 + N))" || bad "node $N: address not 10.20.0.$((1 + N))"
     if [ $N = 1 ]; then
+        # the board froze when Linux gated FCLK0 (2026-10-05); with fclk-enable the driver holds it: count 1
+        grep -aq "FCLK0_ENABLE_COUNT=1" "$T" && ok "fclk0 held on by the device tree (enable count 1)" || bad "fclk0 not held: $(grep -a FCLK0_ENABLE_COUNT "$T" | tail -1)"
+        # the board's services, the Pi's swap export included (QEMU has no PL: the engine falls back to cpu)
+        grep -aq "^SERVICES active active active active active active" "$T" && ok "zaccel-server fpgagpud nbd-server zynqram-prep zynq-node zynq-plcheck: all active" || bad "services: $(grep -a '^SERVICES' "$T" | tail -1)"
+        # no marker on this command line (no U-Boot): the guard has no PL to read and holds nothing back
+        grep -aq "^PLCHECK .*verdict: PL not loaded" "$T" && ok "zynq-plcheck: no PL loaded, nothing held back, its log on /boot" || bad "plcheck: $(grep -a '^PLCHECK' "$T" | tail -1)"
+        grep -a "^MEMFREE_MB" "$T" | tail -1 | sed 's/^/        total, available MB: /'
         grep -aq "qwen3b.gguf" "$T" && ok "3B model on the card" || bad "3B model missing"
         grep -aq "qwen05b.gguf" "$T" && ok "0.5B model on the card" || bad "0.5B model missing"
         grep -aq "run_model <model.gguf>" "$T" && ok "the static armhf run_model executes on this rootfs" || bad "run_model did not execute"

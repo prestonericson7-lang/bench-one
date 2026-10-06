@@ -15,6 +15,9 @@
 # second A9 core (QEMU 6.2's xilinx-zynq-a9 takes one CPU; both cores share the one clock and cpufreq policy).
 #     wsl -d Ubuntu-22.04 -u root --exec bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_uboot_test.sh
 set -uo pipefail
+# QEMU wants an SD card whose size is a power of two: round the copy UP to one, never down (a fixed
+# "truncate -s 2G" cut the 4.2 GB machine image inside its root filesystem -> "VFS: Unable to mount root")
+sd_pow2() { local s p=1; s=$(stat -c %s "$1"); while [ "$p" -lt "$s" ]; do p=$((p * 2)); done; truncate -s "$p" "$1"; }
 UB=${UB:-/root/zynq/u-boot/u-boot-dtb.bin}
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
 PS7=${PS7:-/mnt/d/espicpc/hardware/pz7020-starlite/ps7/ps7_init_gpl.c}
@@ -22,7 +25,7 @@ T=${TIMEOUT:-600}
 W=$(mktemp -d /tmp/quboot.XXXX)
 QPID=
 trap '[ -n "$QPID" ] && kill $QPID 2>/dev/null; rm -rf "$W"' EXIT
-cp "$IMG" "$W/sd.img" && truncate -s 2G "$W/sd.img"
+cp "$IMG" "$W/sd.img" && sd_pow2 "$W/sd.img"
 echo "u-boot-dtb.bin $(sha256sum < "$UB" | cut -c1-16)  image $(sha256sum < "$IMG" | cut -c1-16)"
 
 # final value of each SLCR clock register after ps7_init's silicon-3.0 pll + clock tables
@@ -70,6 +73,7 @@ while kill -0 $QPID 2>/dev/null && [ $SECONDS -lt $end ]; do
 done
 kill $QPID 2>/dev/null; wait $QPID 2>/dev/null; QPID=
 tr -d '\r' < "$W/log" > "$W/l"
+[ -n "${KEEP_LOG:-}" ] && cp "$W/l" "$KEEP_LOG"      # KEEP_LOG=path: keep the serial log (qemu_plcheck_test.sh)
 echo "ran $SECONDS s"
 grep -a -E "^U-Boot 20|^DRAM:|Found U-Boot script|Loading PL bitstream|would overwrite reserved|No pl.bit|Starting kernel|Booting Linux|Kernel command line|cpufreq|Internal error|Kernel panic|PC is at|login:|cpu_khz|mem_total|cpus  " "$W/l" | cut -c1-160 | head -40
 fail=0
@@ -82,10 +86,18 @@ chk "kernel started with the PL marker decision made" "Starting kernel"
 chk "Linux booting" "Booting Linux"
 chk "command line is the board's (no cpufreq.off)" "Kernel command line: console=ttyPS0,115200"
 if grep -aq "cpufreq.off" "$W/l"; then echo "  FAIL  cpufreq.off on the command line: the board's cpufreq path is not being run"; fail=1; fi
+# the second guard for the PL clocks (boot.cmd): without it and without fclk-enable, Linux gated FCLK0 and
+# the board froze at the first PL register read (2026-10-05)
+chk "clk_ignore_unused reaches the kernel command line (boot.scr)" "Kernel command line:.*clk_ignore_unused"
 if grep -aq -E "Internal error|Kernel panic|BUG:" "$W/l"; then echo "  FAIL  kernel Oops/BUG/panic"; fail=1; fi
 chk "Linux sees the board's CPU clock: cpufreq at 766666 kHz" "cpu_khz +766666"
 if grep -aq "unlisted initial frequency" "$W/l"; then echo "  FAIL  Linux did not start at the board's 766666 kHz (the clock stub did not take)"; fail=1; fi
-chk "serial autologin reached a root shell" "root@|login: root \(automatic login\)"
+# "root@" alone matched the kernel banner "(root@<build host>)" and passed with no shell at all
+chk "serial autologin reached a root shell" "root@zynq|login: root \(automatic login\)"
 chk "zynq-report printed to the end" "ZYNQ-REPORT END"
+# the PL guard runs before every PL user and prints its verdict on the console (QEMU has no PL: with the
+# marker it reads the ID registers and gets a bus error or zero, without it there is nothing to read)
+chk "zynq-plcheck ran before the PL users and gave a verdict" "verdict: (OK|PL not loaded)"
+grep -a -E "zynq-plcheck|verdict:|problem:|fpgagpu.pl_loaded" "$W/l" | grep -a -v "^\[ *[0-9.]*\] systemd" | cut -c1-200 | head -8
 [ $fail = 0 ] && echo "U-BOOT STAGE: PASS" || { echo "U-BOOT STAGE: FAIL"; tail -25 "$W/l" | cut -c1-160; }
 exit $fail

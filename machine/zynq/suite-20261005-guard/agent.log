@@ -1,0 +1,16 @@
+emulation DTB: gem0 phy-handle removed (PHY scanned)
+after 57 s the hub is reading the emulated board: zynq=127.0.0.1:18091 ZYNQ_UP=68.0 ZYNQ_MEM=55.0MB PL_STATE=unknown
+---- guest log ----
+70:[    0.080920] Memory: 160356K/524288K available (16384K kernel code, 2610K rwdata, 7108K rodata, 2048K init, 432K bss, 297008K reserved, 65536K cm
+279:[    8.991125] systemd[1]: Listening on systemd-networkd.socket - Network Service Netlink Socket.
+411:[   49.586490] zynq-node: node 1 -> zynq1 10.20.0.2
+415:         Starting [0;1;39msystemd-networkd.…ice[0m - Network Configuration...
+443:[[0;32m  OK  [0m] Started [0;1;39msystemd-networkd.service[0m - Network Configuration.
+459:[[0;32m  OK  [0m] Started [0;1;39mnbd-server.service… LSB: Network Block Device server.
+468:[[0;32m  OK  [0m] Started [0;1;39mzynq-agent.service…nes on :8091, beacon on UDP 8092).
+474:zynq1 login: root (automatic login)
+484:[?2004hroot@zynq1:~# [   78.432718] python3[249]: ==== ZYNQ-REPORT BEGIN ====
+495:[   78.519267] python3[249]: eth0          ipv4 10.20.0.2/24   link up   speed 100 Mb/s   mac 02:5a:70:20:00:01
+500:[   78.572662] python3[249]: zynq-agent    active
+518:[   78.703089] python3[249]: ==== ZYNQ-REPORT END ====
+QEMU AGENT TEST: PASS

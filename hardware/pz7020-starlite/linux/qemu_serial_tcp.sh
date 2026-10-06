@@ -5,12 +5,15 @@
 #   Same limits as qemu_test.sh: no SPL/ps7_init, no DDR PHY, no PL -- the kernel is loaded directly.
 #     wsl -d Ubuntu-22.04 -u root --exec bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_serial_tcp.sh
 set -uo pipefail
+# QEMU wants an SD card whose size is a power of two: round the copy UP to one, never down (a fixed
+# "truncate -s 2G" cut the 4.2 GB machine image inside its root filesystem -> "VFS: Unable to mount root")
+sd_pow2() { local s p=1; s=$(stat -c %s "$1"); while [ "$p" -lt "$s" ]; do p=$((p * 2)); done; truncate -s "$p" "$1"; }
 REPO=${REPO:-/mnt/d/espicpc}
 OUT=${OUT:-$REPO/hardware/pz7020-starlite/linux/out}
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
 PORT=${PORT:-5555}
 TIMEOUT=${TIMEOUT:-600}
-cp "$IMG" /root/zynq/qemu-sd.img && truncate -s 2G /root/zynq/qemu-sd.img
+cp "$IMG" /root/zynq/qemu-sd.img && sd_pow2 /root/zynq/qemu-sd.img
 echo "QEMU waiting for a console client on tcp port $PORT"
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -display none -monitor none \
   -serial tcp:0.0.0.0:$PORT,server=on,wait=on \

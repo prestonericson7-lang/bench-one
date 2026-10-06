@@ -3,10 +3,7 @@
   PASS  node 1: zynq-node ran (kernel log)
   PASS  node 1: hostname zynq1
   PASS  node 1: eth0 10.20.0.2
-  PASS  fclk0 held on by the device tree (enable count 1)
-  PASS  zaccel-server fpgagpud nbd-server zynqram-prep zynq-node zynq-plcheck: all active
-  PASS  zynq-plcheck: no PL loaded, nothing held back, its log on /boot
-        total, available MB: MEMFREE_MB 223 57
+  FAIL  fclk0 not held: FCLK0_ENABLE_COUNT=0
   PASS  3B model on the card
   PASS  0.5B model on the card
   PASS  the static armhf run_model executes on this rootfs
@@ -19,4 +16,4 @@
   PASS  node 2: hostname zynq2
   PASS  node 2: eth0 10.20.0.3
   transcript: /root/zynq/machine-test/transcript-2.txt
-MACHINE QEMU TEST: PASS
+MACHINE QEMU TEST: FAIL

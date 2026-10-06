@@ -82,7 +82,8 @@ head -c 4096 /dev/urandom | dd of="$J" bs=4096 seek=40 conv=notrunc status=none;
 in_pi NVME_AUTO_DEVS="$J" NVME_AUTO_MNT=/mnt/nvtest2 NVME_AUTO_FSTAB=/tmp/fstab.t NVME_AUTO_WAIT=3 bash /opt/accel/bundle/pi/nvme-auto > "$W/nv2.log" 2>&1
 sed 's/^/    | /' "$W/nv2.log"
 chk "unknown data: untouched (Pi's tools)" "[ \"\$(sha256sum < $J)\" = \"$H\" ] && grep -q 'unknown data' $W/nv2.log"
-# the Pi's real drive: an EFI System Partition next to another OS's NTFS data -- the ESP is not storage
+# a laptop-style drive (an EFI System Partition next to NTFS data; NOT the Pi's drive -- that one is in
+# pi/test_nvme_pi_drive.sh): the ESP is not storage
 truncate -s 256M "$W/laptop.img"; L=$(losetup -fP --show "$W/laptop.img"); LOOPS+=("$L")
 printf 'label: gpt\nsize=64M, type=U\ntype=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n' | sfdisk --quiet "$L"; partprobe "$L" 2>/dev/null; udevadm settle -t 5 2>/dev/null; sleep 1
 mkfs.vfat -n SYSTEM "${L}p1" >/dev/null && mkfs.ntfs -Q -F "${L}p2" >/dev/null 2>&1; sync; H=$(sha256sum < "$L")

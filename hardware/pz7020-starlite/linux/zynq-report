@@ -70,8 +70,15 @@ try:
     row("pl_done", ("yes -- fabric configured: " if pl_done else "no -- ") + how)
 except Exception as e:
     row("pl_done", f"n/a ({e})")
-if pl_done:
+# zynq-plcheck ran before this report and before every PL user; its last verdict line, and whether it
+# held the PL back (then the PL is not read here either: that read would hang the board)
+plv = [l for l in (rd("/boot/reports/plcheck.txt") or "").splitlines() if "verdict:" in l or "problem:" in l]
+row("plcheck", " | ".join(plv[-3:]).replace("verdict: ", "") if plv else "n/a (zynq-plcheck has not written /boot/reports/plcheck.txt)")
+blocked = os.path.exists("/run/zynq-plcheck.blocked")
+if pl_done and not blocked:
     row("pl_regs", " | ".join(sh("python3 /usr/local/bin/pl_regs.py 2>&1").splitlines()[:6]) or "no output")
+elif blocked:
+    row("pl_regs", "skipped -- zynq-plcheck found the PL bus unsafe to read (see plcheck)")
 else:
     row("pl_regs", "skipped -- reading the PL window with no configured fabric can hang the bus")
 
@@ -99,7 +106,7 @@ row("failed_units", " ".join(failed) if failed else "none")
 row("zynq-agent", sh("systemctl is-active zynq-agent"))
 # the accelerators the Orange Pi uses: their services, the UIO windows the matrix engine needs, the
 # PL-owned DDR3 Linux must not have, and the RAM export
-row("accel", "   ".join(f"{u} {sh('systemctl is-active ' + u)}" for u in ("zaccel-server", "fpgagpud", "nbd-server")))
+row("accel", "   ".join(f"{u} {sh('systemctl is-active ' + u)}" for u in ("zynq-plcheck", "zaccel-server", "fpgagpud", "nbd-server")))
 uio = [f"{rd(p + '/name')}@{rd(p + '/maps/map0/addr') or '?'}" for p in sorted(glob.glob("/sys/class/uio/uio*"))]
 row("uio", " ".join(uio) if uio else "none (needs uio_pdrv_genirq.of_id=generic-uio)")
 row("pl_ddr", "Linux RAM ends where the PL windows begin: " + (sh("grep -i 'System RAM' /proc/iomem | tr '\\n' ' '") or "n/a"))

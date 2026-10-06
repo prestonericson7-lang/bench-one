@@ -1,0 +1,40 @@
+A: card #1 fclk-enable = 0   B: today fclk-enable = 1
+== A
+   [    0.000000] Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio fpgagpu.pl_loaded=1
+  PASS  A: the PL counts as loaded (marker on the kernel command line)
+   [   13.04 s] fclk0 in the clock framework: enable_count 0, prepare_count 0, rate 99999999 Hz
+   [   13.06 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000001 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+   [   13.07 s] problem: FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock
+   [   13.08 s] verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+   report: accel         zynq-plcheck failed   zaccel-server inactive   fpgagpud inactive   nbd-server active
+  PASS  A: the board stayed up and printed the report with the guard's rows
+  PASS  A: card #1's command line (no clk_ignore_unused)
+  PASS  A: nothing holds fclk0 (enable count 0)
+  PASS  A: Linux set FCLK0's gate bit (FPGA0_THR_CNT = 1)
+  PASS  A: the guard names it: FCLK0 gated
+  PASS  A: FCLK0 is the only problem (shifters on, resets released)
+  PASS  A: BLOCKED
+  PASS  A: no PL read attempted
+  PASS  A: zaccel-server and fpgagpud held back
+  PASS  A: the report carries BLOCKED
+  PASS  A: the report skipped its own PL read
+== B
+   [    0.000000] Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio clk_ignore_unused fpgagpu.pl_loaded=1
+  PASS  B: the PL counts as loaded (marker on the kernel command line)
+   [   13.31 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 99999999 Hz
+   [   13.33 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+   [   13.33 s] reading 0x40000000 (platform registers) through M_AXI_GP0 -- if this is the last line, that read hung
+   [   13.49 s]   0x40000000 = 0x00000000 (expected 0x5a702001)
+   [   13.49 s] reading 0x43c00000 (GPU registers ('GPU1')) through M_AXI_GP0 -- if this is the last line, that read hung
+   [   13.62 s]   0x43c00000 = 0x00000000 (expected 0x47505531)
+   [   13.64 s] verdict: OK -- clock, level shifters and reset fine, and the PL reads came back
+   report: accel         zynq-plcheck active   zaccel-server active   fpgagpud active   nbd-server active
+  PASS  B: the board stayed up and printed the report with the guard's rows
+  PASS  B: today's command line (clk_ignore_unused)
+  PASS  B: the device tree holds fclk0 (enable count 1)
+  PASS  B: FCLK0's gate bit clear
+  PASS  B: no problem found
+  PASS  B: both PL ID reads attempted, each logged before the read
+  PASS  B: verdict OK
+  PASS  B: nothing held back
+PL GUARD TEST: PASS

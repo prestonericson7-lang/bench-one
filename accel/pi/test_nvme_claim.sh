@@ -1,11 +1,10 @@
 #!/bin/bash
-# test_nvme_claim.sh -- the Pi's real NVMe, rebuilt as a loop device, and the exact command the owner runs
-# to hand it to the Pi. (WSL, root.)   bash /mnt/d/espicpc/accel/pi/test_nvme_claim.sh
+# test_nvme_claim.sh -- the manual command that gives a whole drive to the Pi (it ERASES the drive), on a
+# drive nvme-auto must not use by itself. (WSL, root.)   bash /mnt/d/espicpc/accel/pi/test_nvme_claim.sh
 #
-# The drive, as read back from the Pi's own log (2026-09-26, memory pi-first-boot-measured): a used laptop
-# drive, Samsung MZVLB256HAHQ, GPT with a 256 MiB vfat EFI System Partition next to another OS's data.
-# Rebuilt here at 1/64 scale with the Windows layout such drives ship with: ESP (vfat) + MSR (no
-# filesystem) + basic data (NTFS) + recovery (NTFS), with the ESP mounted as an earlier nvme-auto did.
+# The drive here is a typical Windows laptop layout: ESP (vfat) + MSR (no filesystem) + basic data (NTFS)
+# + recovery (NTFS), the ESP mounted as an earlier nvme-auto would have. It is NOT the Pi's drive: that one
+# has a single 256 MB FAT partition (its kernel log, 2026-10-05; see test_nvme_pi_drive.sh).
 #   1. nvme-auto must leave it untouched (none of it is storage) and print the claim command;
 #   2. the claim command, run as given (the unmount first), must leave one ext4 partition labelled
 #      "nvme", one fstab line by UUID, and the drive mounted -- with nothing of the old layout left.

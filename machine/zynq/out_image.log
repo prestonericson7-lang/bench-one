@@ -1,16 +1,16 @@
 pl.bit = /mnt/d/espicpc/hardware/pz7020-starlite/vivado/build/system.bit
  Volume in drive : is BOOT       
- Volume Serial Number is 6E49-F511
+ Volume Serial Number is 1ACB-C506
 Directory for ::/
 
-boot     bin    131700 2026-09-30   1:23 
-u-boot   img   1329648 2026-09-30   1:23 
-boot     scr      2309 2026-09-30   1:23 
-ZIMAGE        11846144 2026-09-30   1:23  zImage
-ZYNQ-P~1 DTB     12132 2026-09-30   1:23  zynq-pz7020-starlite.dtb
-pl       bit   2498199 2026-09-30   1:23 
-ZYNQ-N~1 TXT         2 2026-09-30   1:23  zynq-node.txt
-        7 files          15 820 134 bytes
+boot     bin    131700 2026-10-05  20:57 
+u-boot   img   1329648 2026-10-05  20:57 
+boot     scr      2536 2026-10-05  20:57 
+ZIMAGE        11846144 2026-10-05  20:57  zImage
+ZYNQ-P~1 DTB     12132 2026-10-05  20:57  zynq-pz7020-starlite.dtb
+pl       bit   2498199 2026-10-05  20:57 
+ZYNQ-N~1 TXT         2 2026-10-05  20:57  zynq-node.txt
+        7 files          15 820 361 bytes
                         116 313 600 bytes free
 
 modules: 6.12.0-dirty
@@ -33,6 +33,6 @@ Number  Start    End      Size     Type     File system  Flags
  1      1.00MiB  129MiB   128MiB   primary  fat32        boot, lba
  2      129MiB   4225MiB  4096MiB  primary  ext4
 
-f04e7194a20c6a37a2c5c1dc472ea81def6f096ecc5a16b25202f636cf43b53d  /root/zynq/pz7020-starlite-sd.img
-NOXZ set: raw image only (xz it before a card is written)
-SD IMAGE DONE: /root/zynq/pz7020-starlite-sd.img (+ .xz in /mnt/d/espicpc/hardware/pz7020-starlite/linux/out). Write with the unbuffered writer, then boot jumper = SD.
+eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29  /root/zynq/pz7020-starlite-sd.img
+NOXZ set: /mnt/d/espicpc/hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz is an OLDER build and does not match sd-image.sha256
+SD IMAGE DONE: /root/zynq/pz7020-starlite-sd.img (raw only, NOXZ). Write with the unbuffered writer, then boot jumper = SD.

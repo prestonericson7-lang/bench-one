@@ -99,6 +99,18 @@ install -D -m 0644 "$L/zynq-report.service" "$ROOT/etc/systemd/system/zynq-repor
 ln -sf /etc/systemd/system/zynq-report.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-report.service"
 install -D -m 0644 "$L/serial-autologin.conf" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
 sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-report" "$ROOT/etc/systemd/system/zynq-report.service" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
+# --- the PL guard (2026-10-05: the first Linux boot froze on its first PL read with FCLK0 gated): checks the
+#     PL's clock, level shifters and reset before anything reads it, syncs each step to /boot/reports, and
+#     holds the PL users back when the bus would hang; plus the journal on the card within 2 s ---
+install -D -m 0755 "$L/zynq-plcheck" "$ROOT/usr/local/sbin/zynq-plcheck"
+install -D -m 0644 "$L/zynq-plcheck.service" "$ROOT/etc/systemd/system/zynq-plcheck.service"
+ln -sf /etc/systemd/system/zynq-plcheck.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-plcheck.service"
+for u in fpgagpud zaccel-server zynq-agent; do
+  install -D -m 0644 "$L/plcheck-requires.conf" "$ROOT/etc/systemd/system/$u.service.d/plcheck.conf"
+done
+install -D -m 0644 "$L/journald-bringup.conf" "$ROOT/etc/systemd/journald.conf.d/bringup.conf"
+sed -i 's/\r$//' "$ROOT/usr/local/sbin/zynq-plcheck" "$ROOT/etc/systemd/system/zynq-plcheck.service" \
+  "$ROOT"/etc/systemd/system/{fpgagpud,zaccel-server,zynq-agent}.service.d/plcheck.conf "$ROOT/etc/systemd/journald.conf.d/bringup.conf"
 # --- the machine (machine/README.md): per-board identity, the self-test, the model tools for this CPU ---
 bash "$REPO/machine/zynq/install.sh" "$ROOT"
 # --- p2: ext4 populated from the rootfs tree (no mount needed) ---
@@ -115,6 +127,11 @@ dd if="$W/p2.img" of="$IMG" bs=1M seek=$((1 + BOOT_MB)) conv=notrunc status=none
 parted -s "$IMG" unit MiB print
 sha256sum "$IMG" | tee "$OUT/sd-image.sha256"
 # copy to the repo out dir compressed (the raw image is > 1.6 GB)
-if [ -n "${NOXZ:-}" ]; then echo "NOXZ set: raw image only (xz it before a card is written)"; else
-xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"; fi
-echo "SD IMAGE DONE: $IMG (+ .xz in $OUT). Write with the unbuffered writer, then boot jumper = SD."
+if [ -n "${NOXZ:-}" ]; then
+  # an older .xz left in $OUT no longer matches sd-image.sha256: say so instead of leaving a trap
+  [ -e "$OUT/$(basename "$IMG").xz" ] && echo "NOXZ set: $OUT/$(basename "$IMG").xz is an OLDER build and does not match sd-image.sha256"
+  echo "SD IMAGE DONE: $IMG (raw only, NOXZ). Write with the unbuffered writer, then boot jumper = SD."
+else
+  xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"
+  echo "SD IMAGE DONE: $IMG (+ .xz in $OUT). Write with the unbuffered writer, then boot jumper = SD."
+fi

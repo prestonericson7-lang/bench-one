@@ -3,12 +3,15 @@
 # forwarded to the host, then point the real hub.py at it: proves the image's networkd config, the
 # agent service and the hub <-> Zynq protocol together. Run inside WSL as root.
 set -uo pipefail
+# QEMU wants an SD card whose size is a power of two: round the copy UP to one, never down (a fixed
+# "truncate -s 2G" cut the 4.2 GB machine image inside its root filesystem -> "VFS: Unable to mount root")
+sd_pow2() { local s p=1; s=$(stat -c %s "$1"); while [ "$p" -lt "$s" ]; do p=$((p * 2)); done; truncate -s "$p" "$1"; }
 REPO=/mnt/d/espicpc
 OUT=$REPO/hardware/pz7020-starlite/linux/out
 IMG=/root/zynq/pz7020-starlite-sd.img
 LOG=/root/zynq/qemu-agent.log
 DT=zynq-pz7020-starlite
-cp "$IMG" /root/zynq/qemu-agent-sd.img && truncate -s 2G /root/zynq/qemu-agent-sd.img
+cp "$IMG" /root/zynq/qemu-agent-sd.img && sd_pow2 /root/zynq/qemu-agent-sd.img
 # QEMU's GEM model does not put its PHY at MDIO address 1 like the board's RTL8211F: give the emulated
 # run a DTB copy without the fixed phy-handle so macb scans the bus. The board's DTB is untouched.
 QDTB=/root/zynq/qemu-agent.dtb; cp "$OUT/$DT.dtb" "$QDTB"

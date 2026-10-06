@@ -3,15 +3,19 @@
 #   Runs at every boot (nvme-auto.service). Finds the drive, then:
 #     * blank drive (no partition table, no filesystem signature, first MiB all zero): one GPT
 #       partition, ext4 labelled "nvme", owned by the desktop user (uid 1000);
-#     * drive that already has a filesystem: used as it is -- never reformatted (an EFI System
-#       Partition does not count: it is another OS's boot partition, not storage);
+#     * partitioned drive: this script's ext4 "nvme" if there is one; else the bigger of the largest
+#       partition holding a filesystem (used as it is, never reformatted) and the largest unpartitioned
+#       area (made into a new ext4 "nvme" partition; nothing already on the drive is changed). An EFI
+#       System Partition never counts: it is another OS's boot partition, not storage;
 #     * anything else (unknown data, partitions with no filesystem): left untouched, reported, with
-#       the one command that hands the whole drive to the Pi.
+#       the one command that hands the whole drive to the Pi (and erases it).
 #   Then mounts it at /mnt/nvme and keeps ONE /etc/fstab line for it (by UUID, nofail, short device
 #   timeout), so every later boot mounts it natively and a missing drive never holds the boot up.
-#   Idempotent. Nothing is ever formatted unless the drive is provably blank.
+#   Idempotent. Nothing is ever erased. The layout it found is logged to a file on the card.
+#   Every change is followed by sync: the Orange Pi image mounts / with commit=600, so an fstab edit is
+#   otherwise only on the card after up to ten minutes.
 # Test hooks: NVME_AUTO_DEVS (disks to consider instead of /dev/nvme*n1), NVME_AUTO_MNT,
-# NVME_AUTO_FSTAB, NVME_AUTO_WAIT (seconds to wait for the drive).
+# NVME_AUTO_FSTAB, NVME_AUTO_WAIT (seconds to wait for the drive), NVME_AUTO_LOG (the log file).
 set -uo pipefail
 MNT=${NVME_AUTO_MNT:-/mnt/nvme}
 FSTAB=${NVME_AUTO_FSTAB:-/etc/fstab}
@@ -19,7 +23,11 @@ WAIT=${NVME_AUTO_WAIT:-30}
 LABEL=nvme
 OPTS=defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe
 TAG="# nvme-auto: the NVMe drive"
-log() { echo "nvme-auto: $*"; }
+LOGF=${NVME_AUTO_LOG:-/var/lib/accel/nvme-auto.log}
+# every line also goes to a log on the card itself (the journal of an Orange Pi image lives in RAM)
+# (the braces put the redirection's own failure under 2>/dev/null; a log() that fails must never fail the
+#  script -- it is the last command, so its status is the unit's)
+log() { echo "nvme-auto: $*"; { echo "$(date '+%F %T') $*" >> "$LOGF"; } 2>/dev/null || true; }
 
 # 1. the drive: the PCIe link and udev can take a few seconds after boot
 disk=
@@ -59,28 +67,58 @@ if [ -z "$(parts)" ]; then
     for _ in $(seq 10); do target=$(parts | head -1); [ -n "$target" ] && [ -b "$target" ] && break; sleep 1; done
     [ -n "$target" ] || { log "the new partition did not appear"; exit 1; }
     mkfs.ext4 -q -F -L "$LABEL" -m 1 "$target" || { log "mkfs.ext4 failed on $target"; exit 1; }
+    sync
     fresh=1
   fi
 else
-  # an existing partitioned drive: ours by label first, else the largest partition holding a filesystem.
-  # Never an EFI System Partition: that is a previous OS's boot partition, not storage (the Pi's real
-  # drive, 2026-09-26: a 256 MB ESP next to another OS's data got mounted as "the NVMe", 97 MB free).
-  # partition type read from the disk itself (blkid -p), not from udev's database (lsblk), which is empty
-  # early in boot and in a chroot
+  # an existing partitioned drive: ours by label first; else the bigger of (the largest partition holding a
+  # filesystem) and (the largest unpartitioned area) -- an unpartitioned area is made ours WITHOUT changing
+  # anything already on the drive. The Pi's real drive (its kernel log, 2026-10-05: " nvme0n1: p1") has ONE
+  # partition, a 256 MB FAT filesystem with 159 MB used, on a 238.5 GB drive; it was mounted as "the NVMe".
+  # Never an EFI System Partition: another OS's boot partition, not storage. Partition type from sfdisk
+  # first (it reads the table itself), then blkid -p, then lsblk (udev's database: empty early in boot).
+  # An MBR type comes back as "ef" from sfdisk (util-linux 2.41.3, the Pi's) but "0xef" from blkid/lsblk.
+  ptype() { local t; t=$(sfdisk --part-type "$disk" "$(cat "/sys/class/block/${1##*/}/partition" 2>/dev/null)" 2>/dev/null)
+    [ -n "$t" ] || t=$(blkid -p -s PART_ENTRY_TYPE -o value "$1" 2>/dev/null)
+    [ -n "$t" ] || t=$(lsblk -dno PARTTYPE "$1" 2>/dev/null)
+    echo "$t" | tr 'A-F' 'a-f' | tr -d ' '; }
   storage() { local p t; for p in $(parts); do
-      t=$(blkid -p -s PART_ENTRY_TYPE -o value "$p" 2>/dev/null)
-      [ -n "$t" ] || t=$(lsblk -dno PARTTYPE "$p" 2>/dev/null)
-      t=$(echo "$t" | tr 'A-F' 'a-f' | tr -d ' ')
-      [ "$t" = c12a7328-f81f-11d2-ba4b-00a0c93ec93b ] || [ "$t" = 0xef ] && continue
+      t=$(ptype "$p")
+      case $t in c12a7328-f81f-11d2-ba4b-00a0c93ec93b|0xef|ef) continue ;; esac
       [ -n "$(fstype "$p")" ] && echo "$p"; done; }
+  # the whole layout, and what is on each mounted partition, into the log on the card
+  layout() { local p m
+    log "layout: table $(blkid -p -s PTTYPE -o value "$disk" 2>/dev/null), $(lsblk -bdno SIZE "$disk") bytes"
+    for p in $(parts); do log "  $p: $(lsblk -bdno SIZE "$p") bytes, type $(ptype "$p"), fs $(blkid -p -s TYPE -o value "$p" 2>/dev/null), label '$(blkid -p -s LABEL -o value "$p" 2>/dev/null)'"
+      m=$(findmnt -nro TARGET --source "$p" 2>/dev/null | head -1)
+      [ -n "$m" ] && log "    mounted at $m, holds: $(ls -A "$m" 2>/dev/null | head -20 | tr '\n' ' ')"; done
+    sfdisk --list-free "$disk" 2>/dev/null | awk 'NF == 4 && $1 ~ /^[0-9]+$/' | while read -r a b c d; do log "  free: sectors $a-$b ($d)"; done; }
   for p in $(storage); do [ "$(blkid -p -s LABEL -o value "$p" 2>/dev/null)" = "$LABEL" ] && { target=$p; break; }; done
   if [ -z "$target" ]; then
-    target=$(for p in $(storage); do echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1 | awk '{ print $2 }')
+    layout
+    best=$(for p in $(storage); do echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1)
+    ss=$(blockdev --getss "$disk" 2>/dev/null || echo 512)
+    free=$(sfdisk --list-free "$disk" 2>/dev/null | awk 'NF == 4 && $1 ~ /^[0-9]+$/ { print $3 }' | sort -n | tail -1)
+    free=$(( ${free:-0} * ss ))
+    bsize=${best%% *}; bsize=${bsize:-0}                     # 0 when no partition holds a filesystem
+    if [ "$free" -ge 1073741824 ] && [ "$free" -gt "$bsize" ]; then
+      log "unpartitioned space: $((free / 1048576)) MiB -- a new partition there, ext4 labelled '$LABEL'; the existing partitions are not changed"
+      before=$(parts)
+      for p in $before; do umount "$p" 2>/dev/null; done        # the table is re-read with nothing mounted
+      printf ',,L\n' | sfdisk --append --quiet "$disk" || { log "sfdisk --append failed"; exit 1; }
+      partprobe "$disk" 2>/dev/null || true; udevadm settle -t 10 >/dev/null 2>&1 || true
+      for _ in $(seq 10); do target=$(parts | grep -vxF "$before" | head -1); [ -n "$target" ] && [ -b "$target" ] && break; sleep 1; done
+      [ -n "$target" ] || { log "the new partition did not appear"; exit 1; }
+      mkfs.ext4 -q -F -L "$LABEL" -m 1 "$target" || { log "mkfs.ext4 failed on $target"; exit 1; }
+      sync
+      fresh=1
+    else
+      target=${best#* }
+    fi
   fi
   if [ -z "$target" ]; then
     log "drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap"
     log "and unformatted space are not used) -- left untouched:"
-    lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,LABEL "$disk" | sed 's/^/nvme-auto:   /'
     # an earlier version may have put this drive's EFI partition in fstab: take back exactly its own
     # entry (the tag line directly followed by the line for $MNT) and that mount; nothing else
     tmp=$(mktemp "$FSTAB.XXXX")
@@ -93,7 +131,7 @@ else
       if mountpoint -q "$MNT" && lsblk -nrpo NAME "$disk" | grep -qxF "$(findmnt -nro SOURCE --target "$MNT")"; then
         umount "$MNT" && log "unmounted $MNT (it held a partition of this drive)"
       fi
-      chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+      chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB" && sync
       log "fstab: removed the line an earlier run added for $MNT"
       [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
     else
@@ -105,7 +143,7 @@ else
     log "  sudo umount ${disk}p* ; sudo wipefs -a $disk && sudo dd if=/dev/zero of=$disk bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto"
     exit 0
   fi
-  log "using existing $(fstype "$target") filesystem on $target (not reformatted)"
+  [ "${fresh:-0}" = 1 ] || log "using existing $(fstype "$target") filesystem on $target (not reformatted)"
 fi
 
 uuid=$(blkid -p -s UUID -o value "$target")
@@ -119,7 +157,7 @@ if ! grep -qxF "$line" "$FSTAB"; then
   tmp=$(mktemp "$FSTAB.XXXX")
   awk -v m="$MNT" -v tag="$TAG" '$0 == tag { next } !/^[[:space:]]*#/ && $2 == m { next } { print }' "$FSTAB" > "$tmp"
   printf '%s\n%s\n' "$TAG" "$line" >> "$tmp"
-  chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+  chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB" && sync
   log "fstab: $line"
   [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
 fi
@@ -137,4 +175,5 @@ fi
 if [ "${fresh:-0}" = 1 ] && getent passwd 1000 >/dev/null; then
   chown 1000:1000 "$MNT"; log "$MNT belongs to $(getent passwd 1000 | cut -d: -f1)"
 fi
+sync
 log "ready: $(df -h --output=source,size,avail,target "$MNT" | tail -1 | sed 's/  */ /g')"

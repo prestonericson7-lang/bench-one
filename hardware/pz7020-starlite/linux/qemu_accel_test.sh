@@ -7,6 +7,9 @@
 # and check the board's own boot report for the services, the UIO windows and the PL-owned DDR3.
 # Run inside WSL as root.   Exit 0 = every check passed.
 set -uo pipefail
+# QEMU wants an SD card whose size is a power of two: round the copy UP to one, never down (a fixed
+# "truncate -s 2G" cut the 4.2 GB machine image inside its root filesystem -> "VFS: Unable to mount root")
+sd_pow2() { local s p=1; s=$(stat -c %s "$1"); while [ "$p" -lt "$s" ]; do p=$((p * 2)); done; truncate -s "$p" "$1"; }
 REPO=/mnt/d/espicpc
 OUT=$REPO/hardware/pz7020-starlite/linux/out
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
@@ -15,7 +18,7 @@ LOG=$W/console.log
 DT=zynq-pz7020-starlite
 fail=0; ok() { echo "  PASS  $*"; }; bad() { echo "  FAIL  $*"; fail=1; }
 
-cp "$IMG" "$W/sd.img" && truncate -s 2G "$W/sd.img"
+cp "$IMG" "$W/sd.img" && sd_pow2 "$W/sd.img"
 # QEMU's GEM PHY is not at MDIO address 1: drop the fixed phy-handle in an emulation-only copy
 cp "$OUT/$DT.dtb" "$W/q.dtb"
 fdtput -d "$W/q.dtb" /axi/ethernet@e000b000 phy-handle && fdtput -r "$W/q.dtb" /axi/ethernet@e000b000/ethernet-phy@1

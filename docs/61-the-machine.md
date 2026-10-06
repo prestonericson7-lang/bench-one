@@ -47,14 +47,65 @@ run the bench-day command against the 0.5B. The first runs found, in order: a co
 sentinel matched an earlier command's; the engines bit-exact on both nodes and the peer driven over the
 link; then every model step killed by the OOM killer — the runtime read the whole model into RAM, and
 the board's 223 MB already carried a 128 MB tmpfs swap export for a Pi that is not there. Both fixed:
-the model file is now mapped (`gguf.c`, `model_q.c`) and the export is masked in the machine image.
+the model file is now mapped (`gguf.c`, `model_q.c`), and the export was masked in the machine image.
+The mask was undone on 2026-10-05: card #1 also serves the Orange Pi, and that export is the Pi's swap.
+With it on, the board has 57 MB free of 223 instead of 149, so the two-board run is repeated that way.
 The offload also gained the output head (row bands, 16-bit engine rows). Results in
 `machine/README.md`.
 
+## The first real boot, 2026-10-05
+
+The owner powered the Orange Pi, a Teensy and FPGA #1 (card #1). The FPGA's HDMI showed the PL's own
+boot picture (8 colour bars and a square moving one pixel a frame, SPEC §8) and never turned dark blue,
+which is what the GPU daemon does when it starts. Card #1 was then copied whole in the PC and read from
+the copy (`machine/cards/read_cards.py`; the copy is `evidence/fpga1-card.img`).
+
+What the card shows:
+
+- **The board reached user space**, the first time it ever did: the SPL, the DDR3L setup, U-Boot, the
+  bitstream, the kernel, the root filesystem and systemd all ran. Its own journal is on the card.
+- **The journal stops at 5.55 s, but that is not when the board stopped.** 5.55 s is the moment journald
+  first flushed its log to the card. Later entries were still in memory.
+- **The board stopped between 8.0 s and about 13 s.** The card's ext4 journal holds three commits that
+  were never written to their final place, at 5.634 s, 5.734 s and 8.014 s of uptime, and nothing after.
+  The last one is systemd saving its random seed at 8.004 s. Systemd was still starting units then, so
+  the next commit was due within five seconds. It never reached the card. (Method: the journal's wall
+  clock minus its uptime gives the boot's start, 1777319332.506 s; each commit carries a wall-clock
+  time.)
+- **What was wrong at that moment.** At 1.91 s Linux logged `clk: Disabling unused clocks`. The device
+  tree had `fclk-enable = <0x00>`, so nothing held FCLK0, the clock of the processor's bus into the PL.
+  The Zynq clock driver turns off every PL clock nothing holds; Xilinx added `fclk-enable` in 2013 for
+  exactly this case. A read over that bus with its clock stopped never finishes, and the CPU waits
+  forever without logging anything. The services that read the PL start in the 8–13 s window.
+- **That cause is inferred, not observed.** It fits every fact on the card, and the next boot decides it.
+
+The fix, in three layers. The device tree now holds FCLK0 (`fclk-enable = <0x1>`), and the kernel
+command line carries `clk_ignore_unused`, so either one alone keeps the clock running. A new boot guard,
+`zynq-plcheck`, runs before anything reads the PL. It checks FCLK0's gate bit, the level shifters between
+processor and PL, and the PL reset. Each step goes to `/boot/reports/plcheck.txt` with a sync, so the card
+itself says how far the board got. If the bus would hang, it skips the PL read and holds back the
+services that need it, so the board stays up and reachable. During bring-up, journald also writes to the
+card every 2 s instead of every 5 minutes.
+
+QEMU has no PL, so it cannot hang, but it keeps the clock registers Linux writes. Booted through the
+production U-Boot with card #1's own `boot.scr` and device tree, Linux left FCLK0 unheld (enable count 0)
+and set its gate bit (`FPGA0_THR_CNT = 1`). The guard named FCLK0 as the only problem, read nothing, held
+the services back, and the board stayed up. With today's files the clock is held, the bit is clear, the
+reads go through and the guard passes (`qemu_plcheck_test.sh`, 19 of 19). The full record of the card
+reading is in `machine/cards/fpga1-first-boot-forensics.txt`.
+
+The same day the Pi's card was read too. Its kernel log shows the NVMe drive holds **one partition, a
+256 MB FAT filesystem with 159 MB on it**, which `nvme-auto` had mounted as "the NVMe". I had told the
+owner it was a Windows laptop drive. That was a guess I never checked against the drive, and it was
+wrong. Nothing on the drive is erased. `nvme-auto` now turns the drive's unpartitioned space into a new
+ext4 partition and leaves the existing one exactly as it is. It was tested on that layout with this
+PC's tools and with the Pi's own Ubuntu 26.04 tools.
+
 ## What is not done, said plainly
 
-Linux has never reached user space on either FPGA board; the engines exist in simulation, QEMU and a
-hash-verified card. The STM32 boards' vendor is unidentified until a silkscreen photo arrives. The P4
+FPGA #1 reached user space once and then stopped, as above; no FPGA board has yet run a PL service, so
+the engines exist in simulation, QEMU and a hash-verified card. The STM32 boards' vendor is unidentified
+until a silkscreen photo arrives. The P4
 waits on eth1. The Teensy's new firmware and the 0.5B on its card wait for a flash and a card reader.
 The first number the machine produces will be FPGA #1's boot report, and nothing above it is claimed
 until that prints.

@@ -1,0 +1,97 @@
+FPGA #1, card #1, first Linux boot on the board, 2026-10-05 -- read from a whole copy of the card
+(D:/start/machine-cards/evidence/fpga1-card.img). Every line below is output of a command, run read-only.
+
+== 1. the boot's wall-clock start: realtime - monotonic of the board's own journal entries
+__REALTIME_TIMESTAMP=1777319338022660	__MONOTONIC_TIMESTAMP=5516565	MESSAGE=Starting systemd-sysctl.service - Apply Kernel Variables...
+__REALTIME_TIMESTAMP=1777319338051556	__MONOTONIC_TIMESTAMP=5545459	MESSAGE=Starting systemd-sysusers.service - Create System Users...
+__REALTIME_TIMESTAMP=1777319338058391	__MONOTONIC_TIMESTAMP=5552294	MESSAGE=Time spent on flushing to /var/log/journal/437dae19e56f43e193b5f537e3ebd9a9 is 41.924ms for 31
+   -> 1777319338058391 - 5552294 = 1777319332506097 us (the other two lines give ...095 and ...097): uptime = wall time - 1777319332.506 s
+   last journal entry on the card: 5.552 s = the end of the first flush to /var/log/journal
+
+== 2. the ext4 journal on the card, NOT replayed (machine/cards/jbd2_timeline.py p2.img 1777319332.506)
+block size 4096, inodes/group 8192, inode size 256, groups 13, 64bit True
+superblock: state 0x1 (1 = clean), mount count 1, needs_recovery True
+  last mount  s_mtime (1970-01-01 00:00:01)   last write s_wtime (1970-01-01 00:00:01)   mkfs 13141509.494 s
+  lifetime writes s_kbytes_written 481393 KiB
+
+journal inode 8: 8192 blocks, first 1, s_sequence 2, s_start 1 (0 = nothing to replay), incompat 0x12 (csum v3 True, 64bit True), tag size 16
+3 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+
+== transaction 2: committed at uptime    5.634 s; 15 block(s): inode table 12, other metadata 3
+   inode   98309 (unused slot: uninitialised bytes, mode 100000, links 0)
+   inode     166 mode 100644 links 1 size      8979  atime    4.494 s  ctime 13054092.494 s  mtime 13054092.494 s  crtime 13141509.494 s
+   inode    4257 mode 100644 links 1 size        80  atime    4.494 s  ctime 13141509.494 s  mtime 12998643.494 s  crtime 13141510.494 s
+   inode    4259 mode 100644 links 1 size       308  atime    4.494 s  ctime 13141509.494 s  mtime 12998641.494 s  crtime 13141510.494 s
+   inode    4261 mode 100644 links 1 size    190900  atime    4.494 s  ctime 13141509.494 s  mtime 12998641.494 s  crtime 13141510.494 s
+   inode    4250 mode 100644 links 1 size    229262  atime    4.494 s  ctime 13141509.494 s  mtime 12998641.494 s  crtime 13141510.494 s
+   inode    4252 mode 100644 links 1 size     83680  atime    4.494 s  ctime 13141509.494 s  mtime 12998643.494 s  crtime 13141510.494 s
+   inode    4253 mode 100644 links 1 size     47098  atime    4.494 s  ctime 13141509.494 s  mtime 12998641.494 s  crtime 13141510.494 s
+   inode    4256 mode 100644 links 1 size    131444  atime    4.494 s  ctime 13141509.494 s  mtime 12998641.494 s  crtime 13141510.494 s
+   inode     644 mode 040755 links 10 size      4096  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     645 mode 100644 links 1 size      1992  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     649 mode 040755 links 2 size      4096  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     651 mode 120777 links 1 size        36  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     654 mode 120777 links 1 size        44  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     655 mode 120777 links 1 size        41  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     656 mode 120777 links 1 size        38  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     657 mode 120777 links 1 size        39  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     658 mode 120777 links 1 size        40  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     659 mode 040755 links 2 size      4096  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     660 mode 120777 links 1 size        40  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     663 mode 040755 links 2 size      4096  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     664 mode 100644 links 1 size       516  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     665 mode 040755 links 2 size      4096  atime    3.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     666 mode 120777 links 1 size        43  atime    3.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     676 mode 100644 links 1 size       424  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     677 mode 100644 links 1 size       413  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     678 mode 100644 links 1 size       404  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode     679 mode 100644 links 1 size       586  atime    2.494 s  ctime 13141509.494 s  mtime 13141509.494 s  crtime 13141509.494 s
+   inode  101617 (unused slot: uninitialised bytes, mode 177777, links 0)
+   inode   98321 (unused slot: uninitialised bytes, mode 000301, links 48817)
+   inode   16481 mode 042755 links 3 size      4096  atime 13054116.494 s  ctime    5.494 s  mtime    5.494 s  crtime 13141510.494 s
+   inode   16493 mode 100600 links 1 size         0  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16494 mode 042755 links 2 size      4096  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16495 mode 100640 links 1 size       264  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16432 mode 040755 links 6 size      4096  atime 13054116.494 s  ctime    5.494 s  mtime    5.494 s  crtime 13141510.494 s
+   inode  101452 (unused slot: uninitialised bytes, mode 177777, links 0)
+
+== transaction 3: committed at uptime    5.734 s; 4 block(s): inode table 4
+   inode   16481 mode 042755 links 3 size      4096  atime 13054116.494 s  ctime    5.494 s  mtime    5.494 s  crtime 13141510.494 s
+   inode   16493 mode 100600 links 1 size         0  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16494 mode 042755 links 2 size      4096  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16495 mode 100640 links 1 size   8388608  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode  101452 (unused slot: uninitialised bytes, mode 177777, links 0)
+   inode  101453 (unused slot: uninitialised bytes, mode 177777, links 65535)
+   inode   98321 (unused slot: uninitialised bytes, mode 000301, links 48817)
+   inode   98309 (unused slot: uninitialised bytes, mode 100000, links 0)
+
+== transaction 4: committed at uptime    8.014 s; 4 block(s): inode table 4
+   inode   16481 mode 042755 links 3 size      4096  atime 13054116.494 s  ctime    5.494 s  mtime    5.494 s  crtime 13141510.494 s
+   inode   16493 mode 100600 links 1 size        32  atime    5.494 s  ctime    7.494 s  mtime    7.494 s  crtime    5.494 s
+   inode   16494 mode 042755 links 2 size      4096  atime    5.494 s  ctime    5.494 s  mtime    5.494 s  crtime    5.494 s
+   inode   16495 mode 100640 links 1 size   8388608  atime    5.494 s  ctime    7.494 s  mtime    7.494 s  crtime    5.494 s
+   inode   98309 (unused slot: uninitialised bytes, mode 100000, links 0)
+   inode  101452 (unused slot: uninitialised bytes, mode 177777, links 0)
+   inode  101453 (unused slot: uninitialised bytes, mode 177777, links 65535)
+   inode   98321 (unused slot: uninitialised bytes, mode 000301, links 48817)
+
+== 3. which files those inodes are (debugfs ncheck on the replayed copy)
+Inode	Pathname
+166	/etc/ld.so.cache
+644	/etc/systemd/system
+645	/etc/systemd/system/fpgagpud.service
+16432	/var/lib/systemd
+16493	/var/lib/systemd/random-seed
+16481	/var/log/journal
+16494	/var/log/journal/437dae19e56f43e193b5f537e3ebd9a9
+16495	/var/log/journal/437dae19e56f43e193b5f537e3ebd9a9/system.journal
+
+== 4. the boot partition's state byte (FAT32 offset 0x41; Linux sets bit 0 when it mounts the volume)
+   card #1: 0x01
+   a freshly built image: 0x00. Windows uses the same byte; its FAT[1] clean bit is set and its last write was 2026-09-26.
+
+== 5. the same kernel and card #1's device tree in QEMU (qemu_plcheck_test.sh, boot A): Linux's gate write
+   [   13.04 s] fclk0 in the clock framework: enable_count 0, prepare_count 0, rate 99999999 Hz
+   [   13.06 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000001 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+   [   13.07 s] problem: FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock
+   [   13.08 s] verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up

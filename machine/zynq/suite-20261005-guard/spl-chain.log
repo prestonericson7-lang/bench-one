@@ -1,0 +1,7 @@
+board clock writes: 0xF8000100=0x2E000 0xF8000104=0x20000 0xF8000108=0x1E000 0xF8000120=0x1F000200 0xF8000124=0xC200003 0xF8000150=0xA01 0xF8000170=0x200500 0xF80001C4=0x1
+test patches applied to arch/arm/mach-zynq/spl.c
+-rwxr-xr-x 1 root root 1677244 Oct  5 21:23 spl/u-boot-spl
+production image: eeb4afcec81cfa27...  QEMU start 21:23:38
+QEMU end 21:33:38
+SPL CHAIN: did not reach the report
+qemu-system-arm: terminating on signal 15 from pid 5159 (timeout)

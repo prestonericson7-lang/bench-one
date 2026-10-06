@@ -5,7 +5,9 @@
 # If a PL bitstream named pl.bit is present it is loaded BEFORE Linux, so the fabric (LEDs, fan
 # PWM, the SDR accelerator on JM1) is alive from the first second. Absent file = plain PS boot.
 
-setenv bootargs "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio"
+# clk_ignore_unused: the second guard for the PL clocks (the device tree's fclk-enable is the first). With
+# neither, Linux gated FCLK0 at 1.9 s and the board froze at the first PL register read (2026-10-05).
+setenv bootargs "console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio clk_ignore_unused"
 # Keep the device tree where it is loaded: relocated to the top of RAM it would land in the PL's
 # reserved DDR3 (0x10000000-0x1FFFFFFF), which Linux does not map.
 setenv fdt_high 0xffffffff

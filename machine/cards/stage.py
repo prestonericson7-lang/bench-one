@@ -33,6 +33,12 @@ def main():
     missing = [p for ps in PLAN.values() for p in ps if not os.path.exists(p)]
     if missing:
         sys.exit("missing: " + ", ".join(missing))
+    # mk_sd_image.sh writes sd-image.sha256 and THEN the .xz; a checksum file newer than the .xz means the
+    # last build skipped compression (NOXZ) and the .xz is an older image that this checksum does not
+    # describe (2026-10-05: that pair would have been staged together). write_sd.py would refuse it at
+    # write time; refusing here keeps a mismatched pair off the staging drive.
+    if os.path.getmtime(IMG_SHA) > os.path.getmtime(IMG_XZ):
+        sys.exit(f"{IMG_XZ} is older than {IMG_SHA}: the last build did not compress its image -- xz it first")
     for card, srcs in PLAN.items():
         d = os.path.join(DEST, card)
         os.makedirs(d, exist_ok=True)

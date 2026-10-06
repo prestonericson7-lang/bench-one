@@ -14,8 +14,8 @@ machine is cables and cards; the only wire is the speaker lead on the P4.
 | item | proven | not yet |
 |---|---|---|
 | Teensy 4.1 + PSRAM | the 3B exact at 105 s a token, two days of logs (docs/57); the 0.5B proven identical through its core on the PC (bench-archive/20260929-215440); `::model` built into the firmware | flashing that firmware (PC idle, card idle) and copying the 0.5B onto its card (needs the card in a reader) |
-| FPGA boards | bitstream (GPU + matrix engine + registers + eth1 core) synthesised, timing closed; the engine bit-exact in simulation; the whole Linux image boots in QEMU; the SD card written and hash-verified | **Linux has never reached user space on the board.** The one real boot (2026-09-24) panicked in cpufreq; that is fixed in the image on the card, untested. Every later capture is empty (board unplugged). The engines are the least-proven part of the machine, so FPGA #1's boot report is step one |
-| two engines as one | two engines produce the same bytes as one (PC); **emulated on two boards**: both attached across the link, engines bit-exact, the exact reference on the ARM CPU identical to the PC's | on the boards, with the PL |
+| FPGA boards | **On the real board (2026-10-05): SPL, DDR3L, U-Boot, the bitstream (HDMI colour bars + moving square), the kernel, the root filesystem and systemd all ran** — read from card #1's own journal. Bitstream, engine and Linux image as before | The board then stopped between 8.0 and about 13 s of uptime (card #1's ext4 commit times, [cards/fpga1-first-boot-forensics.txt](cards/fpga1-first-boot-forensics.txt)), after Linux gated FCLK0 at 1.91 s (`fclk-enable = <0x00>`): the inferred cause. Fixed three ways (device tree, `clk_ignore_unused`, the `zynq-plcheck` boot guard) and proven in QEMU only. **Card #1 rewritten 2026-10-05 21:35 with image `eeb4afce…`, read back identical; not yet booted.** The next boot decides: a dark-blue screen and `/boot/reports/plcheck.txt` |
+| two engines as one | two engines produce the same bytes as one (PC); **emulated on two boards**: both attached across the link, engines bit-exact, the exact reference on the ARM CPU identical to the PC's (that run had the swap export masked) | on the boards, with the PL; the emulated run with the swap export on is being repeated |
 | STM32H743 ×2 | specs recorded | vendor and pins unknown until a silkscreen photo; no firmware yet |
 | ESP32-P4-NANO | facts recorded | needs eth1 on an FPGA first; no firmware yet |
 
@@ -121,12 +121,14 @@ in `/boot/reports/` on their cards.
   engine killed 25 s into a run was reported, retired, and the answer completed. The single-engine
   regression `run_tests.sh` passes on the rewritten client: kernels within 1.15% relative error, identical
   text at half offload, perplexity within 3%, the dying-engine fallback intact.
-- **The card image**: built 2026-09-29 by `mk_sd_image.sh` with the machine and both models installed —
-  `hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz` (2.69 GB; raw 4,226 MiB, sha256
-  `f04e7194a20c6a37a2c5c1dc472ea81def6f096ecc5a16b25202f636cf43b53d`). Its first-stage files — `boot.bin`,
-  `u-boot.img`, `zImage`, the DTB, `pl.bit` — are the same bytes card #1 carries today (unchanged since
-  2026-09-26). Root partition 4 GB: the system (468 MB) plus `/opt/machine/models` (2,485 MB).
-  `zynq-node.txt` = 1 on the image; for card #2 the file on its BOOT drive is changed to 2.
+- **The card image**: rebuilt 2026-10-05 by `mk_sd_image.sh` with the machine, both models, the Pi's
+  swap export and the PL guard — `hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz` (raw
+  4,431,282,176 bytes, sha256 `eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29`).
+  Against what card #1 ran on 2026-10-05, the boot partition differs in exactly two files: the device
+  tree (FCLK0 held) and `boot.scr` (`clk_ignore_unused`). `boot.bin`, `u-boot.img`, `zImage` and `pl.bit`
+  are byte for byte the ones that ran on the board, so the first stage is unchanged. Root partition 4 GB:
+  the system plus `/opt/machine/models`. `zynq-node.txt` = 1 on the image; for card #2 the file on its
+  BOOT drive is changed to 2.
 - **The PC watcher**: [bench/machine_watch.py](bench/machine_watch.py).
 - **eth1**: the recipe in [zynq/ETH1.md](zynq/ETH1.md), not applied.
 - **The Teensy's `::model NAME.gguf`** (`firmware/bench-one/tests/psram_llm/psram_llm_board.inc`): records
@@ -151,9 +153,11 @@ in `/boot/reports/` on their cards.
   emulation: `tl_ref` and `run_model` OOM-killed with 15 MB free. On POSIX the file is now mapped
   read-only and tensors point into the map; the page cache streams what is used, the way the Teensy
   streams its card. Windows keeps the read path. The Pi is unaffected except for using less RAM.
-- **The swap export is gone from the machine image**: `zynqram`, a 128 MB tmpfs file exported to the
-  Orange Pi as swap, was taking 129 MB of the board's 223 MB with no Pi to use it. Masked in
-  `zynq/install.sh`; the Pi's image keeps it.
+- **The swap export was masked, then restored (2026-10-05)**: `zynqram`, a 128 MB tmpfs file exported to
+  the Orange Pi as swap, takes 128 MB of the board's 223 MB whether or not a Pi is attached. It was
+  masked for the two-board run below. It is back because card #1 also serves the Pi, and that export
+  is the Pi's swap. `zynq/install.sh` now removes the mask if an older image left one. Measured in QEMU
+  with it on: 57 MB available of 223 (149 MB with it masked).
 - **Two boards emulated** (`zynq/qemu_two_node_test.sh`): two QEMU `xilinx-zynq-a9` machines from the
   card image, node 1 and node 2, joined by a socket link in place of cable 1; node 1 runs the bench-day
   command `machine-bench all` against the 0.5B — facts, its engine, the peer's engine over the link,
@@ -181,9 +185,25 @@ in `/boot/reports/` on their cards.
   `zynq1` / `zynq2`, both models listed, the static `run_model` prints its usage on the board's glibc,
   `machine-bench facts` runs and its report lands in `/boot/reports/`. The first version of the identity
   step failed this test silently (networkd's sandbox) and was replaced — which is what the test is for.
+- **The PL guard** (`hardware/pz7020-starlite/linux/zynq-plcheck`, after the first real boot stopped on
+  2026-10-05): before anything reads the PL it checks FCLK0's gate bit, the PS/PL level shifters and the PL
+  reset, syncs every step to `/boot/reports/plcheck.txt`, and holds fpgagpud, zaccel-server and zynq-agent
+  back if a read would hang the bus. `qemu_plcheck_test.sh` boots through the production U-Boot twice:
+  card #1's own `boot.scr` and device tree, then today's. QEMU kept the gate bit Linux wrote with card
+  #1's device tree (`FPGA0_THR_CNT = 1`, fclk0 enable count 0). The guard named FCLK0 as the only problem,
+  read nothing, held both services back, and the board stayed up. With today's files the bit is clear,
+  the count is 1, the reads are attempted and the verdict is OK. **PASS on all 19 checks.**
 
 ## What I need from you
 
+0. **Card #1 back in FPGA #1 and the Pi's card back in the Pi**, cabled and powered as on 2026-10-05.
+   Both are rewritten and verified. If Windows offers to format either card when you pull it, answer No.
+   Then watch FPGA #1's HDMI. A dark-blue screen means the GPU daemon is running and the fix worked;
+   colour bars that stay mean it did not. Either way, bring card #1 back to the reader afterwards:
+   `/boot/reports/plcheck.txt` on it says how far the board got. On the Pi, if the rest of the NVMe drive
+   is unpartitioned (its kernel log shows one partition), that space appears at `/mnt/nvme`; the old
+   256 MB FAT partition is left as it is. Either way the Pi records what it found in
+   `/var/lib/accel/nvme-auto.log` on its card.
 1. **A photo of each STM32 board's top and bottom silkscreen**, or the listing / vendor link — the pins.
    Nothing else about those boards is known well enough to write firmware against.
 2. **Cards in the PC's reader**, one at a time, whenever convenient: card #2 (I write the image and the

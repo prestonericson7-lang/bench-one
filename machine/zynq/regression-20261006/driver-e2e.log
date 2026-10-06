@@ -1,4 +1,4 @@
-4611e70e0b101a43
+0c9bce98401d4955
 8f5c318330ac60fb
 == building the stuck-guard image
 STUCK GUARD IMAGE: /root/zynq/stuck-guard.img (one line changed: the PEEK child sleeps before reading)
@@ -54,5 +54,5 @@ STUCK GUARD IMAGE: /root/zynq/stuck-guard.img (one line changed: the PEEK child 
   PASS  8: refused without the guard
   PASS  8: no PL read
   PASS  8: exit 0
-captures: /d/espicpc/hardware/pz7020-starlite/linux/captures/driver-e2e-20261006-025524
+captures: /d/espicpc/hardware/pz7020-starlite/linux/captures/driver-e2e-20261006-031858
 DRIVER E2E: PASS

@@ -173,6 +173,47 @@ for what, text in (("prefixed, a status line after the stuck read", pref + ANIM 
 v = verdict("02:00:00    PLX guard read stuck: 0x43c00000 (GPU registers ('GPU1')) -- the guard's last line is that read\n")
 check("a stuck guard read gets its verdict, with the whole name", "0x43c00000 (GPU registers ('GPU1')) never returned" in v, v)
 
+print("== every end of the run leaves a message (a fake board on TCP: a boot, a prompt, the driver's sentinels)")
+import socket, threading, time
+
+
+def fake_board():
+    """listens on a free port; prints a boot up to the report, then plays a shell that echoes each line and
+    answers the driver's sentinel -- and nothing else, so plx.py's checksum never comes back"""
+    srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1)
+
+    def serve():
+        c, _ = srv.accept(); c.settimeout(60)
+        time.sleep(1)                         # pyserial's open() purges input already there, as on a COM port
+        c.sendall(b"U-Boot 2025.07 (fake)\r\n[    0.000000] Booting Linux on physical CPU 0x0\r\nzynq1 login: root (automatic login)\r\n"
+                  b"==== ZYNQ-REPORT BEGIN ====\r\nnode 1\r\n==== ZYNQ-REPORT END ====\r\nroot@zynq1:~# ")
+        buf = b""
+        try:
+            while True:
+                d = c.recv(65536)
+                if not d:
+                    return
+                buf += d
+                while b"\r" in buf:
+                    line, buf = buf.split(b"\r", 1)
+                    m = re.search(rb"echo '__S(\d+)''E__'", line)
+                    c.sendall(line + b"\r\n" + (b"__S" + m.group(1) + b"E__ 0\r\n" if m else b"") + b"root@zynq1:~# ")
+        except OSError:
+            return
+    threading.Thread(target=serve, daemon=True).start()
+    return srv.getsockname()[1]
+
+
+for what, env_extra, rc_want, line_want in (
+        ("an unexpected error mid-run: reported in the summary, exit 1", {"BOARD_EXP_TEST_CRASH": "1"}, 1,
+         "the experiment script stopped with an error: RuntimeError: BOARD_EXP_TEST_CRASH set"),
+        ("the test tool not arriving intact: reported, exit 5", {}, 5, "plx.py did not arrive intact")):
+    port = fake_board()
+    env = dict(os.environ, **env_extra); env.pop("PLX_FAKE", None)
+    r = subprocess.run([sys.executable, DRV, "--port", f"socket://127.0.0.1:{port}"], capture_output=True, text=True,
+                       env=env, timeout=300)
+    check(what, r.returncode == rc_want and line_want in r.stdout, f"rc {r.returncode}: " + r.stdout[-400:])
+
 print("== which serial port is the board")
 import re
 src = open(DRV, encoding="utf-8").read()

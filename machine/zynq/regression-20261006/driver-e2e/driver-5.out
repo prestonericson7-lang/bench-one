@@ -1,102 +1,104 @@
-03:05:18  listening on socket://localhost:5576
-03:05:32  listening on socket://localhost:5576
-03:05:33  the board's console is socket://localhost:5576; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030518-17492
-03:05:33  step 0: listening to the boot (sending nothing)
-03:05:33    boot: kernel at +0.0 s
-03:05:35    boot: clk pass at +2.0 s
-03:05:36    boot: systemd at +3.5 s
-03:06:17    boot: guard at +44.6 s
-03:06:40    boot: login at +67.2 s
-03:06:55    boot: report at +82.7 s
-03:06:55    report | time          2026-04-27T19:49:18  uptime 25.12 s
-03:06:55    report | model         Puzhi PZ7020-StarLite
-03:06:55    report | kernel        6.12.0-dirty armv7l
-03:06:55    report | cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
-03:06:55    report | cpu_khz       666666
-03:06:55    report | mem_total     229328 kB  (what the device tree gives Linux -- not a probe of the chips)
-03:06:55    report | pl_done       yes -- fabric configured: U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since
-03:06:55    report | plcheck       [   16.69 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF | [   16.72 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1 | [   16.72 s] BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
-03:06:55    report | pl_regs       skipped -- zynq-plcheck found the PL bus unsafe to read (see plcheck)
-03:06:55    report | die_temp_C    -273.0  (Zynq XADC)
-03:06:55    report | eth0          ipv4 none   link down   speed ? Mb/s   mac 02:5a:70:20:00:01
-03:06:55    report | sd_card       QEMU!   8.00 GiB
-03:06:55    report | rootfs        3.9G size, 2.9G used, 79%
-03:06:55    report | boot_time     still in progress at this report (see uptime)
-03:06:55    report | failed_units  zynq-plcheck.service
-03:06:55    report | zynq-agent    inactive
-03:06:55    report | accel         zynq-plcheck failed   zaccel-server inactive   fpgagpud inactive   nbd-server active
-03:06:55    report | uio           none (needs uio_pdrv_genirq.of_id=generic-uio)
-03:06:55    report | pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
-03:06:55    report | zynqram       134217728 bytes
-03:06:55    report | --- kernel err/warn (first 12) ---
-03:06:55    report | [    0.000000] L2C: platform modifies aux control register: 0x00000000 -> 0x00400000
-03:06:55    report | [    0.000000] L2C: DT/platform modifies aux control register: 0x00000000 -> 0x00400000
-03:06:55    report | [    1.196306] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
-03:06:55    report | [    1.394841] armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
-03:06:55    report | [    1.434700] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
-03:06:55    report | [    3.539849] systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
-03:06:55    report | [    3.540038] systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
-03:06:55    report | [   10.344728] zynq-node: node 1 -> zynq1 10.20.0.2
-03:06:55    report | [   12.009831] amba f8801000.etb: deferred probe pending: (reason unknown)
-03:06:55    report | [   12.009950] amba f8803000.tpiu: deferred probe pending: (reason unknown)
-03:06:55    report | [   12.010004] amba f8804000.funnel: deferred probe pending: (reason unknown)
-03:06:55    report | [   12.010068] amba f889c000.ptm: deferred probe pending: (reason unknown)
-03:06:55    report | 
-03:06:58  step 1: what this boot did
-03:06:58    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 fpgagpu.pl_loaded=1
-03:06:58    | 6.12.0-dirty
-03:06:58    | 26.67 3.53
-03:06:58    | G|== boot 1
-03:06:58    | G|[   16.57 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 yes
-03:06:58    | G|[   16.65 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 36111111 Hz
-03:06:58    | G|[   16.68 s] SLCR IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000
-03:06:58    | G|[   16.68 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
-03:06:58    | G|[   16.69 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF
-03:06:58    | G|[   16.72 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1
-03:06:58    | G|[   16.72 s] verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
-03:06:59    | failed inactive inactive inactive active 
-03:06:59    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
-03:06:59    |           fclk1_mux                  0       0        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
-03:06:59    |              fclk1_div0              0       0        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
-03:06:59    |                 fclk1_div1           0       0        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
-03:06:59    |                    fclk1             0       0        0        36111111    0          0     50000      N                     deviceless                      no_connection_id         
-03:06:59    |           fclk0_mux                  1       1        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
-03:06:59    |              fclk0_div0              1       1        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
-03:06:59    |                 fclk0_div1           1       1        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
-03:06:59    |                    fclk0             1       1        0        36111111    0          0     50000      Y                     deviceless                      no_connection_id         
-03:07:00    |                total        used        free      shared  buff/cache   available
-03:07:00    | Mem:             223         164          18         129         177          59
-03:07:00    | MemAvailable:      60812 kB
-03:07:00    | Shmem:            132492 kB
-03:07:00    | CmaFree:            9668 kB
-03:07:06    plx.py on the board, sha256 8f5c318330ac60fb matches
-03:07:07    | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
-03:07:07    FCLK0 gate bit clear; PL loaded at boot: True
-03:07:07  --ignore-guard: going on despite: [   16.69 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF / [   16.72 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1
-03:07:07  step 2: FCLK0 running: the PL's ID, its clock register, a write/read-back
-03:07:08    | PLX rd 0x40000000 = 0x00000000
-03:07:08    | PLX rd 0x40000020 = 0x00000000
-03:07:08    | PLX scratch wrote 0x1234abcd read 0x00000000
-03:07:08  step 3: FCLK0 measured on the silicon (pl_regs counter over 1 s of CPU time)
-03:07:12    | PLX measure 0 ticks in 1.000719 s = 0.000000 MHz (CLK_HZ register 0)
-03:07:16    | PLX measure 0 ticks in 1.000673 s = 0.000000 MHz (CLK_HZ register 0)
-03:07:20    | PLX measure 0 ticks in 1.000576 s = 0.000000 MHz (CLK_HZ register 0)
-03:07:20  step 4: the gate test -- no PL access while the gate bit is set
-03:07:20    | inactive inactive inactive 
-03:07:31    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
-03:07:31    | PLX gatetest wall 2.001061 s, gate held 2.000370 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.001061 s; counter afterwards 0.000 MHz
-03:07:31    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
-03:07:41    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
-03:07:41    | PLX gatetest wall 2.001011 s, gate held 2.000403 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.001011 s; counter afterwards 0.000 MHz
-03:07:41    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
-03:07:42  step 5 replaced (--test-reboot): the board is rebooted to exercise the reboot capture
-03:07:42    the board stopped answering: power-cycle it (it boots the same card). Listening for the reboot, up to 60 min, sending nothing
-03:07:42  socket://localhost:5576: serial read failed (read failed: socket disconnected) -- reopening it as soon as it is back
-03:08:42    boot: SILENT for 60 s -- the board stopped. Its last console lines:
-03:08:42    | sync; reboot -f
-03:08:42  VERDICT FCLK0: the fabric's counter does not move (0 ticks) -- no PL answering at 0x40000000, so nothing below says anything about FCLK0
-03:08:42  VERDICT gate test: no conclusion (the counter does not run)
-03:08:42  VERDICT gate test: no conclusion (the counter does not run)
-03:08:42  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
-03:08:42  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:28:33  listening on socket://localhost:5576
+03:28:46  listening on socket://localhost:5576
+03:28:47  the board's console is socket://localhost:5576; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-032833-16836
+03:28:47  step 0: listening to the boot (sending nothing)
+03:28:47    boot: kernel at +0.0 s
+03:28:48    boot: clk pass at +1.5 s
+03:28:50    boot: systemd at +3.0 s
+03:29:31    boot: guard at +44.1 s
+03:29:53    boot: login at +66.7 s
+03:30:09    boot: report at +82.2 s
+03:30:09    report | time          2026-04-27T19:49:18  uptime 24.96 s
+03:30:09    report | model         Puzhi PZ7020-StarLite
+03:30:09    report | kernel        6.12.0-dirty armv7l
+03:30:09    report | cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
+03:30:09    report | cpu_khz       666666
+03:30:09    report | mem_total     229328 kB  (what the device tree gives Linux -- not a probe of the chips)
+03:30:09    report | pl_done       yes -- fabric configured: U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since
+03:30:09    report | plcheck       [   16.58 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF | [   16.59 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1 | [   16.63 s] BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+03:30:09    report | pl_regs       skipped -- zynq-plcheck found the PL bus unsafe to read (see plcheck)
+03:30:09    report | die_temp_C    -273.0  (Zynq XADC)
+03:30:09    report | eth0          ipv4 none   link down   speed ? Mb/s   mac 02:5a:70:20:00:01
+03:30:09    report | sd_card       QEMU!   8.00 GiB
+03:30:09    report | rootfs        3.9G size, 2.9G used, 79%
+03:30:09    report | boot_time     still in progress at this report (see uptime)
+03:30:09    report | failed_units  zynq-plcheck.service
+03:30:09    report | zynq-agent    inactive
+03:30:09    report | accel         zynq-plcheck failed   zaccel-server inactive   fpgagpud inactive   nbd-server active
+03:30:09    report | uio           none (needs uio_pdrv_genirq.of_id=generic-uio)
+03:30:09    report | pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
+03:30:09    report | zynqram       134217728 bytes
+03:30:09    report | --- kernel err/warn (first 12) ---
+03:30:09    report | [    0.000000] L2C: platform modifies aux control register: 0x00000000 -> 0x00400000
+03:30:09    report | [    0.000000] L2C: DT/platform modifies aux control register: 0x00000000 -> 0x00400000
+03:30:09    report | [    1.153469] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
+03:30:09    report | [    1.332219] armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+03:30:09    report | [    1.360341] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+03:30:09    report | [    3.458283] systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
+03:30:09    report | [    3.458474] systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
+03:30:09    report | [   10.146736] zynq-node: node 1 -> zynq1 10.20.0.2
+03:30:09    report | [   12.012226] amba f8801000.etb: deferred probe pending: (reason unknown)
+03:30:09    report | [   12.012367] amba f8803000.tpiu: deferred probe pending: (reason unknown)
+03:30:09    report | [   12.012463] amba f8804000.funnel: deferred probe pending: (reason unknown)
+03:30:09    report | [   12.012580] amba f889c000.ptm: deferred probe pending: (reason unknown)
+03:30:09    report | 
+03:30:11  step 1: what this boot did
+03:30:12    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 fpgagpu.pl_loaded=1
+03:30:12    | 6.12.0-dirty
+03:30:12    | 26.55 7.72
+03:30:12    | G|== boot 1
+03:30:12    | G|[   16.42 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 yes
+03:30:12    | G|[   16.51 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 36111111 Hz
+03:30:12    | G|[   16.53 s] SLCR IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000
+03:30:12    | G|[   16.56 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
+03:30:12    | G|[   16.58 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF
+03:30:12    | G|[   16.59 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1
+03:30:12    | G|[   16.63 s] verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+03:30:13    | failed inactive inactive inactive active 
+03:30:13    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
+03:30:13    |           fclk1_mux                  0       0        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:30:13    |              fclk1_div0              0       0        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:30:13    |                 fclk1_div1           0       0        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:30:13    |                    fclk1             0       0        0        36111111    0          0     50000      N                     deviceless                      no_connection_id         
+03:30:13    |           fclk0_mux                  1       1        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:30:13    |              fclk0_div0              1       1        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:30:13    |                 fclk0_div1           1       1        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:30:13    |                    fclk0             1       1        0        36111111    0          0     50000      Y                     deviceless                      no_connection_id         
+03:30:13    |                total        used        free      shared  buff/cache   available
+03:30:13    | Mem:             223         166          17         129         177          57
+03:30:13    | MemAvailable:      59304 kB
+03:30:13    | Shmem:            132492 kB
+03:30:13    | CmaFree:            9916 kB
+03:30:20    plx.py on the board, sha256 8f5c318330ac60fb matches
+03:30:20    | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
+03:30:21    FCLK0 gate bit clear; PL loaded at boot: True
+03:30:21  --ignore-guard: going on despite: [   16.58 s] problem: PS/PL level shifters not all on: LVL_SHFTR_EN 0x0, needs 0xF / [   16.59 s] problem: fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f bit 0 = 1
+03:30:21  step 2: FCLK0 running: the PL's ID, its clock register, a write/read-back
+03:30:21    | PLX rd 0x40000000 = 0x00000000
+03:30:21    | PLX rd 0x40000020 = 0x00000000
+03:30:22    | PLX scratch wrote 0x1234abcd read 0x00000000
+03:30:22  step 3: FCLK0 measured on the silicon (pl_regs counter over 1 s of CPU time)
+03:30:26    | PLX measure 0 ticks in 1.000838 s = 0.000000 MHz (CLK_HZ register 0)
+03:30:30    | PLX measure 0 ticks in 1.000660 s = 0.000000 MHz (CLK_HZ register 0)
+03:30:33    | PLX measure 0 ticks in 1.000732 s = 0.000000 MHz (CLK_HZ register 0)
+03:30:33  step 4: the gate test -- no PL access while the gate bit is set
+03:30:34    | inactive inactive inactive 
+03:30:45    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
+03:30:45    | PLX gatetest wall 2.001056 s, gate held 2.000351 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.001056 s; counter afterwards 0.000 MHz
+03:30:45    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
+03:30:55    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
+03:30:55    | PLX gatetest wall 2.000835 s, gate held 2.000300 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.000835 s; counter afterwards 0.000 MHz
+03:30:55    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
+03:30:56  step 5 replaced (--test-reboot): the board is rebooted to exercise the reboot capture
+03:30:56    the board stopped answering: power-cycle it (it boots the same card). Listening for the reboot, up to 60 min, sending nothing
+03:30:57  socket://localhost:5576: serial read failed (read failed: socket disconnected) -- reopening it as soon as it is back
+03:31:57    boot: SILENT for 60 s -- the board stopped. Its last console lines:
+03:31:57    | sync; reboot -f
+03:31:57    | Rebooting.
+03:31:57    | [   39.934130] reboot: Restarting system
+03:31:57  VERDICT FCLK0: the fabric's counter does not move (0 ticks) -- no PL answering at 0x40000000, so nothing below says anything about FCLK0
+03:31:57  VERDICT gate test: no conclusion (the counter does not run)
+03:31:57  VERDICT gate test: no conclusion (the counter does not run)
+03:31:57  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:31:57  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
 driver rc=3

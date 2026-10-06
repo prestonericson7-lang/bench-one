@@ -175,6 +175,27 @@ def tell_owner(title, text, timeout_ms=0):
     threading.Thread(target=show, daemon=False).start()
 
 
+PI_NOW = "\n\nYou can switch the Orange Pi on now."
+REAL = not A.port or "socket://" not in A.port   # a real board on a COM port (the tests use TCP ports)
+
+
+def crashed(kind, value, tb):
+    """any unexpected error: say so in the summary and to the owner, who waits for a message before switching
+    the Pi on -- the first version died with a traceback into a hidden stderr file and nothing else"""
+    import traceback
+    note("the experiment script stopped with an error: " + "".join(traceback.format_exception_only(kind, value)).strip())
+    for ln in "".join(traceback.format_tb(tb)).splitlines()[-6:]:
+        note("  " + ln)
+    if REAL:
+        tell_owner("The FPGA experiment script stopped with an error",
+                   "The PC's script hit an error it did not expect; what it recorded so far is in "
+                   "hardware\\pz7020-starlite\\linux\\captures (newest experiment folder)." + PI_NOW)
+    sys.__excepthook__(kind, value, tb)
+
+
+sys.excepthook = crashed
+
+
 def open_port(name, tries=240):
     if "://" in name:                         # QEMU / a test server: retry until it listens
         for _ in range(tries):
@@ -414,7 +435,12 @@ def send_plx():
     got = run("base64 -d /tmp/plx.b64 > /tmp/plx.py && sha256sum /tmp/plx.py | cut -c1-64", show=False) or ""
     want = hashlib.sha256(src).hexdigest()
     if want not in got:
-        note(f"plx.py did not arrive intact ({got.strip()} != {want}) -- stopping"); sys.exit(5)
+        note(f"plx.py did not arrive intact ({got.strip()} != {want}) -- stopping")
+        if REAL:
+            tell_owner("The FPGA experiment could not start its tests",
+                       "The PC could not copy its test tool to the board intact over the serial cable, so nothing "
+                       "was measured. The boot itself is recorded (hardware\\pz7020-starlite\\linux\\captures)." + PI_NOW)
+        stop[0] = True; sys.exit(5)
     note(f"  plx.py on the board, sha256 {want[:16]} matches")
 
 
@@ -432,16 +458,18 @@ def guarded_read(addr, label):
 # ---- 0. the boot: listen only
 note("step 0: listening to the boot (sending nothing)")
 if not watch_boot(0, 600):
-    if not A.port or "socket://" not in A.port:
+    if REAL:
         tell_owner("FPGA #1 stopped during its boot",
                    "The PC recorded the boot up to the moment it stopped (hardware\\pz7020-starlite\\linux\\captures, "
-                   "newest experiment folder). Nothing more runs this time. Leave the cards as they are.")
+                   "newest experiment folder). Nothing more runs this time. Leave the cards as they are." + PI_NOW)
     stop[0] = True; sys.exit(3)
 await_shell()
 run("stty cols 4000 2>/dev/null; true", show=False)       # no readline wrapping of long command lines
 
 # ---- 1. what this boot did
 note("step 1: what this boot did")
+if os.environ.get("BOARD_EXP_TEST_CRASH"):     # tests only: an unexpected error mid-run (test_driver_e2e.sh, path 9)
+    raise RuntimeError("BOARD_EXP_TEST_CRASH set: the error the crash handler must report")
 run("cat /proc/cmdline; uname -r; cat /proc/uptime")
 guard = run("tail -14 /boot/reports/plcheck.txt | sed 's/^/G|/'") or ""
 other, stuck = guard_state(guard)
@@ -561,7 +589,7 @@ if loaded or gated:
             if not A.test_reboot:
                 tell_owner("FPGA #1 did not come back after the power cycle",
                            "The measurements before the freeze are saved (hardware\\pz7020-starlite\\linux\\captures, "
-                           "newest experiment folder):\n\n" + "\n\n".join(v.replace("VERDICT ", "") for v in vs))
+                           "newest experiment folder):\n\n" + "\n\n".join(v.replace("VERDICT ", "") for v in vs) + PI_NOW)
             stop[0] = True; sys.exit(3)
     # ---- 6.
     note("step 6: restore")
@@ -575,9 +603,6 @@ for v in vs:
     note(v)
 skips = [l.split("  ", 1)[1] for l in open(SUM, encoding="utf-8").read().splitlines()
          if re.search(r"^\S+  steps? [0-9-]+ skipped", l)]
-if not A.port or "socket://" not in A.port:   # a real board: tell the owner it is finished
-    tell_owner("FPGA #1 experiment finished", "\n\n".join([v.replace("VERDICT ", "") for v in vs] + skips) or
-               "No PL measurements were possible; see the summary in hardware\\pz7020-starlite\\linux\\captures.")
 lines = [l.split("  ", 1)[1] for l in open(SUM, encoding="utf-8").read().splitlines() if "PLX " in l or "boot:" in l or "VERDICT" in l]
 # onto the card in 600-character base64 pieces, each answered before the next, as plx.py went over: one 8 KB
 # burst typed at 115200 baud with no flow control is not something to trust to the board's input buffer
@@ -588,4 +613,7 @@ for i in range(0, len(b64), 600):
     run("printf '%%s' '%s' >> /tmp/exp.b64" % b64[i:i + 600], show=False)
 run("mkdir -p /boot/reports; base64 -d /tmp/exp.b64 >> /boot/reports/experiment.txt && sync; tail -n 3 /boot/reports/experiment.txt")
 note(f"done; console logs and this summary in {OUT}")
+if REAL:                                      # only now: the record is on the card and synced
+    tell_owner("FPGA #1 experiment finished", ("\n\n".join([v.replace("VERDICT ", "") for v in vs] + skips) or
+               "No PL measurements were possible; see the summary in hardware\\pz7020-starlite\\linux\\captures.") + PI_NOW)
 stop[0] = True

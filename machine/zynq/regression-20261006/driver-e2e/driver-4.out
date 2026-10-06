@@ -1,49 +1,49 @@
-03:05:18  listening on socket://localhost:5575
-03:05:32  listening on socket://localhost:5575
-03:05:33  the board's console is socket://localhost:5575; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030518
-03:05:33  step 0: listening to the boot (sending nothing)
-03:05:33    boot: kernel at +0.0 s
-03:05:35    boot: clk pass at +2.0 s
-03:05:36    boot: systemd at +3.5 s
-03:08:12    boot: SILENT for 150 s -- the board stopped. Its last console lines:
-03:08:12    |          Starting systemd-remount-f…nt Root and Kernel File Systems...
-03:08:12    | [    3.589960] systemd[1]: Starting systemd-udev-trigger.service - Coldplug All udev Devices...
-03:08:12    |          Starting systemd-udev-trig…[0m - Coldplug All udev Devices...
-03:08:12    | [    3.654365] systemd[1]: Mounted sys-kernel-debug.mount - Kernel Debug File System.
-03:08:12    | [  OK  ] Mounted sys-kernel-debug.m…nt - Kernel Debug File System.
-03:08:12    | [    3.670011] systemd[1]: Mounted sys-kernel-tracing.mount - Kernel Trace File System.
-03:08:12    | [  OK  ] Mounted sys-kernel-tracing…nt - Kernel Trace File System.
-03:08:12    | [    3.692981] systemd[1]: Finished kmod-static-nodes.service - Create List of Static Device Nodes.
-03:08:12    | [  OK  ] Finished kmod-static-nodes…reate List of Static Device Nodes.
-03:08:12    | [    3.748479] systemd[1]: modprobe@configfs.service: Deactivated successfully.
-03:08:12    | [    3.770645] systemd[1]: Finished modprobe@configfs.service - Load Kernel Module configfs.
-03:08:12    | [  OK  ] Finished modprobe@configfs…[0m - Load Kernel Module configfs.
-03:08:12    | [    3.775174] systemd[1]: modprobe@dm_mod.service: Deactivated successfully.
-03:08:12    | [    3.789220] systemd[1]: Finished modprobe@dm_mod.service - Load Kernel Module dm_mod.
-03:08:12    | [  OK  ] Finished modprobe@dm_mod.s…e - Load Kernel Module dm_mod.
-03:08:12    | [    3.792881] systemd[1]: modprobe@drm.service: Deactivated successfully.
-03:08:12    | [    3.812860] systemd[1]: Finished modprobe@drm.service - Load Kernel Module drm.
-03:08:13    | [  OK  ] Finished modprobe@drm.service - Load Kernel Module drm.
-03:08:13    | [    3.816531] systemd[1]: modprobe@efi_pstore.service: Deactivated successfully.
-03:08:13    | [    3.826665] systemd[1]: Finished modprobe@efi_pstore.service - Load Kernel Module efi_pstore.
-03:08:13    | [  OK  ] Finished modprobe@efi_psto…m - Load Kernel Module efi_pstore.
-03:08:13    | [    3.835579] systemd[1]: modprobe@fuse.service: Deactivated successfully.
-03:08:13    | [    3.840524] EXT4-fs (mmcblk0p2): re-mounted df4b6d79-082b-4e2d-af0f-6c01c4edd889 r/w. Quota mode: disabled.
-03:08:13    | [    3.849300] systemd[1]: Finished modprobe@fuse.service - Load Kernel Module fuse.
-03:08:13    | [  OK  ] Finished modprobe@fuse.service - Load Kernel Module fuse.
-03:08:13    | [    3.857056] systemd[1]: modprobe@loop.service: Deactivated successfully.
-03:08:13    | [    3.879198] systemd[1]: Finished modprobe@loop.service - Load Kernel Module loop.
-03:08:13    | [  OK  ] Finished modprobe@loop.service - Load Kernel Module loop.
-03:08:13    | [    3.889242] systemd[1]: Finished systemd-modules-load.service - Load Kernel Modules.
-03:08:13    | [  OK  ] Finished systemd-modules-l…service - Load Kernel Modules.
-03:08:13    | [    3.899257] systemd[1]: Finished systemd-remount-fs.service - Remount Root and Kernel File Systems.
-03:08:13    | [  OK  ] Finished systemd-remount-f…ount Root and Kernel File Systems.
-03:08:13    | [    3.902968] systemd[1]: sys-fs-fuse-connections.mount - FUSE Control File System was skipped because of an unmet condition check (ConditionPathExists=/sys/fs/fuse/connections).
-03:08:13    | [    3.939386] systemd[1]: Mounting sys-kernel-config.mount - Kernel Configuration File System...
-03:08:13    |          Mounting sys-kernel-config…ernel Configuration File System...
-03:08:13    | [    3.940241] systemd[1]: systemd-firstboot.service - First Boot Wizard was skipped because of an unmet condition check (ConditionFirstBoot=yes).
-03:08:13    | [    3.940883] systemd[1]: systemd-pstore.service - Platform Persistent Storage Archival was skipped because of an unmet condition check (ConditionDirectoryNotEmpty=/sys/fs/pstore).
-03:08:13    | [    3.945506] systemd[1]: Starting systemd-random-seed.service - Load/Save Random Seed...
-03:08:13    |          Starting systemd-random-se…ice - Load/Save Random Seed...
-03:08:13    | [    3.959945] systemd[1]: systemd-repart.service - Repartition Root Disk was skipped because no trigger condition checks were met.
+03:28:33  listening on socket://localhost:5575
+03:28:46  listening on socket://localhost:5575
+03:28:47  the board's console is socket://localhost:5575; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-032833
+03:28:47  step 0: listening to the boot (sending nothing)
+03:28:47    boot: kernel at +0.0 s
+03:28:48    boot: clk pass at +1.5 s
+03:28:50    boot: systemd at +3.5 s
+03:31:26    boot: SILENT for 150 s -- the board stopped. Its last console lines:
+03:31:26    |          Starting systemd-remount-f…nt Root and Kernel File Systems...
+03:31:26    | [    3.589334] systemd[1]: Starting systemd-udev-trigger.service - Coldplug All udev Devices...
+03:31:26    |          Starting systemd-udev-trig…[0m - Coldplug All udev Devices...
+03:31:26    | [    3.655551] systemd[1]: Mounted sys-kernel-debug.mount - Kernel Debug File System.
+03:31:26    | [  OK  ] Mounted sys-kernel-debug.m…nt - Kernel Debug File System.
+03:31:26    | [    3.684204] systemd[1]: Mounted sys-kernel-tracing.mount - Kernel Trace File System.
+03:31:26    | [  OK  ] Mounted sys-kernel-tracing…nt - Kernel Trace File System.
+03:31:26    | [    3.708795] systemd[1]: Finished kmod-static-nodes.service - Create List of Static Device Nodes.
+03:31:26    | [  OK  ] Finished kmod-static-nodes…reate List of Static Device Nodes.
+03:31:26    | [    3.762350] systemd[1]: modprobe@configfs.service: Deactivated successfully.
+03:31:26    | [    3.784469] systemd[1]: Finished modprobe@configfs.service - Load Kernel Module configfs.
+03:31:26    | [  OK  ] Finished modprobe@configfs…[0m - Load Kernel Module configfs.
+03:31:26    | [    3.800630] systemd[1]: modprobe@dm_mod.service: Deactivated successfully.
+03:31:26    | [    3.803300] EXT4-fs (mmcblk0p2): re-mounted df4b6d79-082b-4e2d-af0f-6c01c4edd889 r/w. Quota mode: disabled.
+03:31:26    | [    3.805884] systemd[1]: Finished modprobe@dm_mod.service - Load Kernel Module dm_mod.
+03:31:26    | [  OK  ] Finished modprobe@dm_mod.s…e - Load Kernel Module dm_mod.
+03:31:26    | [    3.831215] systemd[1]: modprobe@drm.service: Deactivated successfully.
+03:31:26    | [    3.838787] systemd[1]: Finished modprobe@drm.service - Load Kernel Module drm.
+03:31:26    | [  OK  ] Finished modprobe@drm.service - Load Kernel Module drm.
+03:31:26    | [    3.842653] systemd[1]: modprobe@efi_pstore.service: Deactivated successfully.
+03:31:26    | [    3.858834] systemd[1]: Finished modprobe@efi_pstore.service - Load Kernel Module efi_pstore.
+03:31:26    | [  OK  ] Finished modprobe@efi_psto…m - Load Kernel Module efi_pstore.
+03:31:26    | [    3.863047] systemd[1]: modprobe@fuse.service: Deactivated successfully.
+03:31:26    | [    3.878755] systemd[1]: Finished modprobe@fuse.service - Load Kernel Module fuse.
+03:31:26    | [  OK  ] Finished modprobe@fuse.service - Load Kernel Module fuse.
+03:31:26    | [    3.882441] systemd[1]: modprobe@loop.service: Deactivated successfully.
+03:31:26    | [    3.888844] systemd[1]: Finished modprobe@loop.service - Load Kernel Module loop.
+03:31:26    | [  OK  ] Finished modprobe@loop.service - Load Kernel Module loop.
+03:31:26    | [    3.898815] systemd[1]: Finished systemd-modules-load.service - Load Kernel Modules.
+03:31:26    | [  OK  ] Finished systemd-modules-l…service - Load Kernel Modules.
+03:31:26    | [    3.908734] systemd[1]: Finished systemd-remount-fs.service - Remount Root and Kernel File Systems.
+03:31:26    | [  OK  ] Finished systemd-remount-f…ount Root and Kernel File Systems.
+03:31:26    | [    3.912440] systemd[1]: sys-fs-fuse-connections.mount - FUSE Control File System was skipped because of an unmet condition check (ConditionPathExists=/sys/fs/fuse/connections).
+03:31:26    | [    3.949313] systemd[1]: Mounting sys-kernel-config.mount - Kernel Configuration File System...
+03:31:26    |          Mounting sys-kernel-config…ernel Configuration File System...
+03:31:26    | [    3.950294] systemd[1]: systemd-firstboot.service - First Boot Wizard was skipped because of an unmet condition check (ConditionFirstBoot=yes).
+03:31:26    | [    3.951161] systemd[1]: systemd-pstore.service - Platform Persistent Storage Archival was skipped because of an unmet condition check (ConditionDirectoryNotEmpty=/sys/fs/pstore).
+03:31:26    | [    3.955725] systemd[1]: Starting systemd-random-seed.service - Load/Save Random Seed...
+03:31:26    |          Starting systemd-random-se…ice - Load/Save Random Seed...
+03:31:26    | [    3.956885] systemd[1]: systemd-repart.service - Repartition Root Disk was skipped because no trigger condition checks were met.
 driver rc=3

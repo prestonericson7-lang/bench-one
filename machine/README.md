@@ -216,9 +216,10 @@ in `/boot/reports/` on their cards.
       GPU's own clock). If it happens, the PC beeps and shows a message asking you to unplug and replug J8.
       It keeps listening, records the reboot, and shows a second message with the verdict when finished.
       If the PC hears nothing at all from J2 for 10 minutes, it says so in a message too;
-   4. **the Pi last**, after the PC's "experiment finished" message. The Pi keeps its swap in FPGA #1's
-      memory, so a freeze in that last test would take the Pi's swapped pages with it. If the Pi is on
-      anyway, the PC sees it attached and skips only that test.
+   4. **the Pi last**, after the PC's final message (every way the run can end, finished or not, shows one
+      ending "You can switch the Orange Pi on now"). The Pi keeps its swap in FPGA #1's memory, so a
+      freeze in that last test would take the Pi's swapped pages with it. If the Pi is on anyway, the PC
+      sees it attached and skips only that test.
    Afterwards `/boot/reports/plcheck.txt` on card #1 also says how far the board got. On the Pi, if the
    rest of the NVMe drive is unpartitioned (its kernel log shows one partition), that space appears at
    `/mnt/nvme`; the old 256 MB FAT partition is left as it is. Either way the Pi records what it found in

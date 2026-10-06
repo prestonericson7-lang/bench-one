@@ -1,41 +1,41 @@
-03:03:10  listening on socket://localhost:5574
-03:03:12  listening on socket://localhost:5574
-03:04:42  socket://localhost:5574: nothing from a Zynq for 90 s -- sent one Enter in case Linux is already up
-03:04:43  the board's console is socket://localhost:5574; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030310-18272
-03:04:43  step 0: listening to the boot (sending nothing)
-03:04:43    boot: login at +0.0 s
-03:05:02    boot: the board was already up when the PC began listening -- its boot was not observed
-03:05:05  step 1: what this boot did
-03:05:05    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 
-03:05:05    | 6.12.0-dirty
-03:05:05    | 61.61 35.40
-03:05:05    | G|== boot 1
-03:05:05    | G|[   16.06 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 no
-03:05:05    | G|[   16.22 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 36111111 Hz
-03:05:05    | G|[   16.26 s] SLCR IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000
-03:05:05    | G|[   16.29 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
-03:05:05    | G|[   16.29 s] verdict: PL not loaded at this boot (no fpgagpu.pl_loaded=1: U-Boot loaded no pl.bit) -- nothing to read; the PL services run without it
-03:05:06    | active active active active active 
-03:05:06    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
-03:05:06    |           fclk1_mux                  0       0        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
-03:05:06    |              fclk1_div0              0       0        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
-03:05:06    |                 fclk1_div1           0       0        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
-03:05:06    |                    fclk1             0       0        0        36111111    0          0     50000      N                     deviceless                      no_connection_id         
-03:05:06    |           fclk0_mux                  1       1        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
-03:05:06    |              fclk0_div0              1       1        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
-03:05:06    |                 fclk0_div1           1       1        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
-03:05:06    |                    fclk0             1       1        0        36111111    0          0     50000      Y                     deviceless                      no_connection_id         
-03:05:06    |                total        used        free      shared  buff/cache   available
-03:05:06    | Mem:             223         165          16         129         178          57
-03:05:06    | MemAvailable:      59400 kB
-03:05:06    | Shmem:            132500 kB
-03:05:06    | CmaFree:            1524 kB
-03:05:13    plx.py on the board, sha256 8f5c318330ac60fb matches
-03:05:13    | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
-03:05:13    FCLK0 gate bit clear; PL loaded at boot: False
-03:05:13  step 2: no PL loaded at this boot (no marker) -- the PL steps below read nothing real
-03:05:14    |   boot: the board was already up when the PC began listening -- its boot was not observed
-03:05:14    |   | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
-03:05:14    |   FCLK0 gate bit clear; PL loaded at boot: False
-03:05:14  done; console logs and this summary in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030310-18272
+03:26:25  listening on socket://localhost:5574
+03:26:27  listening on socket://localhost:5574
+03:27:57  socket://localhost:5574: nothing from a Zynq for 90 s -- sent one Enter in case Linux is already up
+03:27:58  the board's console is socket://localhost:5574; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-032625
+03:27:58  step 0: listening to the boot (sending nothing)
+03:27:58    boot: login at +0.0 s
+03:28:17    boot: the board was already up when the PC began listening -- its boot was not observed
+03:28:19  step 1: what this boot did
+03:28:20    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 
+03:28:20    | 6.12.0-dirty
+03:28:20    | 61.30 40.51
+03:28:20    | G|== boot 1
+03:28:20    | G|[   15.83 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 no
+03:28:20    | G|[   15.99 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 36111111 Hz
+03:28:20    | G|[   16.02 s] SLCR IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000
+03:28:20    | G|[   16.06 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
+03:28:20    | G|[   16.06 s] verdict: PL not loaded at this boot (no fpgagpu.pl_loaded=1: U-Boot loaded no pl.bit) -- nothing to read; the PL services run without it
+03:28:21    | active active active active active 
+03:28:21    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
+03:28:21    |           fclk1_mux                  0       0        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:28:21    |              fclk1_div0              0       0        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:28:21    |                 fclk1_div1           0       0        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:28:21    |                    fclk1             0       0        0        36111111    0          0     50000      N                     deviceless                      no_connection_id         
+03:28:21    |           fclk0_mux                  1       1        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:28:21    |              fclk0_div0              1       1        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:28:21    |                 fclk0_div1           1       1        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:28:21    |                    fclk0             1       1        0        36111111    0          0     50000      Y                     deviceless                      no_connection_id         
+03:28:21    |                total        used        free      shared  buff/cache   available
+03:28:21    | Mem:             223         165          16         129         178          58
+03:28:21    | MemAvailable:      59660 kB
+03:28:21    | Shmem:            132500 kB
+03:28:21    | CmaFree:            7596 kB
+03:28:27    plx.py on the board, sha256 8f5c318330ac60fb matches
+03:28:27    | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
+03:28:28    FCLK0 gate bit clear; PL loaded at boot: False
+03:28:28  step 2: no PL loaded at this boot (no marker) -- the PL steps below read nothing real
+03:28:29    |   boot: the board was already up when the PC began listening -- its boot was not observed
+03:28:29    |   | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
+03:28:29    |   FCLK0 gate bit clear; PL loaded at boot: False
+03:28:29  done; console logs and this summary in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-032625
 driver rc=0

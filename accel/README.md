@@ -30,7 +30,10 @@ D9SHG (= that part). The listing's "1GB" is wrong. The 32-bit / 1 GB PS config w
 1. **Zynq**: the SD card carries the image (`hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz`,
    sha256 in `sd-image.sha256`). Board setup and the hands-off boot capture:
    [BOOT-SD-runbook.md](../hardware/pz7020-starlite/BOOT-SD-runbook.md). The boot report must show
-   `accel zaccel-server active fpgagpud active nbd-server active`, the three `uio` windows, and `pl_done yes`.
+   `accel zynq-plcheck active zaccel-server active fpgagpud active nbd-server active`, a `plcheck` row
+   ending in `OK`, the three `uio` windows, and `pl_done yes`. (`zynq-plcheck`, the boot guard added after
+   the 2026-10-05 boot, checks the PL's clock, level shifters and reset before anything reads the PL;
+   `hardware/pz7020-starlite/linux/EXPERIMENT.md`.)
 2. **Orange Pi**: its card already carries the bundle (the official 1.1.0 image plus the bundle,
    [build_pi_card_image.sh](build_pi_card_image.sh), written with `write_sd.py`). At its first boot the Pi
    installs everything by itself and writes the log to `~/accel-install.log`. That includes the two missing

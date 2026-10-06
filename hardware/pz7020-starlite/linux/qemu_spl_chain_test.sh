@@ -55,7 +55,13 @@ make -j"$(nproc)" DEVICE_TREE=zynq-pz7020-starlite 2>&1 | grep -E "error|Error" 
 cp "$IMG" /root/zynq/qemu-chain-sd.img && sd_pow2 /root/zynq/qemu-chain-sd.img
 echo "production image: $(sha256sum "$IMG" | cut -c1-16)...  QEMU start $(date +%T)"
 timeout "$TIMEOUT" qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic -serial mon:stdio \
-  -kernel spl/u-boot-spl -drive file=/root/zynq/qemu-chain-sd.img,if=sd,format=raw </dev/null >"$LOG" 2>&1
+  -device loader,file=spl/u-boot-spl-dtb.bin,addr=0x0,force-raw=on \
+  -drive file=/root/zynq/qemu-chain-sd.img,if=sd,format=raw </dev/null >"$LOG" 2>&1
+# (the SPL as the BootROM gives it: the binary WITH its appended device tree, CONFIG_OF_SEPARATE. The first
+#  version loaded the ELF with -kernel, which carries no device tree: spl_init() failed and the SPL sat in
+#  hang() without a word -- found 2026-10-06 from QEMU's monitor: PC in hang(), called from board_init_r
+#  right after spl_init(). No cpu-num loader: QEMU rejects addr=0 there, and the A9 starts at its reset
+#  vector, 0x0, where the binary is)
 echo "QEMU end $(date +%T)"
 grep -a -n -E "U-Boot SPL|Trying to boot|uImage|^U-Boot 20|DRAM:|^MMC:|Found U-Boot script|Loading PL|Starting kernel|Booting Linux|EXT4-fs \(mmcblk0p2\): mounted|automatic login|ZYNQ-REPORT|Kernel panic|### ERROR|resetting|FAIL" "$LOG" | cut -c1-160 | head -60
 grep -a -q "ZYNQ-REPORT END" "$LOG" && { echo "SPL CHAIN: SPL -> U-Boot -> boot.scr -> Linux -> autologin -> report, all reached"; exit 0; }

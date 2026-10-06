@@ -1,0 +1,10 @@
+== with the 2 s setting: power cut 20 s after the first tick
+   journald drop-in on this copy: bringup.conf 
+   power cut: the last tick on the console was #16 at uptime 75.21 s
+   the last tick on the card: TICK 14 72.39
+   RESULT with: the card is 2 ticks behind the console = 2.8 s lost to the power cut
+== without the 2 s setting: power cut 20 s after the first tick
+   journald drop-in on this copy: 
+   power cut: the last tick on the console was #16 at uptime 73.77 s
+   the last tick on the card: TICK 6 60.94
+   RESULT without: the card is 10 ticks behind the console = 12.8 s lost to the power cut

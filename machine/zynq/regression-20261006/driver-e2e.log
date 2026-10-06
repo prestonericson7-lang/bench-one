@@ -1,0 +1,58 @@
+4611e70e0b101a43
+8f5c318330ac60fb
+== building the stuck-guard image
+STUCK GUARD IMAGE: /root/zynq/stuck-guard.img (one line changed: the PEEK child sleeps before reading)
+== 1 fix failed and 2 stuck guard (in parallel)
+  PASS  1: the board's port picked
+  PASS  1: the fake CH340 left alone
+  PASS  1: the gate Linux set is seen
+  PASS  1: the gate cleared before the read
+  PASS  1: the PL read came back once the clock ran
+  PASS  1: the gate test ran
+  PASS  1: the reboot captured
+  PASS  1: restored
+  PASS  1: the SLCR left unlocked, as Linux needs
+  PASS  1: the record on the card, read back after the base64 transfer
+  PASS  1: exit 0
+  PASS  2: the missing report noticed
+  PASS  2: the shell found with one Enter
+  PASS  2: the stuck read named
+  PASS  2: the PL left alone
+  PASS  2: a verdict for it
+  PASS  2: no measurement attempted
+  PASS  2: no PL read by the driver
+  PASS  2: exit 0
+   (2: systemd 'A start job is running' lines on that console: 0 -- 0 in QEMU on 2026-10-06; the driver does not rely on them)
+== 3 already up, 6 refused and 7 the Pi check (in parallel)
+   3: a throwaway client saw the boot and disconnected
+   7: PI-CHECK none: ['0']
+   7: PI-CHECK one client: ['1']
+   7: PI-CHECK nbd-server: ['active']
+  PASS  7: the emulated board's nbd-server runs
+  PASS  7: no client -> 0 (the stall test runs)
+  PASS  7: one client on the export -> 1 (the stall test is skipped)
+  PASS  3: one Enter after 90 s of silence
+  PASS  3: the board found already up
+  PASS  3: exit 0
+  PASS  6: refused on the guard's other problems
+  PASS  6: the driver's own check adds nothing the guard already said
+  PASS  6: steps skipped
+  PASS  6: the skip recorded on the card (read back)
+  PASS  6: no PL read
+  PASS  6: exit 0
+== 4 frozen boot, 5 no return and 8 no guard log (in parallel)
+   4: QEMU stopped (SIGSTOP) once systemd ran
+   5: QEMU killed as the reboot was sent
+  PASS  4: the stop noticed
+  PASS  4: exit 3
+  PASS  5: the lost console noticed
+  PASS  5: the verdicts of steps 3-4 kept
+  PASS  5: exit 3
+  PASS  8: the missing guard log noticed
+  PASS  8: the driver's own reading finds the level shifters off
+  PASS  8: and the fabric in reset
+  PASS  8: refused without the guard
+  PASS  8: no PL read
+  PASS  8: exit 0
+captures: /d/espicpc/hardware/pz7020-starlite/linux/captures/driver-e2e-20261006-025524
+DRIVER E2E: PASS

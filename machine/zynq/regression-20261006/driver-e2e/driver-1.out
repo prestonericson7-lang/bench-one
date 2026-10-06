@@ -1,0 +1,172 @@
+02:55:34  listening on socket://localhost:5572,socket://localhost:5571
+02:55:39  listening on socket://localhost:5572
+02:56:08  listening on socket://localhost:5571
+02:56:09  socket://localhost:5572 is not the board -- closed
+02:56:09  the board's console is socket://localhost:5571; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-025534
+02:56:09  step 0: listening to the boot (sending nothing)
+02:56:09    boot: U-Boot at +0.0 s
+02:56:17    boot: pl.bit at +8.0 s
+02:56:17    boot: PL NOT loaded at +8.0 s
+02:56:21    boot: kernel at +11.5 s
+02:56:23    boot: clk pass at +13.5 s
+02:56:24    boot: systemd at +15.0 s
+02:57:08    boot: guard at +58.6 s
+02:57:28    boot: login at +78.7 s
+02:57:49    boot: report at +99.2 s
+02:57:49    report | time          2026-04-27T19:49:16  uptime 22.11 s
+02:57:49    report | model         Puzhi PZ7020-StarLite
+02:57:49    report | kernel        6.12.0-dirty armv7l
+02:57:49    report | cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
+02:57:49    report | cpu_khz       766666
+02:57:49    report | mem_total     229356 kB  (what the device tree gives Linux -- not a probe of the chips)
+02:57:49    report | pl_done       yes -- fabric configured: U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since
+02:57:49    report | plcheck       [   13.83 s] problem: FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock | [   13.84 s] BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+02:57:49    report | pl_regs       skipped -- zynq-plcheck found the PL bus unsafe to read (see plcheck)
+02:57:49    report | die_temp_C    -273.0  (Zynq XADC)
+02:57:49    report | eth0          ipv4 none   link down   speed ? Mb/s   mac 02:5a:70:20:00:01
+02:57:49    report | sd_card       QEMU!   8.00 GiB
+02:57:49    report | rootfs        3.9G size, 2.9G used, 79%
+02:57:49    report | boot_time     still in progress at this report (see uptime)
+02:57:49    report | failed_units  zynq-plcheck.service
+02:57:49    report | zynq-agent    inactive
+02:57:49    report | accel         zynq-plcheck failed   zaccel-server inactive   fpgagpud inactive   nbd-server active
+02:57:49    report | uio           pl_regs@40000000@0x40000000 zaccel-dma@40400000@0x40400000 zaccel-mem@10000000@0x10000000
+02:57:49    report | pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
+02:57:49    report | zynqram       134217728 bytes
+02:57:49    report | --- kernel err/warn (first 12) ---
+02:57:49    report | [    0.000000] L2C: platform modifies aux control register: 0x00000000 -> 0x00400000
+02:57:49    report | [    0.000000] L2C: DT/platform modifies aux control register: 0x00000000 -> 0x00400000
+02:57:49    report | [    0.287538] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
+02:57:49    report | [    0.356187] armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+02:57:49    report | [    0.379080] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+02:57:49    report | [    2.121316] systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
+02:57:49    report | [    2.121448] systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
+02:57:49    report | [    7.923458] zynq-node: node 1 -> zynq1 10.20.0.2
+02:57:49    report | [    9.340416] platform regulatory.0: Direct firmware load for regulatory.db failed with error -2
+02:57:49    report | [    9.985797] macb e000b000.ethernet eth0: Could not attach PHY (-19)
+02:57:49    report | [   10.722894] amba f8801000.etb: deferred probe pending: (reason unknown)
+02:57:49    report | [   10.723806] amba f8803000.tpiu: deferred probe pending: (reason unknown)
+02:57:49    report | 
+02:57:51  step 1: what this boot did
+02:57:51    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio fpgagpu.pl_loaded=1
+02:57:51    | 6.12.0-dirty
+02:57:51    | 23.50 7.96
+02:57:52    | G|== boot 1
+02:57:52    | G|[   13.66 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 yes
+02:57:52    | G|[   13.79 s] fclk0 in the clock framework: enable_count 0, prepare_count 0, rate 99999999 Hz
+02:57:52    | G|[   13.80 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000001 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+02:57:52    | G|[   13.81 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
+02:57:52    | G|[   13.83 s] problem: FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock
+02:57:52    | G|[   13.84 s] verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+02:57:52    | failed inactive inactive inactive active 
+02:57:52    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
+02:57:52    |           fclk1_mux                  0       0        0        999999990   0          0     50000      Y            deviceless                      no_connection_id         
+02:57:52    |              fclk1_div0              0       0        0        41666667    0          0     50000      Y               deviceless                      no_connection_id         
+02:57:52    |                 fclk1_div1           0       0        0        41666667    0          0     50000      Y                  deviceless                      no_connection_id         
+02:57:52    |                    fclk1             0       0        0        41666667    0          0     50000      N                     deviceless                      no_connection_id         
+02:57:52    |           fclk0_mux                  0       0        0        999999990   0          0     50000      Y            deviceless                      no_connection_id         
+02:57:52    |              fclk0_div0              0       0        0        199999998   0          0     50000      Y               deviceless                      no_connection_id         
+02:57:52    |                 fclk0_div1           0       0        0        99999999    0          0     50000      Y                  deviceless                      no_connection_id         
+02:57:52    |                    fclk0             0       0        0        99999999    0          0     50000      N                     deviceless                      no_connection_id         
+02:57:53    |                total        used        free      shared  buff/cache   available
+02:57:53    | Mem:             223         166          17         129         177          57
+02:57:53    | MemAvailable:      58844 kB
+02:57:53    | Shmem:            132492 kB
+02:57:53    | CmaFree:            5116 kB
+02:57:59    plx.py on the board, sha256 8f5c318330ac60fb matches
+02:57:59    | PLX regs IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000001 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f DEVCFG_INT_STS 0x00000000
+02:58:00    FCLK0 gate bit SET (clock stopped); PL loaded at boot: True
+02:58:00  step 2: the guard found FCLK0 gated. Clearing the gate bit, then reading the PL
+02:58:00    | PLX gate 0 -> FPGA0_THR_CNT 0x00000000 at 25.861916
+02:58:20    | PLX rdtimed 0x40000000 = 0x00000000 in 0.000101 s, done at 26.031359
+02:58:20  step 3: FCLK0 measured on the silicon (pl_regs counter over 1 s of CPU time)
+02:58:24    | PLX measure 0 ticks in 1.000466 s = 0.000000 MHz (CLK_HZ register 0)
+02:58:29    | root@zynq1:~# python3 /tmp/plx.py measure 1; echo '__S33''E__' $?
+02:58:29    | PLX measure 0 ticks in 1.000589 s = 0.000000 MHz (CLK_HZ register 0)
+02:58:33    | PLX measure 0 ticks in 1.000632 s = 0.000000 MHz (CLK_HZ register 0)
+02:58:33  step 4: the gate test -- no PL access while the gate bit is set
+02:58:34    | inactive inactive inactive 
+02:58:46    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
+02:58:46    | PLX gatetest wall 2.000894 s, gate held 2.000371 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.000894 s; counter afterwards 0.000 MHz
+02:58:46    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
+02:58:57    | PLX gatetest FPGA0_THR_STA while gated 0x00010000, after 0x00010000
+02:58:57    | PLX gatetest wall 2.000724 s, gate held 2.000209 s (THR_CNT set 0x00000001, cleared 0x00000000), counter advanced 0.000000 s at its own 100.000 MHz (0.000 before, CLK_HZ 0) -> counter stopped for 2.000724 s; counter afterwards 0.000 MHz
+02:58:57    | PLX gatetest NO CONCLUSION: the counter does not run (no PL, or its clock is not FCLK0)
+02:58:58  step 5 replaced (--test-reboot): the board is rebooted to exercise the reboot capture
+02:58:58    the board stopped answering: power-cycle it (it boots the same card). Listening for the reboot, up to 60 min, sending nothing
+02:58:58    boot: U-Boot at +0.5 s
+02:59:07    boot: pl.bit at +9.5 s
+02:59:07    boot: PL NOT loaded at +9.5 s
+02:59:16    boot: kernel at +18.0 s
+02:59:18    boot: clk pass at +20.0 s
+02:59:21    boot: systemd at +23.0 s
+03:00:04    boot: guard at +66.2 s
+03:00:24    boot: login at +86.7 s
+03:00:45    boot: report at +107.3 s
+03:00:45    report | time          2026-04-27T19:49:16  uptime 22.51 s
+03:00:45    report | model         Puzhi PZ7020-StarLite
+03:00:45    report | kernel        6.12.0-dirty armv7l
+03:00:45    report | cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
+03:00:45    report | cpu_khz       766666
+03:00:45    report | mem_total     229356 kB  (what the device tree gives Linux -- not a probe of the chips)
+03:00:45    report | pl_done       yes -- fabric configured: U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since
+03:00:45    report | plcheck       [   13.84 s] BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up | [   14.24 s] problem: FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock | [   14.25 s] BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so the board stays up
+03:00:45    report | pl_regs       skipped -- zynq-plcheck found the PL bus unsafe to read (see plcheck)
+03:00:45    report | die_temp_C    -273.0  (Zynq XADC)
+03:00:45    report | eth0          ipv4 none   link down   speed ? Mb/s   mac 02:5a:70:20:00:01
+03:00:45    report | sd_card       QEMU!   8.00 GiB
+03:00:45    report | rootfs        3.9G size, 2.9G used, 80%
+03:00:45    report | boot_time     still in progress at this report (see uptime)
+03:00:45    report | failed_units  zynq-plcheck.service
+03:00:45    report | zynq-agent    inactive
+03:00:45    report | accel         zynq-plcheck failed   zaccel-server inactive   fpgagpud inactive   nbd-server active
+03:00:45    report | uio           pl_regs@40000000@0x40000000 zaccel-dma@40400000@0x40400000 zaccel-mem@10000000@0x10000000
+03:00:45    report | pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
+03:00:45    report | zynqram       134217728 bytes
+03:00:45    report | --- kernel err/warn (first 12) ---
+03:00:45    report | [    0.000000] L2C: platform modifies aux control register: 0x00000000 -> 0x00400000
+03:00:45    report | [    0.000000] L2C: DT/platform modifies aux control register: 0x00000000 -> 0x00400000
+03:00:45    report | [    0.285940] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
+03:00:45    report | [    0.348016] armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+03:00:45    report | [    0.385163] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+03:00:45    report | [    2.544848] systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
+03:00:45    report | [    2.545024] systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
+03:00:45    report | [    3.407390] systemd-journald[84]: File /var/log/journal/437dae19e56f43e193b5f537e3ebd9a9/system.journal corrupted or uncleanly shut down, renaming and replacing.
+03:00:45    report | [    7.619384] FAT-fs (mmcblk0p1): Volume was not properly unmounted. Some data may be corrupt. Please run fsck.
+03:00:45    report | [    8.234969] zynq-node: node 1 -> zynq1 10.20.0.2
+03:00:45    report | [    9.777943] platform regulatory.0: Direct firmware load for regulatory.db failed with error -2
+03:00:45    report | [   10.485923] macb e000b000.ethernet eth0: Could not attach PHY (-19)
+03:00:45    report | 
+03:00:48    the board is back up on the same card
+03:00:55    plx.py on the board, sha256 8f5c318330ac60fb matches
+03:00:55  step 6: restore
+03:00:57    | PLX gate 0 -> FPGA0_THR_CNT 0x00000000 at 26.141037
+03:00:57    | PLX regs IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f DEVCFG_INT_STS 0x00000000
+03:00:57    | PLX SLCR_LOCKSTA 0 (unlocked, as Linux leaves it)
+03:00:57    | PLX rd 0x40000000 = 0x00000000
+03:01:07    | [   26.631895] python3[277]: [   26.62 s] kernel 6.12.0-dirty; guards: clk_ignore_unused NO, marker fpgagpu.pl_loaded=1 yes
+03:01:07    | [   26.656801] python3[277]: [   26.65 s] fclk0 in the clock framework: enable_count 0, prepare_count 0, rate 99999999 Hz
+03:01:07    | [   26.666117] python3[277]: [   26.66 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+03:01:07    | [   26.676444] python3[277]: [   26.67 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
+03:01:07    | [   26.683473] python3[277]: [   26.68 s] reading 0x40000000 (platform registers) through M_AXI_GP0 -- if this is the last line, that read hung
+03:01:07    | [   26.754817] python3[277]: [   26.75 s]   0x40000000 = 0x00000000 (expected 0x5a702001)
+03:01:07    | [   26.762367] python3[277]: [   26.76 s] reading 0x43c00000 (GPU registers ('GPU1')) through M_AXI_GP0 -- if this is the last line, that read hung
+03:01:07    | [   26.828492] python3[277]: [   26.82 s]   0x43c00000 = 0x00000000 (expected 0x47505531)
+03:01:07    | [   26.836590] python3[277]: [   26.83 s] verdict: OK -- clock, level shifters and reset fine, and the PL reads came back
+03:01:07    | active active active 
+03:01:08    | [    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+03:01:08    | [    0.031983] rcu: Hierarchical SRCU implementation.
+03:01:08    | [    0.032032] rcu: 	Max phase no-delay instances is 1000.
+03:01:08    | [    0.104421] scmi_core: SCMI protocol bus registered
+03:01:08    | [    0.285940] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
+03:01:08    | [    0.385163] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+03:01:08  VERDICT FCLK0: the fabric's counter does not move (0 ticks) -- no PL answering at 0x40000000, so nothing below says anything about FCLK0
+03:01:08  VERDICT gate test: no conclusion (the counter does not run)
+03:01:08  VERDICT gate test: no conclusion (the counter does not run)
+03:01:08  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:01:08  VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:01:10    | VERDICT gate test: no conclusion (the counter does not run)
+03:01:10    | VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:01:10    | VERDICT FPGA0_THR_STA (the PS's own status) read 0x00010000 while gated and 0x00010000 after -- no change
+03:01:10  done; console logs and this summary in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-025534
+driver rc=0

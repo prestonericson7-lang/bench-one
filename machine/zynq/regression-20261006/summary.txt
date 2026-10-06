@@ -1,0 +1,24 @@
+image eeb4afcec81cfa27  start 02:02:46
+== uboot rc=0 (119 s): 11 pass, 0 fail
+U-BOOT STAGE: PASS
+== boot rc=0 (182 s): 0 pass, 0 fail
+QEMU BOOT: reached the login prompt
+== spl-chain rc=0 (624 s): 0 pass, 0 fail
+SPL CHAIN: SPL -> U-Boot -> boot.scr -> Linux -> autologin -> report, all reached
+== accel rc=0 (84 s): 12 pass, 0 fail
+QEMU ACCEL TEST: PASS
+== agent rc=0 (73 s): 0 pass, 0 fail
+QEMU AGENT TEST: PASS
+== machine rc=0 (858 s): 16 pass, 0 fail
+MACHINE QEMU TEST: PASS
+== plcheck-ab rc=0 (259 s): 21 pass, 0 fail
+PL GUARD TEST: PASS
+== nvme-wsl rc=0 (33 s): 42 pass, 0 fail
+NVME PI DRIVE TEST: PASS
+== nvme-pi-tools rc=0 (85 s): 42 pass, 0 fail
+NVME PI DRIVE TEST: PASS
+== nvme-claim rc=0 (3 s): 9 pass, 0 fail
+NVME CLAIM TEST: PASS
+== stage-pi-card rc=0 (72 s): 21 pass, 0 fail
+STAGE PI CARD TEST: PASS
+end 02:42:38

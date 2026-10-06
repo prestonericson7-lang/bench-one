@@ -10,7 +10,7 @@
 # and fpgagpu.pl_loaded=1 on the command line. Everything else is the real chain. QEMU's SLCR keeps the
 # gate bit Linux writes at "clk: Disabling unused clocks" (measured: FPGA0_THR_CNT = 1 with card #1's
 # device tree), so:  A must say "FCLK0 gated", BLOCK, read nothing and hold fpgagpud/zaccel-server back with
-# the board up;  B must find nothing wrong, attempt the PL reads (QEMU has no PL: bus error) and pass.
+# the board up;  B must find nothing wrong, attempt the PL reads (QEMU has no PL: they return 0) and pass.
 #     wsl -d Ubuntu-22.04 -u root --exec bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_plcheck_test.sh
 set -uo pipefail
 L=$(cd "$(dirname "$0")" && pwd)

@@ -1,0 +1,24 @@
+board clock writes: 0xF8000100=0x2E000 0xF8000104=0x20000 0xF8000108=0x1E000 0xF8000120=0x1F000200 0xF8000124=0xC200003 0xF8000150=0xA01 0xF8000170=0x200500 0xF80001C4=0x1
+test patches applied to arch/arm/mach-zynq/spl.c
+-rwxr-xr-x 1 root root 1677244 Oct  6 01:46 spl/u-boot-spl
+production image: eeb4afcec81cfa27...  QEMU start 01:46:37
+QEMU end 01:56:37
+2:U-Boot SPL 2025.07 (Oct 06 2026 - 01:46:17 -0700)
+4:Trying to boot from MMC1
+8:U-Boot 2025.07-dirty (Sep 26 2026 - 14:52:57 -0700)
+11:DRAM:  ECC disabled 512 MiB
+15:MMC:   mmc@e0100000: 0
+29:QSPI: Trying to boot script at 3000000
+32:QSPI: SCRIPT FAILED: continuing...
+33:JTAG: Trying to boot script at 3000000
+36:JTAG: SCRIPT FAILED: continuing...
+40:Found U-Boot script /boot.scr
+44:Loading PL bitstream pl.bit (261e97 bytes)
+53:fpga loadb of pl.bit FAILED -- PL not configured
+63:Starting kernel ...
+65:[    0.000000] Booting Linux on physical CPU 0x0
+289:[    0.461418] EXT4-fs (mmcblk0p2): mounted filesystem df4b6d79-082b-4e2d-af0f-6c01c4edd889 r/w with ordered data mode. Quota mode: disabled.
+512:zynq1 login: root (automatic login)
+522:[?2004hroot@zynq1:~# [   22.534906] python3[235]: ==== ZYNQ-REPORT BEGIN ====
+556:[   22.581929] python3[235]: ==== ZYNQ-REPORT END ====
+SPL CHAIN: SPL -> U-Boot -> boot.scr -> Linux -> autologin -> report, all reached

@@ -1,0 +1,50 @@
+02:55:34  listening on socket://localhost:5573
+02:55:59  listening on socket://localhost:5573
+02:56:00  the board's console is socket://localhost:5573; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-025534-17672
+02:56:00  step 0: listening to the boot (sending nothing)
+02:56:00    boot: U-Boot at +0.0 s
+02:56:09    boot: pl.bit at +8.5 s
+02:56:09    boot: PL NOT loaded at +8.5 s
+02:56:12    boot: kernel at +12.0 s
+02:56:16    boot: systemd at +15.5 s
+02:56:57    boot: guard at +56.1 s
+02:57:21    boot: login at +80.7 s
+02:58:21    boot: logged in 60 s ago and no report -- one Enter: does the shell still answer?
+02:58:22    boot: the shell answers, but the report never printed: something it waits for is stuck (the guard's log, read next, says what)
+02:58:24  step 1: what this boot did
+02:58:24    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio clk_ignore_unused fpgagpu.pl_loaded=1
+02:58:24    | 6.12.0-dirty
+02:58:24    | 34.37 14.26
+02:58:25    | G|== boot 1
+02:58:25    | G|[   13.34 s] kernel 6.12.0-dirty; guards: clk_ignore_unused yes, marker fpgagpu.pl_loaded=1 yes
+02:58:25    | G|[   13.50 s] fclk0 in the clock framework: enable_count 1, prepare_count 1, rate 99999999 Hz
+02:58:25    | G|[   13.53 s] SLCR IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f
+02:58:25    | G|[   13.54 s] DEVCFG INT_STS 0x00000000 STATUS 0x00000000
+02:58:25    | G|[   13.55 s] reading 0x40000000 (platform registers) through M_AXI_GP0 -- if this is the last line, that read hung
+02:58:25    PLX guard read stuck: 0x40000000 (platform registers) -- the guard's last line is that read, and no value followed
+02:58:25    | activating inactive inactive inactive active 
+02:58:26    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
+02:58:26    |           fclk1_mux                  0       0        0        999999990   0          0     50000      Y            deviceless                      no_connection_id         
+02:58:26    |              fclk1_div0              0       0        0        41666667    0          0     50000      Y               deviceless                      no_connection_id         
+02:58:26    |                 fclk1_div1           0       0        0        41666667    0          0     50000      Y                  deviceless                      no_connection_id         
+02:58:26    |                    fclk1             0       0        0        41666667    0          0     50000      Y                     deviceless                      no_connection_id         
+02:58:26    |           fclk0_mux                  1       1        0        999999990   0          0     50000      Y            deviceless                      no_connection_id         
+02:58:26    |              fclk0_div0              1       1        0        199999998   0          0     50000      Y               deviceless                      no_connection_id         
+02:58:26    |                 fclk0_div1           1       1        0        99999999    0          0     50000      Y                  deviceless                      no_connection_id         
+02:58:26    |                    fclk0             1       1        0        99999999    0          0     50000      Y                     deviceless                      no_connection_id         
+02:58:26    |                total        used        free      shared  buff/cache   available
+02:58:26    | Mem:             223         167          17         129         176          56
+02:58:26    | MemAvailable:      58236 kB
+02:58:26    | Shmem:            132492 kB
+02:58:26    | CmaFree:            1576 kB
+02:58:34    plx.py on the board, sha256 8f5c318330ac60fb matches
+02:58:34    | PLX regs IO_PLL_CTRL 0x0001e000 FPGA0_CLK_CTRL 0x00200500 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x00000000 LVL_SHFTR_EN 0x0000000f DEVCFG_INT_STS 0x00000000
+02:58:34    FCLK0 gate bit clear; PL loaded at boot: True
+02:58:34  the guard's PL read never returned although its checks passed -- the PL is NOT read again. The registers above are what the PS saw; the console log has the boot
+02:58:34  steps 2-5 skipped: what stopped the bus above must be understood first
+02:58:34  VERDICT boot: the guard's read of 0x40000000 (platform registers) never returned although FCLK0's gate bit was clear, the level shifters on and the fabric out of reset -- something other than the FCLK0 gate stops that read; the PL was not read again
+02:58:36    |   FCLK0 gate bit clear; PL loaded at boot: True
+02:58:36    | VERDICT boot: the guard's read of 0x40000000 (platform registers) never returned although FCLK0's gate bit was clear, the level shifters on and the fabric out of reset -- something other than the FCLK0 gate stops that read; the PL was not read again
+02:58:36    | steps 2-5 skipped: what stopped the bus above must be understood first
+02:58:36  done; console logs and this summary in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-025534-17672
+driver rc=0

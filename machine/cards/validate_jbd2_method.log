@@ -1,0 +1,139 @@
+Traceback (most recent call last):
+  File "/mnt/d/espicpc/machine/cards/jbd2_timeline.py", line 14, in <module>
+    IMG, B = sys.argv[1], float(sys.argv[2])
+Value   RESULT  cut at 12 s, last commit on the card at none s, longest gap between commits 0.0 s (0.0 -> 0.0)
+== power cut at uptime 20 s
+   power cut 20.0 s after the kernel started (last kernel timestamp seen: 15.559 s)
+   boot's wall-clock start from its own journal: 1777319331.272
+   9 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+   == transaction 2: committed at uptime    7.188 s; 7 block(s): inode table 7
+   == transaction 3: committed at uptime   12.468 s; 12 block(s): inode table 10, other metadata 2
+   == transaction 4: committed at uptime   14.128 s; 7 block(s): other metadata 4, inode table 3
+   == transaction 5: committed at uptime   15.618 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 6: committed at uptime   16.278 s; 2 block(s): inode table 2
+   == transaction 7: committed at uptime   16.288 s; 1 block(s): inode table 1
+   == transaction 8: committed at uptime   16.468 s; 1 block(s): inode table 1
+   == transaction 9: committed at uptime   18.528 s; 2 block(s): inode table 2
+   == transaction 10: committed at uptime   18.538 s; 1 block(s): inode table 1
+   RESULT  cut at 20 s, last commit on the card at 18.538 s, longest gap between commits 5.3 s (7.2 -> 12.5)
+== power cut at uptime 30 s
+   power cut 30.1 s after the kernel started (last kernel timestamp seen: 15.938 s)
+   boot's wall-clock start from its own journal: 1777319331.141
+   15 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+   == transaction 2: committed at uptime    7.269 s; 7 block(s): inode table 7
+   == transaction 3: committed at uptime   12.759 s; 12 block(s): inode table 10, other metadata 2
+   == transaction 4: committed at uptime   14.159 s; 7 block(s): other metadata 4, inode table 3
+   == transaction 5: committed at uptime   15.959 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 6: committed at uptime   18.339 s; 2 block(s): inode table 2
+   == transaction 7: committed at uptime   18.339 s; 1 block(s): inode table 1
+   == transaction 8: committed at uptime   24.379 s; 1 block(s): inode table 1
+   == transaction 9: committed at uptime   26.839 s; 2 block(s): inode table 2
+   == transaction 10: committed at uptime   26.959 s; 1 block(s): inode table 1
+   == transaction 11: committed at uptime   27.989 s; 1 block(s): inode table 1
+   == transaction 12: committed at uptime   30.079 s; 2 block(s): inode table 2
+   == transaction 13: committed at uptime   30.089 s; 1 block(s): inode table 1
+   == transaction 14: committed at uptime   30.319 s; 1 block(s): inode table 1
+   == transaction 15: committed at uptime   32.829 s; 2 block(s): inode table 2
+   == transaction 16: committed at uptime   32.879 s; 1 block(s): inode table 1
+   RESULT  cut at 30 s, last commit on the card at 32.879 s, longest gap between commits 6.0 s (18.3 -> 24.4)
+== power cut at uptime 45 s
+   power cut 45.1 s after the kernel started (last kernel timestamp seen: 53.052 s)
+   boot's wall-clock start from its own journal: 1777319331.144
+   22 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+   == transaction 2: committed at uptime    7.296 s; 7 block(s): inode table 7
+   == transaction 3: committed at uptime   12.616 s; 12 block(s): inode table 10, other metadata 2
+   == transaction 4: committed at uptime   13.926 s; 7 block(s): other metadata 4, inode table 3
+   == transaction 5: committed at uptime   15.646 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 6: committed at uptime   18.536 s; 2 block(s): inode table 2
+   == transaction 7: committed at uptime   18.546 s; 1 block(s): inode table 1
+   == transaction 8: committed at uptime   24.256 s; 1 block(s): inode table 1
+   == transaction 9: committed at uptime   26.846 s; 2 block(s): inode table 2
+   == transaction 10: committed at uptime   26.946 s; 1 block(s): inode table 1
+   == transaction 11: committed at uptime   28.026 s; 1 block(s): inode table 1
+   == transaction 12: committed at uptime   30.206 s; 2 block(s): inode table 2
+   == transaction 13: committed at uptime   30.226 s; 1 block(s): inode table 1
+   == transaction 14: committed at uptime   30.456 s; 1 block(s): inode table 1
+   == transaction 15: committed at uptime   32.806 s; 2 block(s): inode table 2
+   == transaction 16: committed at uptime   32.846 s; 1 block(s): inode table 1
+   == transaction 17: committed at uptime   47.176 s; 1 block(s): inode table 1
+   == transaction 18: committed at uptime   49.566 s; 17 block(s): inode table 7, other metadata 10
+   == transaction 19: committed at uptime   49.586 s; 1 block(s): inode table 1
+   == transaction 20: committed at uptime   49.776 s; 10 block(s): inode table 5, other metadata 5
+   == transaction 21: committed at uptime   52.706 s; 23 block(s): inode table 7, other metadata 16
+   == transaction 22: committed at uptime   52.766 s; 1 block(s): inode table 1
+   == transaction 23: committed at uptime   53.116 s; 1 block(s): inode table 1
+   RESULT  cut at 45 s, last commit on the card at 53.116 s, longest gap between commits 14.3 s (32.8 -> 47.2)
+== power cut at uptime 60 s
+   power cut 60.2 s after the kernel started (last kernel timestamp seen: 59.152 s)
+   boot's wall-clock start from its own journal: 1777319331.303
+   31 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+   == transaction 2: committed at uptime    7.207 s; 7 block(s): inode table 7
+   == transaction 3: committed at uptime   12.567 s; 12 block(s): inode table 10, other metadata 2
+   == transaction 4: committed at uptime   14.257 s; 7 block(s): other metadata 4, inode table 3
+   == transaction 5: committed at uptime   15.807 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 6: committed at uptime   18.307 s; 2 block(s): inode table 2
+   == transaction 7: committed at uptime   18.307 s; 1 block(s): inode table 1
+   == transaction 8: committed at uptime   24.097 s; 1 block(s): inode table 1
+   == transaction 9: committed at uptime   26.577 s; 2 block(s): inode table 2
+   == transaction 10: committed at uptime   26.667 s; 1 block(s): inode table 1
+   == transaction 11: committed at uptime   27.767 s; 1 block(s): inode table 1
+   == transaction 12: committed at uptime   29.957 s; 2 block(s): inode table 2
+   == transaction 13: committed at uptime   32.217 s; 2 block(s): inode table 2
+   == transaction 14: committed at uptime   32.297 s; 1 block(s): inode table 1
+   == transaction 15: committed at uptime   46.087 s; 1 block(s): inode table 1
+   == transaction 16: committed at uptime   48.407 s; 22 block(s): inode table 10, other metadata 12
+   == transaction 17: committed at uptime   51.307 s; 21 block(s): inode table 6, other metadata 15
+   == transaction 18: committed at uptime   51.417 s; 1 block(s): inode table 1
+   == transaction 19: committed at uptime   51.827 s; 1 block(s): inode table 1
+   == transaction 20: committed at uptime   54.507 s; 2 block(s): inode table 2
+   == transaction 21: committed at uptime   56.657 s; 2 block(s): inode table 2
+   == transaction 22: committed at uptime   58.507 s; 2 block(s): inode table 2
+   == transaction 23: committed at uptime   58.597 s; 1 block(s): inode table 1
+   == transaction 24: committed at uptime   58.667 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 25: committed at uptime   58.727 s; 1 block(s): inode table 1
+   == transaction 26: committed at uptime   58.947 s; 2 block(s): inode table 2
+   == transaction 27: committed at uptime   59.047 s; 1 block(s): inode table 1
+   == transaction 28: committed at uptime   59.127 s; 1 block(s): inode table 1
+   == transaction 29: committed at uptime   60.907 s; 2 block(s): inode table 2
+   == transaction 30: committed at uptime   63.097 s; 3 block(s): inode table 3
+   == transaction 31: committed at uptime   65.207 s; 3 block(s): inode table 3
+   == transaction 32: committed at uptime   65.207 s; 1 block(s): inode table 1
+   RESULT  cut at 60 s, last commit on the card at 65.207 s, longest gap between commits 13.8 s (32.3 -> 46.1)
+== power cut at uptime 90 s
+   power cut 90.0 s after the kernel started (last kernel timestamp seen: 75.628 s)
+   boot's wall-clock start from its own journal: 1777319331.113
+   33 committed transaction(s) not yet checkpointed; uncommitted tail: 0 block(s)
+   == transaction 2: committed at uptime    7.137 s; 5 block(s): inode table 5
+   == transaction 3: committed at uptime   12.857 s; 12 block(s): inode table 10, other metadata 2
+   == transaction 4: committed at uptime   14.387 s; 7 block(s): other metadata 4, inode table 3
+   == transaction 5: committed at uptime   16.167 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 6: committed at uptime   18.657 s; 2 block(s): inode table 2
+   == transaction 7: committed at uptime   18.667 s; 1 block(s): inode table 1
+   == transaction 8: committed at uptime   25.797 s; 1 block(s): inode table 1
+   == transaction 9: committed at uptime   28.207 s; 2 block(s): inode table 2
+   == transaction 10: committed at uptime   28.297 s; 1 block(s): inode table 1
+   == transaction 11: committed at uptime   30.147 s; 1 block(s): inode table 1
+   == transaction 12: committed at uptime   34.737 s; 2 block(s): inode table 2
+   == transaction 13: committed at uptime   34.767 s; 1 block(s): inode table 1
+   == transaction 14: committed at uptime   48.887 s; 1 block(s): inode table 1
+   == transaction 15: committed at uptime   51.417 s; 18 block(s): inode table 8, other metadata 10
+   == transaction 16: committed at uptime   54.477 s; 24 block(s): other metadata 17, inode table 7
+   == transaction 17: committed at uptime   54.537 s; 1 block(s): inode table 1
+   == transaction 18: committed at uptime   54.777 s; 1 block(s): inode table 1
+   == transaction 19: committed at uptime   57.087 s; 2 block(s): inode table 2
+   == transaction 20: committed at uptime   61.397 s; 2 block(s): inode table 2
+   == transaction 21: committed at uptime   61.407 s; 1 block(s): inode table 1
+   == transaction 22: committed at uptime   61.507 s; 1 block(s): inode table 1
+   == transaction 23: committed at uptime   61.697 s; 4 block(s): inode table 3, other metadata 1
+   == transaction 24: committed at uptime   61.837 s; 2 block(s): inode table 2
+   == transaction 25: committed at uptime   61.947 s; 1 block(s): inode table 1
+   == transaction 26: committed at uptime   62.037 s; 1 block(s): inode table 1
+   == transaction 27: committed at uptime   62.067 s; 2 block(s): inode table 2
+   == transaction 28: committed at uptime   63.797 s; 2 block(s): inode table 2
+   == transaction 29: committed at uptime   68.007 s; 3 block(s): inode table 3
+   == transaction 30: committed at uptime   68.017 s; 1 block(s): inode table 1
+   == transaction 31: committed at uptime   75.387 s; 1 block(s): inode table 1
+   == transaction 32: committed at uptime   77.647 s; 11 block(s): inode table 6, other metadata 5
+   == transaction 33: committed at uptime   77.647 s; 1 block(s): inode table 1
+   == transaction 34: committed at uptime  103.517 s; 3 block(s): other metadata 1, inode table 2
+   RESULT  cut at 90 s, last commit on the card at 103.517 s, longest gap between commits 25.9 s (77.6 -> 103.5)

@@ -4,6 +4,13 @@ Put the card in the board, plug the UART into the PC and power the board. The ca
 logs root in on the serial console by itself and prints a facts report. `linux/watch_boot.ps1` on
 the PC records the whole boot and writes the summary. Nobody types anything.
 
+> **Now (2026-10-06):** card #1 carries image `eeb4afce…` (the FCLK0 fix and the `zynq-plcheck` guard;
+> `machine/README.md`). The PC is already running `linux/board_experiment.py`, which waits for the
+> board's CH340, records the boot and then runs the FCLK0 experiment (`linux/EXPERIMENT.md`). **Do not
+> also start `watch_boot.ps1`:** a COM port opens in one program at a time, so the second one would
+> fail. The state table below describes the 2026-09-25 card and is kept as history; the board setup
+> steps (jumper, J2 to the PC, J8 to a 5 V charger) are unchanged.
+
 ## State — 2026-09-25
 
 | | Fact | How it's known |

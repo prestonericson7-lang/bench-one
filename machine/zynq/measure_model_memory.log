@@ -1,0 +1,25 @@
+== with the swap export stopped, for room to measure
+total        used        free      shared  buff/cache   available
+Mem:             223          44         138           1          50         179
+== CPU alone (bench step b)
+[1] 280
+PEAK_ANON_KB 16896
+  decode (memory bound)            0.02 tok/s
+  per decoded token             49621.5 ms
+  close, decode is bandwidth bound and the thesis holds. If effective is far
+[1]+  Done                    /usr/local/lib/machine/run_model /opt/machine/models/qwen05b.gguf "def fibonacci(n):" 2 --fast > /tmp/rm.out 2>&1
+== engine attached (bench step c)
+[1] 1373
+PEAK_ANON_KB 57080
+  zaccel: 12.9% of 493961216 weights on 1 engine (measured: CPU 990773 rows/s; int8, +head): 127.0.0.1(cpu 474479 rows/s +258 us)
+  decode (memory bound)            0.02 tok/s
+  per decoded token             46388.4 ms
+  close, decode is bandwidth bound and the thesis holds. If effective is far
+[1]+  Done                    /usr/local/lib/machine/run_model /opt/machine/models/qwen05b.gguf "def fibonacci(n):" 2 --fast --zaccel 127.0.0.1 > /tmp/rm.out 2>&1
+total        used        free      shared  buff/cache   available
+Mem:             223         106          11           1         114         117
+MemAvailable:     120076 kB
+Exception ignored while finalizing file Serial<id=0x1d27e4ae740, open=False>(port='socket://localhost:5557', baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.2, xonxoff=False, rtscts=False, dsrdtr=False):
+Traceback (most recent call last):
+  File "C:\Users\Danie\AppData\Roaming\Python\Python314\site-packages\serial\urlhandler\protocol_socket.py", line 104, in close
+OSError: [WinError 6] The handle is invalid

@@ -52,7 +52,12 @@ The mask was undone on 2026-10-05: card #1 also serves the Orange Pi, and that e
 With it on, the board has 57 MB free of 223 instead of 149. Repeated that way, the two-board run
 passed 8 of 11: at the engine-attach steps node 1 ran out of memory, and the kernel killed the engine
 server and then `run_model`. The swap export and the machine's host role do not fit together in 223 MB
-in emulation; whether they fit on the board, where the engine's memory is outside Linux, is unmeasured.
+in emulation. Measured on the image's own armhf `run_model` (`machine/zynq/measure_model_memory.py`):
+its own memory peaks at 16.9 MB on the CPU alone and 57.1 MB with the engine attached -- about all
+the 57-61 MB left with the export on. On the board the engine's store is outside Linux, but that 57 MB
+is `run_model`'s own, so the attach step is expected to run out there too unless the board has more
+free memory than QEMU; the next boot records the board's figure. The owner decides how to split the
+roles (export only when the Pi is attached, a smaller export, or the host on FPGA #2).
 The offload also gained the output head (row bands, 16-bit engine rows). Results in
 `machine/README.md`.
 
@@ -69,18 +74,25 @@ What the card shows:
   bitstream, the kernel, the root filesystem and systemd all ran. Its own journal is on the card.
 - **The journal stops at 5.55 s, but that is not when the board stopped.** 5.55 s is the moment journald
   first flushed its log to the card. Later entries were still in memory.
-- **The board stopped between 8.0 s and about 13 s.** The card's ext4 journal holds three commits that
-  were never written to their final place, at 5.634 s, 5.734 s and 8.014 s of uptime, and nothing after.
-  The last one is systemd saving its random seed at 8.004 s. Systemd was still starting units then, so
-  the next commit was due within five seconds. It never reached the card. (Method: the journal's wall
-  clock minus its uptime gives the boot's start, 1777319332.506 s; each commit carries a wall-clock
-  time.)
-- **What was wrong at that moment.** At 1.91 s Linux logged `clk: Disabling unused clocks`. The device
-  tree had `fclk-enable = <0x00>`, so nothing held FCLK0, the clock of the processor's bus into the PL.
-  The Zynq clock driver turns off every PL clock nothing holds; Xilinx added `fclk-enable` in 2013 for
-  exactly this case. A read over that bus with its clock stopped never finishes, and the CPU waits
-  forever without logging anything. The services that read the PL start in the 8–13 s window.
-- **That cause is inferred, not observed.** It fits every fact on the card, and the next boot decides it.
+- **The last write to reach the card was at 8.014 s of uptime.** The card's ext4 journal holds three
+  commits that were never written to their final place, at 5.634 s, 5.734 s and 8.014 s, and nothing
+  after. The last one is systemd saving its random seed at 8.004 s. (Method: the journal's wall clock
+  minus its uptime gives the boot's start, 1777319332.506 s; each commit carries a wall-clock time. There
+  is no time-sync service on the card, so nothing stepped the clock in between.)
+- **That does not say when the board stopped.** I first wrote "between 8.0 and about 13 s", reasoning that
+  another commit was due within five seconds. Tested, that is wrong: an emulated boot of the same image,
+  with the power cut at known moments, went up to 14.3 s between commits while booting (32.8 to 47.2 s,
+  in every run long enough to reach that stretch) and 25.9 s once booted (77.6 to 103.5 s)
+  (`machine/cards/validate_jbd2_method.sh`, logs beside it). The card only proves nothing was written to
+  it after 8.014 s.
+- **What was wrong.** At 1.91 s Linux logged `clk: Disabling unused clocks`. The device tree had
+  `fclk-enable = <0x00>`, so nothing held FCLK0, the clock of the processor's bus into the PL. The same
+  kernel with card #1's device tree, run in QEMU, sets FCLK0's gate bit at that moment. Xilinx added
+  `fclk-enable` in 2013 because the Zynq clock driver turns off every PL clock nothing holds. A read over
+  that bus with its clock stopped never finishes, and the CPU waits forever without logging anything.
+  When on that boot the PL services first read the PL was never measured.
+- **That cause is inferred, not observed.** It fits every fact on the card. The next boot decides it:
+  `board_experiment.py` measures whether that gate bit stops FCLK0 on the silicon.
 
 The fix, in three layers. The device tree now holds FCLK0 (`fclk-enable = <0x1>`), and the kernel
 command line carries `clk_ignore_unused`, so either one alone keeps the clock running. A new boot guard,
@@ -97,6 +109,17 @@ the services back, and the board stayed up. With today's files the clock is held
 reads go through and the guard passes (`qemu_plcheck_test.sh`, 19 of 19). The full record of the card
 reading is in `machine/cards/fpga1-first-boot-forensics.txt`.
 
+The PC side of the experiment was then red-teamed against emulated boards (2026-10-06,
+`machine/zynq/regression-20261006/`). It found the driver would have misread several outcomes:
+- a board halted in its first stage was never recognised;
+- a live board whose guard was stuck in a PL read was declared stopped;
+- step 1 never recorded fclk0;
+- the gate test called both answers "partial" if FCLK0 were 5% off its nominal rate;
+- a slow-starting reader looked like a stalled read;
+- the stall test could freeze the board under the Pi's swap.
+
+All are fixed and covered by `test_plx.py` and `test_driver_e2e.sh`; the list is in EXPERIMENT.md.
+
 The same day the Pi's card was read too. Its kernel log shows the NVMe drive holds **one partition, a
 256 MB FAT filesystem with 159 MB on it**, which `nvme-auto` had mounted as "the NVMe". I had told the
 owner it was a Windows laptop drive. That was a guess I never checked against the drive, and it was
@@ -106,8 +129,12 @@ PC's tools and with the Pi's own Ubuntu 26.04 tools.
 
 ## What is not done, said plainly
 
-FPGA #1 reached user space once and then stopped, as above; no FPGA board has yet run a PL service, so
-the engines exist in simulation, QEMU and a hash-verified card. The STM32 boards' vendor is unidentified
+FPGA #1 reached user space once; its screen never turned dark blue, and nothing reached its card after
+8 s of uptime. No FPGA board has yet run a PL service, so the engines exist in simulation, QEMU and a
+hash-verified card. The next boot of card #1 runs the FCLK0 experiment
+(`hardware/pz7020-starlite/linux/EXPERIMENT.md`) and records the board's free memory with the Pi's swap
+export on, which decides whether that export and the machine's host role can share one board. The
+STM32 boards' vendor is unidentified
 until a silkscreen photo arrives. The P4
 waits on eth1. The Teensy's new firmware and the 0.5B on its card wait for a flash and a card reader.
 The first number the machine produces will be FPGA #1's boot report, and nothing above it is claimed

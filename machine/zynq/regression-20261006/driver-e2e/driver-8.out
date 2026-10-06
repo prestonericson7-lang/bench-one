@@ -1,0 +1,77 @@
+03:05:18  listening on socket://localhost:5579
+03:05:32  listening on socket://localhost:5579
+03:05:33  the board's console is socket://localhost:5579; capture in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030518-16620
+03:05:33  step 0: listening to the boot (sending nothing)
+03:05:33    boot: kernel at +0.0 s
+03:05:33    boot: guard at +0.0 s
+03:05:35    boot: clk pass at +2.0 s
+03:05:36    boot: systemd at +3.5 s
+03:06:40    boot: login at +67.2 s
+03:06:52    boot: report at +79.7 s
+03:06:52    report | time          2026-04-27T19:49:17  uptime 24.09 s
+03:06:52    report | model         Puzhi PZ7020-StarLite
+03:06:52    report | kernel        6.12.0-dirty armv7l
+03:06:52    report | cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
+03:06:52    report | cpu_khz       666666
+03:06:52    report | mem_total     229328 kB  (what the device tree gives Linux -- not a probe of the chips)
+03:06:52    report | pl_done       yes -- fabric configured: U-Boot loaded pl.bit (fpgagpu.pl_loaded=1), no PL reset since
+03:06:52    report | plcheck       n/a (zynq-plcheck has not written /boot/reports/plcheck.txt)
+03:06:52    report | pl_regs       Traceback (most recent call last): |   File "/usr/local/bin/pl_regs.py", line 162, in <module> |     main(sys.argv) |   File "/usr/local/bin/pl_regs.py", line 146, in main |     r = PlRegs.open() |         ^^^^^^^^^^^^^
+03:06:52    report | die_temp_C    -273.0  (Zynq XADC)
+03:06:52    report | eth0          ipv4 none   link down   speed ? Mb/s   mac 02:5a:70:20:00:01
+03:06:52    report | sd_card       QEMU!   8.00 GiB
+03:06:52    report | rootfs        3.9G size, 2.9G used, 79%
+03:06:52    report | boot_time     still in progress at this report (see uptime)
+03:06:52    report | failed_units  none
+03:06:52    report | zynq-agent    active
+03:06:52    report | accel         zynq-plcheck inactive   zaccel-server active   fpgagpud active   nbd-server active
+03:06:52    report | uio           none (needs uio_pdrv_genirq.of_id=generic-uio)
+03:06:52    report | pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
+03:06:52    report | zynqram       134217728 bytes
+03:06:52    report | --- kernel err/warn (first 12) ---
+03:06:52    report | [    0.000000] L2C: platform modifies aux control register: 0x00000000 -> 0x00400000
+03:06:52    report | [    0.000000] L2C: DT/platform modifies aux control register: 0x00000000 -> 0x00400000
+03:06:52    report | [    1.219748] mdio_bus e000b000.ethernet-ffffffff: MDIO device at address 1 is missing.
+03:06:52    report | [    1.424471] armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+03:06:52    report | [    1.457810] usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+03:06:52    report | [    3.542956] systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
+03:06:52    report | [    3.543141] systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
+03:06:52    report | [   10.246638] zynq-node: node 1 -> zynq1 10.20.0.2
+03:06:52    report | [   12.009995] amba f8801000.etb: deferred probe pending: (reason unknown)
+03:06:52    report | [   12.010114] amba f8803000.tpiu: deferred probe pending: (reason unknown)
+03:06:52    report | [   12.010202] amba f8804000.funnel: deferred probe pending: (reason unknown)
+03:06:52    report | [   12.010263] amba f889c000.ptm: deferred probe pending: (reason unknown)
+03:06:52    report | 
+03:06:55  step 1: what this boot did
+03:06:55    | console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 fpgagpu.pl_loaded=1 systemd.mask=zynq-plcheck.service
+03:06:55    | 6.12.0-dirty
+03:06:55    | 25.85 3.70
+03:06:56    | tail: cannot open '/boot/reports/plcheck.txt' for reading: No such file or directory
+03:06:56    | inactive active active active active 
+03:06:57    |    clock                          count    count    count        rate   accuracy phase  cycle    enable   consumer                         id
+03:06:57    |           fclk1_mux                  0       0        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:06:57    |              fclk1_div0              0       0        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:06:57    |                 fclk1_div1           0       0        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:06:57    |                    fclk1             0       0        0        36111111    0          0     50000      N                     deviceless                      no_connection_id         
+03:06:57    |           fclk0_mux                  1       1        0        866666658   0          0     50000      Y            deviceless                      no_connection_id         
+03:06:57    |              fclk0_div0              1       1        0        36111111    0          0     50000      Y               deviceless                      no_connection_id         
+03:06:57    |                 fclk0_div1           1       1        0        36111111    0          0     50000      Y                  deviceless                      no_connection_id         
+03:06:57    |                    fclk0             1       1        0        36111111    0          0     50000      Y                     deviceless                      no_connection_id         
+03:06:57    |                total        used        free      shared  buff/cache   available
+03:06:57    | Mem:             223         172          10         129         178          51
+03:06:57    | MemAvailable:      53140 kB
+03:06:57    | Shmem:            132500 kB
+03:06:57    | CmaFree:            5020 kB
+03:07:04    plx.py on the board, sha256 8f5c318330ac60fb matches
+03:07:04    | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
+03:07:05    FCLK0 gate bit clear; PL loaded at boot: True
+03:07:05    no guard log for this boot (/boot/reports/plcheck.txt): the driver's own register reading decides alone
+03:07:05  a problem other than FCLK0 was found -- the PL is NOT read (it could hang the board for a reason this experiment does not test):
+03:07:05    problem (driver): PS/PL level shifters not all on: LVL_SHFTR_EN 0x0
+03:07:05    problem (driver): fabric reset 0 asserted: FPGA_RST_CTRL 0x1f33f0f
+03:07:05  steps 2-5 skipped: what stopped the bus above must be understood first
+03:07:06    |   | PLX regs IO_PLL_CTRL 0x0001a000 FPGA0_CLK_CTRL 0x00101800 FPGA0_THR_CTRL 0x00000000 FPGA0_THR_CNT 0x00000000 FPGA0_THR_STA 0x00010000 FPGA_RST_CTRL 0x01f33f0f LVL_SHFTR_EN 0x00000000 DEVCFG_INT_STS 0x00000000
+03:07:06    |   FCLK0 gate bit clear; PL loaded at boot: True
+03:07:06    | steps 2-5 skipped: what stopped the bus above must be understood first
+03:07:06  done; console logs and this summary in D:\espicpc\hardware\pz7020-starlite\linux\captures\experiment-20261006-030518-16620
+driver rc=0

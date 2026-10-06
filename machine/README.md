@@ -14,8 +14,8 @@ machine is cables and cards; the only wire is the speaker lead on the P4.
 | item | proven | not yet |
 |---|---|---|
 | Teensy 4.1 + PSRAM | the 3B exact at 105 s a token, two days of logs (docs/57); the 0.5B proven identical through its core on the PC (bench-archive/20260929-215440); `::model` built into the firmware | flashing that firmware (PC idle, card idle) and copying the 0.5B onto its card (needs the card in a reader) |
-| FPGA boards | **On the real board (2026-10-05): SPL, DDR3L, U-Boot, the bitstream (HDMI colour bars + moving square), the kernel, the root filesystem and systemd all ran** — read from card #1's own journal. Bitstream, engine and Linux image as before | The board then stopped between 8.0 and about 13 s of uptime (card #1's ext4 commit times, [cards/fpga1-first-boot-forensics.txt](cards/fpga1-first-boot-forensics.txt)), after Linux gated FCLK0 at 1.91 s (`fclk-enable = <0x00>`): the inferred cause. Fixed three ways (device tree, `clk_ignore_unused`, the `zynq-plcheck` boot guard) and proven in QEMU only. **Card #1 rewritten 2026-10-05 21:35 with image `eeb4afce…`, read back identical; not yet booted.** The next boot decides: a dark-blue screen and `/boot/reports/plcheck.txt` |
-| two engines as one | two engines produce the same bytes as one (PC); **emulated on two boards**: both attached across the link, engines bit-exact, the exact reference on the ARM CPU identical to the PC's (that run had the swap export masked) | on the boards, with the PL. **Repeated with the swap export on (2026-10-05): 8 of 11.** At the engine-attach steps node 1 ran out of memory: the engine server, then `run_model`, were killed, and the perplexity step got only the CPU-only figure (6.209). In QEMU the engine's weight pool comes out of Linux's own memory; on the board it sits outside Linux, so the board may fare better -- not yet measured ([zynq/suite-20261005-guard/two-node.log](zynq/suite-20261005-guard/two-node.log)) |
+| FPGA boards | **On the real board (2026-10-05): SPL, DDR3L, U-Boot, the bitstream (HDMI colour bars + moving square), the kernel, the root filesystem and systemd all ran** — read from card #1's own journal. Bitstream, engine and Linux image as before | Its last write to the card was at 8.014 s of uptime ([cards/fpga1-first-boot-forensics.txt](cards/fpga1-first-boot-forensics.txt)); when it stopped after that, the card cannot say (an emulated boot went 14 s without a commit while booting, 26 s once booted). Linux had gated FCLK0 at 1.91 s (`fclk-enable = <0x00>`): the inferred cause. Fixed three ways (device tree, `clk_ignore_unused`, the `zynq-plcheck` boot guard) and proven in QEMU only. **Card #1 rewritten 2026-10-05 21:35 with image `eeb4afce…`, read back identical; not yet booted.** The next boot decides: a dark-blue screen and `/boot/reports/plcheck.txt` |
+| two engines as one | two engines produce the same bytes as one (PC); **emulated on two boards**: both attached across the link, engines bit-exact, the exact reference on the ARM CPU identical to the PC's (that run had the swap export masked) | on the boards, with the PL. **Repeated with the swap export on (2026-10-05): 8 of 11.** At the engine-attach steps node 1 ran out of memory: the engine server, then `run_model`, were killed, and the perplexity step got only the CPU-only figure (6.209). `run_model`'s own memory, measured on the image's armhf binary (`zynq/measure_model_memory.py`): 16.9 MB on the CPU alone, 57.1 MB with the engine attached -- about all the 57-61 MB available with the export on. That part does not move off Linux on the board, so the attach step is expected to run out there too unless the board has more free memory; the next boot records it ([zynq/suite-20261005-guard/two-node.log](zynq/suite-20261005-guard/two-node.log)) |
 | STM32H743 ×2 | specs recorded | vendor and pins unknown until a silkscreen photo; no firmware yet |
 | ESP32-P4-NANO | facts recorded | needs eth1 on an FPGA first; no firmware yet |
 
@@ -196,13 +196,32 @@ in `/boot/reports/` on their cards.
 
 ## What I need from you
 
-0. **Card #1 back in FPGA #1 and the Pi's card back in the Pi**, cabled and powered as on 2026-10-05.
-   Both are rewritten and verified. If Windows offers to format either card when you pull it, answer No.
-   Then watch FPGA #1's HDMI. A dark-blue screen means the GPU daemon is running and the fix worked;
-   colour bars that stay mean it did not. Either way, bring card #1 back to the reader afterwards:
-   `/boot/reports/plcheck.txt` on it says how far the board got. On the Pi, if the rest of the NVMe drive
-   is unpartitioned (its kernel log shows one partition), that space appears at `/mnt/nvme`; the old
-   256 MB FAT partition is left as it is. Either way the Pi records what it found in
+0. **Card #1 back in FPGA #1 and the Pi's card back in the Pi**, cabled as on 2026-10-05. Both are rewritten
+   and verified (card #1 is the 32 GB one, the Pi's the 128 GB one). Windows cannot read the Pi's Linux
+   partition and may show "You need to format the disk in drive F:": always Cancel. Eject both cards first
+   (the USB icon by the clock), then pull them. Then, in this order:
+   1. FPGA #1's **lower USB-C (J2, "UART") into the PC**, before power: the PC is already listening
+      (`hardware/pz7020-starlite/linux/board_experiment.py`, waiting for the board's CH340) and must
+      catch the boot from its first line. If the PC has restarted since (Windows Update may restart it
+      between 2 and 8 AM), the listener is gone: start it again first, from the repository folder, with
+      `python hardware/pz7020-starlite/linux/board_experiment.py --wait-hours 72`;
+   2. **power: the upper USB-C (J8) from the 5 V charger**;
+   3. watch the HDMI and touch nothing. A dark-blue screen means the GPU daemon is running and the fix
+      worked; colour bars that stay mean it did not (the experiment then clears the clock gate itself and
+      restarts the daemon at its end, so the screen turns dark blue late). It stays dark blue through the
+      experiment (stopping the daemon does not clear the screen). The PC runs the FCLK0 experiment by itself
+      ([EXPERIMENT.md](../hardware/pz7020-starlite/linux/EXPERIMENT.md)) and writes its verdict to
+      `hardware/pz7020-starlite/linux/captures/` and to `/boot/reports/experiment.txt` on the card. Its
+      last test can freeze the board, and the HDMI cannot show that (the picture keeps scanning out on the
+      GPU's own clock). If it happens, the PC beeps and shows a message asking you to unplug and replug J8.
+      It keeps listening, records the reboot, and shows a second message with the verdict when finished.
+      If the PC hears nothing at all from J2 for 10 minutes, it says so in a message too;
+   4. **the Pi last**, after the PC's "experiment finished" message. The Pi keeps its swap in FPGA #1's
+      memory, so a freeze in that last test would take the Pi's swapped pages with it. If the Pi is on
+      anyway, the PC sees it attached and skips only that test.
+   Afterwards `/boot/reports/plcheck.txt` on card #1 also says how far the board got. On the Pi, if the
+   rest of the NVMe drive is unpartitioned (its kernel log shows one partition), that space appears at
+   `/mnt/nvme`; the old 256 MB FAT partition is left as it is. Either way the Pi records what it found in
    `/var/lib/accel/nvme-auto.log` on its card.
 1. **A photo of each STM32 board's top and bottom silkscreen**, or the listing / vendor link — the pins.
    Nothing else about those boards is known well enough to write firmware against.

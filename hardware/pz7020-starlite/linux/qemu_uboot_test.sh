@@ -60,6 +60,18 @@ echo "board clocks: $CLK"
 arm-linux-gnueabihf-as -o "$W/stub.o" "$W/stub.S" && arm-linux-gnueabihf-ld -Ttext=0x03F00000 -o "$W/stub.elf" "$W/stub.o" \
   && arm-linux-gnueabihf-objcopy -O binary "$W/stub.elf" "$W/stub.bin" || { echo "cannot build the clock stub"; exit 1; }
 
+# SERIAL_TCP=port: the same boot with the console on a TCP socket instead of stdio, for a client such as
+# board_experiment.py (QEMU waits for it to connect). No checks are made in this mode; it runs until QEMU
+# exits or TIMEOUT.
+if [ -n "${SERIAL_TCP:-}" ]; then
+  echo "console on tcp port $SERIAL_TCP (waiting for a client)"
+  timeout "$T" qemu-system-arm -M xilinx-zynq-a9 -m 512M -display none -monitor none \
+    -serial tcp:127.0.0.1:$SERIAL_TCP,server=on,wait=on \
+    -device loader,file="$UB",addr=0x04000000,force-raw=on \
+    -device loader,file="$W/stub.bin",addr=0x03F00000,force-raw=on -device loader,addr=0x03F00000,cpu-num=0 \
+    -drive file="$W/sd.img",if=sd,format=raw </dev/null
+  echo "qemu exit $?"; exit 0
+fi
 qemu-system-arm -M xilinx-zynq-a9 -m 512M -nographic -serial mon:stdio \
   -device loader,file="$UB",addr=0x04000000,force-raw=on \
   -device loader,file="$W/stub.bin",addr=0x03F00000,force-raw=on -device loader,addr=0x03F00000,cpu-num=0 \

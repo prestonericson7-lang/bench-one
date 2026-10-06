@@ -2,25 +2,30 @@
 """board_experiment.py -- watch the PZ7020 boot on its serial console and run the FCLK0 experiment on the
 board itself, so the cause of the 2026-10-05 stop is measured instead of inferred. Run on the PC:
 
-    python board_experiment.py                 waits (up to --wait-hours) for the board's CH340 (J2)
+    python board_experiment.py                 waits (up to --wait-hours) for the board's console (CH340, J2)
     python board_experiment.py --port COM7     a given port
     python board_experiment.py --port socket://localhost:5555    QEMU (qemu_serial_tcp.sh), to test this script
+    python board_experiment.py --port socket://localhost:5556,socket://localhost:5555    port selection test
 
-It sends NOTHING until Linux has logged root in and printed its report (a key during U-Boot's countdown
-would stop the boot). Every byte goes to captures/experiment-<time>/console.log; the findings to
-summary.txt there. Steps, each printed with the board's own numbers:
+Every CH340 that appears is listened to (the STM32 boards carry CH340s too); the board's port is the one
+that prints a Zynq boot or the board's Linux prompt. Nothing is sent until Linux has logged root in and
+printed its report (a key during U-Boot's countdown would stop the boot). If the board was already up
+when listening began (J2 plugged in after power), one Enter after 90 s of silence finds its prompt.
+Every byte goes to captures/experiment-<time>/console-<port>.log; the findings to summary.txt there.
   0. the boot: up to the report, or the last lines before it went silent (a hang, located);
   1. what this boot did: kernel command line, the guard's log (/boot/reports/plcheck.txt), services,
      fclk0 in the clock tree, the SLCR registers;
-  2. if the guard blocked (FCLK0 gated): clear the gate bit and read the PL -- does it answer once the
-     clock runs?  If the guard passed: read the PL's ID, its clock register, a write/read-back;
+  2. if the guard found a problem other than FCLK0: stop, read nothing. If it blocked on FCLK0: clear the
+     gate bit and read the PL (does it answer once the clock runs?). If it passed: read the PL's ID, its
+     clock register, a write/read-back;
   3. FCLK0 measured: pl_regs' 64-bit counter runs on FCLK0; ticks over 1 s of CPU time;
   4. the gate test, no PL access while gated: counter, gate bit set for 2 s, cleared, counter.
      If the bit stops FCLK0, the counter comes out 2 s short of the wall clock;
-  5. the stall test (skip with --no-stall): gate set, the PL read from CPU 1, the gate cleared from CPU 0
-     3 s later. The hypothesis says the read hangs until the clock returns. Synced first, because the
-     whole board may hang instead -- then the console goes silent and the board needs a power cycle;
-  6. restore: gate cleared, PL services restarted, results appended to /boot/reports/experiment.txt.
+  5. the stall test (skip with --no-stall; needs 2 CPUs): gate set, the PL read from CPU 1, the gate
+     cleared from CPU 0 3 s later. Synced first: if the whole board hangs instead, it needs a power cycle,
+     and this script listens for the reboot and carries on;
+  6. restore: gate cleared, PL services restarted; a verdict computed from the numbers; results appended
+     to /boot/reports/experiment.txt on the card.
 """
 import argparse, base64, hashlib, os, re, sys, threading, time
 import serial
@@ -34,13 +39,16 @@ ap.add_argument("--no-stall", action="store_true")
 ap.add_argument("--ignore-guard", action="store_true",
                 help="QEMU only: run the PL steps even when the guard found problems other than FCLK0 "
                      "(QEMU has no PL; its reads return 0). Never on the board.")
+ap.add_argument("--test-reboot", action="store_true",
+                help="QEMU only: replace the stall test with a forced reboot, to exercise the reboot capture")
 A = ap.parse_args()
 
 OUT = os.path.join(HERE, "captures", time.strftime("experiment-%Y%m%d-%H%M%S"))
 os.makedirs(OUT, exist_ok=True)
-RAW = open(os.path.join(OUT, "console.log"), "ab")
 SUM = os.path.join(OUT, "summary.txt")
-buf = bytearray(); lock = threading.Lock(); last_rx = [time.time()]; stop = [False]
+lock = threading.Lock(); stop = [False]
+# what only this board prints: U-Boot's banner, the kernel, the board's model, its Linux prompt and report
+MARK = r"U-Boot 20\d\d|Booting Linux|Puzhi PZ7020|zynq login|root@zynq|ZYNQ-REPORT"
 
 
 def note(m):
@@ -50,52 +58,120 @@ def note(m):
         f.write(line + "\n")
 
 
-def find_port():
-    if A.port:
-        return A.port
-    note(f"waiting up to {A.wait_hours} h for the board's CH340 (USB VID 1A86) -- plug J2 into the PC")
-    end = time.time() + A.wait_hours * 3600
-    while time.time() < end:
-        for p in serial.tools.list_ports.comports():
-            if p.vid == 0x1A86:
-                note(f"found {p.device} ({p.description})")
-                return p.device
-        time.sleep(1)
-    note("no CH340 appeared"); sys.exit(4)
-
-
-def open_port(name):
-    if "://" in name:                         # QEMU: retry until it listens (it copies the image first)
-        for _ in range(240):
+def open_port(name, tries=240):
+    if "://" in name:                         # QEMU / a test server: retry until it listens
+        for _ in range(tries):
             try:
                 return serial.serial_for_url(name, baudrate=115200, timeout=0.2)
             except Exception:
                 time.sleep(1)
-        note(f"cannot connect to {name}"); sys.exit(4)
-    else:
-        s = serial.Serial()
-        s.port, s.baudrate, s.timeout = name, 115200, 0.2
-        s.dtr = False; s.rts = False          # not asserted, as watch_boot.ps1 does
-        s.open()
+        raise OSError(f"cannot connect to {name}")
+    s = serial.Serial()
+    s.port, s.baudrate, s.timeout = name, 115200, 0.2
+    s.dtr = False; s.rts = False              # not asserted, as watch_boot.ps1 does
+    s.open()
     return s
 
 
-def reader(s):
-    while not stop[0]:
+class Port:
+    """one serial port being listened to; every byte also goes to console-<port>.log"""
+    def __init__(self, name):
+        self.name, self.buf, self.alive = name, bytearray(), True
+        self.s = open_port(name)
+        self.opened = self.last = time.time()
+        self.raw = open(os.path.join(OUT, "console-%s.log" % re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")), "ab")
+        threading.Thread(target=self.reader, daemon=True).start()
+
+    def reader(self):
+        while not stop[0] and self.alive:
+            try:
+                c = self.s.read(4096)
+            except Exception as e:            # the port went away: J2 replugged, or (QEMU) the emulator restarted
+                if not self.alive or stop[0]:
+                    return
+                note(f"{self.name}: serial read failed ({e}) -- reopening it as soon as it is back")
+                try:
+                    self.s.close()
+                except Exception:
+                    pass
+                end = time.time() + 7200
+                while time.time() < end and self.alive and not stop[0]:
+                    time.sleep(1)
+                    try:
+                        self.s = open_port(self.name, tries=1)
+                        note(f"{self.name}: reopened")
+                        break
+                    except Exception:
+                        continue
+                else:
+                    self.alive = False
+                    return
+                continue
+            if c:
+                self.raw.write(c); self.raw.flush()
+                with lock:
+                    self.buf.extend(c); self.last = time.time()
+
+    def text(self):
+        with lock:
+            t = self.buf.decode("utf-8", "replace")
+        return re.sub(r"\x1b\[[?0-9;]*[A-Za-z]", "", t).replace("\r", "")
+
+    def close(self):
+        self.alive = False
         try:
-            c = s.read(4096)
-        except Exception as e:                # port vanished: the board lost power or the cable moved
-            note(f"serial read failed: {e}"); stop[0] = True; return
-        if c:
-            RAW.write(c); RAW.flush()
-            with lock:
-                buf.extend(c); last_rx[0] = time.time()
+            self.s.close()
+        except Exception:
+            pass
+
+
+def candidates():
+    if A.port:                                # a port, or a comma-separated list (the selection test)
+        return [x for x in A.port.split(",") if x]
+    return [p.device for p in serial.tools.list_ports.comports() if p.vid == 0x1A86]
+
+
+# ---- which port is the board
+ports, probed = {}, set()
+note("listening on " + A.port if A.port else
+     f"waiting up to {A.wait_hours} h for the board's console: plug J2 (lower USB-C) into the PC, then power J8")
+deadline = time.time() + A.wait_hours * 3600
+P = None
+while P is None:
+    for name in candidates():
+        if name not in ports:
+            try:
+                ports[name] = Port(name); note(f"listening on {name}")
+            except Exception as e:
+                ports[name] = None; note(f"{name}: cannot open ({e})")
+    for p in [x for x in ports.values() if x]:
+        if re.search(MARK, p.text()):
+            P = p; break
+        # quiet ever since it opened: the board may already be up (J2 plugged in after power). One Enter shows
+        # a prompt. Never sooner: a running boot prints U-Boot's banner first, so no key reaches its countdown.
+        if p.name not in probed and time.time() - p.opened > 90 and time.time() - p.last > 30:
+            probed.add(p.name)
+            try:
+                p.s.write(b"\r")
+                note(f"{p.name}: nothing from a Zynq for 90 s -- sent one Enter in case Linux is already up")
+            except Exception as e:
+                note(f"{p.name}: write failed ({e})")
+    if P is None:
+        if time.time() > deadline:
+            note("no board console appeared"); sys.exit(4)
+        time.sleep(1)
+for p in ports.values():
+    if p and p is not P:
+        p.close(); note(f"{p.name} is not the board -- closed")
+note(f"the board's console is {P.name}; capture in {OUT}")
+
+
+def send(b):
+    P.s.write(b); P.s.flush()
 
 
 def text():
-    with lock:
-        t = buf.decode("utf-8", "replace")
-    return re.sub(r"\x1b\[[?0-9;]*[A-Za-z]", "", t).replace("\r", "")
+    return P.text()
 
 
 def wait_for(pattern, limit, start=0):
@@ -109,47 +185,48 @@ def wait_for(pattern, limit, start=0):
     return None
 
 
-port = find_port()
-note(f"opening {port} at 115200 8N1; capture in {OUT}")
-s = open_port(port)
-threading.Thread(target=reader, args=(s,), daemon=True).start()
-
-# ---- 0. the boot: listen only
-note("step 0: listening to the boot (sending nothing)")
-first = wait_for(r"\S", A.wait_hours * 3600)
-t_first = time.time()
-seen = {}
-while True:
-    t = text()
-    for key, pat in (("U-Boot", r"U-Boot 20\d\d"), ("pl.bit", r"Loading PL bitstream"), ("kernel", r"Booting Linux"),
-                     ("clk pass", r"clk: Disabling unused clocks"), ("systemd", r"systemd\[1\]"),
-                     ("guard", r"zynq-plcheck|verdict:"), ("login", r"root@zynq|automatic login"),
-                     ("report", r"ZYNQ-REPORT END"), ("panic", r"Kernel panic|Internal error|Unable to handle")):
-        if key not in seen and re.search(pat, t):
-            seen[key] = time.time() - t_first
-            note(f"  boot: {key} at +{seen[key]:.1f} s")
-    if "report" in seen or "panic" in seen:
-        break
-    quiet = time.time() - last_rx[0]
-    if quiet > (150 if "kernel" in seen else 600):
-        note(f"  boot: SILENT for {quiet:.0f} s -- the board stopped. Its last console lines:")
-        for ln in t.splitlines()[-40:]:
+def watch_boot(start, quiet_before_kernel):
+    """listen (sending nothing) from text index start until the report, a panic, or silence; True if up"""
+    seen, t0 = {}, time.time()
+    while True:
+        t = text()[start:]
+        for key, pat in (("U-Boot", r"U-Boot 20\d\d"), ("pl.bit", r"Loading PL bitstream"), ("kernel", r"Booting Linux"),
+                         ("clk pass", r"clk: Disabling unused clocks"), ("systemd", r"systemd\[1\]"),
+                         ("guard", r"zynq-plcheck|verdict:"), ("login", r"root@zynq|automatic login"),
+                         ("report", r"ZYNQ-REPORT END"), ("panic", r"Kernel panic|Internal error|Unable to handle")):
+            if key not in seen and re.search(pat, t):
+                seen[key] = time.time() - t0
+                note(f"  boot: {key} at +{seen[key]:.1f} s")
+        if "report" in seen or "panic" in seen:
+            break
+        if "login" in seen and P.name in probed and time.time() - P.last > 20:
+            note("  boot: the board was already up when the PC began listening -- its boot was not observed")
+            return True
+        quiet = time.time() - P.last
+        if quiet > (150 if "kernel" in seen else quiet_before_kernel):
+            note(f"  boot: SILENT for {quiet:.0f} s -- the board stopped. Its last console lines:")
+            for ln in t.splitlines()[-40:]:
+                note("  | " + ln)
+            return False
+        time.sleep(0.5)
+    if "panic" in seen:
+        time.sleep(3)
+        for ln in text()[start:].splitlines()[-40:]:
             note("  | " + ln)
-        stop[0] = True; sys.exit(3)
-    time.sleep(0.5)
-if "panic" in seen:
-    time.sleep(3)
-    for ln in text().splitlines()[-40:]:
-        note("  | " + ln)
-    note("kernel panic -- stopping"); stop[0] = True; sys.exit(3)
-for ln in text().split("==== ZYNQ-REPORT BEGIN ====")[-1].split("==== ZYNQ-REPORT END ====")[0].splitlines():
-    if ln.strip():
-        note("  report | " + re.sub(r"^\[ *[0-9.]+\] python3\[\d+\]: ", "", ln))
+        note("  boot: kernel panic")
+        return False
+    for ln in t.split("==== ZYNQ-REPORT BEGIN ====")[-1].split("==== ZYNQ-REPORT END ====")[0].splitlines():
+        if ln.strip():
+            note("  report | " + re.sub(r"^\[ *[0-9.]+\] python3\[\d+\]: ", "", ln))
+    return True
 
-# ---- the shell
-time.sleep(2); s.write(b"\r")
-if wait_for(r"root@zynq\d*:[^\n]*# ?$", 60, len(text()) - 2000 if len(text()) > 2000 else 0) is None:
-    s.write(b"\r"); time.sleep(2)
+
+def await_shell():
+    time.sleep(2); send(b"\r")
+    if wait_for(r"root@zynq\d*:[^\n]*# ?$", 60, max(0, len(text()) - 2000)) is None:
+        send(b"\r"); time.sleep(2)
+
+
 n = [0]
 
 
@@ -158,8 +235,7 @@ def run(cmd, limit=120, show=True):
     n[0] += 1
     tag = "__S%dE__" % n[0]
     start = len(text())
-    s.write((cmd + "; echo '__S%d''E__' $?\r" % n[0]).encode())
-    s.flush()
+    send((cmd + "; echo '__S%d''E__' $?\r" % n[0]).encode())
     end = wait_for(re.escape(tag) + r" (\d+)", limit, start)
     if end is None:
         note(f"  NO ANSWER within {limit} s to: {cmd}")
@@ -174,30 +250,17 @@ def run(cmd, limit=120, show=True):
     return body
 
 
-run("stty cols 4000 2>/dev/null; true", show=False)       # no readline wrapping of long command lines
-# ---- 1. what this boot did
-note("step 1: what this boot did")
-run("cat /proc/cmdline; uname -r; cat /proc/uptime")
-guard = run("tail -14 /boot/reports/plcheck.txt") or ""
-this_boot = guard.split("== boot")[-1]
-other = [l for l in this_boot.splitlines() if "problem:" in l and "FCLK0 gated" not in l]
-run("systemctl is-active zynq-plcheck fpgagpud zaccel-server zynq-agent nbd-server | tr '\\n' ' '; echo")
-run("grep -E 'fclk|clock' /sys/kernel/debug/clk/clk_summary | head -8")
-src = open(os.path.join(HERE, "plx.py"), "rb").read().replace(b"\r\n", b"\n")
-b64 = base64.b64encode(src).decode()
-run("rm -f /tmp/plx.b64", show=False)
-for i in range(0, len(b64), 600):
-    run("printf '%%s' '%s' >> /tmp/plx.b64" % b64[i:i + 600], show=False)
-got = run("base64 -d /tmp/plx.b64 > /tmp/plx.py && sha256sum /tmp/plx.py | cut -c1-64", show=False) or ""
-want = hashlib.sha256(src).hexdigest()
-if want not in got:
-    note(f"plx.py did not arrive intact ({got.strip()} != {want}) -- stopping"); sys.exit(5)
-note(f"  plx.py on the board, sha256 {want[:16]} matches")
-regs = run("python3 /tmp/plx.py regs") or ""
-m = re.search(r"FPGA0_THR_CNT 0x([0-9a-f]{8})", regs)
-gated = bool(m and int(m.group(1), 16) & 1)
-loaded = "fpgagpu.pl_loaded=1" in (run("cat /proc/cmdline", show=False) or "")
-note(f"  FCLK0 gate bit {'SET (clock stopped)' if gated else 'clear'}; PL loaded at boot: {loaded}")
+def send_plx():
+    src = open(os.path.join(HERE, "plx.py"), "rb").read().replace(b"\r\n", b"\n")
+    b64 = base64.b64encode(src).decode()
+    run("rm -f /tmp/plx.b64", show=False)
+    for i in range(0, len(b64), 600):
+        run("printf '%%s' '%s' >> /tmp/plx.b64" % b64[i:i + 600], show=False)
+    got = run("base64 -d /tmp/plx.b64 > /tmp/plx.py && sha256sum /tmp/plx.py | cut -c1-64", show=False) or ""
+    want = hashlib.sha256(src).hexdigest()
+    if want not in got:
+        note(f"plx.py did not arrive intact ({got.strip()} != {want}) -- stopping"); sys.exit(5)
+    note(f"  plx.py on the board, sha256 {want[:16]} matches")
 
 
 def guarded_read(addr, label):
@@ -210,6 +273,28 @@ def guarded_read(addr, label):
         note(f"  {label}: the read has NOT returned after 5 s (a normal read takes microseconds)")
     return out
 
+
+# ---- 0. the boot: listen only
+note("step 0: listening to the boot (sending nothing)")
+if not watch_boot(0, 600):
+    stop[0] = True; sys.exit(3)
+await_shell()
+run("stty cols 4000 2>/dev/null; true", show=False)       # no readline wrapping of long command lines
+
+# ---- 1. what this boot did
+note("step 1: what this boot did")
+run("cat /proc/cmdline; uname -r; cat /proc/uptime")
+guard = run("tail -14 /boot/reports/plcheck.txt") or ""
+this_boot = guard.split("== boot")[-1]
+other = [l for l in this_boot.splitlines() if "problem:" in l and "FCLK0 gated" not in l]
+run("systemctl is-active zynq-plcheck fpgagpud zaccel-server zynq-agent nbd-server | tr '\\n' ' '; echo")
+run("grep -E 'fclk|clock' /sys/kernel/debug/clk/clk_summary | head -8")
+send_plx()
+regs = run("python3 /tmp/plx.py regs") or ""
+m = re.search(r"FPGA0_THR_CNT 0x([0-9a-f]{8})", regs)
+gated = bool(m and int(m.group(1), 16) & 1)
+loaded = "fpgagpu.pl_loaded=1" in (run("cat /proc/cmdline", show=False) or "")
+note(f"  FCLK0 gate bit {'SET (clock stopped)' if gated else 'clear'}; PL loaded at boot: {loaded}")
 
 # ---- 2.
 refused = False
@@ -246,7 +331,11 @@ if loaded or gated:
         run("python3 /tmp/plx.py gatetest 2")
     # ---- 5.
     ncpu = (run("nproc", show=False) or "1").strip().splitlines()[-1]
-    if not A.no_stall and ncpu.isdigit() and int(ncpu) < 2:
+    out = ""
+    if A.test_reboot:
+        note("step 5 replaced (--test-reboot): the board is rebooted to exercise the reboot capture")
+        send(b"sync; reboot -f\r"); out = None
+    elif not A.no_stall and ncpu.isdigit() and int(ncpu) < 2:
         note(f"step 5 skipped: {ncpu} CPU -- a stuck read would freeze the only core with nothing left to release it")
     elif not A.no_stall:
         note("step 5: the stall test -- the PL read with the gate set, released from the other CPU after 3 s")
@@ -256,22 +345,32 @@ if loaded or gated:
                   "(taskset -c 1 python3 /tmp/plx.py rdtimed 0x40000004 > /tmp/stall.out 2>&1 &); sleep 3; "
                   "echo \"PLX stall after 3 s with the gate set: [$(cat /tmp/stall.out 2>/dev/null)]\"; "
                   "python3 /tmp/plx.py gate 0; sleep 2; echo \"PLX stall after the gate was cleared: [$(cat /tmp/stall.out)]\"'", 90)
-        if out is None:
-            note("  the board stopped answering during the stall test: the stuck read took the whole system down; "
-                 "power-cycle it (it boots the same card)")
+    if out is None:                           # the board stopped answering (or --test-reboot rebooted it)
+        note("  the board stopped answering during the stall test: the stuck read took the whole system down; "
+             "power-cycle it (it boots the same card). Listening for the reboot, up to 60 min, sending nothing")
+        if watch_boot(len(text()), 3600):
+            await_shell(); run("stty cols 4000 2>/dev/null; true", show=False)
+            note("  the board is back up on the same card")
+            send_plx()
+        else:
+            stop[0] = True; sys.exit(3)
     # ---- 6.
     note("step 6: restore")
     run("python3 /tmp/plx.py gate 0; python3 /tmp/plx.py regs; python3 /tmp/plx.py rd 0x40000000")
     run("systemctl start fpgagpud zaccel-server zynq-agent; sleep 2; systemctl is-active fpgagpud zaccel-server zynq-agent | tr '\\n' ' '; echo")
     run("dmesg | grep -i -E 'rcu|stall|lockup|bus|abort' | tail -6")
+
 # ---- the verdict, computed from the numbers above
 allsum = open(SUM, encoding="utf-8").read()
 mhz = [float(x) for x in re.findall(r"PLX measure \d+ ticks in [0-9.]+ s = ([0-9.]+) MHz", allsum)]
 gt = re.findall(r"gate held ([0-9.]+) s .*? counter stopped for (-?[0-9.]+) s; counter afterwards ([0-9.]+) MHz", allsum)
 st = re.findall(r"PLX stall after 3 s with the gate set: \[(.*?)\]", allsum)
 sr = re.findall(r"PLX stall after the gate was cleared: \[(.*?)\]", allsum)
-if mhz:
-    note(f"VERDICT FCLK0 on the silicon: {', '.join('%.3f' % m for m in mhz)} MHz measured with the fabric's own counter")
+if mhz and max(mhz) < 1:
+    note("VERDICT FCLK0: the fabric's counter does not move (0 ticks) -- no PL answering at 0x40000000, "
+         "so nothing below says anything about FCLK0")
+elif mhz:
+    note(f"VERDICT FCLK0 on the silicon: {', '.join('%.3f' % x for x in mhz)} MHz measured with the fabric's own counter")
 for held, stopped, after in gt:
     held, stopped, after = float(held), float(stopped), float(after)
     if after < 1:
@@ -292,5 +391,5 @@ if st and sr:
 lines = [l.split("  ", 1)[1] for l in open(SUM, encoding="utf-8").read().splitlines() if "PLX " in l or "boot:" in l or "VERDICT" in l]
 run("mkdir -p /boot/reports; cat >> /boot/reports/experiment.txt <<'EOF'\n== experiment " + time.strftime("%Y-%m-%d %H:%M (PC time)")
     + "\n" + "\n".join(lines) + "\nEOF\nsync", show=False)
-note(f"done; console log and this summary in {OUT}")
+note(f"done; console logs and this summary in {OUT}")
 stop[0] = True

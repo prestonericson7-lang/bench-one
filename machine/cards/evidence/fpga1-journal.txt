@@ -1,0 +1,314 @@
+[    0.000000] zynq kernel: Booting Linux on physical CPU 0x0
+[    0.000000] zynq kernel: Linux version 6.12.0-dirty (root@boobieJuicer9000) (arm-linux-gnueabihf-gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #2 SMP Thu Sep 24 23:32:17 PDT 2026
+[    0.000000] zynq kernel: CPU: ARMv7 Processor [413fc090] revision 0 (ARMv7), cr=18c5387d
+[    0.000000] zynq kernel: CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+[    0.000000] zynq kernel: OF: fdt: Machine model: Puzhi PZ7020-StarLite
+[    0.000000] zynq kernel: earlycon: cdns0 at MMIO 0xe0000000 (options '115200n8')
+[    0.000000] zynq kernel: printk: legacy bootconsole [cdns0] enabled
+[    0.000000] zynq kernel: Memory policy: Data cache writealloc
+[    0.000000] zynq kernel: efi: UEFI not found.
+[    0.000000] zynq kernel: OF: reserved mem: 0x10000000..0x1dffffff (229376 KiB) nomap non-reusable zaccel@10000000
+[    0.000000] zynq kernel: OF: reserved mem: 0x1e000000..0x1fffffff (32768 KiB) nomap non-reusable gpu@1e000000
+[    0.000000] zynq kernel: cma: Reserved 64 MiB at 0x0c000000 on node -1
+[    0.000000] zynq kernel: Zone ranges:
+[    0.000000] zynq kernel:   DMA      [mem 0x0000000000000000-0x000000000fffffff]
+[    0.000000] zynq kernel:   Normal   empty
+[    0.000000] zynq kernel:   HighMem  [mem 0x0000000010000000-0x000000001fffffff]
+[    0.000000] zynq kernel: Movable zone start for each node
+[    0.000000] zynq kernel: Early memory node ranges
+[    0.000000] zynq kernel:   node   0: [mem 0x0000000000000000-0x000000000fffffff]
+[    0.000000] zynq kernel:   node   0: [mem 0x0000000010000000-0x000000001fffffff]
+[    0.000000] zynq kernel: Initmem setup node 0 [mem 0x0000000000000000-0x000000001fffffff]
+[    0.000000] zynq kernel: percpu: Embedded 17 pages/cpu s40844 r8192 d20596 u69632
+[    0.000000] zynq kernel: pcpu-alloc: s40844 r8192 d20596 u69632 alloc=17*4096
+[    0.000000] zynq kernel: pcpu-alloc: [0] 0 [0] 1 
+[    0.000000] zynq kernel: Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio fpgagpu.pl_loaded=1
+[    0.000000] zynq kernel: Dentry cache hash table entries: 32768 (order: 5, 131072 bytes, linear)
+[    0.000000] zynq kernel: Inode-cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] zynq kernel: Built 1 zonelists, mobility grouping on.  Total pages: 131072
+[    0.000000] zynq kernel: mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] zynq kernel: SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=2, Nodes=1
+[    0.000000] zynq kernel: trace event string verifier disabled
+[    0.000000] zynq kernel: rcu: Hierarchical RCU implementation.
+[    0.000000] zynq kernel: rcu:         RCU event tracing is enabled.
+[    0.000000] zynq kernel: rcu:         RCU restricting CPUs from NR_CPUS=16 to nr_cpu_ids=2.
+[    0.000000] zynq kernel: rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+[    0.000000] zynq kernel: rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=2
+[    0.000000] zynq kernel: NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+[    0.000000] zynq kernel: slcr mapped to (ptrval)
+[    0.000000] zynq kernel: L2C: platform modifies aux control register: 0x02060000 -> 0x02460000
+[    0.000000] zynq kernel: L2C: DT/platform modifies aux control register: 0x02060000 -> 0x02460000
+[    0.000000] zynq kernel: L2C-310 erratum 769419 enabled
+[    0.000000] zynq kernel: L2C-310 enabling early BRESP for Cortex-A9
+[    0.000000] zynq kernel: L2C-310 full line of zeros enabled for Cortex-A9
+[    0.000000] zynq kernel: L2C-310 dynamic clock gating enabled, standby mode enabled
+[    0.000000] zynq kernel: L2C-310 cache controller enabled, 8 ways, 512 kB
+[    0.000000] zynq kernel: L2C-310: CACHE_ID 0x410000c8, AUX_CTRL 0x46460001
+[    0.000000] zynq kernel: rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] zynq kernel: zynq_clock_init: clkc starts at (ptrval)
+[    0.000000] zynq kernel: Zynq clock init
+[    0.000002] zynq kernel: sched_clock: 64 bits at 192MHz, resolution 5ns, wraps every 4398046511102ns
+[    0.002611] zynq kernel: clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x2c3446b224, max_idle_ns: 440795204367 ns
+[    0.013671] zynq kernel: Switching to timer-based delay loop, resolution 5ns
+[    0.020542] zynq kernel: Console: colour dummy device 80x30
+[    0.024062] zynq kernel: Calibrating delay loop (skipped), value calculated using timer frequency.. 383.33 BogoMIPS (lpj=1916666)
+[    0.034566] zynq kernel: CPU: Testing write buffer coherency: ok
+[    0.039406] zynq kernel: CPU0: Spectre v2: using BPIALL workaround
+[    0.044463] zynq kernel: pid_max: default: 32768 minimum: 301
+[    0.049191] zynq kernel: Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.056386] zynq kernel: Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.064894] zynq kernel: CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.129811] zynq kernel: Setting up static identity map for 0x300000 - 0x3000ac
+[    0.131021] zynq kernel: rcu: Hierarchical SRCU implementation.
+[    0.135149] zynq kernel: rcu:         Max phase no-delay instances is 1000.
+[    0.140715] zynq kernel: Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.149678] zynq kernel: EFI services will not be available.
+[    0.153240] zynq kernel: smp: Bringing up secondary CPUs ...
+[    0.158385] zynq kernel: CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+[    0.158409] zynq kernel: CPU1: Spectre v2: using BPIALL workaround
+[    0.168371] zynq kernel: smp: Brought up 1 node, 2 CPUs
+[    0.172319] zynq kernel: SMP: Total of 2 processors activated (766.66 BogoMIPS).
+[    0.178563] zynq kernel: CPU: All CPU(s) started in SVC mode.
+[    0.183634] zynq kernel: Memory: 160384K/524288K available (16384K kernel code, 2610K rwdata, 7108K rodata, 2048K init, 432K bss, 296980K reserved, 65536K cma-reserved, 0K highmem)
+[    0.198621] zynq kernel: devtmpfs: initialized
+[    0.204945] zynq kernel: VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+[    0.209313] zynq kernel: clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[    0.218982] zynq kernel: futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+[    0.229086] zynq kernel: pinctrl core: initialized pinctrl subsystem
+[    0.232874] zynq kernel: DMI not present or invalid.
+[    0.235645] zynq kernel: NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.243506] zynq kernel: DMA: preallocated 256 KiB pool for atomic coherent allocations
+[    0.249863] zynq kernel: thermal_sys: Registered thermal governor 'step_wise'
+[    0.249939] zynq kernel: cpuidle: using governor menu
+[    0.260919] zynq kernel: platform axi: Fixed dependency cycle(s) with /axi/interrupt-controller@f8f01000
+[    0.271117] zynq kernel: platform replicator: Fixed dependency cycle(s) with /axi/etb@f8801000
+[    0.273382] zynq kernel: amba f8801000.etb: Fixed dependency cycle(s) with /replicator
+[    0.280334] zynq kernel: platform replicator: Fixed dependency cycle(s) with /axi/tpiu@f8803000
+[    0.287730] zynq kernel: amba f8803000.tpiu: Fixed dependency cycle(s) with /replicator
+[    0.294781] zynq kernel: platform replicator: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.302363] zynq kernel: amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889d000
+[    0.309864] zynq kernel: amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889c000
+[    0.317419] zynq kernel: amba f8804000.funnel: Fixed dependency cycle(s) with /replicator
+[    0.324692] zynq kernel: amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889c000
+[    0.332142] zynq kernel: amba f889c000.ptm: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.339823] zynq kernel: amba f8804000.funnel: Fixed dependency cycle(s) with /axi/ptm@f889d000
+[    0.347240] zynq kernel: amba f889d000.ptm: Fixed dependency cycle(s) with /axi/funnel@f8804000
+[    0.355934] zynq kernel: No ATAGs?
+[    0.357107] zynq kernel: hw-breakpoint: found 5 (+1 reserved) breakpoint and 1 watchpoint registers.
+[    0.365024] zynq kernel: hw-breakpoint: maximum watchpoint size is 4 bytes.
+[    0.374742] zynq kernel: Serial: AMBA PL011 UART driver
+[    0.375671] zynq kernel: e0000000.serial: ttyPS0 at MMIO 0xe0000000 (irq = 26, base_baud = 6249999) is a xuartps
+[    0.389672] zynq kernel: printk: legacy console [ttyPS0] enabled
+[    0.394597] zynq kernel: printk: legacy bootconsole [cdns0] disabled
+[    0.411842] zynq kernel: iommu: Default domain type: Translated
+[    0.416637] zynq kernel: iommu: DMA domain TLB invalidation policy: strict mode
+[    0.424496] zynq kernel: SCSI subsystem initialized
+[    0.448477] zynq kernel: libata version 3.00 loaded.
+[    0.448750] zynq kernel: usbcore: registered new interface driver usbfs
+[    0.454271] zynq kernel: usbcore: registered new interface driver hub
+[    0.459642] zynq kernel: usbcore: registered new device driver usb
+[    0.465768] zynq kernel: pps_core: LinuxPPS API ver. 1 registered
+[    0.470751] zynq kernel: pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.479906] zynq kernel: PTP clock support registered
+[    0.483957] zynq kernel: EDAC MC: Ver: 3.0.0
+[    0.498523] zynq kernel: scmi_core: SCMI protocol bus registered
+[    0.518573] zynq kernel: FPGA manager framework
+[    0.523500] zynq kernel: vgaarb: loaded
+[    0.533090] zynq kernel: clocksource: Switched to clocksource arm_global_timer
+[    0.549839] zynq kernel: NET: Registered PF_INET protocol family
+[    0.554916] zynq kernel: IP idents hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.562952] zynq kernel: tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+[    0.571360] zynq kernel: Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.579120] zynq kernel: TCP established hash table entries: 2048 (order: 1, 8192 bytes, linear)
+[    0.586793] zynq kernel: TCP bind hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[    0.594005] zynq kernel: TCP: Hash tables configured (established 2048 bind 2048)
+[    0.600438] zynq kernel: UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.606986] zynq kernel: UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.614100] zynq kernel: NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.620514] zynq kernel: RPC: Registered named UNIX socket transport module.
+[    0.626432] zynq kernel: RPC: Registered udp transport module.
+[    0.631161] zynq kernel: RPC: Registered tcp transport module.
+[    0.635858] zynq kernel: RPC: Registered tcp-with-tls transport module.
+[    0.641344] zynq kernel: RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.647783] zynq kernel: PCI: CLS 0 bytes, default 64
+[    0.652991] zynq kernel: Initialise system trusted keyrings
+[    0.658096] zynq kernel: workingset: timestamp_bits=30 max_order=16 bucket_order=0
+[    0.664955] zynq kernel: squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.671192] zynq kernel: NFS: Registering the id_resolver key type
+[    0.676274] zynq kernel: Key type id_resolver registered
+[    0.680476] zynq kernel: Key type id_legacy registered
+[    0.684511] zynq kernel: nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    0.691231] zynq kernel: nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[    0.699853] zynq kernel: Key type cifs.idmap registered
+[    0.704335] zynq kernel: Key type asymmetric registered
+[    0.708461] zynq kernel: Asymmetric key parser 'x509' registered
+[    0.713423] zynq kernel: bounce: pool size: 64 pages
+[    0.717296] zynq kernel: Block layer SCSI generic (bsg) driver version 0.4 loaded (major 245)
+[    0.724748] zynq kernel: io scheduler mq-deadline registered
+[    0.729285] zynq kernel: io scheduler kyber registered
+[    0.733314] zynq kernel: io scheduler bfq registered
+[    0.747262] zynq kernel: zynq-pinctrl 700.pinctrl: zynq pinctrl initialized
+[    0.770668] zynq kernel: ledtrig-cpu: registered to indicate activity on CPUs
+[    0.799506] zynq kernel: dma-pl330 f8003000.dma-controller: Loaded driver for PL330 DMAC-241330
+[    0.807111] zynq kernel: dma-pl330 f8003000.dma-controller:         DBUFF-128x8bytes Num_Chans-8 Num_Peri-4 Num_Events-16
+[    0.884393] zynq kernel: Serial: 8250/16550 driver, 5 ports, IRQ sharing enabled
+[    0.895764] zynq kernel: msm_serial: driver initialized
+[    0.900188] zynq kernel: SuperH (H)SCI(F) driver initialized
+[    0.904913] zynq kernel: STMicroelectronics ASC driver initialized
+[    0.910123] zynq kernel: STM32 USART driver initialized
+[    0.934027] zynq kernel: brd: module loaded
+[    0.943291] zynq kernel: loop: module loaded
+[    0.964212] zynq kernel: 4 fixed-partitions partitions found on MTD device spi0.0
+[    0.970614] zynq kernel: Creating 4 MTD partitions on "spi0.0":
+[    0.975406] zynq kernel: 0x000000000000-0x000000500000 : "boot"
+[    0.981706] zynq kernel: 0x000000500000-0x000000520000 : "env"
+[    0.987741] zynq kernel: 0x000000520000-0x000000f20000 : "kernel"
+[    0.994124] zynq kernel: 0x000000f20000-0x000001000000 : "spare"
+[    1.005254] zynq kernel: CAN device driver interface
+[    1.288990] zynq kernel: macb e000b000.ethernet eth0: Cadence GEM rev 0x00020118 at 0xe000b000 irq 38 (ba:d7:8c:55:e0:68)
+[    1.299334] zynq kernel: bgmac_bcma: Broadcom 47xx GBit MAC driver loaded
+[    1.305908] zynq kernel: e1000e: Intel(R) PRO/1000 Network Driver
+[    1.310883] zynq kernel: e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+[    1.316845] zynq kernel: igb: Intel(R) Gigabit Ethernet Network Driver
+[    1.322250] zynq kernel: igb: Copyright (c) 2007-2014 Intel Corporation.
+[    1.331476] zynq kernel: pegasus: Pegasus/Pegasus II USB Ethernet driver
+[    1.337084] zynq kernel: usbcore: registered new interface driver pegasus
+[    1.342806] zynq kernel: usbcore: registered new interface driver asix
+[    1.348242] zynq kernel: usbcore: registered new interface driver ax88179_178a
+[    1.354377] zynq kernel: usbcore: registered new interface driver cdc_ether
+[    1.360245] zynq kernel: usbcore: registered new interface driver smsc75xx
+[    1.366014] zynq kernel: usbcore: registered new interface driver smsc95xx
+[    1.371790] zynq kernel: usbcore: registered new interface driver net1080
+[    1.377477] zynq kernel: usbcore: registered new interface driver cdc_subset
+[    1.383430] zynq kernel: usbcore: registered new interface driver zaurus
+[    1.389046] zynq kernel: usbcore: registered new interface driver cdc_ncm
+[    1.399315] zynq kernel: usbcore: registered new interface driver cdc_acm
+[    1.404977] zynq kernel: cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+[    1.413090] zynq kernel: usbcore: registered new interface driver usb-storage
+[    1.419191] zynq kernel: usbcore: registered new interface driver ch341
+[    1.424699] zynq kernel: usbserial: USB Serial support registered for ch341-uart
+[    1.431028] zynq kernel: usbcore: registered new interface driver cp210x
+[    1.436622] zynq kernel: usbserial: USB Serial support registered for cp210x
+[    1.442576] zynq kernel: usbcore: registered new interface driver ftdi_sio
+[    1.448341] zynq kernel: usbserial: USB Serial support registered for FTDI USB Serial Device
+[    1.473989] zynq kernel: i2c_dev: i2c /dev entries driver
+[    1.490681] zynq kernel: Xilinx Zynq CpuIdle Driver started
+[    1.496992] zynq kernel: sdhci: Secure Digital Host Controller Interface driver
+[    1.503211] zynq kernel: sdhci: Copyright(c) Pierre Ossman
+[    1.509158] zynq kernel: Synopsys Designware Multimedia Card Interface Driver
+[    1.516587] zynq kernel: sdhci-pltfm: SDHCI platform and OF driver helper
+[    1.525759] zynq kernel: clocksource: ttc_clocksource: mask: 0xffff max_cycles: 0xffff, max_idle_ns: 467424388 ns
+[    1.534988] zynq kernel: timer #0 at (ptrval), irq=39
+[    1.539445] zynq kernel: usbcore: registered new interface driver usbhid
+[    1.545038] zynq kernel: usbhid: USB HID core driver
+[    1.555204] zynq kernel: armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+[    1.569786] zynq kernel: hw perfevents: enabled with armv7_cortex_a9 PMU driver, 7 (8000003f) counters available
+[    1.611903] zynq kernel: NET: Registered PF_INET6 protocol family
+[    1.618275] zynq kernel: Segment Routing with IPv6
+[    1.622008] zynq kernel: In-situ OAM (IOAM) with IPv6
+[    1.626033] zynq kernel: sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[    1.632627] zynq kernel: NET: Registered PF_PACKET protocol family
+[    1.637729] zynq kernel: can: controller area network core
+[    1.642136] zynq kernel: NET: Registered PF_CAN protocol family
+[    1.646940] zynq kernel: can: raw protocol
+[    1.649906] zynq kernel: can: broadcast manager protocol
+[    1.654106] zynq kernel: can: netlink gateway - max_hops=1
+[    1.658919] zynq kernel: Key type dns_resolver registered
+[    1.663534] zynq kernel: ThumbEE CPU extension supported.
+[    1.667807] zynq kernel: Registering SWP/SWPB emulation handler
+[    1.684309] zynq kernel: Loading compiled-in X.509 certificates
+[    1.706258] zynq kernel: usb_phy_generic phy0: dummy supplies not allowed for exclusive requests (id=vbus)
+[    1.733179] zynq kernel: mmc0: SDHCI controller on e0100000.mmc [e0100000.mmc] using ADMA
+[    1.783939] zynq kernel: mmc0: new high speed SDHC card at address 0001
+[    1.790137] zynq kernel: mmcblk0: mmc0:0001 SD 29.5 GiB
+[    1.800736] zynq kernel:  mmcblk0: p1 p2
+[    1.910230] zynq kernel: clk: Disabling unused clocks
+[    1.914343] zynq kernel: PM: genpd: Disabling unused power domains
+[    1.939892] zynq kernel: EXT4-fs (mmcblk0p2): mounted filesystem 873bd848-2fa9-4d26-8790-bba09025037c r/w with ordered data mode. Quota mode: disabled.
+[    1.952447] zynq kernel: VFS: Mounted root (ext4 filesystem) on device 179:2.
+[    1.973932] zynq kernel: devtmpfs: mounted
+[    1.979325] zynq kernel: Freeing unused kernel image (initmem) memory: 2048K
+[    1.985995] zynq kernel: Run /sbin/init as init process
+[    1.990093] zynq kernel:   with arguments:
+[    1.990100] zynq kernel:     /sbin/init
+[    1.990107] zynq kernel:   with environment:
+[    1.990112] zynq kernel:     HOME=/
+[    1.990118] zynq kernel:     TERM=linux
+[    2.517009] zynq systemd[1]: System time before build time, advancing clock.
+[    2.640060] zynq systemd[1]: systemd 252.39-1~deb12u2 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+[    2.672861] zynq systemd[1]: Detected architecture arm.
+[    2.698024] zynq systemd[1]: Hostname set to <zynq>.
+[    3.752366] zynq systemd[1]: Queued start job for default target graphical.target.
+[    3.765026] zynq systemd[1]: Created slice system-getty.slice - Slice /system/getty.
+[    3.794761] zynq systemd[1]: Created slice system-modprobe.slice - Slice /system/modprobe.
+[    3.824779] zynq systemd[1]: Created slice system-serial\x2dgetty.slice - Slice /system/serial-getty.
+[    3.853986] zynq systemd[1]: Created slice user.slice - User and Session Slice.
+[    3.883590] zynq systemd[1]: Started systemd-ask-password-console.path - Dispatch Password Requests to Console Directory Watch.
+[    3.913558] zynq systemd[1]: Started systemd-ask-password-wall.path - Forward Password Requests to Wall Directory Watch.
+[    3.943570] zynq systemd[1]: proc-sys-fs-binfmt_misc.automount - Arbitrary Executable File Formats File System Automount Point was skipped because of an unmet condition check (ConditionPathExists=/proc/sys/fs/binfmt_misc).
+[    3.963135] zynq systemd[1]: Expecting device dev-mmcblk0p1.device - /dev/mmcblk0p1...
+[    3.993254] zynq systemd[1]: Expecting device dev-ttyPS0.device - /dev/ttyPS0...
+[    4.023378] zynq systemd[1]: Reached target cryptsetup.target - Local Encrypted Volumes.
+[    4.053458] zynq systemd[1]: Reached target integritysetup.target - Local Integrity Protected Volumes.
+[    4.083597] zynq systemd[1]: Reached target paths.target - Path Units.
+[    4.113423] zynq systemd[1]: Reached target remote-fs.target - Remote File Systems.
+[    4.143374] zynq systemd[1]: Reached target slices.target - Slice Units.
+[    4.173454] zynq systemd[1]: Reached target swap.target - Swaps.
+[    4.203449] zynq systemd[1]: Reached target veritysetup.target - Local Verity Protected Volumes.
+[    4.233991] zynq systemd[1]: Listening on systemd-fsckd.socket - fsck to fsckd communication Socket.
+[    4.263643] zynq systemd[1]: Listening on systemd-initctl.socket - initctl Compatibility Named Pipe.
+[    4.312357] zynq systemd[1]: systemd-journald-audit.socket - Journal Audit Socket was skipped because of an unmet condition check (ConditionSecurity=audit).
+[    4.327076] zynq systemd[1]: Listening on systemd-journald-dev-log.socket - Journal Socket (/dev/log).
+[    4.354109] zynq systemd[1]: Listening on systemd-journald.socket - Journal Socket.
+[    4.384262] zynq systemd[1]: Listening on systemd-networkd.socket - Network Service Netlink Socket.
+[    4.414178] zynq systemd[1]: Listening on systemd-udevd-control.socket - udev Control Socket.
+[    4.443886] zynq systemd[1]: Listening on systemd-udevd-kernel.socket - udev Kernel Socket.
+[    4.473944] zynq systemd[1]: dev-hugepages.mount - Huge Pages File System was skipped because of an unmet condition check (ConditionPathExists=/sys/kernel/mm/hugepages).
+[    4.489255] zynq systemd[1]: dev-mqueue.mount - POSIX Message Queue File System was skipped because of an unmet condition check (ConditionPathExists=/proc/sys/fs/mqueue).
+[    4.553609] zynq systemd[1]: Mounting sys-kernel-debug.mount - Kernel Debug File System...
+[    4.587607] zynq systemd[1]: Mounting sys-kernel-tracing.mount - Kernel Trace File System...
+[    4.619185] zynq systemd[1]: Starting kmod-static-nodes.service - Create List of Static Device Nodes...
+[    4.657904] zynq systemd[1]: Starting modprobe@configfs.service - Load Kernel Module configfs...
+[    4.687950] zynq systemd[1]: Starting modprobe@dm_mod.service - Load Kernel Module dm_mod...
+[    4.718034] zynq systemd[1]: Starting modprobe@drm.service - Load Kernel Module drm...
+[    4.747917] zynq systemd[1]: Starting modprobe@efi_pstore.service - Load Kernel Module efi_pstore...
+[    4.777973] zynq systemd[1]: Starting modprobe@fuse.service - Load Kernel Module fuse...
+[    4.807841] zynq systemd[1]: Starting modprobe@loop.service - Load Kernel Module loop...
+[    4.833948] zynq systemd[1]: systemd-fsck-root.service - File System Check on Root Device was skipped because of an unmet condition check (ConditionPathIsReadWrite=!/).
+[    4.850229] zynq systemd[1]: systemd-journald.service: unit configures an IP firewall, but the local system does not support BPF/cgroup firewalling.
+[    4.863218] zynq systemd[1]: (This warning is only shown for the first unit using IP firewalling.)
+[    4.933823] zynq systemd[1]: Starting systemd-journald.service - Journal Service...
+[    4.971407] zynq systemd[1]: Starting systemd-modules-load.service - Load Kernel Modules...
+[    5.008029] zynq systemd[1]: Starting systemd-remount-fs.service - Remount Root and Kernel File Systems...
+[    5.088012] zynq systemd-journald[94]: Journal started
+[    5.088562] zynq systemd-journald[94]: Runtime Journal (/run/log/journal/437dae19e56f43e193b5f537e3ebd9a9) is 576.0K, max 4.4M, 3.9M free.
+[    5.114304] zynq systemd[1]: Starting systemd-udev-trigger.service - Coldplug All udev Devices...
+[    5.121141] zynq kernel: EXT4-fs (mmcblk0p2): re-mounted 873bd848-2fa9-4d26-8790-bba09025037c r/w. Quota mode: disabled.
+[    5.164412] zynq systemd[1]: Started systemd-journald.service - Journal Service.
+[    5.191031] zynq systemd[1]: Mounted sys-kernel-debug.mount - Kernel Debug File System.
+[    5.211036] zynq systemd[1]: Mounted sys-kernel-tracing.mount - Kernel Trace File System.
+[    5.231734] zynq systemd[1]: Finished kmod-static-nodes.service - Create List of Static Device Nodes.
+[    5.252026] zynq systemd[1]: modprobe@configfs.service: Deactivated successfully.
+[    5.253642] zynq systemd[1]: Finished modprobe@configfs.service - Load Kernel Module configfs.
+[    5.271891] zynq systemd[1]: modprobe@dm_mod.service: Deactivated successfully.
+[    5.273558] zynq systemd[1]: Finished modprobe@dm_mod.service - Load Kernel Module dm_mod.
+[    5.292008] zynq systemd[1]: modprobe@drm.service: Deactivated successfully.
+[    5.293545] zynq systemd[1]: Finished modprobe@drm.service - Load Kernel Module drm.
+[    5.312039] zynq systemd[1]: modprobe@efi_pstore.service: Deactivated successfully.
+[    5.313690] zynq systemd[1]: Finished modprobe@efi_pstore.service - Load Kernel Module efi_pstore.
+[    5.331887] zynq systemd[1]: modprobe@fuse.service: Deactivated successfully.
+[    5.333276] zynq systemd[1]: Finished modprobe@fuse.service - Load Kernel Module fuse.
+[    5.351897] zynq systemd[1]: modprobe@loop.service: Deactivated successfully.
+[    5.353555] zynq systemd[1]: Finished modprobe@loop.service - Load Kernel Module loop.
+[    5.371922] zynq systemd[1]: Finished systemd-modules-load.service - Load Kernel Modules.
+[    5.392090] zynq systemd[1]: Finished systemd-remount-fs.service - Remount Root and Kernel File Systems.
+[    5.413041] zynq systemd[1]: sys-fs-fuse-connections.mount - FUSE Control File System was skipped because of an unmet condition check (ConditionPathExists=/sys/fs/fuse/connections).
+[    5.456640] zynq systemd[1]: Mounting sys-kernel-config.mount - Kernel Configuration File System...
+[    5.473693] zynq systemd[1]: systemd-firstboot.service - First Boot Wizard was skipped because of an unmet condition check (ConditionFirstBoot=yes).
+[    5.477549] zynq systemd[1]: Starting systemd-journal-flush.service - Flush Journal to Persistent Storage...
+[    5.495430] zynq systemd[1]: systemd-pstore.service - Platform Persistent Storage Archival was skipped because of an unmet condition check (ConditionDirectoryNotEmpty=/sys/fs/pstore).
+[    5.496093] zynq systemd[1]: Starting systemd-random-seed.service - Load/Save Random Seed...
+[    5.515936] zynq systemd[1]: systemd-repart.service - Repartition Root Disk was skipped because no trigger condition checks were met.
+[    5.516565] zynq systemd[1]: Starting systemd-sysctl.service - Apply Kernel Variables...
+[    5.545459] zynq systemd[1]: Starting systemd-sysusers.service - Create System Users...
+[    5.552294] zynq systemd-journald[94]: Time spent on flushing to /var/log/journal/437dae19e56f43e193b5f537e3ebd9a9 is 41.924ms for 313 entries.

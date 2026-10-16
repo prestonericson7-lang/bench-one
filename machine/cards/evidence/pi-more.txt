@@ -1,0 +1,575 @@
+== root filesystem superblock
+features compat 0x3c incompat 0x242 ro_compat 0x6b
+needs_recovery (not cleanly unmounted): False   has_journal: True   metadata_csum: False   inline_data: False
+default mount options 0x6c: journal mode data=writeback   s_mount_opts: ''
+state 0x1  mount count 2
+
+===== /etc/netplan/ (directory, inode 393305)
+         499  90-NM-4bf3a059-a79b-4864-bbe8-56e4a8565070.yaml
+          49  orangepi-default.yaml
+
+===== /var/log/orangepi-ramlog.log (inode 337478, 1091 bytes)
+Setting up /var/log/ as tmpfs 
+
+Fri Jul 31 03:18:39 PM UTC 2026: Loading logs from storage
+
+sending incremental file list
+./
+README -> ../../usr/share/doc/systemd/README.logs
+alternatives.log
+boot.log
+bootstrap.log
+btmp
+dpkg.log
+fontconfig.log
+lastlog
+orangepi-hardware-monitor.log
+wtmp
+xrdp-sesman.log
+xrdp.log
+apt/
+apt/history.log
+apt/term.log
+cups/
+dist-upgrade/
+hp/
+hp/tmp/
+journal/
+lightdm/
+openvpn/
+private/
+samba/
+speech-dispatcher/
+sysstat/
+sysstat/sa30
+unattended-upgrades/
+
+sent 1,737,999 bytes  received 348 bytes  3,476,694.00 bytes/sec
+total size is 1,736,005  speedup is 1.00
+
+
+Fri Jul 31 03:34:50 PM UTC 2026: Syncing logs to storage
+
+sending incremental file list
+./
+Xorg.0.log
+apport.log
+auth.log
+boot.log
+dmesg
+dpkg.log
+kern.log
+orangepi-hardware-monitor.log
+syslog
+wtmp
+xrdp-sesman.log
+xrdp.log
+apt/
+apt/eipp.log.xz
+chrony/
+lightdm/
+lightdm/lightdm.log
+lightdm/x-0.log
+sysstat/
+sysstat/sa31
+unattended-upgrades/
+unattended-upgrades/unattended-upgrades-shutdown.log
+
+sent 2,063,889 bytes  received 379 bytes  4,128,536.00 bytes/sec
+total size is 2,792,818  speedup is 1.35
+
+===== /var/log/boot.log (inode 337514, 9482 bytes)
+------------ Fri Jul 31 15:18:39 UTC 2026 ------------
+done.
+Begin: Mounting root file system ... Begin: Running /scripts/local-top ... done.
+Begin: Running /scripts/local-premount ... Scanning for Btrfs filesystems
+done.
+Begin: Will now check root file system ... fsck from util-linux 2.41.3
+[/usr/sbin/fsck.ext4 (1) -- /dev/mmcblk1p1] fsck.ext4 -a -C0 /dev/mmcblk1p1 
+opi_root: clean, 170322/688128 files, 2140333/2728960 blocks
+done.
+done.
+Begin: Running /scripts/local-bottom ... done.
+Begin: Running /scripts/init-bottom ... done.
+[6n[32766;32766H[6n[!p]104\[0m[?7h[1G[0J
+[0;1;39mWelcome to [0m[1mOrange Pi 1.1.0 Resolute[0m[0;1;39m![0m
+
+
+]3008;start=59b36e8de67c4b01a5079838ae96d0c1;user=root;hostname=orangepi4pro;machineid=bd9281186c0145e5b54a29f19d258522;bootid=fd4084398fe54a62b4d99f230d631f75;pid=1;comm=systemd;type=boot\[[0;32m  OK  [0m] Created slice [0;1;39msystem-cups.slice[0m - CUPS Slice.
+
+[[0;32m  OK  [0m] Created slice [0;1;39msystem-modprobe.slice[0m - Slice /system/modprobe.
+
+[[0;32m  OK  [0m] Created slice [0;1;39msystem-serial\x2dgetty.slice[0m - Slice /system/serial-getty.
+
+[[0;32m  OK  [0m] Created slice [0;1;39muser.slice[0m - User and Session Slice.
+
+[[0;32m  OK  [0m] Started [0;1;39msystemd-ask-password-wall.path[0m - Forward Password Requests to Wall Directory Watch.
+
+         Expecting device [0;1;39mdev-ttyS0.device[0m - /dev/ttyS0...
+
+[[0;32m  OK  [0m] Reached target [0;1;39mimports.target[0m - Image Downloads.
+
+[[0;32m  OK  [0m] Reached target [0;1;39mremote-fs.target[0m - Remote File Systems.
+
+[[0;32m  OK  [0m] Reached target [0;1;39mslices.target[0m - Slice Units.
+
+[[0;32m  OK  [0m] Reached target [0;1;39mswap.target[0m - Swaps.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msyslog.socket[0m - Syslog Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-ask-password.socket[0m - Query the User Interactively for a Password.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-creds.socket[0m - Credential Encryption/Decryption.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-factory-reset.socket[0m - Factory Reset Management.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-journald-dev-log.socket[0m - Journal Socket (/dev/log).
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-journald.socket[0m - Journal Sockets.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-mute-console.socket[0m - Console Output Muting Service Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-resolved-monitor.socket[0m - Resolve Monitor Varlink Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-resolved-varlink.socket[0m - Resolve Service Varlink Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-udevd-control.socket[0m - udev Control Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-udevd-kernel.socket[0m - udev Kernel Socket.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-udevd-varlink.socket[0m - udev Varlink Socket.
+
+         Mounting [0;1;39mdev-hugepages.mount[0m - Huge Pages File System...
+
+         Mounting [0;1;39mdev-mqueue.mount[0m - POSIX Message Queue File System...
+
+         Mounting [0;1;39msys-kernel-debug.mount[0m - Kernel Debug File System...
+
+         Starting [0;1;39mfake-hwclock-load.service[0m - Restore the current clock...
+
+         Starting [0;1;39mkeyboard-setup.service[0m - Set the console keyboard layout...
+
+         Mounting [0;1;39msys-kernel-config.mount[0m - Kernel Configuration File System...
+
+         Starting [0;1;39mmodprobe@efi_pstore.service[0m - Load Kernel Module efi_pstore...
+
+         Mounting [0;1;39msys-fs-fuse-connections.mount[0m - FUSE Control File System...
+
+         Starting [0;1;39msystemd-modules-load.service[0m - Load Kernel Modules...
+
+         Starting [0;1;39msystemd-tmpfiles-setup-dev-early.service[0m - Create Static Device Nodes in /dev gracefully...
+
+         Starting [0;1;39msystemd-udev-load-credentials.service[0m - Load udev Rules from Credentials...
+
+         Starting [0;1;39msystemd-udev-trigger.service[0m - Coldplug All udev Devices...
+
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@efi_pstore.service[0m - Load Kernel Module efi_pstore.
+
+[[0;32m  OK  [0m] Mounted [0;1;39mdev-hugepages.mount[0m - Huge Pages File System.
+
+[[0;32m  OK  [0m] Mounted [0;1;39mdev-mqueue.mount[0m - POSIX Message Queue File System.
+
+[[0;32m  OK  [0m] Mounted [0;1;39msys-kernel-debug.mount[0m - Kernel Debug File System.
+
+[[0;32m  OK  [0m] Mounted [0;1;39msys-kernel-config.mount[0m - Kernel Configuration File System.
+
+[[0;32m  OK  [0m] Mounted [0;1;39msys-fs-fuse-connections.mount[0m - FUSE Control File System.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-udev-load-credentials.service[0m - Load udev Rules from Credentials.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-udev-trigger.service[0m - Coldplug All udev Devices.
+
+         Starting [0;1;39mifupdown-pre.service[0m - Helper to synchronize boot up for ifupdown...
+
+[[0;32m  OK  [0m] Finished [0;1;39mfake-hwclock-load.service[0m - Restore the current clock.
+
+         Starting [0;1;39msystemd-remount-fs.service[0m - Remount Root and Kernel File Systems...
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-tmpfiles-setup-dev-early.service[0m - Create Static Device Nodes in /dev gracefully.
+
+[[0;32m  OK  [0m] Finished [0;1;39mifupdown-pre.service[0m - Helper to synchronize boot up for ifupdown.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-remount-fs.service[0m - Remount Root and Kernel File Systems.
+
+         Starting [0;1;39msystemd-random-seed.service[0m - Load/Save OS Random Seed...
+
+         Starting [0;1;39msystemd-sysusers.service[0m - Create System Users...
+
+[[0;32m  OK  [0m] Finished [0;1;39mkeyboard-setup.service[0m - Set the console keyboard layout.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-random-seed.service[0m - Load/Save OS Random Seed.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-sysusers.service[0m - Create System Users.
+
+         Starting [0;1;39msystemd-tmpfiles-setup-dev.service[0m - Create Static Device Nodes in /dev...
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-tmpfiles-setup-dev.service[0m - Create Static Device Nodes in /dev.
+
+[[0;32m  OK  [0m] Reached target [0;1;39mlocal-fs-pre.target[0m - Preparation for Local File Systems.
+
+         Starting [0;1;39msystemd-udevd.service[0m - Rule-based Manager for Device Events and Files...
+
+         Mounting [0;1;39mtmp.mount[0m - /tmp...
+
+[[0;32m  OK  [0m] Mounted [0;1;39mtmp.mount[0m - /tmp.
+
+[[0;32m  OK  [0m] Reached target [0;1;39mlocal-fs.target[0m - Local File Systems.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-sysext.socket[0m - System Extension Image Management.
+
+         Starting [0;1;39mconsole-setup.service[0m - Set console font and keymap...
+
+         Starting [0;1;39mnetplan-configure.service[0m - Netplan Backend Configuration...
+
+         Starting [0;1;39morangepi-zram-config.service[0m - Orange Pi ZRAM config...
+
+         Starting [0;1;39mplymouth-read-write.service[0m - Tell Plymouth To Write Out Runtime Data...
+
+[[0;32m  OK  [0m] Started [0;1;39msystemd-udevd.service[0m - Rule-based Manager for Device Events and Files.
+
+         Starting [0;1;39mplymouth-start.service[0m - Show Plymouth Boot Screen...
+
+[[0;32m  OK  [0m] Finished [0;1;39mconsole-setup.service[0m - Set console font and keymap.
+
+[[0;32m  OK  [0m] Finished [0;1;39mplymouth-read-write.service[0m - Tell Plymouth To Write Out Runtime Data.
+
+[[0;32m  OK  [0m] Started [0;1;39mplymouth-start.service[0m - Show Plymouth Boot Screen.
+
+[[0;32m  OK  [0m] Started [0;1;39msystemd-ask-password-plymouth.path[0m - Forward Password Requests to Plymouth Directory Watch.
+
+[[0;32m  OK  [0m] Finished [0;1;39mnetplan-configure.service[0m - Netplan Backend Configuration.
+
+[[0;32m  OK  [0m] Found device [0;1;39mdev-ttyS0.device[0m - /dev/ttyS0.
+
+[[0;32m  OK  [0m] Reached target [0;1;39musb-gadget.target[0m - Hardware activated USB gadget.
+
+         Starting [0;1;39mfake-hwclock-load.service[0m - Restore the current clock...
+
+         Starting [0;1;39mmodprobe@efi_pstore.service[0m - Load Kernel Module efi_pstore...
+
+[[0;32m  OK  [0m] Finished [0;1;39morangepi-zram-config.service[0m - Orange Pi ZRAM config.
+
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-rfkill.socket[0m - Load/Save RF Kill Switch Status /dev/rfkill Watch.
+
+         Starting [0;1;39morangepi-ramlog.service[0m - Orange Pi memory supported logging...
+
+         Starting [0;1;39msystemd-rfkill.service[0m - Load/Save RF Kill Switch Status...
+
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@efi_pstore.service[0m - Load Kernel Module efi_pstore.
+
+[[0;32m  OK  [0m] Started [0;1;39msystemd-rfkill.service[0m - Load/Save RF Kill Switch Status.
+
+[[0;32m  OK  [0m] Finished [0;1;39mfake-hwclock-load.service[0m - Restore the current clock.
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-modules-load.service[0m - Load Kernel Modules.
+
+         Starting [0;1;39msystemd-sysctl.service[0m - Apply Kernel Variables...
+
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-sysctl.service[0m - Apply Kernel Variables.
+
+         Starting [0;1;39mnetworking.service[0m - Raise network interfaces...
+
+         Starting [0;1;39msystemd-resolved.service[0m - Network Name Resolution...
+
+
+===== /var/log/syslog (inode 337474, 404229 bytes)
+2026-07-31T15:19:18.620278+00:00 orangepi4pro (udev-worker)[364]: end0: Failed to get driver for 'end0': Device or resource busy
+2026-07-31T15:19:18.620453+00:00 orangepi4pro (udev-worker)[357]: wlan0: Failed to find and pin callout binary "/sbin/iwconfig": No such file or directory
+2026-07-31T15:19:18.620465+00:00 orangepi4pro (udev-worker)[357]: wlan0: Failed to execute '/sbin/iwconfig wlan0 power off', ignoring: No such file or directory
+2026-07-31T15:19:18.620945+00:00 orangepi4pro kernel: ntfs: driver 2.1.32 [Flags: R/W].
+2026-07-31T15:19:18.622428+00:00 orangepi4pro orangepi-hardware-optimization[846]: [#033[0;32m ok #033[0m] Setting none I/O scheduler for nvme0n1
+2026-07-31T15:19:18.623047+00:00 orangepi4pro systemd[1]: Starting udisks2.service - Disk Manager...
+2026-07-31T15:19:18.623868+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_busnum (1)
+2026-07-31T15:19:18.623873+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[0] (axp8191-bldo5) voltage: 1800mV
+2026-07-31T15:19:18.623876+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[1] (axp8191-cldo1) voltage: 1800mV
+2026-07-31T15:19:18.623878+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_regon gpio=385 assert=1
+2026-07-31T15:19:18.623881+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_hostwake gpio=384 assert=1
+2026-07-31T15:19:18.623998+00:00 orangepi4pro kernel: nvme nvme0: pci function 0000:01:00.0
+2026-07-31T15:19:18.624000+00:00 orangepi4pro kernel: nvme 0000:01:00.0: enabling device (0000 -> 0002)
+2026-07-31T15:19:18.624003+00:00 orangepi4pro kernel: nvme nvme0: Shutdown timeout set to 8 seconds
+2026-07-31T15:19:18.624005+00:00 orangepi4pro kernel: nvme nvme0: 8/0/0 default/read/poll queues
+2026-07-31T15:19:18.624007+00:00 orangepi4pro kernel:  nvme0n1: p1
+2026-07-31T15:19:18.624531+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): mounted filesystem a81ee6f1-5c12-44f0-8e92-c28029cab13c ro with writeback data mode. Quota mode: disabled.
+2026-07-31T15:19:18.624862+00:00 orangepi4pro kernel: aicbsp: aicbsp_set_subsys, subsys: AIC_WIFI, state to: 1
+2026-07-31T15:19:18.624871+00:00 orangepi4pro kernel: aicbsp: aicbsp_set_subsys, power state change to 1 dure to AIC_WIFI
+2026-07-31T15:19:18.624881+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power on success
+2026-07-31T15:19:18.625308+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): re-mounted a81ee6f1-5c12-44f0-8e92-c28029cab13c r/w.
+2026-07-31T15:19:18.626690+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: renamed from eth0
+2026-07-31T15:19:18.626724+00:00 orangepi4pro kernel: rwnx_interface_add: wlan%d, 2, 10
+2026-07-31T15:19:18.626729+00:00 orangepi4pro kernel: ieee80211 phy0: New interface create wlan0
+2026-07-31T15:19:18.627390+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resizing filesystem from 2728960 to 30928896 blocks
+2026-07-31T15:19:18.627445+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized to 12582912 blocks
+2026-07-31T15:19:18.627450+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized to 22544384 blocks
+2026-07-31T15:19:18.627452+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized filesystem to 30928896
+2026-07-31T15:19:19.012780+00:00 orangepi4pro dbus-daemon[1441]: [system] Activating via systemd: service name='org.freedesktop.PolicyKit1' unit='polkit.service' requested by ':1.4' (uid=0 pid=1455 comm="/usr/libexec/udisks2/udisksd")
+2026-07-31T15:19:19.567422+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511159.5660] Read config: /etc/NetworkManager/NetworkManager.conf, /usr/lib/NetworkManager/conf.d/{10-default-firewall-use-iptables.conf,no-mac-addr-change.conf}, /run/NetworkManager/conf.d/10-globally-managed-devices.conf, /etc/NetworkManager/conf.d/{10-override-wifi-random-mac-disable.conf,20-override-wifi-powersave-disable.conf,default-wifi-powersave-on.conf}
+2026-07-31T15:19:19.619072+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511159.6188] monitoring ifupdown state file '/run/network/ifstate'.
+2026-07-31T15:19:19.646959+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511159.6468] rfkill2: found Wi-Fi radio killswitch (at /sys/devices/platform/soc@3000000/4021000.sdmmc/mmc_host/mmc2/mmc2:390b/mmc2:390b:1/ieee80211/phy0/rfkill2) (driver aicwf_sdio)
+2026-07-31T15:19:19.648167+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511159.6480] manager[0x55a4b39eb0]: rfkill: Wi-Fi hardware radio set enabled
+2026-07-31T15:19:19.859460+00:00 orangepi4pro systemd[1]: Started udisks2.service - Disk Manager.
+2026-07-31T15:19:20.004691+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.0044] Loaded device plugin: NMWifiFactory (/usr/lib/aarch64-linux-gnu/NetworkManager/1.54.3/libnm-device-plugin-wifi.so)
+2026-07-31T15:19:20.087750+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.0876] manager: rfkill: Wi-Fi enabled by radio killswitch; enabled by state file
+2026-07-31T15:19:20.087912+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.0877] manager: rfkill: WWAN enabled by radio killswitch; enabled by state file
+2026-07-31T15:19:20.088026+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.0878] manager: Networking is enabled by state file
+2026-07-31T15:19:20.220959+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2207] device (lo): state change: unmanaged -> unavailable (reason 'connection-assumed', managed-type: 'external')
+2026-07-31T15:19:20.221577+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2214] device (lo): state change: unavailable -> disconnected (reason 'connection-assumed', managed-type: 'external')
+2026-07-31T15:19:20.222741+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2226] device (lo): Activation: starting connection 'lo' (d33db9cd-5e93-42f9-bb83-be934df885a3)
+2026-07-31T15:19:20.223257+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2231] device (end0): driver '(null)' does not support carrier detection.
+2026-07-31T15:19:20.223684+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2235] device (end0): driver 'dwmac-sunxi' does not support carrier detection.
+2026-07-31T15:19:20.224451+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2243] manager: (end0): new Ethernet device (/org/freedesktop/NetworkManager/Devices/2)
+2026-07-31T15:19:20.226429+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2263] settings: (end0): created default wired connection 'Wired connection 1'
+2026-07-31T15:19:20.226592+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.2263] device (end0): state change: unmanaged -> unavailable (reason 'managed', managed-type: 'external')
+2026-07-31T15:19:20.231406+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Register MEM_TYPE_PAGE_POOL RxQ-0
+2026-07-31T15:19:20.331452+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: PHY [stmmac-0:01] driver [YT8531 Gigabit Ethernet] (irq=POLL)
+2026-07-31T15:19:20.343517+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: No Safety Features support found
+2026-07-31T15:19:20.350108+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: IEEE 1588-2008 Advanced Timestamp supported
+2026-07-31T15:19:20.350179+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: configuring for phy/rgmii link mode
+2026-07-31T15:19:20.351532+00:00 orangepi4pro kernel: 8021q: adding VLAN 0 to HW filter on device end0
+2026-07-31T15:19:20.368987+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.3685] device (wlan0): driver supports Access Point (AP) mode
+2026-07-31T15:19:20.371618+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.3702] manager: (wlan0): new 802.11 Wi-Fi device (/org/freedesktop/NetworkManager/Devices/7)
+2026-07-31T15:19:20.371769+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.3707] device (wlan0): state change: unmanaged -> unavailable (reason 'managed', managed-type: 'external')
+2026-07-31T15:19:20.536022+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.5357] device (lo): state change: disconnected -> prepare (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.536598+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.5364] device (lo): state change: prepare -> config (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.537063+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.5369] device (lo): state change: config -> ip-config (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.538435+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.5382] device (lo): state change: ip-config -> ip-check (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.703433+00:00 orangepi4pro kernel: rwnx_virtual_interface_add: 10, p2p-dev-wlan0
+2026-07-31T15:19:20.703502+00:00 orangepi4pro kernel: rwnx_virtual_interface_add, ifname=p2p-dev-wlan0, wdev=000000001524cda3, vif_idx=1
+2026-07-31T15:19:20.716295+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7153] device (lo): state change: ip-check -> secondaries (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.716542+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7159] device (lo): state change: secondaries -> activated (reason 'none', managed-type: 'external')
+2026-07-31T15:19:20.717439+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7173] device (lo): Activation: successful, device activated.
+2026-07-31T15:19:20.732447+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7321] device (wlan0): supplicant interface state: internal-starting -> disconnected
+2026-07-31T15:19:20.732740+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7325] Wi-Fi P2P device controlled by interface wlan0 created
+2026-07-31T15:19:20.733388+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7332] manager: (p2p-dev-wlan0): new 802.11 Wi-Fi P2P device (/org/freedesktop/NetworkManager/Devices/8)
+2026-07-31T15:19:20.734048+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7339] device (p2p-dev-wlan0): state change: unmanaged -> unavailable (reason 'managed', managed-type: 'external')
+2026-07-31T15:19:20.734315+00:00 orangepi4pro NetworkManager[1562]: <warn>  [1785511160.7341] device (p2p-dev-wlan0): error setting IPv4 forwarding to '0': Success
+2026-07-31T15:19:20.735487+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7352] device (wlan0): state change: unavailable -> disconnected (reason 'supplicant-available', managed-type: 'full')
+2026-07-31T15:19:20.737455+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511160.7367] device (p2p-dev-wlan0): state change: unavailable -> disconnected (reason 'none', managed-type: 'full')
+2026-07-31T15:19:20.756275+00:00 orangepi4pro systemd[1]: Started accel-firstboot.service - Accelerators: install the Zynq/Teensy bundle staged on this card (until it succeeds once).
+2026-07-31T15:19:20.768493+00:00 orangepi4pro systemd[1]: hostapd.service - Access point and authentication server for Wi-Fi and Ethernet skipped, unmet condition check ConditionFileNotEmpty=/etc/hostapd/hostapd.conf
+2026-07-31T15:19:31.187675+00:00 orangepi4pro systemd[1]: NetworkManager-dispatcher.service: Deactivated successfully.
+2026-07-31T15:19:41.639894+00:00 orangepi4pro dbus-daemon[2023]: [session uid=1000 pid=2023 pidfd=5] Activating via systemd: service name='org.gtk.vfs.UDisks2VolumeMonitor' unit='gvfs-udisks2-volume-monitor.service' requested by ':1.28' (uid=1000 pid=4176 comm="xfdesktop")
+2026-07-31T15:19:41.648780+00:00 orangepi4pro systemd[1970]: Starting gvfs-udisks2-volume-monitor.service - Virtual filesystem service - disk device monitor...
+2026-07-31T15:19:41.790335+00:00 orangepi4pro dbus-daemon[2023]: [session uid=1000 pid=2023 pidfd=5] Successfully activated service 'org.gtk.vfs.UDisks2VolumeMonitor'
+2026-07-31T15:19:41.792205+00:00 orangepi4pro systemd[1970]: Started gvfs-udisks2-volume-monitor.service - Virtual filesystem service - disk device monitor.
+2026-07-31T15:19:47.088409+00:00 orangepi4pro systemd[1]: Starting nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot)...
+2026-07-31T15:19:47.201544+00:00 orangepi4pro nvme-auto[4834]: nvme-auto: drive /dev/nvme0n1, 238.5G SAMSUNG MZVLB256HAHQ-000H1
+2026-07-31T15:19:47.394812+00:00 orangepi4pro nvme-auto[4834]: nvme-auto: using existing vfat filesystem on /dev/nvme0n1p1 (not reformatted)
+2026-07-31T15:19:47.451027+00:00 orangepi4pro nvme-auto[4834]: nvme-auto: fstab: UUID=2ECC-05B7 /mnt/nvme vfat defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+2026-07-31T15:19:47.458785+00:00 orangepi4pro systemd[1]: Reload requested from client PID 4891 ('systemctl') (unit nvme-auto.service)...
+2026-07-31T15:19:47.907450+00:00 orangepi4pro kernel: FAT-fs (nvme0n1p1): Volume was not properly unmounted. Some data may be corrupt. Please run fsck.
+2026-07-31T15:19:47.919178+00:00 orangepi4pro nvme-auto[4834]: nvme-auto: ready: /dev/nvme0n1p1 256M 97M /mnt/nvme
+2026-07-31T15:19:47.921569+00:00 orangepi4pro systemd[1]: Finished nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot).
+2026-07-31T15:19:48.381625+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.3805] audit: op="connection-add" uuid="4bf3a059-a79b-4864-bbe8-56e4a8565070" name="fpgagpu" pid=5095 uid=0 result="success"
+2026-07-31T15:19:48.421863+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4216] device (end0): state change: unavailable -> disconnected (reason 'user-requested', managed-type: 'full')
+2026-07-31T15:19:48.424038+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4237] device (end0): Activation: starting connection 'fpgagpu' (4bf3a059-a79b-4864-bbe8-56e4a8565070)
+2026-07-31T15:19:48.425360+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4246] audit: op="connection-activate" uuid="4bf3a059-a79b-4864-bbe8-56e4a8565070" name="fpgagpu" pid=5101 uid=0 result="success"
+2026-07-31T15:19:48.425623+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4249] device (end0): state change: disconnected -> prepare (reason 'none', managed-type: 'full')
+2026-07-31T15:19:48.425873+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4257] manager: NetworkManager state is now CONNECTING
+2026-07-31T15:19:48.426260+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4261] device (end0): state change: prepare -> config (reason 'none', managed-type: 'full')
+2026-07-31T15:19:48.428612+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511188.4283] device (end0): state change: config -> ip-config (reason 'none', managed-type: 'full')
+2026-07-31T15:19:50.433994+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511190.4327] device (end0): state change: ip-config -> ip-check (reason 'none', managed-type: 'full')
+2026-07-31T15:19:50.518534+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511190.5183] device (end0): state change: ip-check -> secondaries (reason 'none', managed-type: 'full')
+2026-07-31T15:19:50.518815+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511190.5187] device (end0): state change: secondaries -> activated (reason 'none', managed-type: 'full')
+2026-07-31T15:19:50.519497+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511190.5192] manager: NetworkManager state is now CONNECTED_LOCAL
+2026-07-31T15:19:50.519913+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511190.5197] device (end0): Activation: successful, device activated.
+2026-07-31T15:19:55.432974+00:00 orangepi4pro systemd[1]: Started zaccel-swap-retry.timer - Attach the Zynq swap when the Zynq comes up later, or back after a reboot.
+2026-07-31T15:19:55.435365+00:00 orangepi4pro systemd[1]: Starting zaccel-swap.service - Zynq DDR3 as swap (nbd export zynqram, priority 100)...
+2026-07-31T15:19:58.654367+00:00 orangepi4pro zaccel-swap[5458]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:19:58.656870+00:00 orangepi4pro systemd[1]: Finished zaccel-swap.service - Zynq DDR3 as swap (nbd export zynqram, priority 100).
+2026-07-31T15:20:00.595436+00:00 orangepi4pro systemd[1]: NetworkManager-dispatcher.service: Deactivated successfully.
+2026-07-31T15:20:25.629828+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:20:28.992210+00:00 orangepi4pro zaccel-swap[5556]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:20:28.996073+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:20:28.996564+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:21:00.631008+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:21:04.000370+00:00 orangepi4pro zaccel-swap[5578]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:21:04.004116+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:21:04.004598+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:21:35.630563+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:21:38.970527+00:00 orangepi4pro zaccel-swap[5591]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:21:38.974201+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:21:38.974648+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:22:10.630842+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:22:13.977395+00:00 orangepi4pro zaccel-swap[5606]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:22:13.981121+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:22:13.981581+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:22:45.630242+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:22:48.983071+00:00 orangepi4pro zaccel-swap[5634]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:22:48.986930+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:22:48.987434+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:23:20.630940+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:23:23.985174+00:00 orangepi4pro zaccel-swap[5648]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:23:23.988876+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:23:23.989413+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:23:55.647883+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:23:58.921765+00:00 orangepi4pro zaccel-swap[5666]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:23:58.924265+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:23:58.924762+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:24:30.630361+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:24:33.953344+00:00 orangepi4pro zaccel-swap[5720]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:24:33.954689+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:24:33.954886+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:24:35.739483+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Up - 1Gbps/Full - flow control off
+2026-07-31T15:24:35.740801+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511475.7383] device (end0): carrier: link connected
+2026-07-31T15:24:40.851480+00:00 orangepi4pro kernel: usb 5-1: New USB device found, idVendor=16c0, idProduct=0483, bcdDevice= 2.80
+2026-07-31T15:24:40.851539+00:00 orangepi4pro kernel: usb 5-1: Manufacturer: Teensyduino
+2026-07-31T15:24:40.859412+00:00 orangepi4pro kernel: cdc_acm 5-1:1.0: ttyACM0: USB ACM device
+2026-07-31T15:24:40.895455+00:00 orangepi4pro (udev-worker)[5749]: ttyACM0: Failed to apply ACL: Operation not supported
+2026-07-31T15:24:40.895688+00:00 orangepi4pro (udev-worker)[5749]: ttyACM0: Failed to flush ACLs: Operation not supported
+2026-07-31T15:24:45.979410+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Down
+2026-07-31T15:24:49.051401+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Up - 1Gbps/Full - flow control rx
+2026-07-31T15:24:49.052745+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511489.0502] device (end0): carrier: link connected
+2026-07-31T15:25:05.629137+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:25:09.008996+00:00 orangepi4pro zaccel-swap[5809]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:25:09.016023+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:25:09.016509+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:25:40.629377+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:25:43.987689+00:00 orangepi4pro zaccel-swap[5826]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:25:43.991431+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:25:43.991899+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:26:11.808186+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:26:15.109205+00:00 orangepi4pro zaccel-swap[6169]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:26:15.111652+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:26:15.111965+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:26:44.687484+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:26:48.025101+00:00 orangepi4pro zaccel-swap[6288]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:26:48.026714+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:26:48.026964+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:27:01.147404+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Down
+2026-07-31T15:27:07.155690+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511627.1530] device (end0): state change: activated -> unavailable (reason 'carrier-changed', managed-type: 'full')
+2026-07-31T15:27:07.190985+00:00 orangepi4pro NetworkManager[1562]: <info>  [1785511627.1905] manager: NetworkManager state is now DISCONNECTED
+2026-07-31T15:27:15.627124+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:27:16.021357+00:00 orangepi4pro zaccel-swap[6420]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:27:16.021881+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:27:16.022704+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:27:17.372664+00:00 orangepi4pro systemd[1]: NetworkManager-dispatcher.service: Deactivated successfully.
+2026-07-31T15:27:45.665290+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:27:46.053183+00:00 orangepi4pro zaccel-swap[6505]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:27:46.054191+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:27:46.055139+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:28:20.625710+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:28:21.097475+00:00 orangepi4pro zaccel-swap[6920]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:28:21.098117+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:28:21.098888+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:28:55.622709+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:28:56.028069+00:00 orangepi4pro zaccel-swap[7399]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:28:56.030136+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:28:56.030960+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:29:30.294574+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:29:30.721369+00:00 orangepi4pro zaccel-swap[7541]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:29:30.725276+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:29:30.726530+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:30:00.396698+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:30:00.792520+00:00 orangepi4pro zaccel-swap[8027]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:30:00.795155+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:30:00.796020+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:30:31.072245+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:30:31.545241+00:00 orangepi4pro zaccel-swap[8783]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:30:31.551698+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:30:31.553846+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:31:05.512850+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:31:05.945725+00:00 orangepi4pro zaccel-swap[8832]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:31:05.946325+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:31:05.947136+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:31:35.615380+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:31:35.931862+00:00 orangepi4pro zaccel-swap[8853]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:31:35.935117+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:31:35.935604+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:31:46.062087+00:00 orangepi4pro udisksd[1455]: Adding read ACL for uid 1000 to `/run/media/orangepi' failed: Operation not supported
+2026-07-31T15:32:10.628743+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:32:11.003242+00:00 orangepi4pro zaccel-swap[9250]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:32:11.005333+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:32:11.006172+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:32:45.626419+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:32:46.071530+00:00 orangepi4pro zaccel-swap[9465]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:32:46.074507+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:32:46.075463+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:33:20.618073+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:33:21.018554+00:00 orangepi4pro zaccel-swap[9836]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:33:21.023537+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:33:21.025581+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:33:55.615358+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:33:55.950919+00:00 orangepi4pro zaccel-swap[10416]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:33:55.953365+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:33:55.954140+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:34:30.630709+00:00 orangepi4pro systemd[1]: Starting zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer)...
+2026-07-31T15:34:31.047479+00:00 orangepi4pro zaccel-swap[10699]: zaccel-swap: no Zynq answering on TCP 10809 at: 10.20.0.2 10.77.0.2 -- no swap attached, nothing changed
+2026-07-31T15:34:31.048316+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.service: Deactivated successfully.
+2026-07-31T15:34:31.049110+00:00 orangepi4pro systemd[1]: Finished zaccel-swap-retry.service - Zynq swap attach/heal pass (run by zaccel-swap-retry.timer).
+2026-07-31T15:34:48.082633+00:00 orangepi4pro systemd[1]: zaccel-swap-retry.timer: Deactivated successfully.
+2026-07-31T15:34:48.082807+00:00 orangepi4pro systemd[1]: Stopped zaccel-swap-retry.timer - Attach the Zynq swap when the Zynq comes up later, or back after a reboot.
+2026-07-31T15:34:48.083457+00:00 orangepi4pro systemd[1]: Unmounting mnt-nvme.mount - /mnt/nvme...
+
+===== /var/log/kern.log (inode 337359, 202544 bytes)
+2026-07-31T15:19:18.620945+00:00 orangepi4pro kernel: ntfs: driver 2.1.32 [Flags: R/W].
+2026-07-31T15:19:18.623868+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_busnum (1)
+2026-07-31T15:19:18.623873+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[0] (axp8191-bldo5) voltage: 1800mV
+2026-07-31T15:19:18.623876+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[1] (axp8191-cldo1) voltage: 1800mV
+2026-07-31T15:19:18.623878+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_regon gpio=385 assert=1
+2026-07-31T15:19:18.623881+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan_hostwake gpio=384 assert=1
+2026-07-31T15:19:18.623998+00:00 orangepi4pro kernel: nvme nvme0: pci function 0000:01:00.0
+2026-07-31T15:19:18.624000+00:00 orangepi4pro kernel: nvme 0000:01:00.0: enabling device (0000 -> 0002)
+2026-07-31T15:19:18.624003+00:00 orangepi4pro kernel: nvme nvme0: Shutdown timeout set to 8 seconds
+2026-07-31T15:19:18.624005+00:00 orangepi4pro kernel: nvme nvme0: 8/0/0 default/read/poll queues
+2026-07-31T15:19:18.624007+00:00 orangepi4pro kernel:  nvme0n1: p1
+2026-07-31T15:19:18.624531+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): mounted filesystem a81ee6f1-5c12-44f0-8e92-c28029cab13c ro with writeback data mode. Quota mode: disabled.
+2026-07-31T15:19:18.624862+00:00 orangepi4pro kernel: aicbsp: aicbsp_set_subsys, subsys: AIC_WIFI, state to: 1
+2026-07-31T15:19:18.624871+00:00 orangepi4pro kernel: aicbsp: aicbsp_set_subsys, power state change to 1 dure to AIC_WIFI
+2026-07-31T15:19:18.624881+00:00 orangepi4pro kernel: sunxi-rfkill soc@3000000:rfkill: wlan power on success
+2026-07-31T15:19:18.625308+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): re-mounted a81ee6f1-5c12-44f0-8e92-c28029cab13c r/w.
+2026-07-31T15:19:18.626690+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: renamed from eth0
+2026-07-31T15:19:18.626724+00:00 orangepi4pro kernel: rwnx_interface_add: wlan%d, 2, 10
+2026-07-31T15:19:18.626729+00:00 orangepi4pro kernel: ieee80211 phy0: New interface create wlan0
+2026-07-31T15:19:18.627390+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resizing filesystem from 2728960 to 30928896 blocks
+2026-07-31T15:19:18.627445+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized to 12582912 blocks
+2026-07-31T15:19:18.627450+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized to 22544384 blocks
+2026-07-31T15:19:18.627452+00:00 orangepi4pro kernel: EXT4-fs (mmcblk1p1): resized filesystem to 30928896
+2026-07-31T15:19:20.231406+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Register MEM_TYPE_PAGE_POOL RxQ-0
+2026-07-31T15:19:20.331452+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: PHY [stmmac-0:01] driver [YT8531 Gigabit Ethernet] (irq=POLL)
+2026-07-31T15:19:20.343517+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: No Safety Features support found
+2026-07-31T15:19:20.350108+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: IEEE 1588-2008 Advanced Timestamp supported
+2026-07-31T15:19:20.350179+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: configuring for phy/rgmii link mode
+2026-07-31T15:19:20.351532+00:00 orangepi4pro kernel: 8021q: adding VLAN 0 to HW filter on device end0
+2026-07-31T15:19:20.703433+00:00 orangepi4pro kernel: rwnx_virtual_interface_add: 10, p2p-dev-wlan0
+2026-07-31T15:19:20.703502+00:00 orangepi4pro kernel: rwnx_virtual_interface_add, ifname=p2p-dev-wlan0, wdev=000000001524cda3, vif_idx=1
+2026-07-31T15:19:47.907450+00:00 orangepi4pro kernel: FAT-fs (nvme0n1p1): Volume was not properly unmounted. Some data may be corrupt. Please run fsck.
+2026-07-31T15:24:35.739483+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Up - 1Gbps/Full - flow control off
+2026-07-31T15:24:40.851480+00:00 orangepi4pro kernel: usb 5-1: New USB device found, idVendor=16c0, idProduct=0483, bcdDevice= 2.80
+2026-07-31T15:24:40.851539+00:00 orangepi4pro kernel: usb 5-1: Manufacturer: Teensyduino
+2026-07-31T15:24:40.859412+00:00 orangepi4pro kernel: cdc_acm 5-1:1.0: ttyACM0: USB ACM device
+2026-07-31T15:24:45.979410+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Down
+2026-07-31T15:24:49.051401+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Up - 1Gbps/Full - flow control rx
+2026-07-31T15:27:01.147404+00:00 orangepi4pro kernel: dwmac-sunxi 4500000.ethernet end0: Link is Down
+
+===== /var/log/dmesg (inode 337473, 139276 bytes)
+[    8.874792] kernel: ntfs: driver 2.1.32 [Flags: R/W].
+[    8.944537] kernel: sunxi-rfkill soc@3000000:rfkill: wlan_busnum (1)
+[    8.944759] kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[0] (axp8191-bldo5) voltage: 1800mV
+[    8.944970] kernel: sunxi-rfkill soc@3000000:rfkill: wlan power[1] (axp8191-cldo1) voltage: 1800mV
+[    8.945175] kernel: sunxi-rfkill soc@3000000:rfkill: wlan_regon gpio=385 assert=1
+[    8.945380] kernel: sunxi-rfkill soc@3000000:rfkill: wlan_hostwake gpio=384 assert=1
+[    8.952155] kernel: nvme nvme0: pci function 0000:01:00.0
+[    8.952508] kernel: nvme 0000:01:00.0: enabling device (0000 -> 0002)
+[    8.952738] kernel: nvme nvme0: Shutdown timeout set to 8 seconds
+[    8.952921] kernel: nvme nvme0: 8/0/0 default/read/poll queues
+[    8.952939] kernel:  nvme0n1: p1
+[    8.961143] kernel: EXT4-fs (mmcblk1p1): mounted filesystem a81ee6f1-5c12-44f0-8e92-c28029cab13c ro with writeback data mode. Quota mode: disabled.
+[    8.962024] kernel: aicbsp: aicbsp_set_subsys, subsys: AIC_WIFI, state to: 1
+[    8.962034] kernel: aicbsp: aicbsp_set_subsys, power state change to 1 dure to AIC_WIFI
+[    8.962469] kernel: sunxi-rfkill soc@3000000:rfkill: wlan power on success
+[    8.967836] kernel: EXT4-fs (mmcblk1p1): re-mounted a81ee6f1-5c12-44f0-8e92-c28029cab13c r/w.
+[    8.976904] kernel: dwmac-sunxi 4500000.ethernet end0: renamed from eth0
+[    8.977248] kernel: rwnx_interface_add: wlan%d, 2, 10
+[    8.977445] kernel: ieee80211 phy0: New interface create wlan0
+[   15.956116] kernel: EXT4-fs (mmcblk1p1): resizing filesystem from 2728960 to 30928896 blocks
+[   26.400066] kernel: EXT4-fs (mmcblk1p1): resized to 12582912 blocks
+[   36.736077] kernel: EXT4-fs (mmcblk1p1): resized to 22544384 blocks
+[   45.476071] kernel: EXT4-fs (mmcblk1p1): resized filesystem to 30928896
+[   49.260031] kernel: dwmac-sunxi 4500000.ethernet end0: Register MEM_TYPE_PAGE_POOL RxQ-0
+[   49.360059] kernel: dwmac-sunxi 4500000.ethernet end0: PHY [stmmac-0:01] driver [YT8531 Gigabit Ethernet] (irq=POLL)
+[   49.372252] kernel: dwmac-sunxi 4500000.ethernet end0: No Safety Features support found
+[   49.378766] kernel: dwmac-sunxi 4500000.ethernet end0: IEEE 1588-2008 Advanced Timestamp supported
+[   49.379880] kernel: dwmac-sunxi 4500000.ethernet end0: configuring for phy/rgmii link mode
+[   49.380839] kernel: 8021q: adding VLAN 0 to HW filter on device end0
+[   49.732173] kernel: rwnx_virtual_interface_add: 10, p2p-dev-wlan0
+[   49.732338] kernel: rwnx_virtual_interface_add, ifname=p2p-dev-wlan0, wdev=000000001524cda3, vif_idx=1

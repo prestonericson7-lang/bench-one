@@ -1,0 +1,15 @@
+19:22:56  elevated: True; FPGA disk 3, Pi disk 4
+19:22:58  disk 3: USB 29.53 GiB MBR 'Mass Storage Device' parts=[(1, 1048576, 134217728), (2, 135266304, 1610612736)]
+19:24:38  FPGA card: 1746927616 bytes copied to fpga1-card.img at 16.6 MiB/s, sha256 aadadb187e3256fdb0bd0a4c80af99d2f368778d9982ccbb5d7e2e0a0c28f4bc
+19:24:40  disk 4: USB 119.21 GiB MBR 'Mass Storage Device' parts=[(1, 33554432, 126684758016)]
+19:24:40  Pi card: eGON at 8196 = b'eGON.BT0', ext4 magic 53ef, partition LBA 65536
+19:24:40  Pi card: ERROR '_io.StringIO' object has no attribute 'reconfigure'
+19:24:40  DONE rc=1
+19:25:15  elevated: True; FPGA disk -1, Pi disk 4
+19:25:15  FPGA card: skipped (disk < 0)
+19:25:17  disk 4: USB 119.21 GiB MBR 'Mass Storage Device' parts=[(1, 33554432, 126684758016)]
+19:25:17  Pi card: eGON at 8196 = b'eGON.BT0', ext4 magic 53ef, partition LBA 65536
+19:25:18  Pi card: files and extents written (24759 bytes)
+19:25:18  DONE rc=0
+19:54:06  pi-more: superblock + 570 log lines written to pi-more.txt
+19:54:06  pi-more: DONE rc=0

@@ -1,0 +1,4 @@
+EXTENTS /usr/local/sbin/nvme-auto inode 204672 size 7959 bs 4096 flags 0x80000
+  lblk 0 pblk 2135625 len 2 uninit 0 src_off 8781074432
+EXTENTS /etc/fstab inode 398322 size 280 bs 4096 flags 0x80000
+  lblk 0 pblk 1680477 len 1 uninit 0 src_off 6916788224

@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**468 tracked files.** This page exists so you never have to guess which directory something is in.
+**2482 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -18,6 +18,12 @@ If you know what you want, use the table. If you do not, start at
 
 | I want to | Go here |
 |---|---|
+| Know what has run on real hardware, and what only in emulation | the state table at the top of [README.md](README.md) |
+| Bring up the Zynq FPGA board, or read what its first real boot showed | [hardware/pz7020-starlite/README.md](hardware/pz7020-starlite/README.md), [BOOT-SD-runbook.md](hardware/pz7020-starlite/BOOT-SD-runbook.md); the stop and the experiment that measures its cause: [linux/EXPERIMENT.md](hardware/pz7020-starlite/linux/EXPERIMENT.md); what the card showed: [machine/cards/evidence/](machine/cards/evidence/) |
+| Use the FPGA and the Teensy as the Orange Pi's accelerators | [accel/README.md](accel/README.md) |
+| Re-run the test record | `bash deploy/run_all_tests.sh` (47 checks); [machine/zynq/regression_20261006.sh](machine/zynq/regression_20261006.sh) (QEMU + NVMe, 11 suites, results beside it); `hardware/pz7020-starlite/linux/test_driver_e2e.sh` |
+| Print the LoRa handheld's case | [hardware/lora-pentest-case/](hardware/lora-pentest-case/) |
+| Find a particular Teensy run | [bench-archive/INDEX.md](bench-archive/INDEX.md) |
 | See a 3-billion-parameter model run on one Teensy, explained for anyone | [docs/57](docs/57-what-we-built-and-what-it-does.md) — every measured number in plain English; then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers and [docs/56](docs/56-one-chip-one-job.md) for the design |
 | Know where this goes next, and what has to be proven at each step | [docs/58](docs/58-roadmap-what-this-makes-possible.md) — the roadmap; every line labelled measured, arithmetic or proposal |
 | Understand the machine's equations and the levers not yet pulled | [docs/59](docs/59-going-deeper.md) — one token, positions per pass, the node ceiling, splitting across boards; speculative decoding, the 30B, the stall budget, bytes per token |
@@ -46,14 +52,18 @@ If you know what you want, use the table. If you do not, start at
 
 ---
 
-## The six compartments
+## The compartments
 
 ```
-docs/         44 numbered documents + 11 research files    the engineering record
-firmware/     350 files                                    everything that runs on a board
-hardware/     4 files                                      enclosure and wiring drawings
+docs/         58 numbered documents + 11 research files    the engineering record
+firmware/     566 files                                    everything that runs on a board
+hardware/     142 files                                    the Zynq FPGA board, enclosures, wiring drawings
+accel/        220 files                                    the FPGA and the Teensy as the Orange Pi's accelerators
+machine/      98 files                                     the five items as one machine; card tools and card evidence
+deploy/       14 files                                     the car system's installer, and the 47-check test runner
+bench-archive/ 1290 files                                  every Teensy board run, raw, one folder per run
 run/          34 files                                     bench scripts
-evidence/     1 file                                       a build log kept as provenance
+evidence/     16 files                                     a build log and LoRa capture logs, kept as provenance
 tools/        not committed                                toolchains, install your own
 ```
 
@@ -66,7 +76,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **44 numbered documents**, 01 to 47 | the record itself |
+| **58 numbered documents**, 01 to 61 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -78,7 +88,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 ## `firmware/` — everything that runs on a board
 
-### `bench-one/shared/` — 57 files
+### `bench-one/shared/` — 64 files
 
 Code compiled **identically on every node**, which is the only reason a result from one board means
 the same thing on another. If you change something here, every measurement in `docs/` is downstream of
@@ -95,13 +105,22 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 184 files
+### `bench-one/tests/` — 236 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **41 experiment directories, 38 C programs, 69 result logs.**
+cross-compiled programs. **48 experiment directories, 44 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|
+| **`psram_llm/`** | **a 3-billion-parameter language model on one Teensy 4.1**: Qwen2.5-Coder-3B read from the microSD card for every token, the PSRAM chips holding only the attention cache, every step equal to the PC reference. Its README holds the firmware, the PC proof and the test process; the runs are in `bench-archive/` |
+| `psram_worker/` | the Teensy as a math engine and nothing else; the Luckfox decides everything |
+| `psram_ai/` | the matrix workload, sharded across every bank that works, in a fixed 32-byte burst so chip select cannot stay low past the 8 µs refresh |
+| `esp32s3_node/` | an ESP32-S3 as another worker on the same chain, using the PSRAM on its own module |
+| `psram_slow_bus/`, `psram_clock_sweep/` | bringing the memory up at a speed a hand-wired bus can hold: FlexSPI2 swept across every clock it can generate; the speed at which six chips still answer |
+| `psram_lanes/`, `psram_quad_check/` | eight chips answer and two transfer: which wire the other six are missing, and which of the four data lines is broken |
+| `psram_bitbang/`, `psram_calibrate/` | supply or wiring, by hand at a microsecond per edge; then the read sampling point swept |
+| `psram_one_cs/` | making the board work after the second QSPI footprint's chip-select pad tore off |
+| `psram_pinprobe/`, `psram_pintruth/` | a bridge between two pins found electrically with no chip involved, and the smallest possible pin question asked with no history in the code |
 | **`ddr3_bridge_teensy/`** | **the DDR3 bridge, with the self-calibrating read timing sweep** |
 | `ddr3_spd_teensy/` | reads a DIMM's identity EEPROM, unpowered. Step zero of the DDR3 work |
 | **`offload_teensy/`** | **does taking work off a Teensy make its memory faster?** Five cases isolating compute, memory, eDMA overlap and the cost of link handling |
@@ -168,10 +187,26 @@ neural work and does not describe `tests/`.
 
 | | |
 |---|---|
+| **`hardware/pz7020-starlite/`** (110 files) | **the Zynq FPGA board**: board facts sourced to the vendor manual and schematic (`README.md`, `PS-CONFIG.md`, `SYSTEM-INTEGRATION.md`), the Vivado design (`vivado/`, `VIVADO.md`), the U-Boot SPL + Linux SD image (`linux/`, `PS-LINUX.md`, `BOOT-SD-runbook.md`), the real boot captures (`linux/captures/`), and the FCLK0 experiment and what is proven where (`linux/EXPERIMENT.md`) |
+| `hardware/lora-pentest-case/` | the LoRa handheld's printed case v3: `case.scad` with its five collision checks, the tray, lid and battery pack as STL/3MF, previews, and every measurement in `HANDOFF-MEASUREMENTS.md` |
 | `hardware/enclosure/` | the printable tower, as a 3MF, with its own README |
+| `hardware/3d/` | OpenSCAD parts: enclosure, camera mount, mic array, vent insert, small parts |
 | `hardware/logic-fabric.html` `wiring-the-stack.html` | the wiring drawings, as standalone pages |
+| `hardware/*.md` | references: the Orange Pi 4 Pro, the car system's architecture and BMW F30 bus, the interconnect, the voice-navigation pipeline |
 | `run/` — 34 files | bench scripts. `run-all.bat`, per-target `test-*.bat`, capture and monitor scripts, and an `ai/` helper set. See `run/README.md` |
 | `evidence/build-log.txt` | kept as provenance for a claim in `docs/` |
+| `evidence/lora-captures-backup/` | the LoRa radio's capture logs (`CAP_*.LOG`) |
+
+---
+
+## `accel/`, `machine/`, `deploy/`, `bench-archive/`
+
+| | |
+|---|---|
+| **`accel/`** | **the Zynq and the Teensy as the Orange Pi 4 Pro's accelerators** ([README](accel/README.md), contracts in `SPEC.md` and `gpu/SPEC.md`): the FPGA-GPU (`gpu/`), the matrix engine and its server (`rtl/`, `tb/`, `cosim/`, `zynq/`), the model-runtime offload (`llm/`), the Zynq RAM as the Pi's swap (`mem/`), and the Pi side: clients, the self-installing card bundle, the NVMe setup (`pi/`, `build_pi_card_image.sh`) |
+| **`machine/`** | **the five items as one machine** ([README](machine/README.md), record in [docs/61](docs/61-the-machine.md)): the Zynq node tools, the QEMU tests and the 2026-10-06 regression record (`zynq/`), the SD-card tools and the evidence read off the cards (`cards/`, `cards/evidence/`), the wiring pages (`wiring/`), and the phase-two plans (`stm32/`, `p4/`) |
+| `deploy/` | the car system's Orange Pi installer and firmware images, and `run_all_tests.sh` — 47 checks in one verdict |
+| `bench-archive/` | every Teensy board run: the exact firmware image and the full serial log, one folder per run ([INDEX](bench-archive/INDEX.md)) |
 
 ---
 
@@ -183,6 +218,8 @@ neural work and does not describe `tests/`.
 | [INDEX.md](INDEX.md) | this page |
 | [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) | **read before powering any DDR3 work.** Four mistakes destroy a module and one of them looks correct |
 | [LICENSE](LICENSE) | MIT |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | the few files that come from elsewhere, with their sources and licences |
+| [CAR-SYSTEM.md](CAR-SYSTEM.md) | the off-grid in-car system (BMW F30 330e: offline voice navigation, CAN logging, sentry) — its own index |
 | **[Little Brains Big Mess](https://www.youtube.com/@littlebrainsbigmess)** | the channel. Build videos for everything here |
 | [README-QUESTIONS.md](README-QUESTIONS.md) | phase-one record: specs needed and concerns raised during the first build. Mostly answered since |
 | [HANDOFF.md](HANDOFF.md) | phase-one record: the original handoff. **Its protocol summary describes v1 where the firmware is v2**, and a decoder built from it fails on every frame while looking like a wiring fault |

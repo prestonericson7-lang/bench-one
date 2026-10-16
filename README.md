@@ -14,6 +14,17 @@ either way.
 
 ---
 
+## State — 2026-10-15: what has run on real hardware, and what only in emulation
+
+| | On real hardware (measured) | Only in emulation / not yet run |
+|---|---|---|
+| Teensy 4.1 + PSRAM | a 3B model, every token equal to the PC (2026-09-28; below) | no new board runs since |
+| FPGA #1 (PZ7020) | **first full boot, 2026-10-05**: SPL, DDR3L, U-Boot, the bitstream (its HDMI test picture), the kernel and systemd all ran, read from the card's own journal. It then stopped; the last write to the card was at 8.014 s of uptime | the cause is inferred, not measured (Linux gating the fabric's AXI clock, FCLK0); the fix and a boot guard are on card #1 but it has **not booted since**; the experiment that measures the cause is ready ([EXPERIMENT.md](hardware/pz7020-starlite/linux/EXPERIMENT.md)) |
+| FPGA fabric services (GPU, matrix engine) | **none has run on silicon** | simulated, timing-closed, and run against emulated boards |
+| FPGA + Teensy together | powered on the bench together once (2026-10-05), but never worked together: FPGA #1 stopped before any fabric service started | designed and run together in emulation only ([machine/README.md](machine/README.md)) |
+| Orange Pi 4 Pro | booted the bundle card 2026-09-26 and the corrected image by 2026-10-05 (read back from its card both times); the installer's debconf-lock fix ran (its retries are in the card's log) | the NVMe fix, rewritten on its card 2026-10-05 after the second read showed the first fix mounting the wrong partition, has not booted yet |
+| Test record | — | QEMU + NVMe regression 11/11 suites, experiment driver 42/42 paths, on card #1's exact image (`machine/zynq/regression-20261006/`) |
+
 ## Accelerators for the Orange Pi — 2026-09-25, re-verified 2026-09-26
 
 **[accel/README.md](accel/README.md)**: the Zynq and the Teensy as the Orange Pi 4 Pro's accelerators.
@@ -21,8 +32,9 @@ One PL bitstream carries the FPGA-GPU (HDMI out, Teensy 4.1 as its geometry engi
 int4/int8 matrix engine fed by DMA from the Zynq's DDR3, and the platform; 128 MB of the Zynq's
 512 MB (one x16 DDR3L chip -- not the 1 GB some listings claim) is the Pi's swap over the network.
 Built, simulated, timing-closed, booted to Linux in QEMU at the board's real clocks, and on both SD
-cards; the Pi's first real boot was read back off its card and the two faults it showed are fixed.
-The board measurements are the next step.
+cards. The Pi's first real boot was read back off its card and showed two faults: the installer's fix
+for the first has since run on the Pi; the NVMe fix was rewritten on 2026-10-05 and has not booted
+yet. The board measurements are the next step (see the state table above).
 
 ### Build it yourself
 
@@ -42,7 +54,7 @@ Hardware: Puzhi PZ7020-StarLite (XC7Z020), Orange Pi 4 Pro, Teensy 4.1. Board fa
 the vendors' manuals and schematics page by page; the traps that cost a boot are written down where
 they bit (`hardware/pz7020-starlite/PS-CONFIG.md`, `accel/README.md`).
 
-## Current state — 2026-09-28
+## The Teensy result — 2026-09-28 (still the latest board run)
 
 **A 3-billion-parameter model runs on one Teensy 4.1, exact to the PC.** The whole model stays on the
 microSD card and is read in full for every token; eight PSRAM chips hold only the attention cache. A
@@ -111,9 +123,9 @@ mistakes there will destroy a module, and one of them — a divider built with b
 looks correct and reads full logic level.
 
 The DDR3 bridge is the piece most likely to be useful on its own. It has no dependency on the rest
-of this project: it gives any Teensy 4.1 sixteen times its rated external memory using a scrapped
-desktop DIMM and a $30 FPGA board, and it carries its own README, its own test suite and its own
-wiring sheet.
+of this project: it is designed to give any Teensy 4.1 sixteen times its rated external memory using
+a scrapped desktop DIMM and a $30 FPGA board, and it carries its own README, its own test suite and
+its own wiring sheet. It is simulated and synthesised but has never been on hardware (see below).
 
 ---
 

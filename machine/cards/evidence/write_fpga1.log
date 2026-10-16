@@ -1,0 +1,33 @@
+21:24:19  elevated: True
+21:24:20  target: PhysicalDrive3 'Mass Storage Device' bus=USB size=29.53 GiB style=MBR
+21:24:20  identity: bytes at 135267432 = 873bd8482fa94d268790bba09025037c (expected 873bd8482fa94d268790bba09025037c)
+21:24:20  decompressing D:\start\machine-cards\zynq\pz7020-starlite-sd.img.xz -> C:\Users\Danie\AppData\Local\Temp\pz7020-starlite-sd.img
+21:26:23  image: C:\Users\Danie\AppData\Local\Temp\pz7020-starlite-sd.img  4431282176 bytes (4226 MiB)
+21:26:33  image sha256: eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29
+21:26:43  partition table cleared
+21:26:45  writing unbuffered (NO_BUFFERING|WRITE_THROUGH): 4 MiB -> end first, partition table last ...
+21:27:02    256 / 4226 MiB
+21:27:18    512 / 4226 MiB
+21:27:35    768 / 4226 MiB
+21:27:51    1024 / 4226 MiB
+21:28:07    1280 / 4226 MiB
+21:28:23    1536 / 4226 MiB
+21:28:40    1792 / 4226 MiB
+21:28:56    2048 / 4226 MiB
+21:29:12    2304 / 4226 MiB
+21:29:29    2560 / 4226 MiB
+21:29:45    2816 / 4226 MiB
+21:30:02    3072 / 4226 MiB
+21:30:18    3328 / 4226 MiB
+21:30:34    3584 / 4226 MiB
+21:30:51    3840 / 4226 MiB
+21:31:07    4096 / 4226 MiB
+21:31:16  write complete: 4431282176 bytes in 270.6 s = 16.4 MB/s (a real SD card lands in 10-90 MB/s; hundreds would mean cache)
+21:31:23  reading back unbuffered ...
+21:35:19  read-back: 4431282176 bytes in 236.2 s = 18.8 MB/s
+21:35:19  card  sha256 (first 4431282176 bytes): eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29
+21:35:19  image sha256:                       eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29
+21:35:19  READ-BACK MATCH: the card holds the image byte-for-byte
+21:35:25  partition 1: offset=1 MiB size=128 MiB mbrtype=12 letter=E
+21:35:25    partition 2: offset=129 MiB size=4096 MiB mbrtype=131 letter=
+21:35:25  DONE rc=0

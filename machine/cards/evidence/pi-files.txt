@@ -1,0 +1,466 @@
+===== /etc/os-release (inode 393756, 410 bytes)
+PRETTY_NAME="Orange Pi 1.1.0 Resolute"
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04 (Resolute Raccoon)"
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=resolute
+LOGO=ubuntu-logo
+===== /etc/hostname (inode 393702, 13 bytes)
+orangepi4pro
+===== /etc/fstab (inode 398322, 280 bytes)
+UUID=a81ee6f1-5c12-44f0-8e92-c28029cab13c / ext4 defaults,noatime,commit=600,errors=remount-ro 0 1
+tmpfs /tmp tmpfs defaults,nosuid 0 0
+# nvme-auto: the NVMe drive
+UUID=2ECC-05B7 /mnt/nvme vfat defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+===== /etc/fstab.nvme-auto.orig (inode 398321, 136 bytes)
+UUID=a81ee6f1-5c12-44f0-8e92-c28029cab13c / ext4 defaults,noatime,commit=600,errors=remount-ro 0 1
+tmpfs /tmp tmpfs defaults,nosuid 0 0
+===== /var/lib/accel/ (directory, inode 524327)
+        1829  dpkg.log
+          32  firstboot.done
+        4735  firstboot.log
+===== /var/lib/accel/firstboot.log (inode 524328, 4735 bytes)
+=== accel first boot, Fri Jul 31 03:19:21 PM UTC 2026
+
+== packages
+dpkg -i did not finish (another package tool busy?) -- retrying every 10s, up to 30 attempts. /var/lib/accel/dpkg.log:
+  update-initramfs: Not updating initramfs.
+  Processing triggers for man-db (2.13.1-1build1)…
+  Errors were encountered while processing:
+   nbd-client
+installed from the bundle: nbd-client_3.26.1-6.1ubuntu2_arm64.deb teensy-loader-cli_2.2-1.1build1_arm64.deb (attempt 2: dpkg/debconf was busy before)
+
+== NVMe drive (prepared if blank, mounted at /mnt/nvme at every boot)
+Starting nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot)...
+nvme-auto: drive /dev/nvme0n1, 238.5G SAMSUNG MZVLB256HAHQ-000H1
+nvme-auto: using existing vfat filesystem on /dev/nvme0n1p1 (not reformatted)
+nvme-auto: fstab: UUID=2ECC-05B7 /mnt/nvme vfat defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+nvme-auto: ready: /dev/nvme0n1p1 256M 97M /mnt/nvme
+Finished nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot).
+
+== matrix engine client (libzaccel, zaccel-bench, zaccel.py)
+installed: /usr/local/bin/zaccel-bench, /usr/local/lib/libzaccel.a, /usr/local/include/libzaccel.h, /usr/local/bin/zaccel.py
+
+== model runtime with the Zynq offload (run_model, ppl)
+installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel auto to offload)
+
+== FPGA-GPU tools
+pi_setup: NetworkManager: profile 'fpgagpu' on end0 -> 10.77.0.1/24 (manual, never-default, autoconnect)
+Connection 'fpgagpu' (4bf3a059-a79b-4864-bbe8-56e4a8565070) successfully added.
+pi_setup: the wired port end0 now belongs to the FPGA link (profile priority 50); use Wi-Fi for the
+pi_setup: network. Undo: sudo nmcli connection delete fpgagpu
+pi_setup: orangepi is already in the dialout group
+pi_setup: installing /etc/udev/rules.d/49-fpgagpu-teensy.rules
+pi_setup: installing gpu_selftest gpu_demo gpu_view gpu_stat gpu_snap gpu_image from /opt/accel/bundle/gpu/pi/build/aarch64 to /usr/local/bin
+pi_setup: WARNING: neither 10.77.0.2 nor 10.20.0.2 answers ping (board off / still booting / cable / its eth0
+pi_setup: WARNING: address): check 'ip -4 addr show end0' here and 'ip -4 addr show eth0' on the Zynq
+
+Next steps
+  1. log out and in again (dialout group), plug in the Teensy (USB) and the Zynq board (Ethernet)
+     (the tools find the Zynq at 10.77.0.2 or 10.20.0.2; elsewhere: FPGAGPU_HOST=HOST or --fpga HOST)
+  2. gpu_stat                        daemon + PL registers (expect ID 'GPU1' ok, MMCM_LOCKED)
+     gpu_stat --teensy auto          ... plus the Teensy (fpga_ready 1, bus_enabled 1)
+  3. gpu_selftest                    bit-exact end-to-end test of every path (exit 0 = all PASS)
+  4. gpu_demo                        3D demo on the HDMI screen (Ctrl-C to stop)
+     gpu_demo --view                 ... and the returned frames in a window on this desktop
+     gpu_demo --auto --view          Teensy autonomous mode
+  5. gpu_view                        watch whatever the FPGA renders
+     gpu_snap -o shot.png            screenshot of the HDMI output
+     gpu_image picture.ppm           show a picture full screen
+
+== Teensy geometry engine firmware
+total 124
+drwxr-xr-x 2 root root   4096 Jul 31 15:19 .
+drwxr-xr-x 5 root root   4096 Jul 31 15:19 ..
+-rw-r--r-- 1 root root 118170 Jul 31 15:19 teensy_gpu.ino.hex
+installed: /usr/local/bin/flash-teensy-gpu
+
+== the Zynq's DDR3 as swap
+install_pi.sh: installed the prebuilt nbd module for 6.6.98-sun60iw2 as /lib/modules/6.6.98-sun60iw2/updates/nbd.ko (sha256 1e8ae73e1ee1ee39e0a38a01070ba0797fc541679819376b7a2f87dece650992)
+Created symlink '/etc/systemd/system/multi-user.target.wants/zaccel-swap.service' → '/etc/systemd/system/zaccel-swap.service'.
+● zaccel-swap.service - Zynq DDR3 as swap (nbd export zynqram, priority 100)
+     Loaded: loaded (/etc/systemd/system/zaccel-swap.service; enabled; preset: enabled)
+     Active: active (exited) since Fri 2026-07-31 15:19:58 UTC; 42ms ago
+ Invocation: 38c2c3a4b5024aa5a8eb7f14564ab8c9
+    Process: 5458 ExecStart=/usr/local/sbin/zaccel-swap start (code=exited, status=0/SUCCESS)
+   Main PID: 5458 (code=exited, status=0/SUCCESS)
+   Mem peak: 3.1M
+        CPU: 98ms
+install_pi.sh: done; 'swapon --show' lists the Zynq swap once it is attached
+installed: /usr/local/bin/bench-day
+
+== what is reachable now
+no answer from 10.20.0.2 (fine if the Zynq is off)
+no answer from 10.77.0.2 (fine if the Zynq is off)
+zaccel 10.20.0.2:8093: [Errno 113] No route to host
+NAME       TYPE      SIZE USED PRIO
+/dev/zram0 partition 1.9G   0B    5
+
+ACCEL INSTALLED.
+Next: flash-teensy-gpu (Teensy on USB), then zaccel-bench and gpu_selftest with the Zynq up.
+=== install_pi.sh exit 0
+===== /home/orangepi/ (directory, inode 131078)
+           0  .ICEauthority
+           0  .Xauthority
+         220  .bash_logout
+        3771  .bashrc
+        4096  .cache
+        4096  .cinnamon
+        4096  .config
+        4096  .gnupg
+        4096  .local
+        4096  .oh-my-zsh
+         807  .profile
+        4096  .ssh
+          20  .xscreensaver
+       16792  .xsession-errors
+        4109  .zshrc
+        4096  Desktop
+        4096  Documents
+        4096  Downloads
+        4096  Music
+        4096  Pictures
+        4096  Public
+        4096  Templates
+        4096  Videos
+        4735  accel-install.log
+===== /home/orangepi/accel-install.log (inode 135031, 4735 bytes)
+=== accel first boot, Fri Jul 31 03:19:21 PM UTC 2026
+
+== packages
+dpkg -i did not finish (another package tool busy?) -- retrying every 10s, up to 30 attempts. /var/lib/accel/dpkg.log:
+  update-initramfs: Not updating initramfs.
+  Processing triggers for man-db (2.13.1-1build1)…
+  Errors were encountered while processing:
+   nbd-client
+installed from the bundle: nbd-client_3.26.1-6.1ubuntu2_arm64.deb teensy-loader-cli_2.2-1.1build1_arm64.deb (attempt 2: dpkg/debconf was busy before)
+
+== NVMe drive (prepared if blank, mounted at /mnt/nvme at every boot)
+Starting nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot)...
+nvme-auto: drive /dev/nvme0n1, 238.5G SAMSUNG MZVLB256HAHQ-000H1
+nvme-auto: using existing vfat filesystem on /dev/nvme0n1p1 (not reformatted)
+nvme-auto: fstab: UUID=2ECC-05B7 /mnt/nvme vfat defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+nvme-auto: ready: /dev/nvme0n1p1 256M 97M /mnt/nvme
+Finished nvme-auto.service - NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot).
+
+== matrix engine client (libzaccel, zaccel-bench, zaccel.py)
+installed: /usr/local/bin/zaccel-bench, /usr/local/lib/libzaccel.a, /usr/local/include/libzaccel.h, /usr/local/bin/zaccel.py
+
+== model runtime with the Zynq offload (run_model, ppl)
+installed: /usr/local/bin/run_model, /usr/local/bin/ppl  (add --zaccel auto to offload)
+
+== FPGA-GPU tools
+pi_setup: NetworkManager: profile 'fpgagpu' on end0 -> 10.77.0.1/24 (manual, never-default, autoconnect)
+Connection 'fpgagpu' (4bf3a059-a79b-4864-bbe8-56e4a8565070) successfully added.
+pi_setup: the wired port end0 now belongs to the FPGA link (profile priority 50); use Wi-Fi for the
+pi_setup: network. Undo: sudo nmcli connection delete fpgagpu
+pi_setup: orangepi is already in the dialout group
+pi_setup: installing /etc/udev/rules.d/49-fpgagpu-teensy.rules
+pi_setup: installing gpu_selftest gpu_demo gpu_view gpu_stat gpu_snap gpu_image from /opt/accel/bundle/gpu/pi/build/aarch64 to /usr/local/bin
+pi_setup: WARNING: neither 10.77.0.2 nor 10.20.0.2 answers ping (board off / still booting / cable / its eth0
+pi_setup: WARNING: address): check 'ip -4 addr show end0' here and 'ip -4 addr show eth0' on the Zynq
+
+Next steps
+  1. log out and in again (dialout group), plug in the Teensy (USB) and the Zynq board (Ethernet)
+     (the tools find the Zynq at 10.77.0.2 or 10.20.0.2; elsewhere: FPGAGPU_HOST=HOST or --fpga HOST)
+  2. gpu_stat                        daemon + PL registers (expect ID 'GPU1' ok, MMCM_LOCKED)
+     gpu_stat --teensy auto          ... plus the Teensy (fpga_ready 1, bus_enabled 1)
+  3. gpu_selftest                    bit-exact end-to-end test of every path (exit 0 = all PASS)
+  4. gpu_demo                        3D demo on the HDMI screen (Ctrl-C to stop)
+     gpu_demo --view                 ... and the returned frames in a window on this desktop
+     gpu_demo --auto --view          Teensy autonomous mode
+  5. gpu_view                        watch whatever the FPGA renders
+     gpu_snap -o shot.png            screenshot of the HDMI output
+     gpu_image picture.ppm           show a picture full screen
+
+== Teensy geometry engine firmware
+total 124
+drwxr-xr-x 2 root root   4096 Jul 31 15:19 .
+drwxr-xr-x 5 root root   4096 Jul 31 15:19 ..
+-rw-r--r-- 1 root root 118170 Jul 31 15:19 teensy_gpu.ino.hex
+installed: /usr/local/bin/flash-teensy-gpu
+
+== the Zynq's DDR3 as swap
+install_pi.sh: installed the prebuilt nbd module for 6.6.98-sun60iw2 as /lib/modules/6.6.98-sun60iw2/updates/nbd.ko (sha256 1e8ae73e1ee1ee39e0a38a01070ba0797fc541679819376b7a2f87dece650992)
+Created symlink '/etc/systemd/system/multi-user.target.wants/zaccel-swap.service' → '/etc/systemd/system/zaccel-swap.service'.
+● zaccel-swap.service - Zynq DDR3 as swap (nbd export zynqram, priority 100)
+     Loaded: loaded (/etc/systemd/system/zaccel-swap.service; enabled; preset: enabled)
+     Active: active (exited) since Fri 2026-07-31 15:19:58 UTC; 42ms ago
+ Invocation: 38c2c3a4b5024aa5a8eb7f14564ab8c9
+    Process: 5458 ExecStart=/usr/local/sbin/zaccel-swap start (code=exited, status=0/SUCCESS)
+   Main PID: 5458 (code=exited, status=0/SUCCESS)
+   Mem peak: 3.1M
+        CPU: 98ms
+install_pi.sh: done; 'swapon --show' lists the Zynq swap once it is attached
+installed: /usr/local/bin/bench-day
+
+== what is reachable now
+no answer from 10.20.0.2 (fine if the Zynq is off)
+no answer from 10.77.0.2 (fine if the Zynq is off)
+zaccel 10.20.0.2:8093: [Errno 113] No route to host
+NAME       TYPE      SIZE USED PRIO
+/dev/zram0 partition 1.9G   0B    5
+
+ACCEL INSTALLED.
+Next: flash-teensy-gpu (Teensy on USB), then zaccel-bench and gpu_selftest with the Zynq up.
+=== install_pi.sh exit 0
+===== /usr/local/sbin/nvme-auto (inode 204672, 7959 bytes)
+#!/bin/bash
+# nvme-auto -- the Orange Pi's NVMe drive, usable at every boot with nothing to set up.
+#   Runs at every boot (nvme-auto.service). Finds the drive, then:
+#     * blank drive (no partition table, no filesystem signature, first MiB all zero): one GPT
+#       partition, ext4 labelled "nvme", owned by the desktop user (uid 1000);
+#     * drive that already has a filesystem: used as it is -- never reformatted (an EFI System
+#       Partition does not count: it is another OS's boot partition, not storage);
+#     * anything else (unknown data, partitions with no filesystem): left untouched, reported, with
+#       the one command that hands the whole drive to the Pi.
+#   Then mounts it at /mnt/nvme and keeps ONE /etc/fstab line for it (by UUID, nofail, short device
+#   timeout), so every later boot mounts it natively and a missing drive never holds the boot up.
+#   Idempotent. Nothing is ever formatted unless the drive is provably blank.
+# Test hooks: NVME_AUTO_DEVS (disks to consider instead of /dev/nvme*n1), NVME_AUTO_MNT,
+# NVME_AUTO_FSTAB, NVME_AUTO_WAIT (seconds to wait for the drive).
+set -uo pipefail
+MNT=${NVME_AUTO_MNT:-/mnt/nvme}
+FSTAB=${NVME_AUTO_FSTAB:-/etc/fstab}
+WAIT=${NVME_AUTO_WAIT:-30}
+LABEL=nvme
+OPTS=defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe
+TAG="# nvme-auto: the NVMe drive"
+log() { echo "nvme-auto: $*"; }
+
+# 1. the drive: the PCIe link and udev can take a few seconds after boot
+disk=
+for _ in $(seq "$WAIT"); do
+  for d in ${NVME_AUTO_DEVS:-/dev/nvme[0-9]n1}; do [ -b "$d" ] && { disk=$d; break 2; }; done
+  sleep 1
+done
+[ -n "$disk" ] || { log "no NVMe drive found after ${WAIT}s (none fitted, or the M.2 slot was not detected) -- nothing to do"; exit 0; }
+udevadm settle -t 10 >/dev/null 2>&1 || true
+log "drive $disk, $(lsblk -dno SIZE,MODEL "$disk" 2>/dev/null | sed 's/  */ /g')"
+
+parts() { lsblk -nrpo NAME,TYPE "$disk" | awk '$2 == "part" { print $1 }'; }
+# the filesystem type, only if it is one to mount as storage (swap, LUKS, RAID members... are not)
+fstype() { local t; t=$(blkid -p -s TYPE -o value "$1" 2>/dev/null)
+  case $t in ext2|ext3|ext4|xfs|btrfs|vfat|exfat) echo "$t" ;; esac; }
+
+# 2. what is on it
+target=
+if [ -z "$(parts)" ]; then
+  whole=$(fstype "$disk")
+  # signatures other than an (empty) partition table mean something is on the drive; if wipefs itself
+  # fails, nothing is known about the drive, so it counts as not blank
+  sigs=$(wipefs --no-act --noheadings --output TYPE "$disk" 2>&1) || sigs="(wipefs failed: $sigs)"
+  other=$(echo "$sigs" | grep -vxE 'gpt|PMBR|dos|' | tr '\n' ' ')
+  # with no partitions, the table (if any) lives in the first 64 KiB; everything after it must be zero
+  skip=0; [ -n "$sigs" ] && skip=65536
+  if [ -n "$whole" ]; then
+    target=$disk; log "filesystem ($whole) on the whole drive, no partition table: using it as it is"
+  elif [ -n "$other" ]; then
+    log "drive carries a signature this script does not use ($other):"; wipefs -n "$disk"; log "left untouched"; exit 0
+  elif [ "$(dd if="$disk" bs=65536 skip=$((skip / 65536)) count=$(((1048576 - skip) / 65536)) status=none | tr -d '\0' | head -c 1 | wc -c)" != 0 ]; then
+    log "drive has no partitions and no filesystem, but its first MiB is not blank -- unknown data, left untouched"; exit 0
+  else
+    log "drive is blank: one GPT partition, ext4 labelled '$LABEL'"
+    printf 'label: gpt\n,,L\n' | sfdisk --quiet "$disk" || { log "sfdisk failed"; exit 1; }
+    partprobe "$disk" 2>/dev/null || true; udevadm settle -t 10 >/dev/null 2>&1 || true
+    for _ in $(seq 10); do target=$(parts | head -1); [ -n "$target" ] && [ -b "$target" ] && break; sleep 1; done
+    [ -n "$target" ] || { log "the new partition did not appear"; exit 1; }
+    mkfs.ext4 -q -F -L "$LABEL" -m 1 "$target" || { log "mkfs.ext4 failed on $target"; exit 1; }
+    fresh=1
+  fi
+else
+  # an existing partitioned drive: ours by label first, else the largest partition holding a filesystem.
+  # Never an EFI System Partition: that is a previous OS's boot partition, not storage (the Pi's real
+  # drive, 2026-09-26: a 256 MB ESP next to another OS's data got mounted as "the NVMe", 97 MB free).
+  # partition type read from the disk itself (blkid -p), not from udev's database (lsblk), which is empty
+  # early in boot and in a chroot
+  storage() { local p t; for p in $(parts); do
+      t=$(blkid -p -s PART_ENTRY_TYPE -o value "$p" 2>/dev/null)
+      [ -n "$t" ] || t=$(lsblk -dno PARTTYPE "$p" 2>/dev/null)
+      t=$(echo "$t" | tr 'A-F' 'a-f' | tr -d ' ')
+      [ "$t" = c12a7328-f81f-11d2-ba4b-00a0c93ec93b ] || [ "$t" = 0xef ] && continue
+      [ -n "$(fstype "$p")" ] && echo "$p"; done; }
+  for p in $(storage); do [ "$(blkid -p -s LABEL -o value "$p" 2>/dev/null)" = "$LABEL" ] && { target=$p; break; }; done
+  if [ -z "$target" ]; then
+    target=$(for p in $(storage); do echo "$(lsblk -bdno SIZE "$p") $p"; done | sort -n | tail -1 | awk '{ print $2 }')
+  fi
+  if [ -z "$target" ]; then
+    log "drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap"
+    log "and unformatted space are not used) -- left untouched:"
+    lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,LABEL "$disk" | sed 's/^/nvme-auto:   /'
+    # an earlier version may have put this drive's EFI partition in fstab: take back exactly its own
+    # entry (the tag line directly followed by the line for $MNT) and that mount; nothing else
+    tmp=$(mktemp "$FSTAB.XXXX")
+    if awk -v tag="$TAG" -v m="$MNT" '
+         $0 == tag { if ((getline nxt) <= 0) { print; next }
+                     split(nxt, f); if (f[2] == m) { found = 1; next }
+                     print; print nxt; next }
+         { print }
+         END { exit !found }' "$FSTAB" > "$tmp"; then
+      if mountpoint -q "$MNT" && lsblk -nrpo NAME "$disk" | grep -qxF "$(findmnt -nro SOURCE --target "$MNT")"; then
+        umount "$MNT" && log "unmounted $MNT (it held a partition of this drive)"
+      fi
+      chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+      log "fstab: removed the line an earlier run added for $MNT"
+      [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
+    else
+      rm -f "$tmp"
+    fi
+    log "to give the whole drive to this Pi (ERASES EVERYTHING on it):"
+    log "  sudo wipefs -a $disk && sudo dd if=/dev/zero of=$disk bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto"
+    exit 0
+  fi
+  log "using existing $(fstype "$target") filesystem on $target (not reformatted)"
+fi
+
+uuid=$(blkid -p -s UUID -o value "$target")
+type=$(fstype "$target")
+[ -n "$uuid" ] && [ -n "$type" ] || { log "no UUID/type for $target"; exit 1; }
+
+# 3. one fstab line, by UUID (rewritten only when it changes; a backup of the original is kept once)
+line="UUID=$uuid $MNT $type $OPTS 0 2"
+if ! grep -qxF "$line" "$FSTAB"; then
+  [ -e "$FSTAB.nvme-auto.orig" ] || cp -p "$FSTAB" "$FSTAB.nvme-auto.orig"
+  tmp=$(mktemp "$FSTAB.XXXX")
+  awk -v m="$MNT" -v tag="$TAG" '$0 == tag { next } !/^[[:space:]]*#/ && $2 == m { next } { print }' "$FSTAB" > "$tmp"
+  printf '%s\n%s\n' "$TAG" "$line" >> "$tmp"
+  chmod 644 "$tmp" && mv -f "$tmp" "$FSTAB"
+  log "fstab: $line"
+  [ -z "${NVME_AUTO_FSTAB:-}" ] && systemctl daemon-reload 2>/dev/null
+fi
+
+# 4. mounted now
+mkdir -p "$MNT"
+cur=$(findmnt -nro SOURCE --target "$MNT" 2>/dev/null)
+if mountpoint -q "$MNT" && [ "$(blkid -p -s UUID -o value "$cur" 2>/dev/null)" = "$uuid" ]; then
+  :
+else
+  mountpoint -q "$MNT" && { log "$MNT holds something else ($cur) -- not mounting over it"; exit 1; }
+  mount -t "$type" -o defaults,noatime "UUID=$uuid" "$MNT" 2>/dev/null || mount -t "$type" -o defaults,noatime "$target" "$MNT" \
+    || { log "mount of $target on $MNT failed"; exit 1; }
+fi
+if [ "${fresh:-0}" = 1 ] && getent passwd 1000 >/dev/null; then
+  chown 1000:1000 "$MNT"; log "$MNT belongs to $(getent passwd 1000 | cut -d: -f1)"
+fi
+log "ready: $(df -h --output=source,size,avail,target "$MNT" | tail -1 | sed 's/  */ /g')"
+===== /etc/systemd/system/nvme-auto.service (inode 398202, 275 bytes)
+[Unit]
+Description=NVMe drive: prepare it if blank, mount it at /mnt/nvme (every boot)
+After=local-fs.target
+Before=zaccel-swap.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/nvme-auto
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target
+===== /etc/systemd/system/multi-user.target.wants/ (directory, inode 397140)
+          46  NetworkManager.service -> /usr/lib/systemd/system/NetworkManager.service
+          43  accel-firstboot.service -> /etc/systemd/system/accel-firstboot.service
+          39  anacron.service -> /usr/lib/systemd/system/anacron.service
+          38  apport.service -> /usr/lib/systemd/system/apport.service
+          49  blueman-mechanism.service -> /usr/lib/systemd/system/blueman-mechanism.service
+          38  chrony.service -> /usr/lib/systemd/system/chrony.service
+          45  console-setup.service -> /usr/lib/systemd/system/console-setup.service
+          42  containerd.service -> /usr/lib/systemd/system/containerd.service
+          36  cron.service -> /usr/lib/systemd/system/cron.service
+          33  cups.path -> /usr/lib/systemd/system/cups.path
+          36  cups.service -> /usr/lib/systemd/system/cups.service
+          37  dmesg.service -> /usr/lib/systemd/system/dmesg.service
+          39  dnsmasq.service -> /usr/lib/systemd/system/dnsmasq.service
+          40  e2scrub_reap.service -> /lib/systemd/system/e2scrub_reap.service
+          39  hostapd.service -> /usr/lib/systemd/system/hostapd.service
+          37  lircd.service -> /usr/lib/systemd/system/lircd.service
+          42  lm-sensors.service -> /usr/lib/systemd/system/lm-sensors.service
+          42  networking.service -> /usr/lib/systemd/system/networking.service
+          37  nvme-auto.service -> /etc/systemd/system/nvme-auto.service
+          39  openvpn.service -> /usr/lib/systemd/system/openvpn.service
+          48  orangepi-audio-setup.service -> /etc/systemd/system/orangepi-audio-setup.service
+          56  orangepi-firstrun-config.service -> /usr/lib/systemd/system/orangepi-firstrun-config.service
+          40  remote-fs.target -> /usr/lib/systemd/system/remote-fs.target
+          39  rsyslog.service -> /usr/lib/systemd/system/rsyslog.service
+          40  ssl-cert.service -> /usr/lib/systemd/system/ssl-cert.service
+          39  sysstat.service -> /usr/lib/systemd/system/sysstat.service
+          46  ua-reboot-cmds.service -> /usr/lib/systemd/system/ua-reboot-cmds.service
+          48  ubuntu-advantage.service -> /usr/lib/systemd/system/ubuntu-advantage.service
+          51  unattended-upgrades.service -> /usr/lib/systemd/system/unattended-upgrades.service
+          46  wpa_supplicant.service -> /usr/lib/systemd/system/wpa_supplicant.service
+          43  xrdp-sesman.service -> /usr/lib/systemd/system/xrdp-sesman.service
+          36  xrdp.service -> /usr/lib/systemd/system/xrdp.service
+          39  zaccel-swap.service -> /etc/systemd/system/zaccel-swap.service
+===== /var/log/ (directory, inode 328877)
+          39  README -> ../../usr/share/doc/systemd/README.logs
+       85128  Xorg.0.log
+       33364  alternatives.log
+        1179  apport.log
+        4096  apt
+        5714  auth.log
+        9482  boot.log
+      194470  bootstrap.log
+           0  btmp
+        4096  chrony
+        4096  cups
+        4096  dist-upgrade
+      139276  dmesg
+      998188  dpkg.log
+        8004  fontconfig.log
+        4096  hp
+        4096  journal
+      202544  kern.log
+           0  lastlog
+        4096  lightdm
+        4096  openvpn
+      132676  orangepi-hardware-monitor.log
+        1091  orangepi-ramlog.log
+        4096  private
+        4096  samba
+        4096  speech-dispatcher
+      404229  syslog
+        4096  sysstat
+        4096  unattended-upgrades
+        1600  wtmp
+         252  xrdp-sesman.log
+         393  xrdp.log
+===== /var/log.hdd/ (directory, inode 204661)
+===== /var/log.hdd/journal/: not found
+===== /var/log.hdd/syslog: not found
+===== /var/log.hdd/kern.log: not found
+===== /opt/accel/ (directory, inode 398179)
+        4096  bundle
+        4096  models
+        4096  teensy
+===== /usr/local/bin/ (directory, inode 144505)
+        2197  bench-day
+        9656  blink_all_gpio
+       11892  check-config.sh
+         368  check_temp.sh
+         244  flash-teensy-gpu
+      804480  gpu_demo
+      717312  gpu_image
+      790424  gpu_selftest
+      714136  gpu_snap
+      704096  gpu_stat
+      753640  gpu_view
+       22896  memtester
+     1015216  ppl
+     1005592  run_model
+         685  setup_overlay.sh
+       19672  spidev_test
+      254056  stressapptest
+         185  test_camera.sh
+         316  test_pwm.sh
+       14584  w25q64_test
+       13816  watchdog_test
+      833592  zaccel-bench
+          31  zaccel.py -> /usr/local/lib/zaccel/zaccel.py
+===== /etc/NetworkManager/system-connections/ (directory, inode 393378)

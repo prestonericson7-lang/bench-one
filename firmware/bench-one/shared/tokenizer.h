@@ -23,19 +23,20 @@
  *  almost right: look up the token string, then map each codepoint back to the byte it stands for.
  *
  *
- *  THE PRE-TOKENIZER IS AN APPROXIMATION AND THAT IS STATED, NOT HIDDEN
- *  --------------------------------------------------------------------
- *  Before merging, the text is cut into chunks, and the reference implementation cuts with a Unicode
- *  property regex. This implements the same rules directly: contractions, an optional leading space
- *  followed by letters, the same for digits, the same for punctuation, and runs of whitespace. For
- *  ASCII text that is character-for-character identical to the reference. For text mixing scripts it
- *  can differ, because bytes above 0x7F are all treated as letters here rather than being classified
- *  properly.
+ *  THE PRE-TOKENIZER IS THE ONE THE FILE NAMES
+ *  -------------------------------------------
+ *  Before merging, the text is cut into chunks by a regex, and which regex is part of the model: the
+ *  file names it in tokenizer.ggml.pre. For "qwen2" (every model in this machine) the cut is
+ *  pretok_qwen2.h, that regex implemented directly with Unicode letter/number classes, and it is checked
+ *  against llama.cpp on the same file. Special tokens (the file's control and user-defined types) are
+ *  split out of the text first, wherever they appear, and each fragment between them is cut on its own.
  *
- *  The consequence of a differing split is a different but still valid tokenization, so the model
- *  still works and the output still reads correctly -- it just will not be bit-identical to another
- *  implementation given the same prompt. tokenizer_roundtrip() checks the part that must always hold:
- *  decode(encode(s)) == s, byte for byte, whatever the split was.
+ *  Until 2026-09-27 every model was cut with GPT-2's rules instead, stated here as "identical on
+ *  ASCII". It was not: 18,765 of 27,055 lines of this repository's own docs and code tokenized
+ *  differently from llama.cpp (a punctuation run keeps its newline in Qwen2, any one symbol can lead a
+ *  word). A differing split is still a valid tokenization -- decode(encode(s)) == s held throughout,
+ *  which is why nothing looked wrong -- but it is not the one the model was trained on. Other values of
+ *  tokenizer.ggml.pre still get the GPT-2 cut, chunk_len() in tokenizer.c.
  * ===========================================================================================
  */
 
@@ -61,6 +62,7 @@ typedef struct {
     tok_map   *vmap;         /* piece -> id                                                      */
     tok_map   *mmap_;        /* "left right" -> rank                                             */
     int32_t    bos, eos;
+    int        pre_qwen2;    /* tokenizer.ggml.pre is "qwen2": chunks by pretok_qwen2.h           */
     /* The byte permutation, both directions. cp_byte is indexed by codepoint and 0xFFFF means
      * "not part of the mapping", which is how a corrupt vocabulary entry gets caught. */
     uint16_t   byte_cp[256];

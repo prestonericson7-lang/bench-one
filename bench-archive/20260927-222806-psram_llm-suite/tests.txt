@@ -1,0 +1,4 @@
+# v8 second boot: the tokenizer store reused from the card
+::sdio fifo
+::prefill 1
+france_reuse | 2 | The capital of France is

@@ -43,8 +43,11 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# .cpp too: psram_llm keeps its bus layer in a generated .cpp so the Arduino builder cannot write
+# prototypes into it, and a copy the checker never reads is a copy nobody checks.
 SKETCHES = sorted(glob.glob(os.path.join(
-    ROOT, 'firmware', 'bench-one', 'tests', 'psram_*', '*.ino')))
+    ROOT, 'firmware', 'bench-one', 'tests', 'psram_*', '*.ino')) +
+    glob.glob(os.path.join(ROOT, 'firmware', 'bench-one', 'tests', 'psram_*', '*.cpp')))
 
 # name in source -> label in the report. The transfer loops appear under several names across
 # sketches because each generation renamed them; they are the same role and must match.

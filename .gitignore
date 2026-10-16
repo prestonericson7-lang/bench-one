@@ -93,6 +93,8 @@ accel/tb/*.vvp
 
 # accelerator build outputs (rebuilt by each component build script); the Pi bundle is made by accel/make_pi_bundle.sh
 accel/zynq/out/
+# the machine's Zynq-side binaries are rebuilt by machine/zynq/build.sh (WSL); the test log beside them is kept
+machine/zynq/out/
 accel/pi/out/
 accel/gpu/teensy/out/
 accel/accel-pi-bundle.tar.gz

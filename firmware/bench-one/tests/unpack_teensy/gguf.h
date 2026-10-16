@@ -95,13 +95,19 @@ typedef struct {
     gguf_kv     *kv;
     gguf_tensor *t;
     uint64_t     data_start;   /* absolute byte offset of the tensor blob */
+    uint8_t     *map;          /* the whole file mapped read-only (POSIX; NULL if not mapped) */
+    uint64_t     map_len;
     char         err[256];
 } gguf_t;
 
 /* Open and parse the header. Returns 0 on success; on failure g->err says why. The file stays open
- * for tensor reads, so call gguf_close when done. */
+ * for tensor reads, so call gguf_close when done. On POSIX the file is also mapped read-only, so a
+ * host with less RAM than the model (the Zynq's 256 MB) streams it through the page cache instead of
+ * reading it into memory; gguf_raw_ptr() hands out pointers into that map. */
 int  gguf_open(gguf_t *g, const char *path);
 void gguf_close(gguf_t *g);
+/* A tensor's raw bytes inside the map, or NULL when the file is not mapped (then read it). */
+const uint8_t *gguf_raw_ptr(const gguf_t *g, const gguf_tensor *t);
 
 /* Metadata lookup. The `arch` helpers prepend the architecture name, since nearly every key in a
  * GGUF file is namespaced by it -- "qwen2.block_count", not "block_count". */
@@ -201,6 +207,26 @@ void gguf_act_sums(const int8_t *xq, uint64_t n, int32_t *xsum);
  * integers either way, so the float arithmetic downstream is unchanged. */
 float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
                           const int32_t *xsum, uint64_t n);
+
+/* One row against np activation vectors (1..GGUF_NPOS_MAX): out[p] is exactly what the single-vector call
+ * returns for vector p, bit for bit. On the Cortex-M7 each group of weights is unpacked once for all np
+ * vectors instead of once per vector; elsewhere these simply loop over the single-vector kernels.
+ * gguf_dot_q_n is batched for Q6_K on the M7 and loops over gguf_dot_q for every other type; the batched
+ * Q4_K path is gguf_dot_q4k_presum_n (its result equals gguf_dot_q's, the sums being the same integers). */
+#define GGUF_NPOS_MAX 8
+void gguf_dot_q4k_presum_n(const void *raw, int np, const int8_t *const *xq, const float *const *xs,
+                           const int32_t *const *xsum, uint64_t n, float *out);
+void gguf_dot_q_n(uint32_t type, const void *raw, int np, const int8_t *const *xq, const float *const *xs,
+                  uint64_t n, float *out);
+
+/* One row against one activation vector whose 16-bit lane pairs were made once (gguf_widen_act: two
+ * words per four activations, even lanes then odd lanes) instead of per weight word of every row. On the
+ * M7 these replace two SXTB16 per four weights with two loads; elsewhere they forward to the kernels
+ * above. Bit-identical to gguf_dot_q4k_presum / gguf_dot_q (tests/dot_verify.c). xw must hold n/2 words. */
+void  gguf_widen_act(const int8_t *xq, uint64_t n, uint32_t *xw);
+float gguf_dot_q4k_presum_w(const void *raw, const int8_t *xq, const uint32_t *xw, const float *xs,
+                            const int32_t *xsum, uint64_t n);
+float gguf_dot_q6k_w(const void *raw, const int8_t *xq, const uint32_t *xw, const float *xs, uint64_t n);
 
 /* Q4_K with stages removed, for attributing cost. NOT a kernel to call for a result.
  *

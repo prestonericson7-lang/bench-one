@@ -14,6 +14,17 @@ either way.
 
 ---
 
+## State — 2026-10-15: what has run on real hardware, and what only in emulation
+
+| | On real hardware (measured) | Only in emulation / not yet run |
+|---|---|---|
+| Teensy 4.1 + PSRAM | a 3B model, every token equal to the PC (2026-09-28; below) | no new board runs since |
+| FPGA #1 (PZ7020) | **first full boot, 2026-10-05**: SPL, DDR3L, U-Boot, the bitstream (its HDMI test picture), the kernel and systemd all ran, read from the card's own journal. It then stopped; the last write to the card was at 8.014 s of uptime | the cause is inferred, not measured (Linux gating the fabric's AXI clock, FCLK0); the fix and a boot guard are on card #1 but it has **not booted since**; the experiment that measures the cause is ready ([EXPERIMENT.md](hardware/pz7020-starlite/linux/EXPERIMENT.md)) |
+| FPGA fabric services (GPU, matrix engine) | **none has run on silicon** | simulated, timing-closed, and run against emulated boards |
+| FPGA + Teensy together | powered on the bench together once (2026-10-05), but never worked together: FPGA #1 stopped before any fabric service started | designed and run together in emulation only ([machine/README.md](machine/README.md)) |
+| Orange Pi 4 Pro | booted the bundle card 2026-09-26 and the corrected image by 2026-10-05 (read back from its card both times); the installer's debconf-lock fix ran (its retries are in the card's log) | the NVMe fix, rewritten on its card 2026-10-05 after the second read showed the first fix mounting the wrong partition, has not booted yet |
+| Test record | — | QEMU + NVMe regression 11/11 suites, experiment driver 42/42 paths, on card #1's exact image (`machine/zynq/regression-20261006/`) |
+
 ## Accelerators for the Orange Pi — 2026-09-25, re-verified 2026-09-26
 
 **[accel/README.md](accel/README.md)**: the Zynq and the Teensy as the Orange Pi 4 Pro's accelerators.
@@ -21,8 +32,9 @@ One PL bitstream carries the FPGA-GPU (HDMI out, Teensy 4.1 as its geometry engi
 int4/int8 matrix engine fed by DMA from the Zynq's DDR3, and the platform; 128 MB of the Zynq's
 512 MB (one x16 DDR3L chip -- not the 1 GB some listings claim) is the Pi's swap over the network.
 Built, simulated, timing-closed, booted to Linux in QEMU at the board's real clocks, and on both SD
-cards; the Pi's first real boot was read back off its card and the two faults it showed are fixed.
-The board measurements are the next step.
+cards. The Pi's first real boot was read back off its card and showed two faults: the installer's fix
+for the first has since run on the Pi; the NVMe fix was rewritten on 2026-10-05 and has not booted
+yet. The board measurements are the next step (see the state table above).
 
 ### Build it yourself
 
@@ -42,9 +54,37 @@ Hardware: Puzhi PZ7020-StarLite (XC7Z020), Orange Pi 4 Pro, Teensy 4.1. Board fa
 the vendors' manuals and schematics page by page; the traps that cost a boot are written down where
 they bit (`hardware/pz7020-starlite/PS-CONFIG.md`, `accel/README.md`).
 
-## Current state — 2026-09-12
+## The Teensy result — 2026-09-28 (still the latest board run)
 
-**[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first. Every measurement, every
+**A 3-billion-parameter model runs on one Teensy 4.1, exact to the PC.** The whole model stays on the
+microSD card and is read in full for every token; eight PSRAM chips hold only the attention cache. A
+45-token chat question reaches its first answer token in 15.9 minutes, then 105 s a token; eight
+prompts together in 1.81 hours; every step equal to the PC reference to the last printed digit.
+
+- **[docs/57 — What we built, what it does, and how we know](docs/57-what-we-built-and-what-it-does.md)** —
+  every measured number, in plain English, each traced to its log. Read this first.
+- [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) — the usable numbers in detail;
+  [docs/56](docs/56-one-chip-one-job.md) — the PSRAM as independent chips, the card read, the kernels;
+  [docs/54](docs/54-a-3b-model-on-a-teensy.md) — the full story from the first run.
+- `firmware/bench-one/tests/psram_llm/` — the firmware, the PC proof and the test process.
+- **[docs/58 — Roadmap: what this makes possible](docs/58-roadmap-what-this-makes-possible.md)** — the
+  general principle behind each measured result, the technologies they open, and five staged gates;
+  every line labelled measured, arithmetic or proposal.
+- **[docs/59 — Going deeper](docs/59-going-deeper.md)** — the machine's equations derived from its
+  measured constants and checked against them; the levers not yet pulled (speculative decoding from
+  the prompt, the 30B mixture-of-experts at the 3B's speed, the M7's stall budget, bytes per token);
+  the technology that follows; the order to measure.
+- **[docs/60 — Implementation at every scale](docs/60-implementation-at-every-scale.md)** — the ladder
+  from one $50 module to a shelf, a fabric node, the bench machine, the shed and a network: parts (mostly
+  on hand), cost, power, what each produces, what must be built and proven to climb; the five axes on
+  which this changes AI and the order of moves.
+- **[machine/README.md](machine/README.md)** — the five items (two FPGA engines, the Teensy, two STM32s,
+  the ESP32-P4) made into one machine: wiring pages, roles, the two-engine offload, the bench-day gates,
+  and the honest state of each item ([docs/61](docs/61-the-machine.md)).
+
+## Earlier state — 2026-09-12 (the chain)
+
+**[docs/53 — Handoff](docs/53-handoff.md)** is the document to read first for the chain work. Every measurement, every
 mistake worth not repeating, and exactly which code has run on hardware and which has not.
 
 The short version, all measured:
@@ -69,6 +109,7 @@ Pick the part you actually want:
 
 | You want to | Go to |
 |---|---|
+| **See a 3B language model run on one Teensy, explained for anyone** | [docs/57](docs/57-what-we-built-and-what-it-does.md) — then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers |
 | **Put 256 MB of DDR3 on a microcontroller** | [firmware/bench-one/fpga/ddr3_ice40/](firmware/bench-one/fpga/ddr3_ice40/) — and [docs/38](docs/38-ddr3-on-a-microcontroller.md) for why |
 | Understand what this hardware costs and buys | [docs/27-the-machine-as-measured.md](docs/27-the-machine-as-measured.md) |
 | See a 30B model actually run | [docs/33-a-30b-runs.md](docs/33-a-30b-runs.md) |
@@ -82,9 +123,9 @@ mistakes there will destroy a module, and one of them — a divider built with b
 looks correct and reads full logic level.
 
 The DDR3 bridge is the piece most likely to be useful on its own. It has no dependency on the rest
-of this project: it gives any Teensy 4.1 sixteen times its rated external memory using a scrapped
-desktop DIMM and a $30 FPGA board, and it carries its own README, its own test suite and its own
-wiring sheet.
+of this project: it is designed to give any Teensy 4.1 sixteen times its rated external memory using
+a scrapped desktop DIMM and a $30 FPGA board, and it carries its own README, its own test suite and
+its own wiring sheet. It is simulated and synthesised but has never been on hardware (see below).
 
 ---
 

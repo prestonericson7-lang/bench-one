@@ -1,0 +1,267 @@
+
+[suite 2026-09-27 23:45:51] suite start: 3 entries x 1 runs, bench x 1, tests file firmware/bench-one/tests/psram_llm/tests_realistic.txt
+
+[suite 2026-09-27 23:45:51] port COM38 open
+
+[suite 2026-09-27 23:45:51] >>> I
+23:45:52 |       Y0   no quad setting survives 1024 kB
+23:45:54 |         144 wrong over 1024 kB at write 5 read 18 burst 40
+23:45:54 |         48 wrong over 1024 kB at write 5 read 20 burst 40
+23:45:57 |       Y0   single 0x03 edge write  2 read 13, running at write  5 read 24 burst 32 setup 16 ->  1.78 MB/s
+23:45:58 |         208 wrong over 1024 kB at write 5 read 11 burst 56
+23:45:59 |         176 wrong over 1024 kB at write 5 read 12 burst 56
+23:45:59 |         96 wrong over 1024 kB at write 5 read 13 burst 48
+23:46:00 |         128 wrong over 1024 kB at write 5 read 14 burst 48
+23:46:00 |         112 wrong over 1024 kB at write 5 read 16 burst 48
+23:46:01 |         72 wrong over 1024 kB at write 5 read 18 burst 40
+23:46:02 |         32 wrong over 1024 kB at write 5 read 20 burst 40
+23:46:04 |       Y0   single 0x0B edge write  2 read  8, running at write  5 read 24 burst 32 setup 16 ->  1.74 MB/s
+23:46:08 |       Y1   no quad setting survives 1024 kB
+23:46:11 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+23:46:13 |       Y1   single 0x0B edge write  4 read  6, running at write  7 read  9 burst 64 setup 16 ->  3.12 MB/s
+23:46:15 |       Y2   no quad setting survives 1024 kB
+23:46:18 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+23:46:20 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+23:46:23 |       Y3   no quad setting survives 1024 kB
+23:46:26 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+23:46:28 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+23:46:31 |       Y4   no quad setting survives 1024 kB
+23:46:31 |       Y4   no single 0x03 setting survives 1024 kB
+23:46:32 |       Y4   no single 0x0B setting survives 1024 kB
+23:46:32 |       Y4: not usable
+23:46:32 |       Y5   no quad setting survives 1024 kB
+23:46:35 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+23:46:37 |       Y5   single 0x0B edge write  0 read  6, running at write  3 read  9 burst 64 setup 16 ->  3.12 MB/s
+23:46:39 | 
+23:46:39 |   proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+23:46:39 |     CS0  filled 8 MB in 0.3 s
+23:46:40 |     CS1  filled 8 MB in 0.3 s
+23:46:41 |     Y5   filled 8 MB in 1.3 s
+23:46:43 |     Y1   filled 8 MB in 1.8 s
+23:46:44 |     Y3   filled 8 MB in 1.3 s
+23:46:45 |     Y2   filled 8 MB in 1.3 s
+23:46:47 |     Y0   filled 8 MB in 1.6 s
+23:46:48 |     CS0  quad        read back 8 MB in 1.0 s (8.82 MB/s): 0 wrong
+23:46:49 |     CS1  quad        read back 8 MB in 1.1 s (7.31 MB/s): 0 wrong
+23:46:52 |     Y5   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+23:46:54 |     Y1   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+23:46:57 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+23:47:01 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+23:47:05 |     Y0   single 0x03 read back 8 MB in 4.7 s (1.78 MB/s): 64 wrong  -> DROPPED
+23:47:05 |   PSRAM in use: 6 banks, 50331648 bytes
+23:47:05 | 
+23:47:05 |   SD card
+23:47:05 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+23:47:05 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+23:47:05 |     qwen3b.gguf: 1929903072 bytes
+23:47:06 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+23:47:06 | CLKSWEEP begin temp_c 42.5
+23:47:06 |     SD up (FIFO_SDIO), clock 49500 kHz
+23:47:06 |     qwen3b.gguf: 1929903072 bytes
+23:47:06 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 134 ms)
+23:47:07 | CLKSWEEP khz 49500 divider 4 mb_s 22.90 (SdFat's, the reference)
+23:47:08 | CLKSWEEP khz 66000 divider 3 mb_s 24.01 regions 8 wrong 0 failed 0
+23:47:08 | CLKSWEEP khz 99000 divider 2 mb_s 23.85 regions 8 wrong 0 failed 0
+23:47:08 |     SD up (DMA_SDIO), clock 49500 kHz
+23:47:08 |     qwen3b.gguf: 1929903072 bytes
+23:47:09 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+23:47:09 | CLKSWEEP best khz 66000 divider 3 mb_s 24.01 (kept)
+23:47:09 | CLKSWEEP end temp_c 42.5
+23:47:14 |     sequential read: 32 MB in 4.47 s = 7.51 MB/s
+23:47:14 | 
+23:47:14 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+23:47:14 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+23:47:17 |     3.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+23:47:17 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+23:47:17 |     3085938688 parameters in the file
+23:47:17 |     read from the card per token: 1923948176 bytes
+23:47:17 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+23:47:17 |     PSRAM used 50314176 of 50331648: the attention cache, 2647 positions -- nothing of the model
+23:47:17 | 
+23:47:17 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[suite 2026-09-27 23:47:17] >>> ::hold
+23:47:17 | HOLD waiting for prompts
+
+[suite 2026-09-27 23:47:17] >>> I
+23:47:18 | I bench-one psram_llm v8 banks 6 ps_bytes 50331648 max_seq 2647 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 23:47:18] identity: I bench-one psram_llm v8 banks 6 ps_bytes 50331648 max_seq 2647 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 23:47:18] >>> ::bench
+23:47:18 | BENCH begin temp_c 43.1
+23:47:20 | BENCH sd_seq read_size 4096 mb_s 7.50 sdio dma
+23:47:22 | BENCH sd_seq read_size 16384 mb_s 7.50 sdio dma
+23:47:25 | BENCH sd_seq read_size 65536 mb_s 7.50 sdio dma
+23:47:27 | BENCH sd_seq_dtcm read_size 4096 mb_s 7.51 sdio dma clock_khz 49500
+23:47:27 |     SD up (FIFO_SDIO), clock 66000 kHz
+23:47:27 |     qwen3b.gguf: 1929903072 bytes
+23:47:27 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+23:47:27 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+23:47:28 | BENCH sd_seq read_size 4096 mb_s 18.53 sdio fifo
+23:47:29 | BENCH sd_seq read_size 16384 mb_s 18.54 sdio fifo
+23:47:30 | BENCH sd_seq read_size 65536 mb_s 18.53 sdio fifo
+23:47:31 | BENCH sd_seq_dtcm read_size 4096 mb_s 18.53 sdio fifo clock_khz 49500
+23:47:31 |     SD up (DMA_SDIO), clock 66000 kHz
+23:47:31 |     qwen3b.gguf: 1929903072 bytes
+23:47:31 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 786 ms)
+23:47:31 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+23:47:31 | BENCH sd_random read_size 4096 count 256 ms_each 0.682 mb_s 5.73 fails 0
+23:47:32 | BENCH kernel ffn_gate_L0 type 12 path presum rows 56 cols 2048 mb_s 61.15 mweights_s 113.99
+23:47:33 | BENCH kernel ffn_gate_L0 type 12 path dot_q rows 56 cols 2048 mb_s 56.42 mweights_s 105.18
+23:47:34 | BENCH kernel_x8 ffn_gate_L0 type 12 vectors 8 mweights_s_per_vector 139.35
+23:47:35 | BENCH q4k_stage ffn_gate_L0 stage 0 cycles_per_weight 5.758 mweights_s 104.20
+23:47:36 | BENCH q4k_stage ffn_gate_L0 stage 1 cycles_per_weight 4.426 mweights_s 135.57
+23:47:38 | BENCH q4k_stage ffn_gate_L0 stage 2 cycles_per_weight 3.598 mweights_s 166.77
+23:47:39 | BENCH kernel ffn_down_L0 type 14 path dot_q rows 7 cols 11008 mb_s 60.27 mweights_s 77.04
+23:47:40 | BENCH kernel_x8 ffn_down_L0 type 14 vectors 8 mweights_s_per_vector 121.15
+23:47:41 | BENCH kernel attn_v_L0 type 14 path dot_q rows 39 cols 2048 mb_s 61.43 mweights_s 78.52
+23:47:42 | BENCH kernel_x8 attn_v_L0 type 14 vectors 8 mweights_s_per_vector 121.42
+23:47:43 | BENCH kernel token_embd type 14 path dot_q rows 39 cols 2048 mb_s 61.44 mweights_s 78.53
+23:47:44 | BENCH kernel_x8 token_embd type 14 vectors 8 mweights_s_per_vector 121.42
+23:47:44 | BENCH psram no free megabyte above the attention cache
+23:47:44 | BENCH end temp_c 43.1
+
+[suite 2026-09-27 23:47:44] >>> ::sdio fifo
+23:47:44 |     SD up (FIFO_SDIO), clock 66000 kHz
+23:47:44 |     qwen3b.gguf: 1929903072 bytes
+23:47:44 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+23:47:44 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+23:47:44 | SDIO fifo
+
+[suite 2026-09-27 23:47:44] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-27 23:47:44] >>> ::prefill 1
+23:47:45 | PREFILL 1
+
+[suite 2026-09-27 23:47:45] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-27 23:47:55] >>> ::gen 4
+23:47:56 | GEN 4
+
+[suite 2026-09-27 23:47:56] test chat_spi_i2c run 1: gen 4 prompt '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n<|im_start|>user\\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\\n<|im_start|>assistant\\n'
+
+[suite 2026-09-27 23:47:56] >>> <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\n
+23:47:56 | 
+23:47:56 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+23:47:56 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198
+23:52:35 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+23:52:35 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+23:52:35 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+23:52:35 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+23:52:35 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+23:52:35 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+23:52:35 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+23:52:35 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+23:52:35 |     prefill=0..7: 278.7 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 668 KB read 148.5 KB written in 4.08 s, compute 191.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+23:52:35 | STAGES prefill=0..7 embed=0.005 qkv=14.80 att=4.954 wo=11.50 ffn=218.67 head=28.76 hidden=0.00 temp_c=43.1
+23:57:14 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+23:57:14 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+23:57:14 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+23:57:14 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+23:57:14 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+23:57:14 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+23:57:14 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+23:57:14 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+23:57:14 |     prefill=8..15: 279.5 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 1856 KB read 148.5 KB written in 4.70 s, compute 191.9 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+23:57:14 | STAGES prefill=8..15 embed=0.005 qkv=14.80 att=5.793 wo=11.50 ffn=218.69 head=28.76 hidden=0.00 temp_c=43.8
+00:01:55 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+00:01:55 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+00:01:55 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+00:01:55 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+00:01:55 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+00:01:55 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+00:01:55 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+00:01:55 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+00:01:55 |     prefill=16..23: 280.4 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 3044 KB read 148.5 KB written in 5.32 s, compute 192.1 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:01:55 | STAGES prefill=16..23 embed=0.005 qkv=14.80 att=6.630 wo=11.50 ffn=218.68 head=28.76 hidden=0.00 temp_c=43.8
+00:06:36 | step 24 pos 24 fed 3838 -> top1 374 20.5358391 top2 525 19.992054 text " is"
+00:06:36 | step 25 pos 25 fed 374 -> top1 279 18.9274082 top2 264 16.2415924 text " the"
+00:06:36 | step 26 pos 26 fed 279 -> top1 6672 17.6220417 top2 7428 16.17729 text " difference"
+00:06:36 | step 27 pos 27 fed 6672 -> top1 1948 22.9239979 top2 304 18.2445908 text " between"
+00:06:36 | step 28 pos 28 fed 1948 -> top1 264 15.8514957 top2 279 14.6710205 text " a"
+00:06:36 | step 29 pos 29 fed 20429 -> top1 323 18.1734161 top2 320 17.1663532 text " and"
+00:06:36 | step 30 pos 30 fed 323 -> top1 358 16.3232059 top2 23267 14.5734882 text " I"
+00:06:36 | step 31 pos 31 fed 358 -> top1 17 23.4461136 top2 29456 18.2848511 text "2"
+00:06:36 |     prefill=24..31: 281.2 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 4232 KB read 148.5 KB written in 5.95 s, compute 192.3 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:06:36 | STAGES prefill=24..31 embed=0.005 qkv=14.80 att=7.467 wo=11.50 ffn=218.68 head=28.76 hidden=0.00 temp_c=43.1
+00:11:18 | step 32 pos 32 fed 17 -> top1 34 23.8728008 top2 50 17.9505405 text "C"
+00:11:18 | step 33 pos 33 fed 34 -> top1 304 18.9144287 top2 30 18.0652962 text " in"
+00:11:18 | step 34 pos 34 fed 30 -> top1 151645 19.395216 top2 3555 15.9097013 text "<|im_end|>"
+00:11:18 | step 35 pos 35 fed 21806 -> top1 304 17.2208939 top2 279 16.4594383 text " in"
+00:11:18 | step 36 pos 36 fed 304 -> top1 220 19.1881065 top2 264 18.9560089 text " "
+00:11:18 | step 37 pos 37 fed 1378 -> top1 22870 20.9250927 top2 3501 19.2265434 text " sentences"
+00:11:18 | step 38 pos 38 fed 22870 -> top1 13 19.4421368 top2 624 18.3163357 text "."
+00:11:18 | step 39 pos 39 fed 13 -> top1 151645 21.9751358 top2 151644 15.5827322 text "<|im_end|>"
+00:11:18 |     prefill=32..39: 282.0 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 5420 KB read 148.5 KB written in 6.57 s, compute 192.5 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:11:18 | STAGES prefill=32..39 embed=0.005 qkv=14.80 att=8.304 wo=11.50 ffn=218.68 head=28.76 hidden=0.00 temp_c=43.8
+00:14:52 | step 40 pos 40 fed 151645 -> top1 198 26.6948795 top2 151644 21.3194408 text "\x0A"
+00:14:52 | step 41 pos 41 fed 198 -> top1 151644 26.3112354 top2 151645 17.5019531 text "<|im_start|>"
+00:14:52 | step 42 pos 42 fed 151644 -> top1 198 26.1842899 top2 151644 20.2932358 text "\x0A"
+00:14:52 | step 43 pos 43 fed 77091 -> top1 39779 19.1664219 top2 785 14.6496935 text "SPI"
+00:14:52 | step 44 pos 44 fed 198 -> top1 39779 19.3530884 top2 40 15.8442087 text "SPI"
+00:14:52 |   >> <|im_start|>system
+00:14:52 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+00:14:52 | <|im_start|>user
+00:14:52 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+00:14:52 | <|im_start|>assistant
+00:14:52 | SPI
+00:14:52 |     prefill=40..44: 213.6 s: SD 1834.8 MB in 82.9 s (22.12 MB/s), PSRAM 3991 KB read 92.8 KB written in 4.42 s, compute 126.2 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:14:52 | STAGES prefill=40..44 embed=0.003 qkv=11.08 att=5.614 wo=8.55 ffn=166.41 head=21.90 hidden=0.00 temp_c=43.1
+00:16:37 | step 45 pos 45 fed 39779 -> top1 320 20.2314739 top2 374 18.7457199 text " ("
+00:16:37 |   >> <|im_start|>system
+00:16:37 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+00:16:37 | <|im_start|>user
+00:16:37 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+00:16:37 | <|im_start|>assistant
+00:16:37 | SPI (
+00:16:37 |     step=45: 105.7 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 854 KB read 18.6 KB written in 0.91 s, compute 28.8 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:16:37 | STAGES step=45 embed=0.001 qkv=6.13 att=1.156 wo=4.63 ffn=80.02 head=13.79 hidden=0.00 temp_c=42.5
+00:18:23 | step 46 pos 46 fed 320 -> top1 5915 26.6293812 top2 16374 19.2809315 text "Serial"
+00:18:23 |   >> <|im_start|>system
+00:18:23 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+00:18:23 | <|im_start|>user
+00:18:23 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+00:18:23 | <|im_start|>assistant
+00:18:23 | SPI (Serial
+00:18:23 |     step=46: 105.7 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 872 KB read 18.6 KB written in 0.92 s, compute 28.8 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:18:23 | STAGES step=46 embed=0.001 qkv=6.13 att=1.169 wo=4.63 ffn=80.03 head=13.79 hidden=0.00 temp_c=42.5
+00:20:09 | step 47 pos 47 fed 5915 -> top1 83000 28.7934093 top2 34588 20.9415283 text " Peripheral"
+00:20:09 |   >> <|im_start|>system
+00:20:09 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+00:20:09 | <|im_start|>user
+00:20:09 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+00:20:09 | <|im_start|>assistant
+00:20:09 | SPI (Serial Peripheral
+00:20:09 |     step=47: 105.8 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 891 KB read 18.6 KB written in 0.93 s, compute 28.8 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:20:09 | STAGES step=47 embed=0.001 qkv=6.13 att=1.182 wo=4.63 ffn=80.02 head=13.79 hidden=0.00 temp_c=42.5
+00:21:55 | step 48 pos 48 fed 83000 -> top1 20019 30.4374809 top2 5665 23.3292427 text " Interface"
+00:21:55 |   >> <|im_start|>system
+00:21:55 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+00:21:55 | <|im_start|>user
+00:21:55 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+00:21:55 | <|im_start|>assistant
+00:21:55 | SPI (Serial Peripheral Interface
+00:21:55 |     step=48: 105.8 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 910 KB read 18.6 KB written in 0.94 s, compute 28.8 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:21:55 | STAGES step=48 embed=0.001 qkv=6.13 att=1.195 wo=4.63 ffn=80.02 head=13.79 hidden=0.00 temp_c=42.5
+00:21:55 | 
+00:21:55 |   ANSWER: "SPI (Serial Peripheral Interface"
+00:21:55 |   10 passes over the weights in 2038 s (prompt 1615 s), 203.8 s each; 17.92 GB read from the card
+00:21:55 |   PSRAM self-check over the whole run: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:21:55 | RUN n_prompt=45 n_gen=4 prefill=1 passes=10 total_s=2038.4 prompt_s=1615.4 per_pass_s=203.84 sd_gb=17.918 sd_mbs=22.89 sd_s=801.7 compute_s=1201.9 hidden_s=0.0 ps_s=34.8 ps_fix_r=0 ps_fix_w=0 ps_bad=0 temp_max_c=43.8
+
+[suite 2026-09-28 00:22:25] test chat_spi_i2c run 1 done: {"prompt_ids_match": true, "steps": 49, "matched": 49, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-28 00:22:25] round 1 complete; passes.md updated
+
+[suite 2026-09-28 00:22:25] suite complete
+
+[suite 2026-09-28 00:22:25] >>> ::stats
+00:22:26 |   DONE. Type another prompt and press Enter.
+00:22:26 | STATS bank 0 CS0 quad write 3 read 18 burst 96 rate_mb_s 8.82
+00:22:26 | STATS bank 1 CS1 quad write 3 read 24 burst 96 rate_mb_s 7.31
+00:22:26 | STATS bank 2 Y5 single 0x0B write 3 read 9 burst 64 rate_mb_s 3.12
+00:22:26 | STATS bank 3 Y1 single 0x0B write 7 read 9 burst 64 rate_mb_s 3.12
+00:22:26 | STATS bank 4 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+00:22:26 | STATS bank 5 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.83
+00:22:26 | STATS ps_fix_r 0 ps_fix_w 0 ps_bad 0 temp_c 43.8 gen 4 max_seq 2647 uptime_s 2198

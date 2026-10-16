@@ -1,0 +1,42 @@
+== waiting for the board's boot report
+    mem_total     229328 kB  (what the device tree gives Linux -- not a probe of the chips)
+    pl_done       no -- no pl.bit loaded at boot (no fpgagpu.pl_loaded=1, INT_STS 0x00000000)
+    eth0          ipv4 10.20.0.2/24   link up   speed 100 Mb/s   mac 02:5a:70:20:00:01
+    failed_units  none
+    accel         zynq-plcheck active   zaccel-server active   fpgagpud active   nbd-server active
+    uio           pl_regs@40000000@0x40000000 zaccel-dma@40400000@0x40400000 zaccel-mem@10000000@0x10000000
+    pl_ddr        Linux RAM ends where the PL windows begin: 00000000-0fffffff : System RAM
+    zynqram       134217728 bytes
+  PASS  zaccel-server running
+  PASS  fpgagpud running
+  PASS  nbd-server running
+  PASS  UIO pl_regs@40000000@0x40000000
+  PASS  UIO zaccel-dma@40400000@0x40400000
+  PASS  UIO zaccel-mem@10000000@0x10000000
+  PASS  Linux RAM is 0-256 MB; the engine (0x10000000) and GPU (0x1E000000) windows are the PL's
+  PASS  no failed units
+== matrix engine over the network (the Pi's view)
+    INFO version 1 engine cpu mem 64/64 MB max_cols 4096 max_batch 8 selftest 0
+    GEMV mode 0 64x257 nb 3: exact (engine cpu, 3 ms incl. network, emulated CPU)
+    GEMV mode 1 33x100 nb 8: exact (engine cpu, 1 ms incl. network, emulated CPU)
+    GEMV mode 0 512x4096 nb 1: exact (engine cpu, 91 ms incl. network, emulated CPU)
+  PASS  matrix engine: INFO, PING, LOAD/GEMV/FREE exact, unknown tensor rejected
+== the Pi's own client and benchmark against the board (answers checked; emulated timings do not count)
+      check  Pi CPU alone ....... bit-exact
+      check  Zynq alone ......... bit-exact  (engine_used=CPU FALLBACK, not the PL)
+      check  both at once ....... bit-exact  (Pi rows 0..254, Zynq rows 255..255)
+      check  Pi CPU alone ....... bit-exact
+      check  Zynq alone ......... bit-exact  (engine_used=CPU FALLBACK, not the PL)
+      check  both at once ....... bit-exact  (Pi rows 0..125, Zynq rows 126..127)
+    answers checked: 19, wrong: 0
+    RESULT: every answer bit-exact; timings DO NOT COUNT (see above).
+  PASS  zaccel-bench: every answer from the board exact
+== GPU daemon (no PL under QEMU: it must answer and report that)
+    gpu_stat: warning: daemon HELLO status -2 (GPU_ERR_NOPL (PL not configured / ID mismatch))
+    daemon 127.0.0.1:17777  protocol 1  PL id 0x00000000 version 0x00000000  1280x720  pool 0 KB used of 26624 KB, max 256 sprites
+    STATUS: GPU_ERR_NOPL (PL not configured / ID mismatch)
+  PASS  fpgagpud answered gpu_stat (rc 0)
+== the Zynq's RAM as the Pi's block device
+  PASS  zynqram export: 128 MB, 8 MB written and read back identical
+
+QEMU ACCEL TEST: PASS

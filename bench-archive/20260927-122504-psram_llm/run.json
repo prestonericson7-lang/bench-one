@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-122504",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 90,
+  "note": "v6 + seek fix + card-idle fix (syncDevice/CMD12 after every command and at boot): flashed while halted on the card hung at 12:22",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 530044
+}

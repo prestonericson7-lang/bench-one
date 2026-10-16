@@ -11,3 +11,9 @@
 *.lst
 *.sym
 *.eep
+
+# PC-verify runs: the report and the per-prompt step lines are the result; the tokenizer dumps and the
+# fuzz input are regenerated bit for bit by verify_pc.py (fixed seed, the repository's own files).
+*-pcverify/tok_*.txt
+*-pcverify/fuzz.bin
+*-pcverify/corpus.txt

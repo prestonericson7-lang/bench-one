@@ -1,0 +1,233 @@
+
+[suite 2026-09-27 16:28:24] suite start: 29 entries x 3 runs, bench x 3, tests file firmware/bench-one/tests/psram_llm/tests_v7.txt
+
+[suite 2026-09-27 16:28:24] port COM38 open
+
+[suite 2026-09-27 16:28:24] >>> I
+16:28:25 |       Y0   no quad setting survives 1024 kB
+16:28:28 |       Y0   single 0x03 edge write  3 read 13, running at write  6 read 18 burst 40 setup 16 ->  2.17 MB/s
+16:28:29 |         8 wrong over 1024 kB at write 6 read 11 burst 56
+16:28:31 |       Y0   single 0x0B edge write  3 read  8, running at write  6 read 12 burst 56 setup 16 ->  2.72 MB/s
+16:28:34 |       Y1   no quad setting survives 1024 kB
+16:28:37 |       Y1   single 0x03 edge write  4 read  6, running at write  7 read  9 burst 64 setup 16 ->  3.15 MB/s
+16:28:39 |       Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+16:28:42 |       Y2   no quad setting survives 1024 kB
+16:28:44 |       Y2   single 0x03 edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.87 MB/s
+16:28:46 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+16:28:49 |       Y3   no quad setting survives 1024 kB
+16:28:51 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+16:28:54 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+16:28:56 |       Y4   no quad setting survives 1024 kB
+16:28:59 |       Y4   single 0x03 edge write  4 read 10, running at write  7 read 13 burst 56 setup 16 ->  2.65 MB/s
+16:29:01 |       Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+16:29:04 |       Y5   no quad setting survives 1024 kB
+16:29:07 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+16:29:09 |       Y5   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+16:29:11 | 
+16:29:11 |   proving every byte: fill all 8 banks (64 MB) with bank-tagged data, then read all back
+16:29:12 |     CS0  filled 8 MB in 0.3 s
+16:29:12 |     CS1  filled 8 MB in 0.4 s
+16:29:14 |     Y1   filled 8 MB in 1.8 s
+16:29:15 |     Y5   filled 8 MB in 1.3 s
+16:29:17 |     Y4   filled 8 MB in 1.8 s
+16:29:18 |     Y3   filled 8 MB in 1.3 s
+16:29:20 |     Y2   filled 8 MB in 1.3 s
+16:29:21 |     Y0   filled 8 MB in 1.7 s
+16:29:22 |     CS0  quad        read back 8 MB in 1.0 s (8.79 MB/s): 0 wrong
+16:29:23 |     CS1  quad        read back 8 MB in 1.0 s (8.19 MB/s): 0 wrong
+16:29:26 |     Y1   single 0x03 read back 8 MB in 2.7 s (3.15 MB/s): 0 wrong
+16:29:29 |     Y5   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+16:29:31 |     Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+16:29:34 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+16:29:37 |     Y2   single 0x03 read back 8 MB in 2.9 s (2.87 MB/s): 0 wrong
+16:29:41 |     Y0   single 0x0B read back 8 MB in 3.1 s (2.72 MB/s): 0 wrong
+16:29:41 |   PSRAM in use: 8 banks, 67108864 bytes
+16:29:41 | 
+16:29:41 |   SD card
+16:29:41 |     SD up on attempt 1 (DMA_SDIO)
+16:29:41 |     qwen3b.gguf: 1929903072 bytes
+16:29:42 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+16:29:46 |     sequential read: 32 MB in 4.62 s = 7.26 MB/s
+16:29:46 | 
+16:29:46 |   opening the model: tokenizer into PSRAM, norms and biases into PSRAM, cache laid out
+16:29:53 |     6.8 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+16:29:53 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+16:29:53 |     3085938688 parameters in the file
+16:29:53 |     read from the card per token: 1922981520 bytes
+16:29:53 |     PSRAM used 48195856 of 67108864: tokenizer 8300816, norms+biases 966656, attention cache 38928384 (2048 positions)
+16:29:53 | 
+16:29:53 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[suite 2026-09-27 16:29:53] >>> ::hold
+16:29:53 | HOLD waiting for prompts
+
+[suite 2026-09-27 16:29:53] >>> I
+16:29:54 | I bench-one psram_llm v7 banks 8 ps_bytes 67108864 max_seq 2048 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 16:29:54] identity: I bench-one psram_llm v7 banks 8 ps_bytes 67108864 max_seq 2048 gen 16 sdio dma overlap 1 align 1 slice 0
+
+[suite 2026-09-27 16:29:54] >>> ::bench
+16:29:54 | BENCH begin temp_c 45.7
+16:29:56 | BENCH sd_seq read_size 4096 mb_s 7.26
+16:29:59 | BENCH sd_seq read_size 16384 mb_s 7.26
+16:30:01 | BENCH sd_seq read_size 65536 mb_s 7.26
+16:30:01 | BENCH sd_random read_size 4096 count 256 ms_each 0.698 mb_s 5.59 fails 0
+16:30:02 | BENCH kernel ffn_gate_L0 type 12 path presum rows 56 cols 2048 mb_s 61.45 mweights_s 114.55
+16:30:03 | BENCH kernel ffn_gate_L0 type 12 path dot_q rows 56 cols 2048 mb_s 56.59 mweights_s 105.48
+16:30:04 | BENCH kernel_x8 ffn_gate_L0 type 12 vectors 8 mweights_s_per_vector 139.43
+16:30:05 | BENCH q4k_stage ffn_gate_L0 stage 0 cycles_per_weight 5.737 mweights_s 104.58
+16:30:06 | BENCH q4k_stage ffn_gate_L0 stage 1 cycles_per_weight 4.405 mweights_s 136.20
+16:30:07 | BENCH q4k_stage ffn_gate_L0 stage 2 cycles_per_weight 3.576 mweights_s 167.80
+16:30:08 | BENCH kernel ffn_down_L0 type 14 path dot_q rows 7 cols 11008 mb_s 60.44 mweights_s 77.26
+16:30:09 | BENCH kernel_x8 ffn_down_L0 type 14 vectors 8 mweights_s_per_vector 121.22
+16:30:10 | BENCH kernel attn_v_L0 type 14 path dot_q rows 39 cols 2048 mb_s 61.60 mweights_s 78.74
+16:30:11 | BENCH kernel_x8 attn_v_L0 type 14 vectors 8 mweights_s_per_vector 121.49
+16:30:12 | BENCH kernel token_embd type 14 path dot_q rows 39 cols 2048 mb_s 61.61 mweights_s 78.75
+16:30:13 | BENCH kernel_x8 token_embd type 14 vectors 8 mweights_s_per_vector 121.49
+16:30:14 | BENCH psram_raw bank Y2 mode single 0x03 write_mb_s 6.44 read_mb_s 2.87 wrong 0
+16:30:15 | BENCH psram_checked bank Y2 write_mb_s 2.03 read_mb_s 1.47 errors 0
+16:30:15 | BENCH end temp_c 44.4
+
+[suite 2026-09-27 16:30:15] >>> ::prefill 1
+16:30:16 | PREFILL 1
+
+[suite 2026-09-27 16:30:16] board command ::prefill 1 -> PREFILL 1
+
+[suite 2026-09-27 16:30:16] >>> ::sdio dma
+16:30:16 |     qwen3b.gguf: 1929903072 bytes
+16:30:17 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+16:30:17 | SDIO dma
+
+[suite 2026-09-27 16:30:17] board command ::sdio dma -> SDIO dma
+
+[suite 2026-09-27 16:30:17] >>> ::overlap 1
+16:30:17 | OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:30:17] board command ::overlap 1 -> OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:30:17] >>> ::align 1
+16:30:18 | ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:30:18] board command ::align 1 -> ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:30:18] >>> ::slice 0
+16:30:18 | SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-27 16:30:18] board command ::slice 0 -> SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-27 16:30:20] >>> ::gen 2
+16:30:21 | GEN 2
+
+[suite 2026-09-27 16:30:21] test ab_default run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 16:30:21] >>> The capital of France is
+16:30:21 | 
+16:30:21 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+16:30:21 | prompt ids: 785 6722 315 9625 374
+16:32:17 |     PSRAM self-check: write re-done at 17131792 (+256), 1 byte(s) differed
+16:32:17 |     PSRAM self-check: write never read back right at 17132560 (+256), 4 byte(s) differed
+16:32:17 |   prefill failed at positions 0..4: PSRAM write failed at 17132560 (+256)
+16:32:17 | RUN error=prefill step=0
+
+[suite 2026-09-27 16:32:47] test ab_default run 1 done: {"prompt_ids_match": true, "steps": 0, "matched": 0, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-27 16:32:47] >>> ::slice 200
+16:32:48 | SLICE 200 us of rows per yield
+
+[suite 2026-09-27 16:32:48] board command ::slice 200 -> SLICE 200 us of rows per yield
+
+[suite 2026-09-27 16:32:50] >>> ::gen 2
+16:32:50 | GEN 2
+
+[suite 2026-09-27 16:32:50] test ab_slice200 run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 16:32:50] >>> The capital of France is
+16:32:51 | 
+16:32:51 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+16:32:51 | prompt ids: 785 6722 315 9625 374
+16:34:48 |     PSRAM self-check: write never read back right at 17132816 (+256), 4 byte(s) differed
+16:34:48 |   prefill failed at positions 0..4: PSRAM write failed at 17132816 (+256)
+16:34:48 | RUN error=prefill step=0
+
+[suite 2026-09-27 16:35:18] test ab_slice200 run 1 done: {"prompt_ids_match": true, "steps": 0, "matched": 0, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-27 16:35:18] >>> ::slice 0
+16:35:19 | SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-27 16:35:19] board command ::slice 0 -> SLICE 0 us of rows per yield (0: one row per yield)
+
+[suite 2026-09-27 16:35:19] >>> ::align 0
+16:35:19 | ALIGN 0 (card DMA_SDIO)
+
+[suite 2026-09-27 16:35:19] board command ::align 0 -> ALIGN 0 (card DMA_SDIO)
+
+[suite 2026-09-27 16:35:22] >>> ::gen 2
+16:35:22 | GEN 2
+
+[suite 2026-09-27 16:35:22] test ab_unaligned run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 16:35:22] >>> The capital of France is
+16:35:23 | 
+16:35:23 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+16:35:23 | prompt ids: 785 6722 315 9625 374
+16:37:23 |     PSRAM self-check: read corrected by majority at 17131792 (+768), 1 byte(s) differed
+16:37:23 |     PSRAM self-check: read corrected by majority at 17131792 (+1280), 1 byte(s) differed
+16:37:30 |     PSRAM self-check: write never read back right at 17656080 (+256), 4 byte(s) differed
+16:37:30 |   prefill failed at positions 0..4: PSRAM write failed at 17656080 (+256)
+16:37:30 | RUN error=prefill step=0
+
+[suite 2026-09-27 16:38:01] test ab_unaligned run 1 done: {"prompt_ids_match": true, "steps": 0, "matched": 0, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-27 16:38:01] >>> ::align 1
+16:38:01 | ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:38:01] board command ::align 1 -> ALIGN 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:38:01] >>> ::overlap 0
+16:38:02 | OVERLAP 0 (card DMA_SDIO)
+
+[suite 2026-09-27 16:38:02] board command ::overlap 0 -> OVERLAP 0 (card DMA_SDIO)
+
+[suite 2026-09-27 16:38:04] >>> ::gen 2
+16:38:05 | GEN 2
+
+[suite 2026-09-27 16:38:05] test ab_no_overlap run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 16:38:05] >>> The capital of France is
+16:38:05 | 
+16:38:05 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+16:38:05 | prompt ids: 785 6722 315 9625 374
+16:40:43 |     PSRAM self-check: read corrected by majority at 17131792 (+768), 1 byte(s) differed
+16:40:43 |     PSRAM self-check: read corrected by majority at 17131792 (+1280), 1 byte(s) differed
+16:40:53 |     PSRAM self-check: write never read back right at 17656080 (+256), 4 byte(s) differed
+16:40:53 |   prefill failed at positions 0..4: PSRAM write failed at 17656080 (+256)
+16:40:53 | RUN error=prefill step=0
+
+[suite 2026-09-27 16:41:23] test ab_no_overlap run 1 done: {"prompt_ids_match": true, "steps": 0, "matched": 0, "first_divergence": null, "margin_at_divergence": null, "max_logit_delta": 0.0}
+
+[suite 2026-09-27 16:41:23] >>> ::overlap 1
+16:41:24 | OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:41:24] board command ::overlap 1 -> OVERLAP 1 (card DMA_SDIO)
+
+[suite 2026-09-27 16:41:24] >>> ::sdio fifo
+16:41:24 |     qwen3b.gguf: 1929903072 bytes
+16:41:24 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 134 ms)
+16:41:24 | SDIO fifo
+
+[suite 2026-09-27 16:41:24] board command ::sdio fifo -> SDIO fifo
+
+[suite 2026-09-27 16:41:26] >>> ::gen 2
+16:41:27 | GEN 2
+
+[suite 2026-09-27 16:41:27] test ab_fifo run 1: gen 2 prompt 'The capital of France is'
+
+[suite 2026-09-27 16:41:27] >>> The capital of France is
+16:41:27 | 
+16:41:27 |   prompt: "The capital of France is"  (5 tokens, generating 2, prompt batched through tl_prefill)
+16:41:27 | prompt ids: 785 6722 315 9625 374
+16:42:52 |     PSRAM self-check: read corrected by majority at 17131792 (+768), 1 byte(s) differed
+16:42:52 |     PSRAM self-check: read corrected by majority at 17131792 (+1280), 1 byte(s) differed
+16:42:58 |     PSRAM self-check: write never read back right at 17656080 (+256), 4 byte(s) differed
+16:42:58 |   prefill failed at positions 0..4: PSRAM write failed at 17656080 (+256)
+16:42:58 | RUN error=prefill step=0

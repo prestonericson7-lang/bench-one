@@ -1,0 +1,17 @@
+[Unit]
+Description=Check the PL's clock, level shifters and reset before anything reads it (each step synced to /boot/reports/plcheck.txt)
+# Before every unit that reads the PL. fpgagpud, zaccel-server and zynq-agent also Require this unit
+# (plcheck-requires.conf drop-ins), so a BLOCKED verdict holds them back and the board stays up.
+Before=fpgagpud.service zaccel-server.service zynq-agent.service zynq-report.service
+After=local-fs.target sys-kernel-debug.mount
+RequiresMountsFor=/boot
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/sbin/zynq-plcheck
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

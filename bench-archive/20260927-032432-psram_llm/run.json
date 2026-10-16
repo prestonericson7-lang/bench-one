@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-032432",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v3 overnight: bench x3 + code_prime, arith, chat, france x3 each",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 466684
+}

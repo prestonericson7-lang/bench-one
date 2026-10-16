@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-045546",
+  "sketch": "psram_llm",
+  "git": "fcafefb",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v9b (fixed sweep sizes): ::sdadma, ::sdpath adma",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 593434
+}

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-075009",
+  "sketch": "psram_llm",
+  "git": "b65b86d",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v9c + ::sdadma summing exactly the 2 MB region at every read size",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 596314
+}

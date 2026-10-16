@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-122126",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v6 + seek fix: contiguousRange (O(1) seeks) or forward-only handle pool; sharing, batched kernels, exact math; rounds x3 france batched, france_tok per-token, together8",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 530044
+}

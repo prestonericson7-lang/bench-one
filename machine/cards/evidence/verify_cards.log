@@ -1,0 +1,10 @@
+21:37:43  Pi card: /usr/local/sbin/nvme-auto inode 204672, 7959 bytes, sha256 bae89d0040dbf795d5828d73740f46fddb392276dc4198d8bf29f2158e9352a2 -- SAME as the tested file
+21:37:43  Pi card: fstab | UUID=a81ee6f1-5c12-44f0-8e92-c28029cab13c / ext4 defaults,noatime,commit=600,errors=remount-ro 0 1
+21:37:43  Pi card: fstab | tmpfs /tmp tmpfs defaults,nosuid 0 0
+21:37:43  Pi card: fstab | # nvme-auto: the NVMe drive
+21:37:43  Pi card: fstab | UUID=2ECC-05B7 /mnt/nvme vfat defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+21:37:43  card #1: /usr/local/sbin/zynq-plcheck: SAME as linux/zynq-plcheck
+21:37:43  card #1: /etc/systemd/system/zynq-plcheck.service: SAME as linux/zynq-plcheck.service
+21:37:43  card #1: /etc/systemd/system/fpgagpud.service.d/plcheck.conf: SAME as linux/plcheck-requires.conf
+21:37:43  card #1: /etc/systemd/journald.conf.d/bringup.conf: SAME as linux/journald-bringup.conf
+21:37:43  DONE rc=0

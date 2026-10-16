@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-100627",
+  "sketch": "psram_llm",
+  "git": "97360d6",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v9f + BENCH path widened (the one-token kernels with the vector pre-widened, measured directly)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 604954
+}

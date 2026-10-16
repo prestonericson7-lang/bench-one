@@ -67,6 +67,13 @@
 
 &clkc {
 	ps-clk-frequency = <33333333>;		/* Y1 33.33 MHz [M 3.2, sch 4] */
+	/* Keep FCLK0 (100 MHz, the PL's AXI clock: GPU registers, matrix-engine DMA, pl_regs) on. Without
+	 * this bit the clock driver holds no reference to it and "clk: Disabling unused clocks" gates it
+	 * off 1.9 s into boot; the next read of any PL register then never completes and the Zynq freezes.
+	 * Measured on the board 2026-10-05 (card #1's own journal: the gating at 1.910 s, the journal ends at
+	 * 5.55 s, no reboot; the PL video kept drawing its colour bars on its own oscillator). The driver
+	 * (drivers/clk/zynq/clkc.c, 6.12) takes the reference only for bits set here. */
+	fclk-enable = <0x1>;
 };
 
 &gem0 {

@@ -1,0 +1,8 @@
+prompt ids: 785 6722 315 9625 374
+step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"

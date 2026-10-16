@@ -1,0 +1,3 @@
+The capital of France is
+def is_prime(n):\n
+Q: What is 17 + 25?\nA:

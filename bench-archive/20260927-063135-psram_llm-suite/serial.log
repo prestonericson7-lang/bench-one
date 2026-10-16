@@ -1,0 +1,4 @@
+
+[suite 2026-09-27 06:31:35] suite start: 6 entries x 3 runs, bench x 3, tests file D:\espicpc\firmware\bench-one\tests\psram_llm\tests_night2.txt
+
+[suite 2026-09-27 06:31:35] waiting for the Teensy to be power-cycled: USB unplugged, then plugged back in

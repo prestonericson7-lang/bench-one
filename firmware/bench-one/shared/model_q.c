@@ -1,6 +1,7 @@
 /* model_q.c -- see model_q.h. The Llama-shaped decoder, with real weights. */
 
 #include "model_q.h"
+#include "tl_math.h"   /* exp, sin/cos, RoPE frequency: the same bits as the Teensy */
 
 #include <math.h>
 #include <stdarg.h>
@@ -12,6 +13,14 @@
 /* ---------------------------------------------------------------------------------------------
  *  loading
  * ------------------------------------------------------------------------------------------ */
+
+/* a tensor's bytes are freed only if they were read into memory; a mapped one belongs to the file map */
+static void qfree(qten_t *q)
+{
+    if (!q->mapped) free(q->raw);
+    q->raw = NULL;
+    q->mapped = 0;
+}
 
 static int load_q(model_t *m, gguf_t *g, qten_t *q, const char *fmt, ...)
 {
@@ -39,6 +48,14 @@ static int load_q(model_t *m, gguf_t *g, qten_t *q, const char *fmt, ...)
     }
 
     const uint64_t nb = gguf_nbytes(t);
+    const uint8_t *p = gguf_raw_ptr(g, t);
+    if (p) {                                   /* the file is mapped: point at it, page it in as used */
+        q->raw = (uint8_t *)p;
+        q->mapped = 1;
+        m->weight_bytes += nb;
+        return 0;
+    }
+    q->mapped = 0;
     q->raw = (uint8_t *)malloc((size_t)nb);
     if (!q->raw) {
         snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB", name, nb / 1048576.0);
@@ -166,13 +183,20 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         m->out_head.cols = (uint32_t)t->dims[0];
         m->out_head.rows = (uint32_t)n;
         m->out_head.row_bytes = rb;
-        m->out_head.raw = (uint8_t *)malloc((size_t)(rb * n));
-        if (!m->out_head.raw) {
-            snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB of slice",
-                     nm, rb * n / 1048576.0);
-            return -1;
+        const uint8_t *p = gguf_raw_ptr(g, t);
+        if (p) {                               /* mapped: the slice is rows v_lo.. of the map, no copy */
+            m->out_head.raw = (uint8_t *)(p + (uint64_t)v_lo * rb);
+            m->out_head.mapped = 1;
+        } else {
+            m->out_head.mapped = 0;
+            m->out_head.raw = (uint8_t *)malloc((size_t)(rb * n));
+            if (!m->out_head.raw) {
+                snprintf(g->err, sizeof(g->err), "%s: cannot allocate %.1f MB of slice",
+                         nm, rb * n / 1048576.0);
+                return -1;
+            }
+            if (gguf_read_raw_rows(g, t, (uint64_t)v_lo, n, m->out_head.raw)) return -1;
         }
-        if (gguf_read_raw_rows(g, t, (uint64_t)v_lo, n, m->out_head.raw)) return -1;
         m->weight_bytes += rb * n;
 
         m->out_norm = load_f32(m, g, 1, "output_norm.weight");
@@ -318,19 +342,19 @@ void model_free(model_t *m)
             mlayer_t *L = &m->L[l];
             free(L->attn_norm); free(L->ffn_norm);
             free(L->bq); free(L->bk); free(L->bv);
-            free(L->wq.raw); free(L->wk.raw); free(L->wv.raw); free(L->wo.raw);
-            free(L->w_gate.raw); free(L->w_up.raw); free(L->w_down.raw);
+            qfree(&L->wq); qfree(&L->wk); qfree(&L->wv); qfree(&L->wo);
+            qfree(&L->w_gate); qfree(&L->w_up); qfree(&L->w_down);
             free(L->q_norm); free(L->k_norm); free(L->router);
-            free(L->e_gate.raw); free(L->e_up.raw); free(L->e_down.raw);
+            qfree(&L->e_gate); qfree(&L->e_up); qfree(&L->e_down);
         }
         free(m->L);
     }
     free(m->expert_hits);
     free(m->router_p);
     free(m->e_out); free(m->e_xq); free(m->e_xs);
-    /* out_head now owns its own slice buffer even on a tied model, so both are freed. */
-    free(m->embd.raw);
-    free(m->out_head.raw);
+    /* out_head owns its own slice buffer even on a tied model (or a pointer into the map): both freed. */
+    qfree(&m->embd);
+    qfree(&m->out_head);
     free(m->rowbuf);
     free(m->out_norm);
     free(m->k_cache); free(m->v_cache); free(m->k_scale); free(m->v_scale);
@@ -593,7 +617,7 @@ static void softmax(float *v, int n)
     float mx = v[0];
     for (int i = 1; i < n; i++) if (v[i] > mx) mx = v[i];
     float sum = 0.0f;
-    for (int i = 0; i < n; i++) { v[i] = expf(v[i] - mx); sum += v[i]; }
+    for (int i = 0; i < n; i++) { v[i] = tlm_expf(v[i] - mx); sum += v[i]; }
     const float inv = 1.0f / sum;
     for (int i = 0; i < n; i++) v[i] *= inv;
 }
@@ -611,9 +635,10 @@ static void rope(float *v, int n_heads, int head_dim, int pos, float base)
     for (int h = 0; h < n_heads; h++) {
         float *p = v + (size_t)h * head_dim;
         for (int i = 0; i < half; i++) {
-            const float freq = powf(base, -2.0f * (float)i / (float)head_dim);
+            const float freq = tlm_rope_freq(base, i, head_dim);
             const float th = (float)pos * freq;
-            const float c = cosf(th), s = sinf(th);
+            float c, s;
+            tlm_sincosf(th, &s, &c);
             const float x0 = p[i], x1 = p[i + half];
             p[i]        = x0 * c - x1 * s;
             p[i + half] = x0 * s + x1 * c;
@@ -716,7 +741,7 @@ static void expert_ffn(model_t *m, const mlayer_t *L, int e, const float *xin, f
     matvec(m, &u, xin, m->hb2, ff);
     for (int i = 0; i < ff; i++) {
         const float gg = m->hb[i];
-        m->hb[i] = (gg / (1.0f + expf(-gg))) * m->hb2[i];
+        m->hb[i] = (gg / (1.0f + tlm_expf(-gg))) * m->hb2[i];
     }
     matvec(m, &d, m->hb, m->xb2, dim);
     for (int i = 0; i < dim; i++) acc[i] += w * m->xb2[i];
@@ -766,7 +791,7 @@ static void experts_fused(model_t *m, const mlayer_t *L, const int *pick, const 
         const float *uu = m->hb2 + (size_t)j * ff;
         for (int i = 0; i < ff; i++) {
             const float gg = hh[i];
-            hh[i] = (gg / (1.0f + expf(-gg))) * uu[i];
+            hh[i] = (gg / (1.0f + tlm_expf(-gg))) * uu[i];
         }
         gguf_quantize_act(hh, (uint64_t)ff, m->e_xq + (size_t)j * ff, m->e_xs + (size_t)j * nsb);
     }
@@ -975,7 +1000,7 @@ void model_layers(model_t *m, int pos, int stream)
             /* SwiGLU: silu on the gate, elementwise product with up. */
             for (int i = 0; i < m->hidden; i++) {
                 const float g = m->hb[i];
-                m->hb[i] = (g / (1.0f + expf(-g))) * m->hb2[i];
+                m->hb[i] = (g / (1.0f + tlm_expf(-g))) * m->hb2[i];
             }
             matvec(m, &L->w_down, m->hb, m->xb2, dim);
             for (int i = 0; i < dim; i++) m->x[i] += m->xb2[i];
@@ -1204,7 +1229,7 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
             const float *h2 = H2 + (size_t)j * m->hidden;
             for (int i = 0; i < m->hidden; i++) {
                 const float gv = h1[i];
-                h1[i] = (gv / (1.0f + expf(-gv))) * h2[i];
+                h1[i] = (gv / (1.0f + tlm_expf(-gv))) * h2[i];
             }
         }
         matmul_rows(m, &L->w_down, H1, n, Q);

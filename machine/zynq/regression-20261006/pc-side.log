@@ -1,0 +1,32 @@
+== test_plx.py  (02:40:59)
+TEST PLX: PASS
+  (36 checks passed)
+== check_xsa.py
+  PASS  bitstream in the .xsa == vivado\build\system.bit  (17b560d2f95b94de)
+  PASS  bitstream in the .xsa == linux\out\pl.bit  (17b560d2f95b94de)
+XSA CHECK: PASS
+== run_xsim.ps1
+PASS  pl_regs: all registers, time master, PWM, tach, keys verified
+PASS  pl_regs clock-stop: registers, counter stops and resumes with its clock, reads stall and then complete
+XSIM: PASS
+== check_routed.tcl
+# set here [file dirname [file normalize [info script]]]
+#     if {$ok} { puts "  PASS  $what  ($got)" } else { puts "  FAIL  $what  ($got)"; incr fails }
+  PASS  pl_regs counter flip-flop found  (u_sys/system_i/regs/inst/tick_reg[0])
+  PASS  the counter is clocked by clk_fpga_0 (FCLK0)  (clk_fpga_0)
+  PASS  the counter is 64 flip-flops wide  (64)
+  PASS  one PS7 cell  (u_sys/system_i/ps7/inst/PS7_i)
+  PASS  the PS7's M_AXI_GP0_ACLK pin is clk_fpga_0  (clk_fpga_0)
+  PASS  the counter's clock is driven by a plain BUFG (no clock enable in the fabric)  (u_sys/system_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG BUFG)
+  PASS  that BUFG's input comes straight from the PS7's FCLKCLK  (u_sys/system_i/ps7/inst/FCLK_CLK_unbuffered[0] <- u_sys/system_i/ps7/inst/PS7_i)
+#     puts "  info  $t cells: [llength $c]"
+  info  BUFGCE cells: 0
+  info  BUFGMUX cells: 0
+  info  BUFGCTRL cells: 4
+  info  BUFHCE cells: 0
+  info  BUFR cells: 2
+# puts "  info  sequential cells in the design: $loads"
+  info  sequential cells in the design: 19631
+# puts [expr {$fails ? "ROUTED CHECK: FAIL ($fails)" : "ROUTED CHECK: PASS"}]
+ROUTED CHECK: PASS
+end 02:42:33

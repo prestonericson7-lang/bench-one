@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-074656",
+  "sketch": "psram_llm",
+  "git": "b65b86d",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "v9c + extended ::sdadma: descriptor size, 112 KB reads into the arena, watermark/burst under ADMA2",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 596314
+}

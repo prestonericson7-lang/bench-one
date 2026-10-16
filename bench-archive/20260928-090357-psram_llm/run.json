@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-090357",
+  "sketch": "psram_llm",
+  "git": "97360d6",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v9f: one-token kernels take the activation vector pre-widened (gguf_widen_act; Q4_K presum_w, Q6_K q6k_w; bit-identical); bench + realistic chat test",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 602074
+}

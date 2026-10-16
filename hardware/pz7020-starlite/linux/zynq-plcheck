@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""
+zynq-plcheck -- runs once at boot BEFORE anything reads the PL (fpgagpud, zaccel-server, zynq-agent,
+zynq-report) and writes every step to /boot/reports/plcheck.txt with a sync after each line, so the card
+itself says how far the board got, even if it hangs.
+
+Why it exists: the first Linux boot on the real board (2026-10-05) stopped between 8.0 s and about 13 s of
+uptime. The card's ext4 journal holds its last commit at 8.014 s and none after, and nothing reached the
+console capture. Linux had gated FCLK0, the PL's AXI clock, at 1.91 s ("clk: Disabling unused clocks",
+fclk-enable = 0 in the device tree), and a read through M_AXI_GP0 with that clock stopped never completes:
+the CPU waits forever and nothing is logged.
+
+Checks first, all on PS registers (safe to read with the PL in any state):
+  * is the PL loaded at this boot: U-Boot's fpgagpu.pl_loaded=1 marker with DEVCFG INT_STS.PCFG_INIT_NE
+    clear (or PCFG_DONE), decided exactly as fpgagpud and zaccel-server decide it;
+  * FCLK0's gate, SLCR FPGA0_THR_CNT bit 0 (the bit drivers/clk/zynq/clkc.c gates with; 1 = stopped), and
+    the clock framework's enable count for fclk0;
+  * the level shifters between PS and PL, LVL_SHFTR_EN (U-Boot leaves 0xF after fpga loadb; an AXI read
+    needs both directions: the address goes out, the data and response come back);
+  * the fabric reset, FPGA_RST_CTRL bit 0 (FCLK_RESET0; 1 = the PL's AXI logic held in reset).
+If the PL is loaded and any check says the bus would hang, the PL is NOT read: /run/zynq-plcheck.blocked is
+created and the unit fails, so the units that require it (fpgagpud, zaccel-server, zynq-agent) do not start
+and the board stays up and reachable. Otherwise the two ID registers are read through GP0 -- the platform
+block at 0x40000000 (expect 0x5A702001) and the GPU at 0x43C00000 (expect 0x47505531, 'GPU1') -- each in a
+child process, with the line written and synced BEFORE the read and the value after. A bus error (SIGBUS)
+means the interconnect answered with an error: the clock runs, nothing decoded the address (QEMU has no PL).
+Test hooks: ZYNQ_PLCHECK_LOG (the log file), ZYNQ_PLCHECK_FLAG (the blocked flag).
+"""
+import mmap, os, struct, subprocess, sys
+
+LOG = os.environ.get("ZYNQ_PLCHECK_LOG", "/boot/reports/plcheck.txt")
+FLAG = os.environ.get("ZYNQ_PLCHECK_FLAG", "/run/zynq-plcheck.blocked")
+SLCR, DEVCFG = 0xF8000000, 0xF8007000
+IDS = ((0x40000000, 0x5A702001, "platform registers"), (0x43C00000, 0x47505531, "GPU registers ('GPU1')"))
+PEEK = ("import mmap,os,struct,sys\n"
+        "a=int(sys.argv[1]); fd=os.open('/dev/mem', os.O_RDONLY | os.O_SYNC)\n"
+        "m=mmap.mmap(fd, 4096, mmap.MAP_SHARED, mmap.PROT_READ, offset=a & ~0xFFF)\n"
+        "print('0x%08x' % struct.unpack_from('<I', m, a & 0xFFF)[0], flush=True)\n")
+
+
+def uptime():
+    try:
+        return open("/proc/uptime").read().split()[0]
+    except OSError:
+        return "?"
+
+
+def rd(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+os.makedirs(os.path.dirname(LOG), exist_ok=True)
+try:
+    boot = 1 + sum(1 for ln in open(LOG, encoding="utf-8", errors="replace") if ln.startswith("== boot"))
+except OSError:
+    boot = 1
+
+
+def log(msg):
+    line = f"[{uptime():>8} s] {msg}"
+    print(line, flush=True)
+    with open(LOG, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+        f.flush()
+        os.fsync(f.fileno())          # vfat: the data, the directory entry and the FAT
+    os.sync()                         # and everything else, before the next step
+
+
+def regs(base, offs):
+    fd = os.open("/dev/mem", os.O_RDONLY | os.O_SYNC)
+    try:
+        m = mmap.mmap(fd, 4096, mmap.MAP_SHARED, mmap.PROT_READ, offset=base)
+        v = {o: struct.unpack_from("<I", m, o)[0] for o in offs}
+        m.close()
+        return v
+    finally:
+        os.close(fd)
+
+
+with open(LOG, "a", encoding="utf-8") as f:
+    f.write(f"== boot {boot}\n")
+cmdline = (rd("/proc/cmdline") or "").split()
+log(f"kernel {rd('/proc/sys/kernel/osrelease')}; guards: clk_ignore_unused "
+    f"{'yes' if 'clk_ignore_unused' in cmdline else 'NO'}, marker fpgagpu.pl_loaded=1 "
+    f"{'yes' if 'fpgagpu.pl_loaded=1' in cmdline else 'no'}")
+d = "/sys/kernel/debug/clk/fclk0"
+log(f"fclk0 in the clock framework: enable_count {rd(d + '/clk_enable_count') or 'n/a'}, "
+    f"prepare_count {rd(d + '/clk_prepare_count') or 'n/a'}, rate {rd(d + '/clk_rate') or 'n/a'} Hz")
+try:
+    s = regs(SLCR, (0x108, 0x170, 0x174, 0x178, 0x17C, 0x240, 0x900))
+    c = regs(DEVCFG, (0x0C, 0x14))
+except Exception as e:                # no /dev/mem: not a Zynq, or no rights -- say so, block nothing
+    log(f"cannot read the PS registers ({e}) -- not checked")
+    sys.exit(0)
+sts, thr, lvl, rst = c[0x0C], s[0x178], s[0x900], s[0x240]
+log(f"SLCR IO_PLL_CTRL 0x{s[0x108]:08x} FPGA0_CLK_CTRL 0x{s[0x170]:08x} FPGA0_THR_CTRL 0x{s[0x174]:08x} "
+    f"FPGA0_THR_CNT 0x{thr:08x} FPGA0_THR_STA 0x{s[0x17C]:08x} FPGA_RST_CTRL 0x{rst:08x} LVL_SHFTR_EN 0x{lvl:08x}")
+log(f"DEVCFG INT_STS 0x{sts:08x} STATUS 0x{c[0x14]:08x}")
+
+marker = "fpgagpu.pl_loaded=1" in cmdline
+loaded = bool(sts & 0x4) or (marker and not sts & 0x1)
+if not loaded:
+    why = "PL reset since U-Boot loaded it (PCFG_INIT_NE)" if marker else "no fpgagpu.pl_loaded=1: U-Boot loaded no pl.bit"
+    log(f"verdict: PL not loaded at this boot ({why}) -- nothing to read; the PL services run without it")
+    sys.exit(0)
+
+problems = []
+if thr & 1:
+    problems.append("FCLK0 gated: FPGA0_THR_CNT bit 0 = 1 -- Linux stopped the PL's AXI clock")
+if lvl & 0xF != 0xF:
+    problems.append(f"PS/PL level shifters not all on: LVL_SHFTR_EN 0x{lvl:x}, needs 0xF")
+if rst & 1:
+    problems.append(f"fabric reset 0 asserted: FPGA_RST_CTRL 0x{rst:x} bit 0 = 1")
+if problems:
+    for p in problems:
+        log("problem: " + p)
+    open(FLAG, "w").write("\n".join(problems) + "\n")
+    log("verdict: BLOCKED -- the PL is not read; fpgagpud, zaccel-server and zynq-agent are held back so "
+        "the board stays up")
+    sys.exit(1)
+
+for addr, want, name in IDS:
+    log(f"reading 0x{addr:08x} ({name}) through M_AXI_GP0 -- if this is the last line, that read hung")
+    r = subprocess.run([sys.executable, "-c", PEEK, str(addr)], capture_output=True, text=True)
+    if r.returncode == -7:
+        log(f"  bus error: the interconnect answered with an error (clock running, nothing decoded there)")
+    elif r.returncode != 0:
+        log(f"  read failed (exit {r.returncode}): {(r.stderr or '').strip().splitlines()[-1:] or ''}")
+    else:
+        v = int(r.stdout.strip(), 16)
+        log(f"  0x{addr:08x} = 0x{v:08x} " + ("(expected: this design's ID)" if v == want else f"(expected 0x{want:08x})"))
+log("verdict: OK -- clock, level shifters and reset fine, and the PL reads came back")

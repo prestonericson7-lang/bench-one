@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-222806",
+  "sketch": "psram_llm",
+  "git": "256abba",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v8 second boot: qwen3b.tok found on the card, checksum-verified and reused; France 2 tokens",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 555981
+}

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260928-082914",
+  "sketch": "psram_llm",
+  "git": "97360d6",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v9e: Q6_K batched kernel with shared lane words per offset and two-vector accumulators (bit-identical); bench + realistic chat test",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 596314
+}

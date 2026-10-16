@@ -23,6 +23,9 @@ truncate -s ${BOOT_MB}M "$W/p1.img"
 mkfs.vfat -F 32 -n BOOT "$W/p1.img" >/dev/null
 for f in boot.bin u-boot.img boot.scr zImage $DT.dtb; do mcopy -i "$W/p1.img" "$OUT/$f" ::/; done
 [ -f "$PL_BIT" ] && mcopy -i "$W/p1.img" "$PL_BIT" ::/pl.bit && echo "pl.bit = $PL_BIT"
+# the board's place in the machine (machine/zynq/zynq-node): 1 = zynq1 10.20.0.2, 2 = zynq2 10.20.0.3.
+# The same image serves every board; change this one file on the card's BOOT partition for board #2.
+echo "${NODE:-1}" > "$W/zynq-node.txt" && mcopy -i "$W/p1.img" "$W/zynq-node.txt" ::/zynq-node.txt
 mdir -i "$W/p1.img" ::/
 # --- kernel modules into the rootfs (build_kernel.sh may have finished after build_rootfs.sh) ---
 [ -f "$OUT/modules.tar.gz" ] && tar --keep-directory-symlink -xzf "$OUT/modules.tar.gz" -C "$ROOT/" && echo "modules: $(ls "$ROOT/lib/modules")"
@@ -96,6 +99,20 @@ install -D -m 0644 "$L/zynq-report.service" "$ROOT/etc/systemd/system/zynq-repor
 ln -sf /etc/systemd/system/zynq-report.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-report.service"
 install -D -m 0644 "$L/serial-autologin.conf" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
 sed -i 's/\r$//' "$ROOT/usr/local/bin/zynq-report" "$ROOT/etc/systemd/system/zynq-report.service" "$ROOT/etc/systemd/system/serial-getty@ttyPS0.service.d/autologin.conf"
+# --- the PL guard (2026-10-05: the first Linux boot froze on its first PL read with FCLK0 gated): checks the
+#     PL's clock, level shifters and reset before anything reads it, syncs each step to /boot/reports, and
+#     holds the PL users back when the bus would hang; plus the journal on the card within 2 s ---
+install -D -m 0755 "$L/zynq-plcheck" "$ROOT/usr/local/sbin/zynq-plcheck"
+install -D -m 0644 "$L/zynq-plcheck.service" "$ROOT/etc/systemd/system/zynq-plcheck.service"
+ln -sf /etc/systemd/system/zynq-plcheck.service "$ROOT/etc/systemd/system/multi-user.target.wants/zynq-plcheck.service"
+for u in fpgagpud zaccel-server zynq-agent; do
+  install -D -m 0644 "$L/plcheck-requires.conf" "$ROOT/etc/systemd/system/$u.service.d/plcheck.conf"
+done
+install -D -m 0644 "$L/journald-bringup.conf" "$ROOT/etc/systemd/journald.conf.d/bringup.conf"
+sed -i 's/\r$//' "$ROOT/usr/local/sbin/zynq-plcheck" "$ROOT/etc/systemd/system/zynq-plcheck.service" \
+  "$ROOT"/etc/systemd/system/{fpgagpud,zaccel-server,zynq-agent}.service.d/plcheck.conf "$ROOT/etc/systemd/journald.conf.d/bringup.conf"
+# --- the machine (machine/README.md): per-board identity, the self-test, the model tools for this CPU ---
+bash "$REPO/machine/zynq/install.sh" "$ROOT"
 # --- p2: ext4 populated from the rootfs tree (no mount needed) ---
 truncate -s ${ROOT_MB}M "$W/p2.img"
 mke2fs -q -t ext4 -L rootfs -d "$ROOT" "$W/p2.img"
@@ -110,5 +127,11 @@ dd if="$W/p2.img" of="$IMG" bs=1M seek=$((1 + BOOT_MB)) conv=notrunc status=none
 parted -s "$IMG" unit MiB print
 sha256sum "$IMG" | tee "$OUT/sd-image.sha256"
 # copy to the repo out dir compressed (the raw image is > 1.6 GB)
-xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"
-echo "SD IMAGE DONE: $IMG (+ .xz in $OUT). Write with the unbuffered writer, then boot jumper = SD."
+if [ -n "${NOXZ:-}" ]; then
+  # an older .xz left in $OUT no longer matches sd-image.sha256: say so instead of leaving a trap
+  [ -e "$OUT/$(basename "$IMG").xz" ] && echo "NOXZ set: $OUT/$(basename "$IMG").xz is an OLDER build and does not match sd-image.sha256"
+  echo "SD IMAGE DONE: $IMG (raw only, NOXZ). Write with the unbuffered writer, then boot jumper = SD."
+else
+  xz -T0 -3 -k -f "$IMG" && cp "$IMG.xz" "$OUT/" && ls -la "$OUT/$(basename "$IMG").xz"
+  echo "SD IMAGE DONE: $IMG (+ .xz in $OUT). Write with the unbuffered writer, then boot jumper = SD."
+fi

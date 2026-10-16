@@ -1,0 +1,88 @@
+
+========================================================================
+  psram_llm -- a 3B-parameter language model on a Teensy 4.1
+  weights: streamed from the microSD, every token
+  memory:  the PSRAM banks -- tokenizer, norms, attention cache
+  cpu 600 MHz
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        write  0 read 13 burst 96 setup  0 -> 10.31 MB/s
+      CS1  quad        write  0 read 16 burst 96 setup  0 ->  9.25 MB/s
+      Y0   no quad setting survives 1024 kB
+        1200 wrong over 1024 kB at write 3 read 13 burst 48
+        624 wrong over 1024 kB at write 3 read 14 burst 48
+        600 wrong over 1024 kB at write 3 read 16 burst 40
+        360 wrong over 1024 kB at write 3 read 18 burst 40
+        260 wrong over 1024 kB at write 3 read 20 burst 40
+        576 wrong over 1024 kB at write 3 read 24 burst 32
+        480 wrong over 1024 kB at write 4 read 24 burst 32
+      Y0   single 0x03 write  5 read 24 burst 32 setup 16 ->  1.69 MB/s
+        320 wrong over 1024 kB at write 3 read 8 burst 64
+        320 wrong over 1024 kB at write 3 read 9 burst 64
+        504 wrong over 1024 kB at write 3 read 10 burst 56
+        392 wrong over 1024 kB at write 3 read 11 burst 56
+        336 wrong over 1024 kB at write 3 read 12 burst 56
+        384 wrong over 1024 kB at write 3 read 13 burst 48
+        432 wrong over 1024 kB at write 3 read 14 burst 48
+        360 wrong over 1024 kB at write 3 read 16 burst 40
+      Y0   no single 0x0B setting survives 1024 kB
+      Y1   no quad setting survives 1024 kB
+      Y1   single 0x03 write  4 read 11 burst 56 setup 16 ->  2.86 MB/s
+        3 wrong over 1024 kB at write 5 read 6 burst 72
+      Y1   single 0x0B write  5 read  7 burst 72 setup 16 ->  3.44 MB/s
+      Y2   no quad setting survives 1024 kB
+        1 wrong over 1024 kB at write 0 read 8 burst 64
+        1 wrong over 1024 kB at write 0 read 9 burst 64
+        1 wrong over 1024 kB at write 0 read 10 burst 64
+      Y2   single 0x03 write  0 read 11 burst 56 setup 16 ->  2.86 MB/s
+      Y2   single 0x0B write  0 read  8 burst 64 setup 16 ->  3.25 MB/s
+      Y3   no quad setting survives 1024 kB
+      Y3   single 0x03 write  0 read 11 burst 56 setup 16 ->  2.86 MB/s
+      Y3   single 0x0B write  0 read  7 burst 72 setup 16 ->  3.44 MB/s
+      Y4   no quad setting survives 1024 kB
+      Y4   single 0x03 write  4 read 10 burst 64 setup 16 ->  3.00 MB/s
+      Y4   single 0x0B write  4 read  7 burst 72 setup 16 ->  3.44 MB/s
+      Y4: 77 wrong on stability pass 1; leaving it out
+      Y4: not usable
+      Y5   no quad setting survives 1024 kB
+      Y5   single 0x03 write  0 read 11 burst 56 setup 16 ->  2.86 MB/s
+      Y5   single 0x0B write  0 read  6 burst 72 setup 16 ->  3.61 MB/s
+
+  proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+    CS0  filled 8 MB in 0.3 s
+    CS1  filled 8 MB in 0.3 s
+    Y5   filled 8 MB in 1.0 s
+    Y1   filled 8 MB in 1.5 s
+    Y3   filled 8 MB in 1.0 s
+    Y2   filled 8 MB in 1.1 s
+    Y0   filled 8 MB in 1.6 s
+    CS0  quad        read back 8 MB in 0.8 s (10.31 MB/s): 0 wrong
+    CS1  quad        read back 8 MB in 0.9 s (9.24 MB/s): 0 wrong
+    Y5   single 0x0B read back 8 MB in 2.3 s (3.61 MB/s): 0 wrong
+    Y1   single 0x0B read back 8 MB in 2.4 s (3.44 MB/s): 0 wrong
+    Y3   single 0x0B read back 8 MB in 2.4 s (3.44 MB/s): 0 wrong
+    Y2   single 0x0B read back 8 MB in 2.6 s (3.25 MB/s): 0 wrong
+    Y0   single 0x03 read back 8 MB in 5.0 s (1.69 MB/s): 64 wrong  -> DROPPED
+  PSRAM in use: 6 banks, 50331648 bytes
+
+  SD card
+    qwen3b.gguf: 1929903072 bytes
+    sequential read: 32 MB in 1.86 s = 18.06 MB/s
+
+  opening the model: tokenizer into PSRAM, norms and biases into PSRAM, cache laid out
+
+  HALTED: string 87272 too long

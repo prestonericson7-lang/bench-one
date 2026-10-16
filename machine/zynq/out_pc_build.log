@@ -1,0 +1,8 @@
+
+=== building host binaries ===
+decode_limit.c: In function 'main':
+decode_limit.c:182:9: warning: 'master' construct deprecated since OpenMP 5.1, use 'masked' [-Wdeprecated-openmp]
+  182 | #pragma omp master
+      |         ^~~
+  ARM binaries built too
+born_test.exe decode_limit.exe disk_stream.exe dot_verify.exe dot_verify_m7.exe fast_path.exe fractal_train.exe gemv_host.exe gfx_bench.exe gguf_load.exe hop_bench.exe host_kernel.exe host_native.exe host_scaling.exe kv_attention_bench.exe machine_view.exe moe_route.exe pipe_model.exe ppl.exe run_model.exe stage_bench.exe stage_node.exe tl_host.exe tl_host_m7.exe tl_math_check.exe tl_ref.exe tl_ref_v5.exe wonder_test.exe 

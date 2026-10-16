@@ -279,3 +279,13 @@ The research ran 30 agents across two sessions. None of the fetched pages carrie
 attempt this time. The earlier pass did hit fake `system-reminder` text on a datasheet mirror
 trying to rewrite commit attribution, and it was correctly treated as page content rather than
 instruction.
+
+## 2026-09-29 — the machine (machine/README.md)
+
+- [ ] **STM32H743 boards:** which vendor/board exactly? A photo of the top and bottom silkscreen, or the
+      listing / schematic link. Needed for the SDMMC, FMC SDRAM, USB and USART pins before any firmware
+      (machine/stm32/README.md). Listing seen: TKOWTB "STM32H743IIT6 Core Board", 55×85 mm, dual USB-C.
+- [ ] **Model download:** go-ahead to fetch Qwen2.5-Coder-0.5B-Instruct GGUF q8_0 (~531 MB) from
+      huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF for the engines, the Teensy and the STM32 cards;
+      and whether the 1.5B (~1.1 GB) should come too.
+- [ ] **Card #2 (32 GB):** put it in the PC's reader and say so; I write the machine image to it and hand it back.

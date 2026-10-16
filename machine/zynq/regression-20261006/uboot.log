@@ -1,0 +1,33 @@
+u-boot-dtb.bin 8a0d50347da1cf8c  image eeb4afcec81cfa27
+board clocks: 0xF8000100=0x2E000 0xF8000104=0x20000 0xF8000108=0x1E000 0xF8000120=0x1F000200 0xF8000124=0xC200003 0xF8000150=0xA01 0xF8000170=0x200500 0xF80001C4=0x1
+ran 119 s
+U-Boot 2025.07-dirty (Sep 26 2026 - 14:52:57 -0700)
+DRAM:  ECC disabled 512 MiB
+Found U-Boot script /boot.scr
+Loading PL bitstream pl.bit (261e97 bytes)
+Starting kernel ...
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Kernel command line: console=ttyPS0,115200 earlycon root=/dev/mmcblk0p2 rw rootwait net.ifnames=0 uio_pdrv_genirq.of_id=generic-uio clk_ignore_un
+zynq1 login: root (automatic login)
+[   22.111857] python3[235]: cpus          1 x ARMv7 Processor rev 0 (v7l)   BogoMIPS total 383.33
+[   22.112303] python3[235]: cpu_khz       766666
+[   22.112776] python3[235]: mem_total     229356 kB  (what the device tree gives Linux -- not a probe of the chips)
+  PASS  U-Boot proper runs, DRAM from its DT is 512 MiB
+  PASS  boot.scr found and run
+  PASS  pl.bit loaded (not refused as reserved memory)
+  PASS  kernel started with the PL marker decision made
+  PASS  Linux booting
+  PASS  command line is the board's (no cpufreq.off)
+  PASS  clk_ignore_unused reaches the kernel command line (boot.scr)
+  PASS  Linux sees the board's CPU clock: cpufreq at 766666 kHz
+  PASS  serial autologin reached a root shell
+  PASS  zynq-report printed to the end
+  PASS  zynq-plcheck ran before the PL users and gave a verdict
+         Starting [0;1;39mzynq-plcheck.serv…d to /boot/reports/plcheck.txt)...
+[   13.089166] python3[162]: [   13.02 s] kernel 6.12.0-dirty; guards: clk_ignore_unused yes, marker fpgagpu.pl_loaded=1 no
+[   13.222986] python3[162]: [   13.21 s] verdict: PL not loaded at this boot (no fpgagpu.pl_loaded=1: U-Boot loaded no pl.bit) -- nothing to read; the PL services run without it
+[[0;32m  OK  [0m] Finished [0;1;39mzynq-plcheck.serv…ced to /boot/reports/plcheck.txt).
+[   22.113236] python3[235]: pl_done       no -- no pl.bit loaded at boot (no fpgagpu.pl_loaded=1, INT_STS 0x00000000)
+[   22.113694] python3[235]: plcheck       [   13.21 s] PL not loaded at this boot (no fpgagpu.pl_loaded=1: U-Boot loaded no pl.bit) -- nothing to read; the PL services run without it
+[   22.117638] python3[235]: accel         zynq-plcheck active   zaccel-server active   fpgagpud active   nbd-server active
+U-BOOT STAGE: PASS

@@ -1,0 +1,47 @@
+== the SLCR lock
+  PASS  start unlocked: the gate write lands and the lock is left unlocked
+  PASS  start unlocked: the gate clears again
+  PASS  start locked: the gate write lands and the lock is left locked
+  PASS  start locked: the gate clears again
+== measure
+  PASS  a 100 MHz counter measures 99-101 MHz
+== gatetest and the driver's verdicts
+  PASS  world 'gate': verdict says 'STOPS FCLK0'
+  PASS  the gate world: the counter stopped 1.9-2.1 s for a 2 s gate
+  PASS  the gate world: THR_STA read while gated and after, both reported
+  PASS  world 'nogate': verdict says 'is WRONG'
+  PASS  world 'dead': verdict says 'no conclusion'
+  PASS  world 'gate' with the counter at 95 MHz: verdict says 'STOPS FCLK0'
+  PASS  world 'nogate' with the counter at 95 MHz: verdict says 'is WRONG'
+== the stall verdict
+  PASS  a read that waited for the gate: 'did NOT return while the gate was set' and its time
+  PASS  a read that did not wait: 'returned while the gate was set'
+  PASS  a read that never returned: 'it never returned'
+== the stall verdict, timed on CLOCK_MONOTONIC
+  PASS  plx.py's gate line carries the moment of the write
+  PASS  plx.py's rdtimed line: value, duration and end; the issue moment in its file
+  PASS  issued while gated, returned once cleared: 'did NOT return', issued 2.900 s before the clear
+  PASS  python started after the clear: 'no conclusion', not 'did NOT return'
+  PASS  a board that froze in the stall test: 'froze the WHOLE board', and the FCLK0 figure kept
+  PASS  no freeze verdict when the stall test was not run
+== what step 1 makes of the guard's log (its own line format, from the QEMU boots)
+  PASS  both reads came back: nothing stuck
+  PASS  the first read never came back
+  PASS  the GPU read never came back (its name has its own parentheses)
+  PASS  a previous boot's problems are not this boot's
+  PASS  blocked on FCLK0 alone: neither another problem nor a stuck read
+  PASS  blocked on the level shifters: one other problem
+  PASS  prefixed, a status line after the stuck read: still stuck at 0x40000000
+  PASS  prefixed, a status line glued onto the stuck read's line: still stuck at 0x40000000
+  PASS  a stuck guard read gets its verdict, with the whole name
+== every end of the run leaves a message (a fake board on TCP: a boot, a prompt, the driver's sentinels)
+  PASS  an unexpected error mid-run: reported in the summary, exit 1
+  PASS  the test tool not arriving intact: reported, exit 5
+== which serial port is the board
+  PASS  board: U-Boot SPL 2024.01 (Oct 05 2026 - 20:57:32 +
+  PASS  board: U-Boot 2024.01 (Oct 05 2026 - 20:57:32 +0000
+  PASS  board: [    0.000000] Booting Linux on physical CPU
+  PASS  board: root@zynq1:~# 
+  PASS  not the board: STM32H743 tick 1234 U-Boot? no
+  PASS  not the board: hello from an esp32 at 115200
+TEST PLX: PASS

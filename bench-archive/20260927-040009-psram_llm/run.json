@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-040009",
+  "sketch": "psram_llm",
+  "git": "adbea54",
+  "git_dirty": true,
+  "seconds": 240,
+  "note": "v4 flash (tl_prefill batched prompt, 8 positions per pass; bench buffers borrow the core arena); card still hung, expect SD halt until USB power cycle",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 483964
+}

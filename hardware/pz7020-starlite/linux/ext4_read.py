@@ -119,9 +119,26 @@ class Ext4:
 
 
 def main():
-    sys.stdout.reconfigure(encoding="utf-8")     # logs carry arrows etc.; a redirected console is cp1252
+    if hasattr(sys.stdout, "reconfigure"):       # logs carry arrows etc.; a redirected console is cp1252
+        sys.stdout.reconfigure(encoding="utf-8")  # (a StringIO, when called from read_cards.py, has none)
     src, lba, paths = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
     fs = Ext4(Disk(src, lba))
+    if paths and paths[0] == "--extents":         # where each file's bytes sit on the SOURCE (for an in-place edit)
+        for p in paths[1:]:
+            ino = fs.lookup(p, follow_last=True)
+            if ino is None:
+                print(f"EXTENTS {p} not-found")
+                continue
+            n = fs.inode(ino)
+            flags = struct.unpack_from("<I", n, 0x20)[0]
+            print(f"EXTENTS {p} inode {ino} size {fs.size(ino)} bs {fs.bs} flags 0x{flags:x}"
+                  + (" INLINE" if flags & 0x10000000 else ""))
+            if flags & 0x10000000:
+                continue
+            for lblk, pblk, ln, uninit in fs.extents(n[0x28:0x28 + 60]):
+                print(f"  lblk {lblk} pblk {pblk} len {ln} uninit {int(uninit)} "
+                      f"src_off {lba * SECTOR + pblk * fs.bs}")
+        return
     for p in paths:
         ino = fs.lookup(p)
         if ino is None:

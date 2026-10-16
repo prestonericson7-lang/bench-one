@@ -1,0 +1,53 @@
+== staging
+    | rootfs: /tmp/stage-test.fFXZ/root (1007G 856G free)
+    | read back: 102 files, 0 problems
+    | STAGED: /tmp/stage-test.fFXZ/root
+  PASS  stage exit 0, every file read back identical
+  PASS  unit enabled: multi-user.target.wants link
+  PASS  wrote nothing outside /opt/accel/bundle and the unit
+  PASS  bundle carries the offline .debs, nvme-auto and the first-boot script
+== refusals
+  PASS  refuses a root that is not the Pi's (and writes nothing there)
+== inside the Pi's own userspace (aarch64 under qemu-user)
+  PASS  chroot runs aarch64 (uname -m inside)
+  PASS  the Pi's systemctl sees the unit enabled
+  PASS  the Pi's bash parses install_pi.sh, accel-firstboot.sh, nvme-auto
+    | dpkg -i did not finish (another package tool busy?) -- retrying every 5s, up to 30 attempts. /tmp/accel-dpkg.log:
+    |   update-initramfs: Not updating initramfs.
+    |   Processing triggers for man-db (2.13.1-1build1) ...
+    |   Errors were encountered while processing:
+    |    nbd-client
+    | installed from the bundle: nbd-client_3.26.1-6.1ubuntu2_arm64.deb teensy-loader-cli_2.2-1.1build1_arm64.deb (attempt 2: dpkg/debconf was busy before)
+  PASS  (setup) the debconf lock really bit: attempt 1 hit 'config.dat is locked'
+  PASS  install_debs.sh waits it out: exit 0, both .debs 'install ok installed'
+  PASS  nbd-client's postinst ran to the end (its rcS.d link exists)
+  PASS  /boot initrd + uInitrd byte-identical (no initramfs rebuild)
+  PASS  update-initramfs.conf restored exactly
+  PASS  second run: nothing to do, exit 0
+  PASS  nbd-client runs (its libraries resolve)
+  PASS  teensy_loader_cli runs (libusb-0.1 resolves)
+  PASS  zaccel-bench starts on the Pi userspace
+  PASS  run_model and ppl start, built with the Zynq offload (--zaccel)
+== nvme-auto with the image's own util-linux / e2fsprogs
+    | nvme-auto: drive /dev/loop1,  256M 
+    | nvme-auto: drive is blank: one GPT partition, ext4 labelled 'nvme'
+    | nvme-auto: fstab: UUID=206905da-e1c4-4810-830b-27256d214ff9 /mnt/nvtest ext4 defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+    | nvme-auto: /mnt/nvtest belongs to orangepi
+    | nvme-auto: ready: /dev/loop1p1 222M 215M /mnt/nvtest
+  PASS  blank drive: partitioned, ext4 'nvme', mounted, fstab line (Pi's tools)
+    | nvme-auto: drive /dev/loop2,  64M 
+    | nvme-auto: drive has no partitions and no filesystem, but its first MiB is not blank -- unknown data, left untouched
+  PASS  unknown data: untouched (Pi's tools)
+    | nvme-auto: drive /dev/loop3,  256M 
+    | nvme-auto: drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap
+    | nvme-auto: and unformatted space are not used) -- left untouched:
+    | nvme-auto:   NAME       SIZE FSTYPE PARTTYPENAME LABEL
+    | nvme-auto:   loop3      256M                     
+    | nvme-auto:   |-loop3p1   64M                     
+    | nvme-auto:   `-loop3p2  191M                     
+    | nvme-auto: to give the whole drive to this Pi (ERASES EVERYTHING on it):
+    | nvme-auto:   sudo wipefs -a /dev/loop3 && sudo dd if=/dev/zero of=/dev/loop3 bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto
+  PASS  EFI partition + NTFS: untouched, nothing mounted, fstab unchanged (Pi's tools)
+
+summary: 21 passed, 0 failed
+STAGE PI CARD TEST: PASS

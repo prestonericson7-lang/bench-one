@@ -26,6 +26,11 @@ n_ts=$(git ls-files firmware/bench-one/tests | wc -l | tr -d ' ')
 n_fp=$(git ls-files firmware/bench-one/fpga | wc -l | tr -d ' ')
 n_run=$(git ls-files run | wc -l | tr -d ' ')
 n_hw=$(git ls-files hardware | wc -l | tr -d ' ')
+n_ac=$(git ls-files accel | wc -l | tr -d ' ')
+n_ma=$(git ls-files machine | wc -l | tr -d ' ')
+n_de=$(git ls-files deploy | wc -l | tr -d ' ')
+n_ba=$(git ls-files bench-archive | wc -l | tr -d ' ')
+n_ev=$(git ls-files evidence | wc -l | tr -d ' ')
 n_td=$(git ls-files firmware/bench-one/tests | grep -o '^firmware/bench-one/tests/[^/]*/' | sort -u | grep -vc results)
 n_tc=$(git ls-files firmware/bench-one/tests | grep -c '\.c$')
 n_tl=$(git ls-files firmware/bench-one/tests/results | grep -c '\.log$')
@@ -36,6 +41,11 @@ want "docs + research"   "docs/         $n_docs numbered documents + $n_res rese
 want "firmware"          "firmware/     $n_fw files"
 want "hardware"          "hardware/     $n_hw files"
 want "run"               "run/          $n_run files"
+want "accel"             "accel/        $n_ac files"
+want "machine"           "machine/      $n_ma files"
+want "deploy"            "deploy/       $n_de files"
+want "bench-archive"     "bench-archive/ $n_ba files"
+want "evidence"          "evidence/     $n_ev files"
 want "shared"            "### \`bench-one/shared/\` — $n_sh files"
 want "tests"             "### \`bench-one/tests/\` — $n_ts files"
 want "fpga"              "### \`bench-one/fpga/\` — $n_fp files"

@@ -1,0 +1,10 @@
+{
+  "stamp": "20260927-234517",
+  "sketch": "psram_llm",
+  "git": "511d0b3",
+  "git_dirty": true,
+  "seconds": 3,
+  "note": "suite flash: v8b: card clock chosen at boot by a verified sweep (by measured rate), fallback to 49.5 MHz on a failed read; realistic chat test",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 573274
+}

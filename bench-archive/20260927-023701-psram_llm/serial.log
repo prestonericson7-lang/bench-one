@@ -1,0 +1,152 @@
+
+========================================================================
+  psram_llm -- a 3B-parameter language model on a Teensy 4.1
+  weights: streamed from the microSD, every token
+  memory:  the PSRAM banks -- tokenizer, norms, attention cache
+  cpu 600 MHz
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 12, running at write  3 read 16 burst 96 setup  0 ->  9.24 MB/s
+      CS1  quad        edge write  0 read 14, running at write  3 read 20 burst 96 setup  0 ->  7.49 MB/s
+      Y0   no quad setting survives 1024 kB
+        121 wrong over 1024 kB at write 6 read 11 burst 56
+        83 wrong over 1024 kB at write 6 read 12 burst 56
+        48 wrong over 1024 kB at write 6 read 13 burst 48
+        34 wrong over 1024 kB at write 6 read 14 burst 48
+        48 wrong over 1024 kB at write 6 read 16 burst 40
+        28 wrong over 1024 kB at write 6 read 18 burst 40
+        64 wrong over 1024 kB at write 6 read 20 burst 40
+        1 wrong over 1024 kB at write 6 read 24 burst 32
+      Y0   no single 0x03 setting survives 1024 kB
+        92 wrong over 1024 kB at write 6 read 11 burst 56
+        19 wrong over 1024 kB at write 6 read 12 burst 56
+        1 wrong over 1024 kB at write 6 read 13 burst 48
+      Y0   single 0x0B edge write  3 read  8, running at write  6 read 14 burst 48 setup 16 ->  2.43 MB/s
+      Y0: 81 wrong on stability pass 1; leaving it out
+      Y0: not usable
+      Y1   no quad setting survives 1024 kB
+      Y1   single 0x03 edge write 16 read  6, running at write 24 read  9 burst 24 setup 16 ->  2.89 MB/s
+      Y1   single 0x0B edge write  4 read  6, running at write  7 read  9 burst 64 setup 16 ->  3.11 MB/s
+      Y2   no quad setting survives 1024 kB
+      Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.45 MB/s
+      Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+      Y3   no quad setting survives 1024 kB
+      Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.45 MB/s
+      Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y4   no quad setting survives 1024 kB
+      Y4   single 0x03 edge write  4 read  7, running at write  7 read 10 burst 64 setup 16 ->  3.00 MB/s
+      Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y5   no quad setting survives 1024 kB
+      Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.45 MB/s
+      Y5   single 0x0B edge write  0 read  6, running at write  3 read  9 burst 64 setup 16 ->  3.11 MB/s
+
+  proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+    CS0  filled 8 MB in 0.3 s
+    CS1  filled 8 MB in 0.3 s
+    Y5   filled 8 MB in 1.3 s
+    Y1   filled 8 MB in 1.8 s
+    Y4   filled 8 MB in 1.8 s
+    Y3   filled 8 MB in 1.3 s
+    Y2   filled 8 MB in 1.3 s
+    CS0  quad        read back 8 MB in 0.9 s (9.25 MB/s): 0 wrong
+    CS1  quad        read back 8 MB in 1.1 s (7.49 MB/s): 0 wrong
+    Y5   single 0x0B read back 8 MB in 2.7 s (3.11 MB/s): 0 wrong
+    Y1   single 0x0B read back 8 MB in 2.7 s (3.11 MB/s): 0 wrong
+    Y4   single 0x03 read back 8 MB in 2.8 s (3.00 MB/s): 0 wrong
+    Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+    Y2   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+  PSRAM in use: 7 banks, 58720256 bytes
+
+  SD card
+    qwen3b.gguf: 1929903072 bytes
+    sequential read: 32 MB in 1.86 s = 18.07 MB/s
+
+  opening the model: tokenizer into PSRAM, norms and biases into PSRAM, cache laid out
+    9.2 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+    36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+    3085938688 parameters in the file
+    read from the card per token: 1922981520 bytes
+    PSRAM used 48195856 of 58720256: tokenizer 8300816, norms+biases 966656, attention cache 38928384 (2048 positions)
+
+  type a prompt and press Enter within 30 s, or the default runs
+
+  prompt: "The capital of France is"
+prompt ids: 785 6722 315 9625 374
+step 0 pos 0 fed 785 -> top1 220 16.2387676 top2 323 15.7758703 text " "
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 963 KB read 18.6 KB written in 0.78 s, compute 29.6 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+step 1 pos 1 fed 6722 -> top1 315 18.2110214 top2 3283 18.1931744 text " of"
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 981 KB read 18.6 KB written in 0.79 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+step 2 pos 2 fed 315 -> top1 279 16.4419804 top2 264 15.0220432 text " the"
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1000 KB read 18.6 KB written in 0.80 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+step 3 pos 3 fed 9625 -> top1 374 21.1096191 top2 11 20.664608 text " is"
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1018 KB read 18.6 KB written in 0.81 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+step 4 pos 4 fed 374 -> top1 12095 19.1332893 top2 1304 14.9736881 text " Paris"
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1037 KB read 18.6 KB written in 0.82 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris
+step 5 pos 5 fed 12095 -> top1 13 22.5226803 top2 11 21.6201839 text "."
+    127.6 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1055 KB read 18.6 KB written in 0.83 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris.
+step 6 pos 6 fed 13 -> top1 12095 16.761776 top2 576 16.5975857 text " Paris"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1074 KB read 18.6 KB written in 0.84 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris
+step 7 pos 7 fed 12095 -> top1 374 20.5453968 top2 702 17.295229 text " is"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1092 KB read 18.6 KB written in 0.85 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is
+step 8 pos 8 fed 374 -> top1 279 18.5860233 top2 3881 18.5219555 text " the"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1111 KB read 18.6 KB written in 0.86 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the
+step 9 pos 9 fed 279 -> top1 7772 18.4965096 top2 1429 17.3788414 text " largest"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1130 KB read 18.6 KB written in 0.87 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest
+step 10 pos 10 fed 7772 -> top1 3283 21.7451229 top2 323 19.2697296 text " city"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1148 KB read 18.6 KB written in 0.88 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city
+step 11 pos 11 fed 3283 -> top1 304 21.4023933 top2 315 18.2813263 text " in"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1167 KB read 18.6 KB written in 0.89 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in
+step 12 pos 12 fed 304 -> top1 9625 20.2738285 top2 279 17.3801403 text " France"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1185 KB read 18.6 KB written in 0.90 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France
+step 13 pos 13 fed 9625 -> top1 323 20.9158688 top2 13 19.1500912 text " and"
+    127.7 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1204 KB read 18.6 KB written in 0.92 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and
+step 14 pos 14 fed 323 -> top1 374 19.2469406 top2 279 19.2381706 text " is"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1222 KB read 18.6 KB written in 0.93 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is
+step 15 pos 15 fed 374 -> top1 3881 20.2481232 top2 1083 18.8991928 text " known"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1241 KB read 18.6 KB written in 0.94 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known
+step 16 pos 16 fed 3881 -> top1 369 22.3380108 top2 438 19.6724014 text " for"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1260 KB read 18.6 KB written in 0.95 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known for
+step 17 pos 17 fed 369 -> top1 1181 23.3548965 top2 1657 16.5646439 text " its"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1278 KB read 18.6 KB written in 0.96 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known for its
+step 18 pos 18 fed 1181 -> top1 9080 17.7527752 top2 6233 17.2653866 text " rich"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1297 KB read 18.6 KB written in 0.97 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known for its rich
+step 19 pos 19 fed 9080 -> top1 3840 24.959343 top2 12752 22.1723347 text " history"
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1315 KB read 18.6 KB written in 0.98 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known for its rich history
+step 20 pos 20 fed 3840 -> top1 11 22.8393898 top2 323 20.1095295 text ","
+    127.8 s: SD 1833.9 MB in 97.1 s (18.88 MB/s), PSRAM 1334 KB read 18.6 KB written in 0.99 s, compute 29.7 s; PSRAM self-check so far: 0 reads corrected, 0 writes re-done, 0 unresolved
+  >> The capital of France is Paris. Paris is the largest city in France and is known for its rich history,
+
+  ANSWER: The capital of France is Paris. Paris is the largest city in France and is known for its rich history,
+  21 forward passes in 2682 s, 127.7 s each; 37.61 GB read from the card
+  PSRAM self-check over the whole run: 0 reads corrected, 0 writes re-done, 0 unresolved
+  DONE. Type another prompt and press Enter.

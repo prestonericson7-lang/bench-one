@@ -114,6 +114,12 @@ def identify(timeout=3.0):
     try:
         link = pyserial.Serial(port, 115200, timeout=timeout)
         time.sleep(0.4)
+        # A flash reboots the Teensy but NOT its SD card. Rebooting psram_llm mid-read left the card hung
+        # (answers CMD0/CMD8, never finishes ACMD41) until its power was cut, 2026-09-27. "::stop" makes
+        # psram_llm finish the card read in progress and stop; other firmware answers it as unknown text.
+        link.write(b"::stop\n")
+        link.flush()
+        time.sleep(2.0)
         link.reset_input_buffer()
         link.write(b"I\n")
         link.flush()
@@ -192,6 +198,22 @@ def main():
     outdir = os.path.join(ARCHIVE, "%s-%s" % (stamp, name))
     os.makedirs(outdir, exist_ok=True)
 
+    # 0. BUILD WHAT WAS EDITED. psram_llm compiles a GENERATED file (make_ino.py writes psram_llm_board.cpp
+    #    from the .inc that gets edited), and every sketch compiles COPIES of shared/ (its build.bat refreshes
+    #    them). arduino-cli below does neither: on 2026-09-27 13:55 a flash of a .cpp an hour older than its
+    #    .inc was one step away. So regenerate here, and refuse while any shared copy is stale.
+    gen = os.path.join(sketch, "make_ino.py")
+    if os.path.exists(gen):
+        g = subprocess.run([sys.executable, gen], cwd=sketch, capture_output=True, text=True)
+        if g.returncode != 0:
+            sys.exit("refused: %s failed, nothing built or flashed:\n%s%s" % (gen, g.stdout, g.stderr))
+        print("regenerated from source: %s" % g.stdout.strip())
+    v = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "verify-shared-copies.py")], cwd=ROOT,
+                       capture_output=True, text=True)
+    if v.returncode != 0:
+        sys.stdout.write(v.stdout[-3000:])
+        sys.exit("refused: a sketch's copy of shared/ is stale (run that sketch's build.bat); nothing flashed")
+
     # 1. BUILD FIRST, straight into the archive. If this fails nothing is flashed and the board keeps
     #    whatever was on it, which is the state the previous archive entry already describes.
     print("building %s" % name)
@@ -243,8 +265,36 @@ def main():
         sys.exit("refused: the board on the bus is not the bench-one worker")
     print("flashing")
     r = sh('arduino-cli upload -b %s -p %s --input-dir "%s" "%s"' % (FQBN, PORT, outdir, sketch))
+    # "Unable find Teensy Loader" is teensy_post_compile failing to talk to the loader application on
+    # localhost -- before it has sent the loader a file or a reboot, so the board has not been touched.
+    # 2026-09-27 05:33 it failed twice in a row while every CPU core was busy with model runs, then worked
+    # with the machine idle. A bounded retry of that one host-side failure, nothing else.
+    for attempt in range(3):
+        if r.returncode == 0 or "Unable find Teensy Loader" not in (r.stdout or "") + (r.stderr or ""):
+            break
+        print("  the Teensy Loader did not answer (host side; the board is untouched); retry %d of 3 in 20 s" % (attempt + 1))
+        time.sleep(20)
+        r = sh('arduino-cli upload -b %s -p %s --input-dir "%s" "%s"' % (FQBN, PORT, outdir, sketch))
     if r.returncode != 0:
-        r = sh('arduino-cli upload -b %s -p %s "%s"' % (FQBN, PORT, sketch))
+        # PORT is the USB socket the worker lived in. A board in another socket is the same board at a
+        # different address, so ask arduino-cli where the Teensy actually is before giving up. This runs
+        # only after confirm_target() has already identified the board, so it cannot widen what gets flashed.
+        lst = sh('arduino-cli board list --format json')
+        alt = None
+        try:
+            for d in json.loads(lst.stdout or "[]").get("detected_ports", []):
+                addr = d.get("port", {}).get("address", "")
+                if d.get("port", {}).get("protocol") == "teensy" or addr.startswith("usb:"):
+                    for m in d.get("matching_boards", []) or []:
+                        if m.get("fqbn") == FQBN:
+                            alt = addr
+        except (ValueError, AttributeError):
+            alt = None
+        if alt and alt != PORT:
+            print("  the Teensy is at %s, not %s; uploading there" % (alt, PORT))
+            r = sh('arduino-cli upload -b %s -p %s --input-dir "%s" "%s"' % (FQBN, alt, outdir, sketch))
+        if r.returncode != 0:
+            r = sh('arduino-cli upload -b %s -p %s "%s"' % (FQBN, alt or PORT, sketch))
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-2000:])
             sys.exit("upload failed; the archived hex is still on disk and can be flashed by hand")

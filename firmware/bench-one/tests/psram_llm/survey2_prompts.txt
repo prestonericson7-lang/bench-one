@@ -1,0 +1,63 @@
+# kind | prompt   (\n = newline)
+# kind "chat": the prompt is the USER MESSAGE; survey.py renders it with the model's own chat template
+# (chat_template.py -- system turn included, as the template does by default). Every other kind is sent as is.
+fact | The capital of France is
+fact | The capital of Japan is
+fact | Water boils at a temperature of
+fact | The largest planet in the solar system is
+fact | The chemical symbol for gold is
+fact | The speed of light in a vacuum is approximately
+fact | The author of "Pride and Prejudice" is
+fact | The first person to walk on the Moon was
+fact | DNA stands for
+fact | The tallest mountain on Earth is
+arith | Q: What is 17 + 25?\nA:
+arith | Q: What is 12 * 12?\nA:
+arith | Q: What is 1000 - 358?\nA:
+arith | Q: What is 7 * 8?\nA:
+chat | What is 15% of 200?
+chat | What is 23 multiplied by 19? Give only the number.
+chat | If a train travels 60 km in 45 minutes, what is its speed in km/h?
+chat | Is 91 a prime number? Answer yes or no, then why.
+code | def is_prime(n):\n
+code | def fibonacci(n):\n
+code | def reverse_string(s):\n
+code | # Return the sum of a list\ndef sum_list(xs):\n
+code | SELECT name FROM users WHERE
+code | #include <stdio.h>\nint main(void) {\n    printf("
+code | const add = (a, b) =>
+code | def binary_search(arr, target):\n
+code | // Toggle an LED on pin 13 every second\nvoid setup() {\n
+code | fn main() {\n    let v = vec![3, 1, 2];\n
+chat | Write a Python one-liner that reverses a list called xs.
+chat | Find the bug:\ndef add(a, b):\n    return a - b
+chat | Write a C function that returns the larger of two ints.
+chat | What does this print?\nprint(sum(range(5)))
+chat | Explain what a mutex is in one sentence.
+chat | Write a regular expression that matches a US ZIP code.
+chat | What is a microcontroller? Answer in one sentence.
+chat | What does PSRAM stand for?
+chat | What is the difference between SPI and I2C? Answer in two sentences.
+chat | What is an FPGA used for? One sentence.
+chat | What is the baud rate of a UART?
+chat | How many bits are in a byte?
+chat | Name three primary colors.
+chat | Translate "good morning" into French.
+chat | Translate "thank you very much" into Spanish.
+chat | Translate "where is the train station" into German.
+chat | What is the plural of "mouse"?
+chat | Write a haiku about memory chips.
+chat | Give me a synonym for "fast".
+chat | All cats are animals. Tom is a cat. Is Tom an animal? Answer yes or no.
+chat | I have 3 apples and eat one. How many apples do I have?
+chat | Which is heavier, a kilogram of feathers or a kilogram of steel?
+chat | What comes next in the sequence 2, 4, 8, 16?
+chat | Sort these words alphabetically: pear, apple, mango.
+chat | If today is Monday, what day is it in three days?
+chat | Reply with exactly the word OK.
+chat | List the first five even numbers, separated by commas.
+chat | Answer in one word: what color is the sky on a clear day?
+chat | Write the word "hello" backwards.
+chat | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.
+chat | Who are you?
+chat | What is 2 to the power of 10?

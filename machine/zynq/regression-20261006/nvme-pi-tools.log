@@ -1,0 +1,98 @@
+  PASS  card file is exactly 7959 bytes
+  PASS  card file parses
+-- nvme-auto runs with the Pi's own tools: aarch64, "Orange Pi 1.1.0 Resolute", sfdisk from util-linux 2.41.3
+-- GPT, basic-data partition
+   nvme-auto: drive /dev/loop1,  4G 
+   nvme-auto: layout: table gpt, 4294967296 bytes
+   nvme-auto:   /dev/loop1p1: 268435456 bytes, type ebd0a0a2-b9e5-4433-87c0-68b6b72699c7, fs vfat, label 'DATA'
+   nvme-auto:     mounted at /root/nvme-pi-drive/mnt, holds: EFI stuff 
+   nvme-auto:   free: sectors 526336-8388574 (3.7G)
+   nvme-auto: unpartitioned space: 3838 MiB -- a new partition there, ext4 labelled 'nvme'; the existing partitions are not changed
+   nvme-auto: fstab: UUID=ebb4646e-5977-4a01-8940-ccfd94232abb /root/nvme-pi-drive/mnt ext4 defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+   nvme-auto: /root/nvme-pi-drive/mnt belongs to orangepi
+   nvme-auto: ready: /dev/loop1p2 3.7G 3.6G /root/nvme-pi-drive/mnt
+  PASS  a new ext4 'nvme' partition in the free space
+  PASS  it has the free space: 3838 MiB
+  PASS  the FAT partition's files are unchanged (sha256 of every file)
+  PASS  the new partition is what is mounted as the NVMe
+  PASS  the stale FAT line is gone
+  PASS  fstab: one line for the NVMe, the new UUID, other lines kept
+  PASS  layout and the FAT partition's contents logged on the card
+  PASS  next boot: the same partition, nothing new
+-- MBR, FAT32 (0x0c) partition
+   nvme-auto: drive /dev/loop1,  4G 
+   nvme-auto: layout: table dos, 4294967296 bytes
+   nvme-auto:   /dev/loop1p1: 268435456 bytes, type c, fs vfat, label 'DATA'
+   nvme-auto:     mounted at /root/nvme-pi-drive/mnt, holds: EFI stuff 
+   nvme-auto:   free: sectors 526336-8388607 (3.7G)
+   nvme-auto: unpartitioned space: 3839 MiB -- a new partition there, ext4 labelled 'nvme'; the existing partitions are not changed
+   nvme-auto: fstab: UUID=5c916b89-d501-450f-80c9-88e337f77ca7 /root/nvme-pi-drive/mnt ext4 defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+   nvme-auto: /root/nvme-pi-drive/mnt belongs to orangepi
+   nvme-auto: ready: /dev/loop1p2 3.7G 3.6G /root/nvme-pi-drive/mnt
+  PASS  a new ext4 'nvme' partition in the free space
+  PASS  it has the free space: 3839 MiB
+  PASS  the FAT partition's files are unchanged (sha256 of every file)
+  PASS  the new partition is what is mounted as the NVMe
+  PASS  the stale FAT line is gone
+  PASS  fstab: one line for the NVMe, the new UUID, other lines kept
+  PASS  layout and the FAT partition's contents logged on the card
+  PASS  next boot: the same partition, nothing new
+-- GPT, EFI-typed partition
+   nvme-auto: drive /dev/loop1,  4G 
+   nvme-auto: layout: table gpt, 4294967296 bytes
+   nvme-auto:   /dev/loop1p1: 268435456 bytes, type c12a7328-f81f-11d2-ba4b-00a0c93ec93b, fs vfat, label 'DATA'
+   nvme-auto:     mounted at /root/nvme-pi-drive/mnt, holds: EFI stuff 
+   nvme-auto:   free: sectors 526336-8388574 (3.7G)
+   nvme-auto: unpartitioned space: 3838 MiB -- a new partition there, ext4 labelled 'nvme'; the existing partitions are not changed
+   nvme-auto: fstab: UUID=c4a7e3d7-7b80-433c-a02e-9d6cc2ac0c9c /root/nvme-pi-drive/mnt ext4 defaults,noatime,nofail,x-systemd.device-timeout=15s,x-gvfs-show,x-gvfs-name=NVMe 0 2
+   nvme-auto: /root/nvme-pi-drive/mnt belongs to orangepi
+   nvme-auto: ready: /dev/loop1p2 3.7G 3.6G /root/nvme-pi-drive/mnt
+  PASS  a new ext4 'nvme' partition in the free space
+  PASS  it has the free space: 3838 MiB
+  PASS  the FAT partition's files are unchanged (sha256 of every file)
+  PASS  the new partition is what is mounted as the NVMe
+  PASS  the stale FAT line is gone
+  PASS  fstab: one line for the NVMe, the new UUID, other lines kept
+  PASS  layout and the FAT partition's contents logged on the card
+  PASS  next boot: the same partition, nothing new
+-- a big existing data partition and a little free space: the existing one is used
+  PASS  existing 3.5 GiB ext4 used, no new partition
+-- one partition over the whole drive, a small FAT inside it: no free space, used as it is
+  PASS  no free space: the FAT partition used as it is, nothing created
+  PASS  its files unchanged
+  PASS  layout logged
+-- GPT, EFI System Partition over the whole drive: not storage
+   nvme-auto: drive /dev/loop1,  4G 
+   nvme-auto: layout: table gpt, 4294967296 bytes
+   nvme-auto:   /dev/loop1p1: 4293901824 bytes, type c12a7328-f81f-11d2-ba4b-00a0c93ec93b, fs vfat, label 'DATA'
+   nvme-auto:     mounted at /root/nvme-pi-drive/mnt, holds: EFI stuff 
+   nvme-auto: drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap
+   nvme-auto: and unformatted space are not used) -- left untouched:
+   nvme-auto: unmounted /root/nvme-pi-drive/mnt (it held a partition of this drive)
+   nvme-auto: fstab: removed the line an earlier run added for /root/nvme-pi-drive/mnt
+   nvme-auto: to give the whole drive to this Pi (ERASES EVERYTHING on it):
+   nvme-auto:   sudo umount /dev/loop1p* ; sudo wipefs -a /dev/loop1 && sudo dd if=/dev/zero of=/dev/loop1 bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto
+  PASS  left untouched, reported as not storage
+  PASS  its files unchanged
+  PASS  nothing mounted as the NVMe
+  PASS  the stale fstab line taken out
+  PASS  the other fstab lines kept
+  PASS  the erase command is printed, not run
+-- MBR, EFI (0xef) partition over the whole drive: not storage
+   nvme-auto: drive /dev/loop1,  4G 
+   nvme-auto: layout: table dos, 4294967296 bytes
+   nvme-auto:   /dev/loop1p1: 4293918720 bytes, type ef, fs vfat, label 'DATA'
+   nvme-auto:     mounted at /root/nvme-pi-drive/mnt, holds: EFI stuff 
+   nvme-auto: drive has partitions, none of them storage to mount (EFI boot partitions, other systems' data, swap
+   nvme-auto: and unformatted space are not used) -- left untouched:
+   nvme-auto: unmounted /root/nvme-pi-drive/mnt (it held a partition of this drive)
+   nvme-auto: fstab: removed the line an earlier run added for /root/nvme-pi-drive/mnt
+   nvme-auto: to give the whole drive to this Pi (ERASES EVERYTHING on it):
+   nvme-auto:   sudo umount /dev/loop1p* ; sudo wipefs -a /dev/loop1 && sudo dd if=/dev/zero of=/dev/loop1 bs=1M count=1 conv=fsync && sudo systemctl restart nvme-auto
+  PASS  left untouched, reported as not storage
+  PASS  its files unchanged
+  PASS  nothing mounted as the NVMe
+  PASS  the stale fstab line taken out
+  PASS  the other fstab lines kept
+  PASS  the erase command is printed, not run
+NVME PI DRIVE TEST: PASS

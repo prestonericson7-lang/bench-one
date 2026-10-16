@@ -14,6 +14,14 @@
  * ===========================================================================================
  */
 
+/* Round like every other machine does. GCC on ARM fuses a*b+c into one multiply-add unless told not to,
+ * which rounds once where the PC rounds twice; the Teensy's v5 image has 23 fused operations in this file
+ * and gguf_bits.c (gguf_dot_q 13, gguf_dot_q4k_presum 4, gguf_dot_q4k_stage 4, gguf_dequant 2 --
+ * bench-archive/20260927-060317 psram_llm.ino.lst). Off, so the double arithmetic below gives the
+ * same bits on the M7 as on the PC. */
+#if defined(__arm__) && defined(__GNUC__) && !defined(__clang__)
+#pragma GCC optimize ("fp-contract=off")
+#endif
 #include "gguf.h"
 #include <string.h>
 

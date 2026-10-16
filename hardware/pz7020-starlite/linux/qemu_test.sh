@@ -7,6 +7,9 @@
 #   delay mode, the real SD controller timing, the PL.
 #     wsl -d Ubuntu-22.04 -u root -- bash -c 'bash /mnt/d/espicpc/hardware/pz7020-starlite/linux/qemu_test.sh'
 set -uo pipefail
+# QEMU wants an SD card whose size is a power of two: round the copy UP to one, never down (a fixed
+# "truncate -s 2G" cut the 4.2 GB machine image inside its root filesystem -> "VFS: Unable to mount root")
+sd_pow2() { local s p=1; s=$(stat -c %s "$1"); while [ "$p" -lt "$s" ]; do p=$((p * 2)); done; truncate -s "$p" "$1"; }
 REPO=${REPO:-/mnt/d/espicpc}
 OUT=${OUT:-$REPO/hardware/pz7020-starlite/linux/out}
 IMG=${IMG:-/root/zynq/pz7020-starlite-sd.img}
@@ -16,7 +19,7 @@ TIMEOUT=${TIMEOUT:-180}
 
 [ -f "$IMG" ] || { echo "no SD image at $IMG (run mk_sd_image.sh)"; exit 1; }
 cp "$IMG" /root/zynq/qemu-sd.img            # QEMU writes to it; keep the master pristine
-truncate -s 2G /root/zynq/qemu-sd.img       # QEMU insists an SD card is a power-of-two size; padding past p2 is harmless
+sd_pow2 /root/zynq/qemu-sd.img       # rounded up to a power of two (QEMU's rule)
 MEM=${MEM:-512M}                            # the board: one x16 MT41K256M16 = 512 MB (16-bit DDR)
 # cpufreq.off=1: QEMU clocks the A9 at 666 MHz while the DTB pins the board's real 766 MHz operating
 # point; on the board the clock matches the table, so the board needs no such flag

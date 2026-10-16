@@ -1,0 +1,38 @@
+pl.bit = /mnt/d/espicpc/hardware/pz7020-starlite/vivado/build/system.bit
+ Volume in drive : is BOOT       
+ Volume Serial Number is 1ACB-C506
+Directory for ::/
+
+boot     bin    131700 2026-10-05  20:57 
+u-boot   img   1329648 2026-10-05  20:57 
+boot     scr      2536 2026-10-05  20:57 
+ZIMAGE        11846144 2026-10-05  20:57  zImage
+ZYNQ-P~1 DTB     12132 2026-10-05  20:57  zynq-pz7020-starlite.dtb
+pl       bit   2498199 2026-10-05  20:57 
+ZYNQ-N~1 TXT         2 2026-10-05  20:57  zynq-node.txt
+        7 files          15 820 361 bytes
+                        116 313 600 bytes free
+
+modules: 6.12.0-dirty
+/mnt/d/espicpc/hardware/pz7020-starlite/fan/build/fan_top.bit: {'a': 'build\\fan_top.frames;Generator=xc7frames2bit', 'b': 'xc7z020clg400-2', 'c': '2026/09/24', 'd': '08:56:58'} -> /root/zynq/rootfs/usr/lib/firmware/fan_top.bin (4045564 bytes)
+/mnt/d/espicpc/hardware/pz7020-starlite/ps7-axi/build/pz7020_ps7_top.bit: {'a': 'build\\pz7020_ps7_top.frames;Generator=xc7frames2bit', 'b': 'xc7z020clg400-2', 'c': '2026/09/24', 'd': '09:19:04'} -> /root/zynq/rootfs/usr/lib/firmware/pz7020_ps7_top.bin (4045564 bytes)
+/mnt/d/espicpc/firmware/rtlsdr-pentest/fpga/openxc7/build/sdr_accel_zynq_top.bit: {'a': 'D:\\espicpc\\firmware\\rtlsdr-pentest\\fpga\\openxc7\\build\\sdr_accel_zynq_top.frames;Generator=xc7frames2bit', 'b': 'xc7z020clg400-2', 'c': '2026/09/24', 'd': '08:57:24'} -> /root/zynq/rootfs/usr/lib/firmware/sdr_accel_zynq_top.bin (4045564 bytes)
+install_zynq.sh: zynqram export installed into /root/zynq/rootfs
+nbd-server: present
+networkd: present
+model: qwen05b.gguf
+model: qwen3b.gguf
+machine: installed into /root/zynq/rootfs
+Model:  (file)
+Disk /root/zynq/pz7020-starlite-sd.img: 4226MiB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+Disk Flags: 
+
+Number  Start    End      Size     Type     File system  Flags
+ 1      1.00MiB  129MiB   128MiB   primary  fat32        boot, lba
+ 2      129MiB   4225MiB  4096MiB  primary  ext4
+
+eeb4afcec81cfa27e0233c94d1e58f21022683563321751b74d9ba8c28926c29  /root/zynq/pz7020-starlite-sd.img
+NOXZ set: /mnt/d/espicpc/hardware/pz7020-starlite/linux/out/pz7020-starlite-sd.img.xz is an OLDER build and does not match sd-image.sha256
+SD IMAGE DONE: /root/zynq/pz7020-starlite-sd.img (raw only, NOXZ). Write with the unbuffered writer, then boot jumper = SD.

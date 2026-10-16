@@ -1,0 +1,15 @@
+# v9b: the card by ADMA2 with the arithmetic overlapped, A/B against FIFO on one boot (France, 2 tokens)
+::prefill 1
+::sdio fifo
+::sdpath file
+ab_fifo | 2 | The capital of France is
+::sdio dma
+::sdpath adma
+::overlap 1
+::align 1
+::slice 0
+ab_adma_overlap | 2 | The capital of France is
+::overlap 0
+ab_adma_plain | 2 | The capital of France is
+::sdpath file
+::sdio fifo

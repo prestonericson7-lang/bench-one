@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined(_WIN32) && !defined(GGUF_NO_MMAP)
+  #include <sys/mman.h>
+  #include <sys/stat.h>
+  #include <unistd.h>
+#endif
 #if defined(_WIN32)
   #define SEEK64(f, off) _fseeki64((f), (long long)(off), SEEK_SET)
 #else
@@ -190,11 +195,35 @@ int gguf_open(gguf_t *g, const char *path)
     g->data_start = here;
     if (align > 0 && (here % (uint64_t)align))
         g->data_start = here + (uint64_t)align - (here % (uint64_t)align);
+    /* Map the file read-only where the platform allows. Loads then take pointers into the map and
+     * the model is paged in from the file as it is used, so a 256 MB host runs a 1.9 GB model the
+     * way the Teensy streams its card. A failed map is not an error: reads still work. */
+#if !defined(_WIN32) && !defined(GGUF_NO_MMAP)
+    {
+        struct stat st;
+        if (fstat(fileno(g->f), &st) == 0 && st.st_size > 0 && (uint64_t)st.st_size <= (uint64_t)(size_t)-1) {
+            void *p = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fileno(g->f), 0);
+            if (p != MAP_FAILED) { g->map = (uint8_t *)p; g->map_len = (uint64_t)st.st_size; }
+        }
+    }
+#endif
     return 0;
+}
+
+const uint8_t *gguf_raw_ptr(const gguf_t *g, const gguf_tensor *t)
+{
+    if (!g->map || !t) return NULL;
+    const uint64_t off = g->data_start + t->offset;
+    const uint64_t nb = gguf_nbytes(t);
+    if (!nb || off + nb > g->map_len) return NULL;
+    return g->map + off;
 }
 
 void gguf_close(gguf_t *g)
 {
+#if !defined(_WIN32) && !defined(GGUF_NO_MMAP)
+    if (g->map) munmap(g->map, (size_t)g->map_len);
+#endif
     if (g->kv) {
         for (uint64_t i = 0; i < g->n_kv; i++) {
             free(g->kv[i].key);

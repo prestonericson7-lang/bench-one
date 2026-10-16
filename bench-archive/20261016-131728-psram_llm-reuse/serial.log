@@ -1,0 +1,311 @@
+13:17:28 > I
+13:17:28 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+13:17:28 > ::gen 4
+13:17:28 | GEN 4
+13:17:28 > ::reuse 1
+13:17:28 | REUSE 1 (the cache holds 71 positions)
+13:17:28 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\n
+13:17:29 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+13:17:29 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198
+13:17:29 | REUSE m=44 (the attention cache already holds positions 0..43 for these same tokens; the prompt is fed from 44)
+13:18:14 | step 44 pos 44 fed 198 -> top1 39779 19.3530884 top2 40 15.8442087 text "SPI"
+13:18:14 |   >> <|im_start|>system
+13:18:14 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:18:14 | <|im_start|>user
+13:18:14 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:18:14 | <|im_start|>assistant
+13:18:14 | SPI
+13:18:14 |     prefill=44..44: 45.3 s: SD 1834.8 MB in 15.1 s (121.78 MB/s), PSRAM 848 KB read 18.8 KB written in 0.24 s, compute 30.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:18:14 | STAGES prefill=44..44 embed=0.001 qkv=2.65 att=0.493 wo=1.89 ffn=34.74 head=5.57 hidden=29.66 temp_c=53.5
+13:18:14 | CARD prefill=44..44 fifoirq opens=3277 interrupts=3765629
+13:18:57 | step 45 pos 45 fed 39779 -> top1 320 20.2314739 top2 374 18.7457199 text " ("
+13:18:57 |   >> <|im_start|>system
+13:18:57 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:18:57 | <|im_start|>user
+13:18:57 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:18:57 | <|im_start|>assistant
+13:18:57 | SPI (
+13:18:57 |     step=45: 43.1 s: SD 1834.8 MB in 13.0 s (141.58 MB/s), PSRAM 867 KB read 18.8 KB written in 0.25 s, compute 29.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:18:57 | STAGES step=45 embed=0.001 qkv=2.65 att=0.496 wo=1.90 ffn=32.53 head=5.56 hidden=29.33 temp_c=53.5
+13:18:57 | CARD step=45 fifoirq opens=217 interrupts=3759509
+13:19:40 | step 46 pos 46 fed 320 -> top1 5915 26.6293812 top2 16374 19.2809315 text "Serial"
+13:19:40 |   >> <|im_start|>system
+13:19:40 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:19:40 | <|im_start|>user
+13:19:40 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:19:40 | <|im_start|>assistant
+13:19:40 | SPI (Serial
+13:19:40 |     step=46: 43.1 s: SD 1834.8 MB in 12.9 s (141.82 MB/s), PSRAM 886 KB read 18.8 KB written in 0.25 s, compute 29.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:19:40 | STAGES step=46 embed=0.001 qkv=2.65 att=0.504 wo=1.90 ffn=32.51 head=5.56 hidden=29.33 temp_c=54.2
+13:19:40 | CARD step=46 fifoirq opens=217 interrupts=3759509
+13:20:23 | step 47 pos 47 fed 5915 -> top1 83000 28.7934093 top2 34588 20.9415283 text " Peripheral"
+13:20:23 |   >> <|im_start|>system
+13:20:23 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:20:23 | <|im_start|>user
+13:20:23 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:20:23 | <|im_start|>assistant
+13:20:23 | SPI (Serial Peripheral
+13:20:23 |     step=47: 43.1 s: SD 1834.8 MB in 12.9 s (141.71 MB/s), PSRAM 904 KB read 18.8 KB written in 0.26 s, compute 29.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:20:23 | STAGES step=47 embed=0.001 qkv=2.65 att=0.513 wo=1.90 ffn=32.52 head=5.56 hidden=29.33 temp_c=53.5
+13:20:23 | CARD step=47 fifoirq opens=217 interrupts=3759509
+13:21:06 | step 48 pos 48 fed 83000 -> top1 20019 30.4374809 top2 5665 23.3292427 text " Interface"
+13:21:06 |   >> <|im_start|>system
+13:21:06 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:21:06 | <|im_start|>user
+13:21:06 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:21:06 | <|im_start|>assistant
+13:21:06 | SPI (Serial Peripheral Interface
+13:21:06 |     step=48: 43.2 s: SD 1834.8 MB in 12.9 s (141.74 MB/s), PSRAM 923 KB read 18.8 KB written in 0.26 s, compute 29.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:21:06 | STAGES step=48 embed=0.001 qkv=2.65 att=0.521 wo=1.90 ffn=32.52 head=5.56 hidden=29.33 temp_c=54.2
+13:21:06 | CARD step=48 fifoirq opens=217 interrupts=3759509
+13:21:06 |   ANSWER: "SPI (Serial Peripheral Interface"
+13:21:06 |   5 passes over the weights in 218 s (prompt 45 s), 43.6 s each; 8.96 GB read from the card
+13:21:06 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+13:21:06 | RUN n_prompt=45 n_gen=4 prefill=1 passes=5 total_s=217.9 prompt_s=45.3 per_pass_s=43.58 sd_gb=8.959 sd_mbs=137.22 sd_s=66.9 compute_s=149.8 hidden_s=147.0 ps_s=1.3 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=30 ps_sw_s=0.06 temp_max_c=54.2
+13:21:21 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\nSPI (Serial Peripheral Interface<|im_end|>\n<|im_start|>user\nAnd which one needs fewer wires?<|im_end|>\n<|im_start|>assistant\n
+13:21:21 |   DONE. Type another prompt and press Enter.
+13:21:22 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+13:21:22 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198 39779 320 5915 83000 20019 151645 198 151644 872 198 3036 892 825 3880 16745 35008 30 151645 198 151644 77091 198
+13:21:22 | REUSE m=49 (the attention cache already holds positions 0..48 for these same tokens; the prompt is fed from 49)
+13:21:22 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+13:21:22 |     SD up (DMA_SDIO), clock 99000 kHz
+13:21:22 |     qwen3b.gguf: 1929903072 bytes
+13:21:22 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+13:21:22 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+13:21:22 | SDIO dma
+13:21:22 | SDPATH adma
+13:24:06 | step 49 pos 49 fed 20019 -> top1 8 23.1913815 top2 701 16.1764393 text ")"
+13:24:06 | step 50 pos 50 fed 151645 -> top1 198 29.6464634 top2 151645 17.176405 text "\x0A"
+13:24:06 | step 51 pos 51 fed 198 -> top1 151643 28.0303078 top2 151644 17.4089031 text "<|endoftext|>"
+13:24:06 | step 52 pos 52 fed 151644 -> top1 198 26.9179459 top2 151643 17.5593948 text "\x0A"
+13:24:06 | step 53 pos 53 fed 872 -> top1 3555 11.8537731 top2 2585 10.9500465 text " What"
+13:24:06 | step 54 pos 54 fed 198 -> top1 3838 13.9450245 top2 6713 13.0770025 text "What"
+13:24:06 | step 55 pos 55 fed 3036 -> top1 358 16.8006096 top2 1128 16.1876011 text " I"
+13:24:06 | step 56 pos 56 fed 892 -> top1 825 20.1029015 top2 374 19.108633 text " one"
+13:24:06 |     prefill=49..56: 164.1 s: SD 1834.8 MB in 1.4 s (1286.62 MB/s), PSRAM 8065 KB read 150.8 KB written in 2.19 s, compute 160.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:24:06 | STAGES prefill=49..56 embed=0.010 qkv=8.85 att=4.434 wo=6.84 ffn=123.53 head=20.41 hidden=94.32 temp_c=53.5
+13:24:06 | CARD prefill=49..56 fifoirq opens=0 interrupts=0
+13:26:51 | step 57 pos 57 fed 825 -> top1 374 20.5926056 top2 702 17.0514984 text " is"
+13:26:51 | step 58 pos 58 fed 3880 -> top1 264 17.0725136 top2 803 16.935545 text " a"
+13:26:51 | step 59 pos 59 fed 16745 -> top1 26944 17.9152966 top2 35008 17.798357 text " pins"
+13:26:51 | step 60 pos 60 fed 35008 -> top1 30 18.5212059 top2 311 17.144968 text "?"
+13:26:51 | step 61 pos 61 fed 30 -> top1 151645 19.7453003 top2 358 14.2782898 text "<|im_end|>"
+13:26:51 | step 62 pos 62 fed 151645 -> top1 198 27.9738216 top2 151644 20.9919872 text "\x0A"
+13:26:51 | step 63 pos 63 fed 198 -> top1 151644 25.9293022 top2 151645 16.8239498 text "<|im_start|>"
+13:26:51 | step 64 pos 64 fed 151644 -> top1 198 27.0413284 top2 151644 19.9406319 text "\x0A"
+13:26:51 |     prefill=57..64: 164.6 s: SD 1834.8 MB in 1.4 s (1285.99 MB/s), PSRAM 9271 KB read 150.8 KB written in 2.50 s, compute 160.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:26:51 | STAGES prefill=57..64 embed=0.010 qkv=8.85 att=4.972 wo=6.84 ffn=123.54 head=20.41 hidden=94.31 temp_c=53.5
+13:26:51 | CARD prefill=57..64 fifoirq opens=0 interrupts=0
+13:26:51 |   card: 2 positions in this pass -> FIFO
+13:26:51 |     SD up (FIFO_SDIO), clock 99000 kHz
+13:26:51 |     qwen3b.gguf: 1929903072 bytes
+13:26:51 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+13:26:51 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+13:26:51 | SDIO fifo
+13:26:51 | SDPATH file
+13:27:46 | step 65 pos 65 fed 77091 -> top1 40 18.0760555 top2 39779 16.3676414 text "I"
+13:27:46 | step 66 pos 66 fed 198 -> top1 40 19.7175617 top2 39779 17.4595165 text "I"
+13:27:46 |   >> <|im_start|>system
+13:27:46 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:27:46 | <|im_start|>user
+13:27:46 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:27:46 | <|im_start|>assistant
+13:27:46 | SPI (Serial Peripheral Interface<|im_end|>
+13:27:46 | <|im_start|>user
+13:27:46 | And which one needs fewer wires?<|im_end|>
+13:27:46 | <|im_start|>assistant
+13:27:46 | I
+13:27:46 |     prefill=65..66: 55.5 s: SD 1834.8 MB in 5.3 s (346.24 MB/s), PSRAM 2506 KB read 37.7 KB written in 0.68 s, compute 49.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:27:46 | STAGES prefill=65..66 embed=0.001 qkv=3.08 att=1.336 wo=2.20 ffn=41.71 head=7.17 hidden=32.51 temp_c=54.2
+13:27:46 | CARD prefill=65..66 fifoirq opens=3277 interrupts=3811497
+13:28:29 | step 67 pos 67 fed 40 -> top1 17 24.5066566 top2 29456 18.7245331 text "2"
+13:28:29 |   >> <|im_start|>system
+13:28:29 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:28:29 | <|im_start|>user
+13:28:29 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:28:29 | <|im_start|>assistant
+13:28:29 | SPI (Serial Peripheral Interface<|im_end|>
+13:28:29 | <|im_start|>user
+13:28:29 | And which one needs fewer wires?<|im_end|>
+13:28:29 | <|im_start|>assistant
+13:28:29 | I2
+13:28:29 |     step=67: 43.3 s: SD 1834.8 MB in 12.9 s (141.71 MB/s), PSRAM 1281 KB read 18.8 KB written in 0.36 s, compute 30.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:28:29 | STAGES step=67 embed=0.001 qkv=2.65 att=0.681 wo=1.90 ffn=32.52 head=5.56 hidden=29.33 temp_c=54.2
+13:28:29 | CARD step=67 fifoirq opens=217 interrupts=3759509
+13:29:13 | step 68 pos 68 fed 17 -> top1 34 25.9985695 top2 50 15.628171 text "C"
+13:29:13 |   >> <|im_start|>system
+13:29:13 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:29:13 | <|im_start|>user
+13:29:13 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:29:13 | <|im_start|>assistant
+13:29:13 | SPI (Serial Peripheral Interface<|im_end|>
+13:29:13 | <|im_start|>user
+13:29:13 | And which one needs fewer wires?<|im_end|>
+13:29:13 | <|im_start|>assistant
+13:29:13 | I2C
+13:29:13 |     step=68: 43.3 s: SD 1834.8 MB in 12.9 s (141.84 MB/s), PSRAM 1300 KB read 18.8 KB written in 0.36 s, compute 30.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:29:13 | STAGES step=68 embed=0.001 qkv=2.65 att=0.690 wo=1.90 ffn=32.51 head=5.56 hidden=29.33 temp_c=54.2
+13:29:13 | CARD step=68 fifoirq opens=217 interrupts=3759509
+13:29:56 | step 69 pos 69 fed 34 -> top1 320 17.8231812 top2 11136 15.89816 text " ("
+13:29:56 |   >> <|im_start|>system
+13:29:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:29:56 | <|im_start|>user
+13:29:56 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:29:56 | <|im_start|>assistant
+13:29:56 | SPI (Serial Peripheral Interface<|im_end|>
+13:29:56 | <|im_start|>user
+13:29:56 | And which one needs fewer wires?<|im_end|>
+13:29:56 | <|im_start|>assistant
+13:29:56 | I2C (
+13:29:56 |     step=69: 43.3 s: SD 1834.8 MB in 12.9 s (141.82 MB/s), PSRAM 1319 KB read 18.8 KB written in 0.37 s, compute 30.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:29:56 | STAGES step=69 embed=0.001 qkv=2.65 att=0.698 wo=1.90 ffn=32.51 head=5.56 hidden=29.33 temp_c=54.2
+13:29:56 | CARD step=69 fifoirq opens=217 interrupts=3759509
+13:30:39 | step 70 pos 70 fed 320 -> top1 3306 24.8145237 top2 40 19.6238956 text "Inter"
+13:30:39 |   >> <|im_start|>system
+13:30:39 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:30:39 | <|im_start|>user
+13:30:39 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:30:39 | <|im_start|>assistant
+13:30:39 | SPI (Serial Peripheral Interface<|im_end|>
+13:30:39 | <|im_start|>user
+13:30:39 | And which one needs fewer wires?<|im_end|>
+13:30:39 | <|im_start|>assistant
+13:30:39 | I2C (Inter
+13:30:39 |     step=70: 43.3 s: SD 1834.8 MB in 12.9 s (141.93 MB/s), PSRAM 1338 KB read 18.8 KB written in 0.37 s, compute 30.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:30:39 | STAGES step=70 embed=0.001 qkv=2.65 att=0.706 wo=1.90 ffn=32.50 head=5.56 hidden=29.33 temp_c=54.2
+13:30:39 | CARD step=70 fifoirq opens=217 interrupts=3759509
+13:30:39 |   ANSWER: "I2C (Inter"
+13:30:39 |   7 passes over the weights in 557 s (prompt 384 s), 79.6 s each; 12.54 GB read from the card
+13:30:39 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+13:30:39 | RUN n_prompt=67 n_gen=4 prefill=1 passes=7 total_s=557.5 prompt_s=384.2 per_pass_s=79.64 sd_gb=12.543 sd_mbs=214.42 sd_s=59.9 compute_s=490.7 hidden_s=338.4 ps_s=6.8 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=42 ps_sw_s=0.09 temp_max_c=54.2
+13:30:59 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\nSPI (Serial Peripheral Interface<|im_end|>\n<|im_start|>user\nAnd which one needs fewer wires?<|im_end|>\n<|im_start|>assistant\nI2C (Inter<|im_end|>\n<|im_start|>user\nWhich one is faster?<|im_end|>\n<|im_start|>assistant\n
+13:30:59 |   DONE. Type another prompt and press Enter.
+13:30:59 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+13:30:59 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198 39779 320 5915 83000 20019 151645 198 151644 872 198 3036 892 825 3880 16745 35008 30 151645 198 151644 77091 198 40 17 34 320 3306 151645 198 151644 872 198 23085 825 374 10596 30 151645 198 151644 77091 198
+13:30:59 | REUSE m=71 (the attention cache already holds positions 0..70 for these same tokens; the prompt is fed from 71)
+13:30:59 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+13:30:59 |     SD up (DMA_SDIO), clock 99000 kHz
+13:30:59 |     qwen3b.gguf: 1929903072 bytes
+13:30:59 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+13:30:59 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+13:30:59 | SDIO dma
+13:30:59 | SDPATH adma
+13:33:45 | step 71 pos 71 fed 3306 -> top1 12 25.9907265 top2 20052 19.8074055 text "-"
+13:33:45 | step 72 pos 72 fed 151645 -> top1 198 26.8710384 top2 151645 16.6188812 text "\x0A"
+13:33:45 | step 73 pos 73 fed 198 -> top1 151643 25.9968433 top2 151644 14.8527956 text "<|endoftext|>"
+13:33:45 | step 74 pos 74 fed 151644 -> top1 198 25.6678143 top2 151643 15.8026838 text "\x0A"
+13:33:45 | step 75 pos 75 fed 872 -> top1 3555 11.9077034 top2 198 11.8889322 text " What"
+13:33:45 | step 76 pos 76 fed 198 -> top1 6713 15.1128073 top2 3838 14.8607664 text "Can"
+13:33:45 | step 77 pos 77 fed 23085 -> top1 825 19.1849499 top2 374 18.0146217 text " one"
+13:33:45 | step 78 pos 78 fed 825 -> top1 374 19.7759476 top2 702 17.3175793 text " is"
+13:33:45 |     prefill=71..78: 165.6 s: SD 1834.8 MB in 1.5 s (1260.17 MB/s), PSRAM 11382 KB read 150.8 KB written in 3.05 s, compute 161.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:33:45 | STAGES prefill=71..78 embed=0.010 qkv=8.85 att=5.916 wo=6.84 ffn=123.57 head=20.41 hidden=94.32 temp_c=53.5
+13:33:45 | CARD prefill=71..78 fifoirq opens=0 interrupts=0
+13:36:31 | step 79 pos 79 fed 374 -> top1 803 18.8330688 top2 8789 18.0868912 text " more"
+13:36:31 | step 80 pos 80 fed 10596 -> top1 30 18.4153805 top2 1948 15.8836718 text "?"
+13:36:31 | step 81 pos 81 fed 30 -> top1 151645 20.5119705 top2 358 13.9217653 text "<|im_end|>"
+13:36:31 | step 82 pos 82 fed 151645 -> top1 198 27.6251373 top2 151644 20.7265148 text "\x0A"
+13:36:31 | step 83 pos 83 fed 198 -> top1 151644 25.9220562 top2 151645 17.4130764 text "<|im_start|>"
+13:36:31 | step 84 pos 84 fed 151644 -> top1 198 26.1292896 top2 151644 19.6140919 text "\x0A"
+13:36:31 | step 85 pos 85 fed 77091 -> top1 40 17.3553467 top2 39779 16.8351059 text "I"
+13:36:31 | step 86 pos 86 fed 198 -> top1 40 18.0672302 top2 39779 17.1639519 text "I"
+13:36:31 |   >> <|im_start|>system
+13:36:31 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:36:31 | <|im_start|>user
+13:36:31 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:36:31 | <|im_start|>assistant
+13:36:31 | SPI (Serial Peripheral Interface<|im_end|>
+13:36:31 | <|im_start|>user
+13:36:31 | And which one needs fewer wires?<|im_end|>
+13:36:31 | <|im_start|>assistant
+13:36:31 | I2C (Inter<|im_end|>
+13:36:31 | <|im_start|>user
+13:36:31 | Which one is faster?<|im_end|>
+13:36:31 | <|im_start|>assistant
+13:36:31 | I
+13:36:31 |     prefill=79..86: 166.1 s: SD 1834.8 MB in 1.5 s (1258.86 MB/s), PSRAM 12588 KB read 150.8 KB written in 3.37 s, compute 161.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:36:31 | STAGES prefill=79..86 embed=0.010 qkv=8.85 att=6.454 wo=6.84 ffn=123.57 head=20.41 hidden=94.32 temp_c=54.2
+13:36:31 | CARD prefill=79..86 fifoirq opens=0 interrupts=0
+13:36:31 |   card: 1 position in this pass -> FIFO
+13:36:31 |     SD up (FIFO_SDIO), clock 99000 kHz
+13:36:31 |     qwen3b.gguf: 1929903072 bytes
+13:36:31 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+13:36:31 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+13:36:31 | SDIO fifo
+13:36:31 | SDPATH file
+13:37:15 | step 87 pos 87 fed 40 -> top1 17 18.6031818 top2 29456 12.5936527 text "2"
+13:37:15 |   >> <|im_start|>system
+13:37:15 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:37:15 | <|im_start|>user
+13:37:15 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:37:15 | <|im_start|>assistant
+13:37:15 | SPI (Serial Peripheral Interface<|im_end|>
+13:37:15 | <|im_start|>user
+13:37:15 | And which one needs fewer wires?<|im_end|>
+13:37:15 | <|im_start|>assistant
+13:37:15 | I2C (Inter<|im_end|>
+13:37:15 | <|im_start|>user
+13:37:15 | Which one is faster?<|im_end|>
+13:37:15 | <|im_start|>assistant
+13:37:15 | I2
+13:37:15 |     step=87: 43.5 s: SD 1834.8 MB in 13.0 s (141.27 MB/s), PSRAM 1658 KB read 18.8 KB written in 0.45 s, compute 30.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:37:15 | STAGES step=87 embed=0.001 qkv=2.65 att=0.849 wo=1.90 ffn=32.56 head=5.56 hidden=29.33 temp_c=54.2
+13:37:15 | CARD step=87 fifoirq opens=217 interrupts=3759509
+13:37:58 | step 88 pos 88 fed 17 -> top1 34 20.4825363 top2 50 10.94629 text "C"
+13:37:58 |   >> <|im_start|>system
+13:37:58 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:37:58 | <|im_start|>user
+13:37:58 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:37:58 | <|im_start|>assistant
+13:37:58 | SPI (Serial Peripheral Interface<|im_end|>
+13:37:58 | <|im_start|>user
+13:37:58 | And which one needs fewer wires?<|im_end|>
+13:37:58 | <|im_start|>assistant
+13:37:58 | I2C (Inter<|im_end|>
+13:37:58 | <|im_start|>user
+13:37:58 | Which one is faster?<|im_end|>
+13:37:58 | <|im_start|>assistant
+13:37:58 | I2C
+13:37:58 |     step=88: 43.5 s: SD 1834.8 MB in 13.0 s (141.57 MB/s), PSRAM 1677 KB read 18.8 KB written in 0.46 s, compute 30.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:37:58 | STAGES step=88 embed=0.001 qkv=2.65 att=0.858 wo=1.90 ffn=32.53 head=5.56 hidden=29.33 temp_c=54.2
+13:37:58 | CARD step=88 fifoirq opens=217 interrupts=3759509
+13:38:42 | step 89 pos 89 fed 34 -> top1 374 17.0484905 top2 151645 16.4249096 text " is"
+13:38:42 |   >> <|im_start|>system
+13:38:42 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:38:42 | <|im_start|>user
+13:38:42 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:38:42 | <|im_start|>assistant
+13:38:42 | SPI (Serial Peripheral Interface<|im_end|>
+13:38:42 | <|im_start|>user
+13:38:42 | And which one needs fewer wires?<|im_end|>
+13:38:42 | <|im_start|>assistant
+13:38:42 | I2C (Inter<|im_end|>
+13:38:42 | <|im_start|>user
+13:38:42 | Which one is faster?<|im_end|>
+13:38:42 | <|im_start|>assistant
+13:38:42 | I2C is
+13:38:42 |     step=89: 43.5 s: SD 1834.8 MB in 13.0 s (141.31 MB/s), PSRAM 1696 KB read 18.8 KB written in 0.46 s, compute 30.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:38:42 | STAGES step=89 embed=0.001 qkv=2.65 att=0.866 wo=1.90 ffn=32.56 head=5.56 hidden=29.33 temp_c=54.2
+13:38:42 | CARD step=89 fifoirq opens=217 interrupts=3759509
+13:39:25 | step 90 pos 90 fed 374 -> top1 8789 17.2054787 top2 11136 15.2344809 text " generally"
+13:39:25 |   >> <|im_start|>system
+13:39:25 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+13:39:25 | <|im_start|>user
+13:39:25 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+13:39:25 | <|im_start|>assistant
+13:39:25 | SPI (Serial Peripheral Interface<|im_end|>
+13:39:25 | <|im_start|>user
+13:39:25 | And which one needs fewer wires?<|im_end|>
+13:39:25 | <|im_start|>assistant
+13:39:25 | I2C (Inter<|im_end|>
+13:39:25 | <|im_start|>user
+13:39:25 | Which one is faster?<|im_end|>
+13:39:25 | <|im_start|>assistant
+13:39:25 | I2C is generally
+13:39:25 |     step=90: 43.5 s: SD 1834.8 MB in 13.0 s (141.63 MB/s), PSRAM 1715 KB read 18.8 KB written in 0.47 s, compute 30.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+13:39:25 | STAGES step=90 embed=0.001 qkv=2.65 att=0.874 wo=1.90 ffn=32.53 head=5.56 hidden=29.33 temp_c=54.2
+13:39:25 | CARD step=90 fifoirq opens=217 interrupts=3759509
+13:39:25 |   ANSWER: "I2C is generally"
+13:39:25 |   6 passes over the weights in 506 s (prompt 332 s), 84.3 s each; 10.75 GB read from the card
+13:39:25 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+13:39:25 | RUN n_prompt=87 n_gen=4 prefill=1 passes=6 total_s=505.8 prompt_s=331.7 per_pass_s=84.30 sd_gb=10.751 sd_mbs=200.89 sd_s=54.8 compute_s=442.7 hidden_s=305.9 ps_s=8.3 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=36 ps_sw_s=0.07 temp_max_c=54.2

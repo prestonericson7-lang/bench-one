@@ -66,15 +66,29 @@
 #define TL_MAX_KVH     8
 #endif
 #ifndef TL_MAX_HEADS
-#define TL_MAX_HEADS   16
+#define TL_MAX_HEADS   32         /* Qwen3-30B-A3B: 32 query heads (the 3B has 16) */
 #endif
 #ifndef TL_MAX_LAYERS
-#define TL_MAX_LAYERS  40
+#define TL_MAX_LAYERS  48         /* Qwen3-30B-A3B: 48 (the 3B has 36) */
 #endif
 #ifndef TL_MAX_SEQ
 #define TL_MAX_SEQ     3072       /* the PSRAM holds only the attention cache: 3,072 positions of this model
                                      are 58.4 MB, which 7 banks hold as well as 8 (ATT below grows with it) */
 #endif
+/* The attention scores of every head at one position: heads x positions floats. Sized for the 3B's 16 heads at
+ * TL_MAX_SEQ; a model with more heads gets fewer positions (max_seq is clamped to TL_ATT_FLOATS / heads at open).
+ * The 30B's cache fills the PSRAM at ~1,300 positions anyway, under its 1,536 here. */
+#ifndef TL_ATT_FLOATS
+#define TL_ATT_FLOATS  (16 * TL_MAX_SEQ)
+#endif
+#define TL_MAX_HD      256        /* head_dim: the per-head q/k norm gains */
+/* MIXTURE OF EXPERTS (qwen3moe, 2026-10-16). The router's 128 logits per position, the 8 picks, an expert's
+ * hidden width (768 for Qwen3-30B-A3B), and the positions a batched pass feeds a MoE model (its buffers share
+ * the dense feed-forward's space in PB, which holds four positions' worth). */
+#define TL_MAX_EXPERT  128
+#define TL_MAX_EUSED   8
+#define TL_MAX_EFF     1024
+#define TL_MOE_BATCH   4
 #define TL_ROWBUF      TL_PIPEBUF
 #define TL_KCHUNK      64         /* cache positions pulled from PSRAM per read in attention */
 #define TL_KEYMAX      1024       /* longest tokenizer string accepted                        */
@@ -87,6 +101,14 @@
   #define TL_BIG __attribute__((section(".dmabuffers"), used, aligned(32)))
 #else
   #define TL_BIG __attribute__((aligned(32)))
+#endif
+/* Code that runs once (opening the model) goes to flash on the Teensy, not ITCM: ITCM grows in 32 KB banks
+ * carved out of the stack's RAM, and the 30B's code crossed an edge by 3 KB (stack -2 KB). noinline, or GCC
+ * folds it back into an ITCM caller. */
+#if defined(__IMXRT1062__)
+  #define TL_COLD __attribute__((section(".flashmem"), noinline))
+#else
+  #define TL_COLD
 #endif
 
 /* ---- error and statistics ---------------------------------------------------------------- */
@@ -263,18 +285,26 @@ int tl_fault_bank(void) { return g_fault_bank; }
 
 /* ---- the model --------------------------------------------------------------------------- */
 typedef struct {
-    uint32_t type, rows, cols, row_bytes;
     uint64_t off;             /* ABSOLUTE file offset of row 0 */
-    int      present;
+    uint32_t rows, cols, row_bytes;
+    uint16_t type;
+    uint8_t  present;         /* 24 bytes: 48 layers x 18 of these is the model table */
 } tten_t;
 
 typedef struct {
     tten_t   wq, wk, wv, wo, wg, wu, wd;
     tten_t   n_attn, n_ffn, bq, bk, bv;          /* small float tensors, read from the card where used */
+    tten_t   qn, kn;                             /* Qwen3: per-head q and k RMSNorm gains (head_dim) */
+    tten_t   rt, eg, eu, ed;                     /* mixture of experts: the router (F32, experts x dim) and the
+                                                    three expert stacks, expert e's rows at e x eff (gate, up)
+                                                    and e x dim (down) */
 } tlayer_t;
 
 static struct {
     int      n_layer, dim, hidden, n_heads, n_kv, head_dim, q_dim, kv_dim, vocab, max_seq;
+    int      n_expert, n_used, eff;              /* 0 0 0 for a dense model */
+    int      qm;                                 /* PB rows a q_dim vector takes: 1, or 2 when q_dim > dim limit */
+    int      batch;                              /* positions a pass may feed (tl_batch) */
     float    eps, rope_base;
     tlayer_t L[TL_MAX_LAYERS];
     tten_t   embd, onorm, out;
@@ -294,7 +324,10 @@ static struct {
     int      layer_slots, spare_slots, one_bank_spare, banks_used;
     uint32_t ps_used;
     int      open;
-} M;
+} M TL_BIG;                    /* OCRAM on the Teensy: 21 KB at 48 layers, and not touched in an inner loop */
+/* whether M holds an open model. NOT M.open: the Teensy's startup zeroes only DTCM (.bss), never OCRAM
+ * (.bss.dma, where TL_BIG puts M), so before the first tl_open M is whatever the RAM powered up holding */
+static int g_mopen;
 
 /* ---- on-chip buffers ---------------------------------------------------------------------- */
 static float   X[TL_MAX_DIM], XB[TL_MAX_DIM], XB2[TL_MAX_DIM], Q[TL_MAX_DIM];
@@ -328,6 +361,19 @@ typedef struct {
             float   hs[TL_BATCH][TL_MAX_HIDDEN / 32 + 1];
             int32_t hsum[TL_BATCH][TL_MAX_HIDDEN / 32 + 1];
         } h;
+        /* a mixture-of-experts layer's feed-forward, for up to TL_MOE_BATCH positions (moe_ffn_n): the normed
+         * input in float (the router is a float matrix), the weighted sum of the experts' outputs, one expert's
+         * hidden (gate, then SwiGLU in place) and that hidden quantized for its down projection, and the router's
+         * scores. 87 KB inside the dense layout's 110: q is dead after attention, h unused by a MoE model. */
+        struct {
+            float   xin[TL_MOE_BATCH][TL_MAX_DIM];
+            float   acc[TL_MOE_BATCH][TL_MAX_DIM];
+            float   h[TL_MOE_BATCH][TL_MAX_EFF];
+            int8_t  hq[TL_MOE_BATCH][TL_MAX_EFF];
+            float   hs[TL_MOE_BATCH][TL_MAX_EFF / 32 + 1];
+            int32_t hsum[TL_MOE_BATCH][TL_MAX_EFF / 32 + 1];
+            float   rl[TL_MOE_BATCH][TL_MAX_EXPERT];
+        } m;
     } c;
 } tl_batch_t;
 typedef struct { float hb[TL_MAX_HIDDEN], hb2[TL_MAX_HIDDEN]; } tl_tok_t;
@@ -340,11 +386,11 @@ void *tl_scratch(uint32_t *bytes) { if (bytes) *bytes = (uint32_t)sizeof AR; ret
 /* one of the two row buffers a pass works rows from (DTCM on the Teensy, not cached); a board's kernel bench
  * borrows it between passes, so it times rows where the model keeps them */
 void *tl_rowbuf(uint32_t *bytes) { if (bytes) *bytes = TL_PIPEBUF; return PIPE[0]; }
-int   tl_batch(void) { return TL_BATCH; }
+int   tl_batch(void) { return g_mopen ? M.batch : TL_BATCH; }
 static int8_t  XQ[TL_MAX_HIDDEN];
 static float   XS[TL_MAX_HIDDEN / 32 + 1];
 static int32_t XSUM[TL_MAX_HIDDEN / 32 + 1];
-static float   ATT[TL_MAX_HEADS * TL_MAX_SEQ] TL_BIG;
+static float   ATT[TL_ATT_FLOATS] TL_BIG;
 
 static int8_t  KC[TL_KCHUNK * TL_MAX_KVDIM];
 static float   KCS[TL_KCHUNK * TL_MAX_KVH];
@@ -355,6 +401,7 @@ static int      g_bank_slots[TL_MAX_BANKS], g_bank_used[TL_MAX_BANKS];
 static int8_t  KQ8[TL_MAX_KVDIM], VQ8[TL_MAX_KVDIM];
 static float   KSC[TL_MAX_KVH], VSC[TL_MAX_KVH];
 static float   G_A[TL_MAX_DIM], G_F[TL_MAX_DIM], BQ[TL_MAX_DIM], BK[TL_MAX_KVDIM], BV[TL_MAX_KVDIM];
+static float   G_QN[TL_MAX_HD], G_KN[TL_MAX_HD];  /* Qwen3's per-head q/k norm gains, this layer's */
 
 /* ================================================================================================
  *  GGUF, read sequentially through a 4 KB window
@@ -821,7 +868,7 @@ static int32_t special_at(const char *s, int *len)
 
 int tl_encode(const char *text, int32_t *out, int max)
 {
-    if (!M.open) return -1;
+    if (!g_mopen) return -1;
     int n = 0;
     const char *s = text;
     while (*s) {
@@ -893,11 +940,14 @@ static int assign_tensor(const char *name, uint32_t type, const uint64_t *dims, 
         { "ffn_down.weight",    offsetof(tlayer_t, wd) },     { "attn_norm.weight", offsetof(tlayer_t, n_attn) },
         { "ffn_norm.weight",    offsetof(tlayer_t, n_ffn) },  { "attn_q.bias",     offsetof(tlayer_t, bq) },
         { "attn_k.bias",        offsetof(tlayer_t, bk) },     { "attn_v.bias",     offsetof(tlayer_t, bv) },
+        { "attn_q_norm.weight", offsetof(tlayer_t, qn) },     { "attn_k_norm.weight", offsetof(tlayer_t, kn) },
+        { "ffn_gate_inp.weight", offsetof(tlayer_t, rt) },    { "ffn_gate_exps.weight", offsetof(tlayer_t, eg) },
+        { "ffn_up_exps.weight", offsetof(tlayer_t, eu) },     { "ffn_down_exps.weight", offsetof(tlayer_t, ed) },
     };
     for (size_t k = 0; k < sizeof K / sizeof K[0]; k++)
         if (!strcmp(p, K[k].s)) return set_tensor((tten_t *)((char *)L + K[k].o), type, dims, nd, off);
     /* Anything else in a block means a model this runtime does not implement -- refuse rather than run
-     * a different network: Qwen3's q/k norms, mixture-of-experts tensors, and so on. */
+     * a different network (a shared expert, a sliding-window mask, and so on). */
     snprintf(g_err, sizeof g_err, "unsupported tensor %s", name);
     return -1;
 }
@@ -950,8 +1000,9 @@ static int tok_store_sum(uint32_t bytes, uint64_t *sum)
 }
 
 #define TL_REBUILD (-2)
-static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
+TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
 {
+    g_mopen = 0;
     memset(&M, 0, sizeof M);
     memset(&R, 0, sizeof R);
     nsc = 0; g_arch[0] = 0; g_err[0] = 0;
@@ -1081,11 +1132,18 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         const char *a = sc_str("general.architecture");
         if (!a) { snprintf(g_err, sizeof g_err, "no general.architecture"); FAIL(); }
         snprintf(g_arch, sizeof g_arch, "%s", a);
-        if (strcmp(g_arch, "qwen2")) { snprintf(g_err, sizeof g_err, "architecture %s: this runtime implements qwen2", g_arch); FAIL(); }
+        if (strcmp(g_arch, "qwen2") && strcmp(g_arch, "qwen3moe")) {
+            snprintf(g_err, sizeof g_err, "architecture %s: this runtime implements qwen2 and qwen3moe", g_arch);
+            FAIL();
+        }
     }
+    const int moe = !strcmp(g_arch, "qwen3moe");
     M.n_layer   = (int)arch_int("block_count", 0);
     M.dim       = (int)arch_int("embedding_length", 0);
-    M.hidden    = (int)arch_int("feed_forward_length", 0);
+    M.hidden    = moe ? 0 : (int)arch_int("feed_forward_length", 0);
+    M.n_expert  = moe ? (int)arch_int("expert_count", 0) : 0;
+    M.n_used    = moe ? (int)arch_int("expert_used_count", 0) : 0;
+    M.eff       = moe ? (int)arch_int("expert_feed_forward_length", 0) : 0;
     M.n_heads   = (int)arch_int("attention.head_count", 0);
     M.n_kv      = (int)arch_int("attention.head_count_kv", M.n_heads);
     M.eps       = (float)arch_flt("attention.layer_norm_rms_epsilon", 1e-6);
@@ -1097,11 +1155,23 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
     }
     M.q_dim  = M.n_heads * M.head_dim;
     M.kv_dim = M.n_kv * M.head_dim;
-    if (arch_int("expert_count", 0) > 0) { snprintf(g_err, sizeof g_err, "mixture-of-experts is not implemented here"); FAIL(); }
-    if (M.n_layer > TL_MAX_LAYERS || M.dim > TL_MAX_DIM || M.q_dim > TL_MAX_DIM || M.hidden > TL_MAX_HIDDEN ||
-        M.kv_dim > TL_MAX_KVDIM || M.n_kv > TL_MAX_KVH || M.n_heads > TL_MAX_HEADS || M.n_heads % M.n_kv) {
-        snprintf(g_err, sizeof g_err, "model shape over this build's limits (layers %d dim %d hidden %d heads %d kv %d)",
-                 M.n_layer, M.dim, M.hidden, M.n_heads, M.n_kv);
+    if (!moe && arch_int("expert_count", 0) > 0) { snprintf(g_err, sizeof g_err, "%s with experts", g_arch); FAIL(); }
+    if (moe && (M.n_expert < 1 || M.n_expert > TL_MAX_EXPERT || M.n_used < 1 || M.n_used > TL_MAX_EUSED ||
+                M.n_used > M.n_expert || M.eff < 32 || M.eff > TL_MAX_EFF || M.eff % 32)) {
+        snprintf(g_err, sizeof g_err, "experts over this build's limits (%d experts, %d used, width %d)", M.n_expert, M.n_used, M.eff);
+        FAIL();
+    }
+    /* A query wider than TL_MAX_DIM (the 30B: 32 heads x 128 = 4096 over a 2048 residual) takes two PB rows a
+     * position, so a batched pass feeds half the positions; the PB arrays keep their size. */
+    M.qm = (M.q_dim + TL_MAX_DIM - 1) / TL_MAX_DIM;
+    M.batch = TL_BATCH / (M.qm > 0 ? M.qm : 1);
+    if (M.n_expert && M.batch > TL_MOE_BATCH) M.batch = TL_MOE_BATCH;
+    if (M.n_layer > TL_MAX_LAYERS || M.dim > TL_MAX_DIM || M.qm < 1 || M.qm > 2 || M.hidden > TL_MAX_HIDDEN ||
+        M.kv_dim > TL_MAX_KVDIM || M.n_kv > TL_MAX_KVH || M.n_heads > TL_MAX_HEADS || M.n_heads % M.n_kv ||
+        M.head_dim > TL_MAX_HD || (M.qm > 1 && M.q_dim > TL_BATCH * TL_MAX_KVDIM) || M.batch < 1) {
+        /* (the last-but-one: tl_step puts a wide query's attention output in PB.k, which is free by then) */
+        snprintf(g_err, sizeof g_err, "model shape over this build's limits (layers %d dim %d q %d hidden %d heads %d kv %d)",
+                 M.n_layer, M.dim, M.q_dim, M.hidden, M.n_heads, M.n_kv);
         FAIL();
     }
     if (!M.embd.present) { snprintf(g_err, sizeof g_err, "no token_embd.weight"); FAIL(); }
@@ -1122,18 +1192,39 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
     uint64_t per_tok = 0;
     for (int l = 0; l < M.n_layer; l++) {
         tlayer_t *L = &M.L[l];
-        tten_t *all[] = { &L->wq, &L->wk, &L->wv, &L->wo, &L->wg, &L->wu, &L->wd, &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv };
+        tten_t *all[] = { &L->wq, &L->wk, &L->wv, &L->wo, &L->wg, &L->wu, &L->wd, &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv,
+                          &L->qn, &L->kn, &L->rt, &L->eg, &L->eu, &L->ed };
         for (size_t k = 0; k < sizeof all / sizeof all[0]; k++) if (all[k]->present) all[k]->off += M.data_start;
         if (check_mat(&L->wq, (uint32_t)M.q_dim,  (uint32_t)M.dim,    "attn_q", l) ||
             check_mat(&L->wk, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_k", l) ||
             check_mat(&L->wv, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_v", l) ||
-            check_mat(&L->wo, (uint32_t)M.dim,    (uint32_t)M.q_dim,  "attn_output", l) ||
-            check_mat(&L->wg, (uint32_t)M.hidden, (uint32_t)M.dim,    "ffn_gate", l) ||
-            check_mat(&L->wu, (uint32_t)M.hidden, (uint32_t)M.dim,    "ffn_up", l) ||
-            check_mat(&L->wd, (uint32_t)M.dim,    (uint32_t)M.hidden, "ffn_down", l)) FAIL();
+            check_mat(&L->wo, (uint32_t)M.dim,    (uint32_t)M.q_dim,  "attn_output", l)) FAIL();
         if (!L->n_attn.present || !L->n_ffn.present) { snprintf(g_err, sizeof g_err, "layer %d has no norms", l); FAIL(); }
-        const tten_t *mats[] = { &L->wq, &L->wk, &L->wv, &L->wo, &L->wg, &L->wu, &L->wd };
-        for (size_t k = 0; k < 7; k++) per_tok += (uint64_t)mats[k]->rows * mats[k]->row_bytes;
+        const tten_t *mats[] = { &L->wq, &L->wk, &L->wv, &L->wo };
+        for (size_t k = 0; k < 4; k++) per_tok += (uint64_t)mats[k]->rows * mats[k]->row_bytes;
+        if (moe) {
+            if (L->wg.present || L->wu.present || L->wd.present) { snprintf(g_err, sizeof g_err, "layer %d: dense and expert feed-forward both", l); FAIL(); }
+            if (!L->qn.present || !L->kn.present) { snprintf(g_err, sizeof g_err, "layer %d has no q/k norms", l); FAIL(); }
+            const uint32_t ne = (uint32_t)M.n_expert, ef = (uint32_t)M.eff, d = (uint32_t)M.dim;
+            if (!L->rt.present || L->rt.type != GGML_F32 || L->rt.rows != ne || L->rt.cols != d || L->rt.row_bytes > TL_ROWBUF) {
+                snprintf(g_err, sizeof g_err, "layer %d: the router is not an F32 %lux%lu matrix", l, (unsigned long)ne, (unsigned long)d);
+                FAIL();
+            }
+            if (check_mat(&L->eg, ne * ef, d,  "ffn_gate_exps", l) || check_mat(&L->eu, ne * ef, d, "ffn_up_exps", l) ||
+                check_mat(&L->ed, ne * d,  ef, "ffn_down_exps", l)) FAIL();
+            if ((L->eg.row_bytes % 4) || (L->eu.row_bytes % 4)) { snprintf(g_err, sizeof g_err, "layer %d: expert rows not 4-aligned", l); FAIL(); }
+            /* only the experts that fire come off the card -- the whole reason a 30B is worth running -- and the
+             * router in full */
+            per_tok += (uint64_t)M.n_used * ef * (L->eg.row_bytes + L->eu.row_bytes) + (uint64_t)M.n_used * d * L->ed.row_bytes;
+            per_tok += (uint64_t)L->rt.rows * L->rt.row_bytes;
+        } else {
+            if (L->rt.present || L->eg.present) { snprintf(g_err, sizeof g_err, "layer %d: experts in a dense model", l); FAIL(); }
+            if (check_mat(&L->wg, (uint32_t)M.hidden, (uint32_t)M.dim,    "ffn_gate", l) ||
+                check_mat(&L->wu, (uint32_t)M.hidden, (uint32_t)M.dim,    "ffn_up", l) ||
+                check_mat(&L->wd, (uint32_t)M.dim,    (uint32_t)M.hidden, "ffn_down", l)) FAIL();
+            per_tok += (uint64_t)L->wg.rows * L->wg.row_bytes + (uint64_t)L->wu.rows * L->wu.row_bytes +
+                       (uint64_t)L->wd.rows * L->wd.row_bytes;
+        }
     }
     {
         const tten_t *head = M.tied ? &M.embd : &M.out;
@@ -1186,9 +1277,10 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         tlayer_t *L = &M.L[l];
         if (small_check(&L->n_attn, (uint32_t)M.dim) || small_check(&L->n_ffn, (uint32_t)M.dim) ||
             small_check(&L->bq, (uint32_t)M.q_dim) || small_check(&L->bk, (uint32_t)M.kv_dim) ||
-            small_check(&L->bv, (uint32_t)M.kv_dim)) FAIL();
-        const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv };
-        for (size_t k = 0; k < 5; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
+            small_check(&L->bv, (uint32_t)M.kv_dim) || small_check(&L->qn, (uint32_t)M.head_dim) ||
+            small_check(&L->kn, (uint32_t)M.head_dim)) FAIL();
+        const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv, &L->qn, &L->kn };
+        for (size_t k = 0; k < 7; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
     }
     if (small_check(&M.onorm, (uint32_t)M.dim)) FAIL();
     per_tok += (uint64_t)M.onorm.rows * M.onorm.row_bytes;
@@ -1201,7 +1293,9 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
     {
         const uint64_t per_pos = 2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv + 8u;
         int s_red = 0, s_max = 0;
-        for (int lo = 16, hi = TL_MAX_SEQ; lo <= hi; ) {              /* slots fall as S grows: binary search */
+        int s_lim = TL_ATT_FLOATS / M.n_heads;                        /* every head's scores at one position */
+        if (s_lim > TL_MAX_SEQ) s_lim = TL_MAX_SEQ;
+        for (int lo = 16, hi = s_lim; lo <= hi; ) {                   /* slots fall as S grows: binary search */
             const int mid = (lo + hi) / 2;
             int total = 0, biggest = 0;
             for (int b = 0; b < g_nbank; b++) {
@@ -1248,6 +1342,7 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         M.ps_used = (uint32_t)M.n_layer * M.layer_bytes;
     }
     M.open = 1;
+    g_mopen = 1;
 
     if (info) {
         memset(info, 0, sizeof *info);
@@ -1259,6 +1354,7 @@ static int tl_open_try(tl_info_t *info, char *err, int errlen, int force_build)
         info->tok_store_bytes = TOK_HDR + tok_bytes; info->tok_built = !reuse;
         info->banks = g_nbank; info->banks_used = M.banks_used; info->layer_slots = M.layer_slots;
         info->spare_slots = M.spare_slots; info->one_bank_spare = M.one_bank_spare; info->layer_bytes = M.layer_bytes;
+        info->n_expert = M.n_expert; info->n_used = M.n_used; info->eff = M.eff; info->batch = M.batch;
     }
     tl_stats_reset();
     return 0;
@@ -1306,6 +1402,18 @@ static void rope(float *v, int n_heads, int head_dim, int pos, float base)
             p[i]        = x0 * c - x1 * s;
             p[i + half] = x0 * s + x1 * c;
         }
+    }
+}
+
+/* model_q.c's head_norm, verbatim: Qwen3's RMSNorm WITHIN each head of q or k, before the rotation */
+static void head_norm(float *v, int heads, int hd, const float *gain, float eps)
+{
+    for (int h = 0; h < heads; h++) {
+        float *p = v + (size_t)h * hd;
+        float ss = 0.0f;
+        for (int i = 0; i < hd; i++) ss += p[i] * p[i];
+        const float inv = 1.0f / sqrtf(ss / (float)hd + eps);
+        for (int i = 0; i < hd; i++) p[i] = p[i] * inv * gain[i];
     }
 }
 
@@ -1499,13 +1607,13 @@ static int attention(int l, int base, int pos, const float *q, float *out)
     return 0;
 }
 
-int tl_layer_bank(int l) { return (M.open && l >= 0 && l < M.n_layer) ? PL[l].bank : -1; }
+int tl_layer_bank(int l) { return (g_mopen && l >= 0 && l < M.n_layer) ? PL[l].bank : -1; }
 
 /* A bank has failed: retire it and move each of its layers to a free slot on a live bank. What those layers
  * held is gone, so the caller re-runs the prompt; every position is then recomputed, exactly. */
 int tl_bank_fault(int bank)
 {
-    if (!M.open || bank < 0 || bank >= g_nbank) { snprintf(g_err, sizeof g_err, "no such bank %d", bank); return -1; }
+    if (!g_mopen || bank < 0 || bank >= g_nbank) { snprintf(g_err, sizeof g_err, "no such bank %d", bank); return -1; }
     if (g_bank_dead[bank]) { snprintf(g_err, sizeof g_err, "bank %d already retired", bank); return -1; }
     int need = 0, have = 0;
     for (int l = 0; l < M.n_layer; l++) need += PL[l].bank == bank;
@@ -1533,7 +1641,7 @@ int tl_bank_fault(int bank)
 /* The cache the way attention uses it, timed (tl_core.h). Layer 0's region; between prompts only. */
 int tl_cache_bench(int n, double *t_write, double *t_read, uint32_t *reread)
 {
-    if (!M.open) return -1;
+    if (!g_mopen) return -1;
     if (n > M.max_seq) n = M.max_seq;
     const uint32_t r0 = S.ps_rows_reread;
     double t = plat_now();
@@ -1559,7 +1667,7 @@ int tl_cache_bench(int n, double *t_write, double *t_read, uint32_t *reread)
 int tl_matrix(int layer, int which, uint64_t *off, uint32_t *type, uint32_t *rows, uint32_t *cols,
               uint32_t *row_bytes)
 {
-    if (!M.open || which < 0 || which > 7) return -1;
+    if (!g_mopen || which < 0 || which > 7) return -1;
     const tten_t *t;
     if (which == 7) t = &M.embd;
     else {
@@ -1567,17 +1675,39 @@ int tl_matrix(int layer, int which, uint64_t *off, uint32_t *type, uint32_t *row
         const tlayer_t *L = &M.L[layer];
         const tten_t *all[7] = { &L->wq, &L->wk, &L->wv, &L->wo, &L->wg, &L->wu, &L->wd };
         t = all[which];
+        if (M.n_expert && which >= 4) {            /* a MoE layer: expert 0's gate, up or down rows */
+            const tten_t *ex[3] = { &L->eg, &L->eu, &L->ed };
+            t = ex[which - 4];
+            if (!t->present) return -1;
+            *off = t->off; *type = t->type; *rows = (uint32_t)(which == 6 ? M.dim : M.eff); *cols = t->cols;
+            *row_bytes = t->row_bytes;
+            return 0;
+        }
     }
     if (!t->present) return -1;
     *off = t->off; *type = t->type; *rows = t->rows; *cols = t->cols; *row_bytes = t->row_bytes;
     return 0;
 }
 
+static int g_logits_from;                 /* tl_set_logits_from, below */
+
 int tl_forward(int32_t token, int pos, int32_t *top1, float *l1, int32_t *top2, float *l2)
 {
-    if (!M.open) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
+    if (!g_mopen) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
     if (pos < 0 || pos >= M.max_seq) { snprintf(g_err, sizeof g_err, "position %d outside 0..%d", pos, M.max_seq - 1); return -1; }
     if (token < 0 || token >= M.vocab) { snprintf(g_err, sizeof g_err, "token %d outside the vocabulary", (int)token); return -1; }
+    if (M.n_expert || M.qm > 1 || M.L[0].qn.present) {
+        /* A mixture-of-experts model (or a query wider than the dim buffers, or Qwen3's head norms) runs through
+         * the batched pass with one slot: tl_step at n = 1 is the per-token arithmetic -- the PC proves the two
+         * paths identical for the 3B (verify_pc.py: per token and prompt-batched both equal tl_ref) -- and the
+         * expert machinery then exists once. Every slot's scores are wanted here. */
+        int p = pos, b = 0;
+        const int was = g_logits_from;
+        g_logits_from = 0;
+        const int r = tl_step(&token, &p, &b, 1, top1, l1, top2, l2);
+        g_logits_from = was;
+        return r;
+    }
     const double t_start = plat_now();
     const int dim = M.dim, hd = M.head_dim, nkv = M.n_kv, nh = M.n_heads, kv_dim = M.kv_dim;
 
@@ -1746,7 +1876,7 @@ static int head_n(const tten_t *w, int n, int presum, float *b1, int32_t *i1, fl
     it.b1 = b1; it.b2 = b2; it.i1 = i1; it.i2 = i2;
     for (int p = 0; p < n; p++) {
         b1[p] = -INFINITY; b2[p] = -INFINITY; i1[p] = 0; i2[p] = -1;
-        it.xqp[p] = PB.xq[p]; it.xsp[p] = PB.xs[p]; it.xmp[p] = PB.xsum[p];
+        it.xqp[p] = PB.xq[p * M.qm]; it.xsp[p] = PB.xs[p * M.qm]; it.xmp[p] = PB.xsum[p * M.qm];
     }
     return pipeline(next_rowsn, &it);
 }
@@ -1767,6 +1897,15 @@ static int head_n(const tten_t *w, int n, int presum, float *b1, int32_t *i1, fl
  * are placed by their absolute index (r % G): the pipeline works block i while block i+1 is read, after the
  * iterator has already moved on. */
 static int g_ffn_group = TL_FFN_GMAX;
+
+/* the output head only for slots from `slot` on (0: all, the default; tl_step's n or more: none) */
+static int g_logits_from = 0;
+int tl_set_logits_from(int slot)
+{
+    const int was = g_logits_from;
+    if (slot >= 0) g_logits_from = slot;
+    return was;
+}
 
 int tl_set_ffn_group(int g)
 {
@@ -1875,23 +2014,235 @@ static int ffn_gate_up_n(const tlayer_t *L, int n, int down_presum)
     return pipeline(next_ffn, &it);
 }
 
+/* ================================================================================================
+ *  THE MIXTURE-OF-EXPERTS FEED-FORWARD, for the n positions of one pass (qwen3moe, 2026-10-16)
+ *
+ *  model_q.c's arithmetic, operation for operation: the router a float matrix dotted in plain order, softmax
+ *  over every expert, the top n_used picked and renormalised, then -- the one order this file chose and model_q
+ *  adopted with it -- the picks summed in ascending expert number. Each picked expert's gate and up rows
+ *  against the quantized normed input, SwiGLU, that hidden quantized, its down rows, and the result times the
+ *  expert's weight added into a sum the residual takes at the end.
+ *
+ *  WHAT COMES OFF THE CARD: the router (1 MB a layer, F32) and, for each expert any position picked, that
+ *  expert's gate, up and down rows -- read ONCE for every position that picked it. A pass walks the experts in
+ *  ascending number, so the card reads each expert stack front to back, and each position's sum receives its
+ *  experts in ascending order, which is what makes a batched pass equal the per-token one to the bit.
+ *
+ *  One pipeline for the whole layer: expert after expert, gate rows, up rows, down rows. The pipeline works
+ *  block i while block i+1 comes off the card, and block i+1 may already belong to the next expert -- so every
+ *  job carries its own expert's context (tl_ex_t), never the iterator's. One hidden buffer serves every expert:
+ *  an expert's down blocks are all worked before the next expert's first gate block. */
+typedef struct it_moe it_moe;
+typedef struct {
+    it_moe        *it;
+    int            e, np;                       /* the expert, and how many of the pass's positions picked it */
+    int            pos[TL_MOE_BATCH];           /* those positions (pass slots), ascending */
+    float          w[TL_MOE_BATCH];             /* each one's renormalised weight for this expert */
+    const int8_t  *xqp[TL_MOE_BATCH];           /* their quantized normed inputs (gate and up) */
+    const float   *xsp[TL_MOE_BATCH];
+    const int32_t *xmp[TL_MOE_BATCH];
+} tl_ex_t;
+struct it_moe {
+    const tlayer_t *L;
+    int nx, x, part, r;                         /* experts this layer; the one being read; 0 gate 1 up 2 down; rows done */
+    int blk[3];                                 /* rows a block, per part */
+    int gp, up, dp;                             /* Q4_K presum kernels for gate, up, down */
+    const int8_t  *hqp[TL_MOE_BATCH];           /* the hidden, quantized, by expert-local index */
+    const float   *hsp[TL_MOE_BATCH];
+    const int32_t *hmp[TL_MOE_BATCH];
+    tl_ex_t ex[TL_MOE_BATCH * TL_MAX_EUSED];
+};
+static it_moe MI;
+
+/* the router: one F32 row, every position, model_q's scalar loop */
+typedef struct { int n; } it_rt;
+static void row_router(void *c, const uint8_t *p, int r)
+{
+    const it_rt *it = (const it_rt *)c;
+    const float *row = (const float *)p;        /* 4-aligned: tensor data is 32-aligned, rows are 4*dim bytes */
+    for (int q = 0; q < it->n; q++) {
+        const float *xin = PB.c.m.xin[q];
+        float acc = 0.0f;
+        for (int i = 0; i < M.dim; i++) acc += row[i] * xin[i];
+        PB.c.m.rl[q][r] = acc;
+    }
+}
+typedef struct { const tten_t *w; int r, per; it_rt c; } it_rtn;
+static int next_router(void *v, tl_job *j)
+{
+    it_rtn *it = (it_rtn *)v;
+    if (it->r >= (int)it->w->rows) return 0;
+    const int k = ((int)it->w->rows - it->r) < it->per ? ((int)it->w->rows - it->r) : it->per;
+    j->off = it->w->off + (uint64_t)it->r * it->w->row_bytes; j->rb = it->w->row_bytes;
+    j->r0 = it->r; j->k = k; j->row = row_router; j->done = 0; j->c = &it->c;
+    it->r += k;
+    return 1;
+}
+
+static void row_egate(void *c, const uint8_t *p, int r)
+{
+    const tl_ex_t *x = (const tl_ex_t *)c;
+    float v[TL_MOE_BATCH];
+    if (x->it->gp) gguf_dot_q4k_presum_n(p, x->np, x->xqp, x->xsp, x->xmp, x->it->L->eg.cols, v);
+    else           gguf_dot_q_n(x->it->L->eg.type, p, x->np, x->xqp, x->xsp, x->it->L->eg.cols, v);
+    for (int q = 0; q < x->np; q++) PB.c.m.h[q][r] = v[q];
+}
+static void row_eup(void *c, const uint8_t *p, int r)
+{
+    const tl_ex_t *x = (const tl_ex_t *)c;
+    float v[TL_MOE_BATCH];
+    if (x->it->up) gguf_dot_q4k_presum_n(p, x->np, x->xqp, x->xsp, x->xmp, x->it->L->eu.cols, v);
+    else           gguf_dot_q_n(x->it->L->eu.type, p, x->np, x->xqp, x->xsp, x->it->L->eu.cols, v);
+    for (int q = 0; q < x->np; q++) {           /* model_q's SwiGLU, on the gate value in place */
+        float *h = &PB.c.m.h[q][r];
+        const float g = *h;
+        *h = (g / (1.0f + tlm_expf(-g))) * v[q];
+    }
+}
+/* after the expert's last up row: its hidden quantized for the down projection, as model_q quantizes each expert's */
+static void moe_swiglu(void *c, int r0, int k)
+{
+    (void)r0; (void)k;
+    const tl_ex_t *x = (const tl_ex_t *)c;
+    for (int q = 0; q < x->np; q++) {
+        gguf_quantize_act(PB.c.m.h[q], (uint64_t)M.eff, PB.c.m.hq[q], PB.c.m.hs[q]);
+        if (x->it->dp) gguf_act_sums(PB.c.m.hq[q], (uint64_t)M.eff, PB.c.m.hsum[q]);
+    }
+}
+static void row_edown(void *c, const uint8_t *p, int r)
+{
+    const tl_ex_t *x = (const tl_ex_t *)c;
+    const it_moe *it = x->it;
+    float v[TL_MOE_BATCH];
+    if (it->dp) gguf_dot_q4k_presum_n(p, x->np, it->hqp, it->hsp, it->hmp, it->L->ed.cols, v);
+    else        gguf_dot_q_n(it->L->ed.type, p, x->np, it->hqp, it->hsp, it->L->ed.cols, v);
+    for (int q = 0; q < x->np; q++) PB.c.m.acc[x->pos[q]][r] += x->w[q] * v[q];   /* acc[i] += w * o[i] */
+}
+static int next_moe(void *v, tl_job *j)
+{
+    it_moe *it = (it_moe *)v;
+    if (it->x >= it->nx) return 0;
+    tl_ex_t *x = &it->ex[it->x];
+    const tten_t *w = it->part == 0 ? &it->L->eg : it->part == 1 ? &it->L->eu : &it->L->ed;
+    const int rows = it->part == 2 ? M.dim : M.eff;
+    /* near-equal blocks (as next_ffn), an even count when a row is not a multiple of 4 bytes (Q6_K down rows
+     * of 768 are 630) so every block starts 4-aligned */
+    const int nb = (rows + it->blk[it->part] - 1) / it->blk[it->part];
+    int even = (rows + nb - 1) / nb;
+    if ((w->row_bytes % 4) && (even & 1)) even++;
+    if (even > it->blk[it->part]) even = it->blk[it->part];
+    const int k = (rows - it->r) < even ? (rows - it->r) : even;
+    j->off = w->off + ((uint64_t)x->e * (uint64_t)rows + (uint64_t)it->r) * w->row_bytes; j->rb = w->row_bytes;
+    j->r0 = it->r; j->k = k;
+    j->row = it->part == 0 ? row_egate : it->part == 1 ? row_eup : row_edown;
+    j->done = (it->part == 1 && it->r + k == rows) ? moe_swiglu : 0;
+    j->c = x;
+    it->r += k;
+    if (it->r == rows) { it->r = 0; if (++it->part == 3) { it->part = 0; it->x++; } }
+    return 1;
+}
+
+static int moe_ffn_n(const tlayer_t *L, int n)
+{
+    const int dim = M.dim, ne = M.n_expert, ku = M.n_used, qm = M.qm;
+    it_moe *it = &MI;
+    memset(it, 0, sizeof *it);
+    it->L = L;
+    it->gp = L->eg.type == GGML_Q4_K; it->up = L->eu.type == GGML_Q4_K; it->dp = L->ed.type == GGML_Q4_K;
+    /* the normed input: in float for the router, quantized once for every expert's gate and up (experts_fused) */
+    for (int p = 0; p < n; p++) {
+        rmsnorm(PB.c.m.xin[p], PB.x[p], G_F, dim, M.eps);
+        gguf_quantize_act(PB.c.m.xin[p], (uint64_t)dim, PB.xq[p * qm], PB.xs[p * qm]);
+        gguf_act_sums(PB.xq[p * qm], (uint64_t)dim, PB.xsum[p * qm]);   /* presum == gguf_dot_q to the bit */
+    }
+    /* the router, every row once for all positions */
+    {
+        it_rtn r;
+        memset(&r, 0, sizeof r);
+        r.w = &L->rt; r.per = pipe_rows(L->rt.row_bytes); r.c.n = n;
+        if (!r.per) { snprintf(g_err, sizeof g_err, "router row wider than the row buffer"); return -1; }
+        if (pipeline(next_router, &r)) return -1;
+    }
+    /* route() of model_q, per position: softmax, the top ku (first index on a tie), renormalised, then sorted by
+     * expert number for the sum */
+    int pick[TL_MOE_BATCH][TL_MAX_EUSED];
+    float wgt[TL_MOE_BATCH][TL_MAX_EUSED];
+    for (int p = 0; p < n; p++) {
+        float *pr = PB.c.m.rl[p];
+        softmax(pr, ne);
+        for (int j = 0; j < ku; j++) {
+            int best = -1;
+            float bv = -1e30f;
+            for (int e = 0; e < ne; e++) {
+                int taken = 0;
+                for (int q = 0; q < j; q++) if (pick[p][q] == e) { taken = 1; break; }
+                if (!taken && pr[e] > bv) { bv = pr[e]; best = e; }
+            }
+            pick[p][j] = best;
+            wgt[p][j] = bv;
+        }
+        float sum = 0.0f;
+        for (int j = 0; j < ku; j++) sum += wgt[p][j];
+        if (sum > 0.0f) for (int j = 0; j < ku; j++) wgt[p][j] /= sum;
+        for (int j = 1; j < ku; j++) {
+            const int pe = pick[p][j];
+            const float pw = wgt[p][j];
+            int q = j - 1;
+            while (q >= 0 && pick[p][q] > pe) { pick[p][q + 1] = pick[p][q]; wgt[p][q + 1] = wgt[p][q]; q--; }
+            pick[p][q + 1] = pe; wgt[p][q + 1] = pw;
+        }
+    }
+    /* the experts any position picked, ascending, each with the positions that picked it */
+    for (int e = 0; e < ne; e++) {
+        tl_ex_t *x = &it->ex[it->nx];
+        x->np = 0;
+        for (int p = 0; p < n; p++)
+            for (int j = 0; j < ku; j++)
+                if (pick[p][j] == e) {
+                    x->pos[x->np] = p; x->w[x->np] = wgt[p][j];
+                    x->xqp[x->np] = PB.xq[p * qm]; x->xsp[x->np] = PB.xs[p * qm]; x->xmp[x->np] = PB.xsum[p * qm];
+                    x->np++;
+                    break;
+                }
+        if (x->np) { x->it = it; x->e = e; it->nx++; }
+    }
+    for (int q = 0; q < TL_MOE_BATCH; q++) { it->hqp[q] = PB.c.m.hq[q]; it->hsp[q] = PB.c.m.hs[q]; it->hmp[q] = PB.c.m.hsum[q]; }
+    const tten_t *parts[3] = { &L->eg, &L->eu, &L->ed };
+    for (int m = 0; m < 3; m++) {
+        it->blk[m] = pipe_rows(parts[m]->row_bytes);
+        if (it->blk[m] < 1) { snprintf(g_err, sizeof g_err, "expert rows do not fit a row buffer half"); return -1; }
+    }
+    for (int p = 0; p < n; p++) for (int i = 0; i < dim; i++) PB.c.m.acc[p][i] = 0.0f;
+    if (pipeline(next_moe, it)) return -1;
+    for (int p = 0; p < n; p++) for (int i = 0; i < dim; i++) PB.x[p][i] += PB.c.m.acc[p][i];
+    return 0;
+}
+
 int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
             int32_t *top1, float *l1, int32_t *top2, float *l2)
 {
-    if (!M.open) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
-    if (n < 1 || n > TL_BATCH) { snprintf(g_err, sizeof g_err, "pass of %d positions (1..%d)", n, TL_BATCH); return -1; }
+    if (!g_mopen) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
+    if (n < 1 || n > M.batch) { snprintf(g_err, sizeof g_err, "pass of %d positions (1..%d)", n, M.batch); return -1; }
     for (int p = 0; p < n; p++)
         if (pos[p] < 0 || base[p] < 0 || base[p] + pos[p] >= M.max_seq) {
             snprintf(g_err, sizeof g_err, "slot %d: position %d at cache row %d outside 0..%d", p, pos[p], base[p], M.max_seq - 1);
             return -1;
         }
-    if (M.hidden % 32 || M.dim > TL_MAX_DIM || M.q_dim > TL_MAX_DIM) { snprintf(g_err, sizeof g_err, "shape not batchable"); return -1; }
+    if ((!M.n_expert && (M.hidden % 32 || M.qm != 1)) || M.dim > TL_MAX_DIM || M.q_dim > M.qm * TL_MAX_DIM) {
+        snprintf(g_err, sizeof g_err, "shape not batchable");
+        return -1;
+    }
     for (int p = 0; p < n; p++)
         if (tok[p] < 0 || tok[p] >= M.vocab) { snprintf(g_err, sizeof g_err, "token %d outside the vocabulary", (int)tok[p]); return -1; }
     const double t_start = plat_now();
     double ts = t_start;
 #define STAGE(field) do { const double tn = plat_now(); S.field += tn - ts; ts = tn; } while (0)
     const int dim = M.dim, kv_dim = M.kv_dim, nh = M.n_heads, nkv = M.n_kv, hd = M.head_dim;
+    /* a position's q-wide vectors (its query; the attention output that feeds wo) take qm PB rows: position p's
+     * quantized input is PB.xq[p * qm], its query PB.c.q[p * qm]. qm is 1 for the 3B, so its layout is unchanged. */
+    const int qm = M.qm;
+    const size_t XQS = (size_t)qm * TL_MAX_DIM, XSS = (size_t)qm * NBD;
+    float *const AO = qm > 1 ? &PB.k[0][0] : XB;          /* one position's attention output, q_dim floats */
 
     for (int p = 0; p < n; p++) {
         if (sd_read(M.embd.off + (uint64_t)tok[p] * M.embd.row_bytes, ROW, M.embd.row_bytes)) goto fail;
@@ -1905,43 +2256,53 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
         if (L->bq.present && small_read(&L->bq, (uint32_t)M.q_dim, BQ)) goto fail;
         if (L->bk.present && small_read(&L->bk, (uint32_t)kv_dim, BK)) goto fail;
         if (L->bv.present && small_read(&L->bv, (uint32_t)kv_dim, BV)) goto fail;
+        if (L->qn.present && small_read(&L->qn, (uint32_t)hd, G_QN)) goto fail;
+        if (L->kn.present && small_read(&L->kn, (uint32_t)hd, G_KN)) goto fail;
 
         /* q, k, v: one quantization of each position's normed input, gguf_dot_q on every row (matvec_group) */
         for (int p = 0; p < n; p++) {
             rmsnorm(XB, PB.x[p], G_A, dim, M.eps);
-            gguf_quantize_act(XB, L->wq.cols, PB.xq[p], PB.xs[p]);
-            gguf_act_sums(PB.xq[p], L->wq.cols, PB.xsum[p]);   /* presum == gguf_dot_q to the bit (dot_verify) */
+            gguf_quantize_act(XB, L->wq.cols, PB.xq[p * qm], PB.xs[p * qm]);
+            gguf_act_sums(PB.xq[p * qm], L->wq.cols, PB.xsum[p * qm]);   /* presum == gguf_dot_q to the bit (dot_verify) */
         }
-        if (stream_rows_n(&L->wq, M.q_dim, n, &PB.xq[0][0], TL_MAX_DIM, &PB.xs[0][0], NBD, &PB.xsum[0][0], NBD,
-                          L->wq.type == GGML_Q4_K, &PB.c.q[0][0], TL_MAX_DIM, 0) ||
-            stream_rows_n(&L->wk, kv_dim, n, &PB.xq[0][0], TL_MAX_DIM, &PB.xs[0][0], NBD, &PB.xsum[0][0], NBD,
+        if (stream_rows_n(&L->wq, M.q_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                          L->wq.type == GGML_Q4_K, &PB.c.q[0][0], XQS, 0) ||
+            stream_rows_n(&L->wk, kv_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
                           L->wk.type == GGML_Q4_K, &PB.k[0][0], TL_MAX_KVDIM, 0) ||
-            stream_rows_n(&L->wv, kv_dim, n, &PB.xq[0][0], TL_MAX_DIM, &PB.xs[0][0], NBD, &PB.xsum[0][0], NBD,
+            stream_rows_n(&L->wv, kv_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
                           L->wv.type == GGML_Q4_K, &PB.v[0][0], TL_MAX_KVDIM, 0)) goto fail;
         STAGE(t_qkv);
 
         for (int p = 0; p < n; p++) {
-            float *q = PB.c.q[p], *k = PB.k[p], *v = PB.v[p];
+            float *q = PB.c.q[p * qm], *k = PB.k[p], *v = PB.v[p];
             if (L->bq.present) for (int i = 0; i < M.q_dim; i++) q[i] += BQ[i];
             if (L->bk.present) for (int i = 0; i < kv_dim; i++)   k[i] += BK[i];
             if (L->bv.present) for (int i = 0; i < kv_dim; i++)   v[i] += BV[i];
+            if (L->qn.present) head_norm(q, nh,  hd, G_QN, M.eps);   /* Qwen3: within each head, before the rotation */
+            if (L->kn.present) head_norm(k, nkv, hd, G_KN, M.eps);
             rope(q, nh,  hd, pos[p], M.rope_base);
             rope(k, nkv, hd, pos[p], M.rope_base);
             if (kv_put(l, base[p] + pos[p], k, v)) goto fail;
         }
         /* every slot's key and value are in the cache before any slot attends, so a later position of the
-         * same sequence in this pass sees the earlier ones, exactly as it would one pass later */
+         * same sequence in this pass sees the earlier ones, exactly as it would one pass later (and PB.k, written
+         * to the cache, is free to take a wide query's attention output: AO) */
         const int wo_presum = L->wo.type == GGML_Q4_K;
         for (int p = 0; p < n; p++) {
-            if (attention(l, base[p], pos[p], PB.c.q[p], XB)) goto fail;
-            gguf_quantize_act(XB, L->wo.cols, PB.xq[p], PB.xs[p]);
-            if (wo_presum) gguf_act_sums(PB.xq[p], L->wo.cols, PB.xsum[p]);
+            if (attention(l, base[p], pos[p], PB.c.q[p * qm], AO)) goto fail;
+            gguf_quantize_act(AO, L->wo.cols, PB.xq[p * qm], PB.xs[p * qm]);
+            if (wo_presum) gguf_act_sums(PB.xq[p * qm], L->wo.cols, PB.xsum[p * qm]);
         }
         STAGE(t_att);
-        if (stream_rows_n(&L->wo, dim, n, &PB.xq[0][0], TL_MAX_DIM, &PB.xs[0][0], NBD, &PB.xsum[0][0], NBD, wo_presum,
+        if (stream_rows_n(&L->wo, dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS, wo_presum,
                           &PB.x[0][0], TL_MAX_DIM, 1)) goto fail;
         STAGE(t_wo);
 
+        if (M.n_expert) {
+            if (moe_ffn_n(L, n)) goto fail;
+            STAGE(t_ffn);
+            continue;
+        }
         /* feed-forward: gate and up take the same quantized input, as matvec does for each of them */
         for (int p = 0; p < n; p++) {
             rmsnorm(XB, PB.x[p], G_F, dim, M.eps);
@@ -1956,22 +2317,36 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
     }
 
     {
-        const tten_t *head = M.tied ? &M.embd : &M.out;
-        const int hp = head->type == GGML_Q4_K;
-        if (small_read(&M.onorm, (uint32_t)dim, G_A)) goto fail;
-        for (int p = 0; p < n; p++) {
-            rmsnorm(XB, PB.x[p], G_A, dim, M.eps);
-            gguf_quantize_act(XB, head->cols, PB.xq[p], PB.xs[p]);
-            if (hp) gguf_act_sums(PB.xq[p], head->cols, PB.xsum[p]);
+        /* the output head only for the slots from g_logits_from on (tl_set_logits_from): a prompt position's scores
+         * are used only at the prompt's last position, and the head is a tenth of the weights. Those slots' inputs
+         * are moved to the front, the head runs over them alone -- or not at all, its rows not even read -- and
+         * every other slot reports top1 = top2 = -1. The slots computed get the same bits as before. */
+        const int from = g_logits_from < n ? g_logits_from : n, m = n - from;
+        for (int p = 0; p < from; p++) {
+            if (top1) top1[p] = -1;
+            if (l1)   l1[p]   = 0.0f;
+            if (top2) top2[p] = -1;
+            if (l2)   l2[p]   = 0.0f;
         }
-        float b1[TL_BATCH], b2[TL_BATCH];
-        int32_t i1[TL_BATCH], i2[TL_BATCH];
-        if (head_n(head, n, hp, b1, i1, b2, i2)) goto fail;
-        for (int p = 0; p < n; p++) {
-            if (top1) top1[p] = i1[p];
-            if (l1)   l1[p]   = b1[p];
-            if (top2) top2[p] = i2[p];
-            if (l2)   l2[p]   = b2[p];
+        if (m > 0) {
+            const tten_t *head = M.tied ? &M.embd : &M.out;
+            const int hp = head->type == GGML_Q4_K;
+            if (small_read(&M.onorm, (uint32_t)dim, G_A)) goto fail;
+            for (int q = 0; q < m; q++) {
+                rmsnorm(XB, PB.x[from + q], G_A, dim, M.eps);
+                gguf_quantize_act(XB, head->cols, PB.xq[q * qm], PB.xs[q * qm]);
+                if (hp) gguf_act_sums(PB.xq[q * qm], head->cols, PB.xsum[q * qm]);
+            }
+            float b1[TL_BATCH], b2[TL_BATCH];
+            int32_t i1[TL_BATCH], i2[TL_BATCH];
+            if (head_n(head, m, hp, b1, i1, b2, i2)) goto fail;
+            for (int q = 0; q < m; q++) {
+                const int p = from + q;
+                if (top1) top1[p] = i1[q];
+                if (l1)   l1[p]   = b1[q];
+                if (top2) top2[p] = i2[q];
+                if (l2)   l2[p]   = b2[q];
+            }
         }
     }
     STAGE(t_head);
@@ -1987,7 +2362,7 @@ fail:
 int tl_prefill(const int32_t *tok, int n, int pos0, int32_t *top1, float *l1, int32_t *top2, float *l2)
 {
     int pos[TL_BATCH], base[TL_BATCH];
-    if (n < 1 || n > TL_BATCH) { snprintf(g_err, sizeof g_err, "prefill of %d positions (1..%d)", n, TL_BATCH); return -1; }
+    if (n < 1 || n > M.batch) { snprintf(g_err, sizeof g_err, "prefill of %d positions (1..%d)", n, M.batch); return -1; }
     for (int p = 0; p < n; p++) { pos[p] = pos0 + p; base[p] = 0; }
     return tl_step(tok, pos, base, n, top1, l1, top2, l2);
 }
@@ -2017,8 +2392,8 @@ int tl_multi_share(int on) { const int was = g_share; g_share = on ? 1 : 0; retu
 
 int tl_multi_begin(tl_seq_t *s, int ns)
 {
-    if (!M.open) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
-    if (ns < 1 || ns > TL_BATCH) { snprintf(g_err, sizeof g_err, "%d sequences (1..%d)", ns, TL_BATCH); return -1; }
+    if (!g_mopen) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
+    if (ns < 1 || ns > M.batch) { snprintf(g_err, sizeof g_err, "%d sequences (1..%d)", ns, M.batch); return -1; }
     int row = 0;
     for (int i = 0; i < ns; i++) {
         if (s[i].n_prompt < 1 || s[i].n_gen < 0) { snprintf(g_err, sizeof g_err, "sequence %d: empty", i); return -1; }
@@ -2090,7 +2465,7 @@ int tl_multi_pass(tl_seq_t *s, int ns, tl_multi_emit_fn emit, void *ctx)
         if (waiting) { snprintf(g_err, sizeof g_err, "every unfinished sequence waits for a donor"); return -1; }
         return 0;
     }
-    for (int left = TL_BATCH - active, more = 1; left > 0 && more; ) {
+    for (int left = M.batch - active, more = 1; left > 0 && more; ) {
         more = 0;
         for (int i = 0; i < ns && left > 0; i++)
             if (take[i] && s[i].fed + take[i] < s[i].n_prompt) { take[i]++; left--; more = 1; }

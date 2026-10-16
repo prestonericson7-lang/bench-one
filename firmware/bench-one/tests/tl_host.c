@@ -252,9 +252,9 @@ int main(int argc, char **argv)
     if (getenv("TL_FFN_GROUP") && tl_set_ffn_group(atoi(getenv("TL_FFN_GROUP"))) < 0) {
         fprintf(stderr, "TL_FFN_GROUP must be 32..256, a multiple of 32\n"); return 1;
     }
-    fprintf(stderr, "open %.2f s: %d layers dim %d hidden %d heads %d/%d head_dim %d vocab %d merges %u max_seq %d\n",
+    fprintf(stderr, "open %.2f s: %d layers dim %d hidden %d heads %d/%d head_dim %d vocab %d merges %u max_seq %d batch %d experts %d/%d width %d\n",
             plat_now() - t0, in.n_layer, in.dim, in.hidden, in.n_heads, in.n_kv, in.head_dim, in.vocab,
-            in.n_merges, in.max_seq);
+            in.n_merges, in.max_seq, in.batch, in.n_used, in.n_expert, in.eff);
     fprintf(stderr, "params %.0f  file %llu bytes  read per token %llu bytes\n", in.params,
             (unsigned long long)in.file_bytes, (unsigned long long)in.sd_bytes_per_token);
     fprintf(stderr, "PSRAM: %d banks of %u; the attention cache on %d of them, %d positions, one layer per region "
@@ -485,6 +485,9 @@ int main(int argc, char **argv)
     /* TL_PREFILL=1: the prompt goes through tl_prefill, tl_batch() positions per pass over the weights. The
      * lines printed must be identical to the per-token run and to tl_ref.exe. */
     const int use_prefill = getenv("TL_PREFILL") && atoi(getenv("TL_PREFILL"));
+    /* TL_LOGITS_LAST=1 (with TL_PREFILL): the output head only at the prompt's last position (tl_set_logits_from), as
+     * the board does by default; the other prompt positions print no line. Every line printed must equal tl_ref's. */
+    const int logits_last = use_prefill && getenv("TL_LOGITS_LAST") && atoi(getenv("TL_LOGITS_LAST"));
     static int32_t pt1[512], pt2[512];
     static float pl1[512], pl2[512];
     /* A PSRAM bank that fails mid-run (TL_PS_FAULT) is recovered from as the board does: its layers move to
@@ -499,6 +502,7 @@ restart:
         for (int p0 = 0; p0 < n; p0 += tl_batch()) {
             const int k = (n - p0) < tl_batch() ? (n - p0) : tl_batch();
             tl_stats_reset();
+            if (logits_last) tl_set_logits_from(p0 + k == n ? k - 1 : k);
             if (tl_prefill(ids + p0, k, p0, pt1 + p0, pl1 + p0, pt2 + p0, pl2 + p0)) {
                 if (recover(&attempt, "prefill")) goto restart;
                 return 1;
@@ -507,12 +511,14 @@ restart:
             tl_stats(&st);
             fprintf(stderr, "  prefill positions %d..%d: %.2f s, SD %.1f MB\n", p0, p0 + k - 1, st.t_total, st.sd_bytes / 1048576.0);
         }
+        tl_set_logits_from(0);
     }
     for (int step = 0; step < n + n_gen; step++) {
         const int32_t fed = step < n ? ids[step] : next;
         int32_t t1, t2;
         float l1, l2;
         tl_stats_reset();
+        if (logits_last && step < n - 1) continue;          /* no scores computed for this prompt position */
         if (use_prefill && step < n) { t1 = pt1[step]; l1 = pl1[step]; t2 = pt2[step]; l2 = pl2[step]; }
         else if (tl_forward(fed, step, &t1, &l1, &t2, &l2)) {
             if (recover(&attempt, "forward")) goto restart;

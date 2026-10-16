@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-135957",
+  "sketch": "psram_llm",
+  "git": "e7b49f1",
+  "git_dirty": true,
+  "seconds": 45,
+  "note": "logits-last, stack HWM, ringfault, kbench stages (PC regression 20261016-124252 ALL IDENTICAL)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 699981
+}

@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-123156",
+  "sketch": "psram_llm",
+  "git": "e7b49f1",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16: ::reuse -- a prompt is fed from the first position the attention cache does not already hold",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 691341
+}

@@ -1,0 +1,101 @@
+
+========================================================================
+  psram_llm v9 -- a 3B-parameter language model on a Teensy 4.1
+  the model: all of it on the microSD, streamed every token
+  PSRAM:     the attention cache -- the model's working memory, nothing of the model
+  cpu 600 MHz, 47.7 C
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 12, running at write  3 read 16 burst 96 setup  0 ->  9.51 MB/s
+      CS1  quad        edge write  0 read 14, running at write  3 read 20 burst 96 setup  0 ->  8.37 MB/s
+      Y0   no quad setting survives 1024 kB
+      Y0   single 0x03 edge write  3 read 13, running at write  6 read 18 burst 40 setup 16 ->  2.17 MB/s
+      Y0   single 0x0B edge write  3 read  8, running at write  6 read 11 burst 56 setup 16 ->  2.83 MB/s
+      Y1   no quad setting survives 1024 kB
+      Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y1   single 0x0B edge write  5 read  7, running at write  8 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y2   no quad setting survives 1024 kB
+      Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+      Y3   no quad setting survives 1024 kB
+      Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y4   no quad setting survives 1024 kB
+      Y4   single 0x03 edge write  4 read 10, running at write  7 read 13 burst 56 setup 16 ->  2.65 MB/s
+      Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y5   no quad setting survives 1024 kB
+      Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+
+[board_cmd 2026-10-16 14:01:29] >>> I
+14:01:30 |     CS0  quad        read back 8 MB in 0.9 s (9.51 MB/s): 0 wrong
+14:01:31 |     CS1  quad        read back 8 MB in 1.0 s (8.36 MB/s): 0 wrong
+14:01:34 |     Y5   single 0x0B read back 8 MB in 2.8 s (3.00 MB/s): 0 wrong
+14:01:37 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+14:01:40 |     Y1   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+14:01:42 |     Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+14:01:45 |     Y0   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+14:01:48 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+14:01:48 |   PSRAM in use: 8 banks, 67108864 bytes
+14:01:48 |   SD card
+14:01:48 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+14:01:48 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+14:01:48 |     qwen3b.gguf: 1929903072 bytes
+14:01:48 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+14:01:48 | CARD id manufacturer 0x03 oem SD product SK64G rev 8.6 made 2026-03 sectors 124997632
+14:01:48 | CLKSWEEP begin temp_c 47.0
+14:01:48 |     SD up (FIFO_SDIO), clock 49500 kHz
+14:01:48 |     qwen3b.gguf: 1929903072 bytes
+14:01:48 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+14:01:49 | CLKSWEEP khz 49500 divider 4 mb_s 22.89 (SdFat's, the reference)
+14:01:50 | CLKSWEEP khz 66000 divider 3 mb_s 30.00 regions 8 wrong 0 failed 0
+14:01:50 | CLKSWEEP khz 99000 divider 2 mb_s 43.48 regions 8 wrong 0 failed 0
+14:01:50 |     SD up (DMA_SDIO), clock 49500 kHz
+14:01:50 |     qwen3b.gguf: 1929903072 bytes
+14:01:50 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+14:01:50 | CLKSWEEP best khz 99000 divider 2 mb_s 43.48 (kept)
+14:01:50 | CLKSWEEP end temp_c 47.0
+14:01:51 |     sequential read: 32 MB in 0.82 s = 40.81 MB/s
+14:01:51 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+14:01:51 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+14:01:55 |     4.1 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+14:01:55 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+14:01:55 |     3085938688 parameters in the file
+14:01:55 |     read from the card per token: 1923948176 bytes
+14:01:55 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+14:01:55 |     PSRAM: 8 chips, the attention cache on 6 of them, one layer per region (1397888 bytes), 2608 positions; 48 layer slots, 12 spare (any one chip can fail) -- nothing of the model
+14:01:55 |     layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 Y5 Y5 Y5 Y5 Y5 Y5 Y3 Y3 Y3 Y3 Y3 Y3 Y1 Y1 Y1 Y1 Y1 Y1 Y4 Y4 Y4 Y4 Y4 Y4
+14:01:55 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[board_cmd 2026-10-16 14:01:55] >>> ::hold
+14:01:55 | HOLD waiting for prompts
+
+[board_cmd 2026-10-16 14:01:55] >>> I
+14:01:55 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+
+[board_cmd 2026-10-16 14:01:55] >>> ::kbench
+14:01:55 | KBENCH begin temp_c 48.3 rows 16 cols 2048
+14:01:55 | KBENCH np 2 rowbuf_n 3.965 rowbuf_nw 3.949 ocram_n 3.965 ocram_nw 3.955 cycles_per_weight_vector identical yes temp_c 48.3
+14:01:55 | KBENCH stages np 2 full 4.421 no_double 3.533 no_double_no_scales 2.880 cycles_per_weight_vector stage0_identical yes
+14:01:55 | KBENCH np 3 rowbuf_n 3.682 rowbuf_nw 3.583 ocram_n 3.682 ocram_nw 3.585 cycles_per_weight_vector identical yes temp_c 48.3
+14:01:55 | KBENCH stages np 3 full 4.062 no_double 3.176 no_double_no_scales 2.741 cycles_per_weight_vector stage0_identical yes
+14:01:55 | KBENCH np 4 rowbuf_n 3.485 rowbuf_nw 3.477 ocram_n 3.485 ocram_nw 3.477 cycles_per_weight_vector identical yes temp_c 48.3
+14:01:55 | KBENCH stages np 4 full 3.812 no_double 2.923 no_double_no_scales 2.597 cycles_per_weight_vector stage0_identical yes
+14:01:55 | KBENCH np 5 rowbuf_n 3.414 rowbuf_nw 3.355 ocram_n 3.414 ocram_nw 3.355 cycles_per_weight_vector identical yes temp_c 48.3
+14:01:55 | KBENCH stages np 5 full 3.718 no_double 2.828 no_double_no_scales 2.567 cycles_per_weight_vector stage0_identical yes
+14:01:55 | KBENCH np 8 rowbuf_n 3.232 rowbuf_nw 3.220 ocram_n 3.232 ocram_nw 3.221 cycles_per_weight_vector identical yes temp_c 48.3
+14:01:55 | KBENCH stages np 8 full 3.482 no_double 2.590 no_double_no_scales 2.427 cycles_per_weight_vector stage0_identical yes
+14:01:55 | KBENCH end temp_c 48.3

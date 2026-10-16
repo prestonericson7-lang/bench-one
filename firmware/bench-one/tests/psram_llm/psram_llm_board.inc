@@ -720,7 +720,8 @@ __attribute__((aligned(32))) static uint32_t rq_desc[4];
 static volatile uint32_t rq_prod, rq_cons, rq_parked, rq_stop;   /* rq_stop: grant nothing more, park */
 static uint32_t rq_sec0;                                  /* the card sector of stream block 0 */
 static bool fq_ring;                                      /* the open transfer is the ring kind */
-static int g_rq_rstd = 0;                                 /* ::sdfifo cycle: data-line reset after a DMA close */
+static int g_rq_rstd = 0;                                 /* ::sdfifo cycle: pass number */
+static int g_ring_fault = 0;                              /* ::ringfault N: the Nth ring read from now fails halfway */
 FLASHMEM __attribute__((noinline)) static void rq_isr(void)
 {
     const uint32_t st = USDHC1_INT_STATUS;
@@ -820,7 +821,14 @@ FLASHMEM __attribute__((noinline)) static int rq_read(uint64_t a, uint8_t *d, ui
             continue;
         }
         const uint32_t s = rq_sec0 + rq_cons;
-        if (s >= sec) { memcpy(d + k * 512u, rq_ring + (rq_cons % RQ_NB) * 512u, 512); k++; }
+        if (s >= sec) {
+            memcpy(d + k * 512u, rq_ring + (rq_cons % RQ_NB) * 512u, 512);
+            k++;
+            if (g_ring_fault && k == (nsec + 1u) / 2u && --g_ring_fault == 0) {   /* ::ringfault: fail halfway, on purpose */
+                fqi_err = 0x10000000u;
+                break;
+            }
+        }
         noInterrupts();
         rq_cons++;
         if (rq_parked) {
@@ -1161,6 +1169,8 @@ void plat_emit(const char *s, int n) { Serial.write((const uint8_t *)s, (size_t)
  *                   mode 1 at that read watermark. Same step lines, only the time moves
  *    ::kbench       the batched Q4_K kernel, cycles per weight per vector at 2..8 vectors ("KBENCH ...")
  *    ::ffngroup G   a batched pass computes gate/up G rows at a time (32..256; 32 = the pre-2026-10-16 order)
+ *    ::reuse 0|1    a prompt that starts with the tokens the attention cache holds is fed from where it differs
+ *                   (default 1; "REUSE m=..."); the answer is the same, the skipped positions print no step lines
  *    ::lookup K [N] after the prompt, each pass also checks up to K tokens guessed from the context (the
  *                   tokens that followed the last 4..N tokens' most recent earlier occurrence, N default 1); 0 = off.
  *                   Same step lines as without; fewer passes when the guesses are right ("LOOKUP ...")
@@ -1247,6 +1257,18 @@ static bool read_line(char *out, int max, uint32_t wait_ms)
 
 static int g_prefill = 1;                 /* ::prefill 0|1 -- the prompt through tl_prefill, or one token at a time */
 static int g_lookup = 0;                  /* ::lookup K [N] -- guess up to K tokens a pass from the context (0: off) */
+/* WHAT THE ATTENTION CACHE HOLDS (::reuse 0|1, default 1; 2026-10-16). A cache row depends only on the tokens up
+ * to its own position (the same fact ::multi's shared openings rest on, proven by verify_pc.py), so when a new
+ * prompt starts with the tokens the cache was computed from, those rows are already exactly right: the prompt is
+ * fed from the first position that differs. Every chat prompt opens with the same 24-token system turn, and a
+ * conversation's next prompt contains the whole conversation so far. g_ctx[0..g_kv_len) are the tokens of the
+ * rows known good -- accepted positions only; rows a rejected guess wrote lie beyond it. Anything else that
+ * writes the cache (a chip fault's re-layout, ::multi, the benchmarks) forgets it. Also the lookup context. */
+static int g_reuse = 1;
+static int g_promptlogits = 0;            /* ::promptlogits 1: scores at every prompt position (the full proof); 0: last only */
+DMAMEM static int32_t g_ctx[1024 + 512 + 8];
+static int g_kv_len;
+FLASHMEM static uint32_t stack_unused(void);   /* THE STACK'S HIGH-WATER MARK, below */
 static int g_lookup_nmin = 1;             /* ... matching the last 4 down to N tokens (2026-10-16: 4..1, k 3 is best at the
                                              interrupt-fed pass costs, alpha_sim.py) */
 
@@ -1331,6 +1353,10 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
     Serial.print("prompt ids:");
     for (int i = 0; i < n; i++) { Serial.print(' '); Serial.print((long)ids[i]); }
     Serial.println();
+    int m0 = 0;                                              /* positions the cache already holds for these tokens */
+    if (g_reuse && g_prefill) while (m0 < g_kv_len && m0 < n - 1 && g_ctx[m0] == ids[m0]) m0++;
+    if (m0) say("REUSE m=%d (the attention cache already holds positions 0..%d for these same tokens; the prompt is fed from %d)", m0, m0 - 1, m0);
+    g_kv_len = m0;                                           /* rows from m0 on are about to be rewritten */
 
     static char gen[8192];
     int gl = 0, passes = 0, step0 = 0;
@@ -1344,11 +1370,16 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
         static int32_t a1[64], a2[64];
         static float   b1[64], b2[64];
         const int B = tl_batch() < 64 ? tl_batch() : 64;
-        for (int p0 = 0; p0 < n; p0 += B) {
+        for (int p0 = m0; p0 < n; p0 += B) {
             const int k = (n - p0) < B ? (n - p0) : B;
             card_for_slots(k);
             tl_stats_reset();
-            if (tl_prefill(ids + p0, k, p0, a1, b1, a2, b2)) {
+            /* the output head (a tenth of the weights) only at the prompt's last position unless ::promptlogits 1:
+             * no other prompt position's scores are used (tl_set_logits_from; PC-proven, verify_pc.py stage 2d) */
+            if (!g_promptlogits) tl_set_logits_from(p0 + k == n ? k - 1 : k);
+            const int pf = tl_prefill(ids + p0, k, p0, a1, b1, a2, b2);
+            tl_set_logits_from(0);
+            if (pf) {
                 if (g_abort) { say("  STOPPED in the prompt by ::stop, between two card reads"); say("RUN error=stopped step=%d", p0); g_abort = false; return true; }
                 say("  prefill failed at positions %d..%d: %s", p0, p0 + k - 1, tl_last_error());
                 if (tl_fault_bank() >= 0) return false;
@@ -1356,6 +1387,8 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
                 return true;
             }
             passes++;
+            memcpy(g_ctx + p0, ids + p0, (size_t)k * sizeof(int32_t));
+            g_kv_len = p0 + k;
             tl_stats_t st;
             tl_stats(&st);
             ps_fix_r += st.ps_rows_reread; ps_bad += st.ps_rows_bad;
@@ -1363,7 +1396,8 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
             sd_total += st.sd_bytes;
             const float tc = tempmonGetTemp();
             if (tc > tmax) tmax = tc;
-            for (int j = 0; j < k; j++) emit_step(prompt, n, p0 + j, ids[p0 + j], a1[j], b1[j], a2[j], b2[j], gen, &gl, (int)sizeof gen);
+            for (int j = 0; j < k; j++)                       /* a position whose scores were not computed prints nothing */
+                if (a1[j] >= 0) emit_step(prompt, n, p0 + j, ids[p0 + j], a1[j], b1[j], a2[j], b2[j], gen, &gl, (int)sizeof gen);
             char what[48];
             snprintf(what, sizeof what, "prefill=%d..%d", p0, p0 + k - 1);
             pass_lines(what, st, tc);
@@ -1381,12 +1415,12 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
      * pass costs: 4..2 tokens matched, 6 guesses -> 1.19x at the FIFO/ADMA2 costs; 4..1 and 3 guesses -> 1.31x
      * (24-token answers 1.17x) at ::fifoirq's, where 2..4 positions cost what one does. */
     if (g_lookup > 0 && g_prefill && !ended && step0 < n + g_gen) {
-        DMAMEM static int32_t lctx[1024 + 512 + 8], lo1[64], lo2[64], lfeed[64], ldraft[64];   /* OCRAM: RAM1 is the stack's */
+        int32_t *const lctx = g_ctx;                                    /* holds the prompt already (recorded above) */
+        DMAMEM static int32_t lo1[64], lo2[64], lfeed[64], ldraft[64];  /* OCRAM: RAM1 is the stack's */
         DMAMEM static float   lf1[64], lf2[64];
         int kmax = g_lookup < tl_batch() - 1 ? g_lookup : tl_batch() - 1;
         if (kmax > 63) kmax = 63;
         int drafted = 0, accepted = 0, lpasses = 0;
-        memcpy(lctx, ids, (size_t)n * sizeof(int32_t));
         int pos = step0;
         while (!ended && pos < n + g_gen) {
             lctx[pos] = next;
@@ -1433,6 +1467,7 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
             }
             accepted += j;
             for (int i = 0; i < j; i++) lctx[pos + 1 + i] = ldraft[i];
+            g_kv_len = pos + j + 1;                                     /* rows pos..pos+j hold accepted tokens */
             char what[48];
             snprintf(what, sizeof what, "lookup=%d guessed=%d kept=%d", pos, k, j);
             pass_lines(what, st, tc);
@@ -1461,6 +1496,7 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
             return true;
         }
         passes++;
+        if (step < (int)(sizeof g_ctx / sizeof g_ctx[0])) { g_ctx[step] = fed; if (g_kv_len == step) g_kv_len = step + 1; }
         tl_stats_t st;
         tl_stats(&st);
         ps_fix_r += st.ps_rows_reread; ps_bad += st.ps_rows_bad;
@@ -1490,6 +1526,7 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
         sd_total / 1048576.0 / (t_sd > 0 ? t_sd : 1), t_sd, t_cmp, t_hid, t_ps,
         (unsigned long)ps_fix_r, (unsigned long)ps_fix_w, (unsigned long)ps_bad,
         (unsigned long)(ps_switches - sw0), (ps_switch_us - swus0) / 1e6, tmax);
+    say("STACK never_used %lu bytes (the deepest the stack has gone since boot leaves this much)", (unsigned long)stack_unused());
     say("  DONE. Type another prompt and press Enter.");
     return true;
 }
@@ -1502,6 +1539,7 @@ static void run_prompt(const char *prompt)
 {
     g_replay_to = 0; g_run_steps = 0;
     if (run_prompt_once(prompt)) return;
+    g_kv_len = 0;                                            /* the re-layout moves layers: nothing cached is kept */
     const int fb = tl_fault_bank();
     if (fb < 0) { say("RUN error=failed"); return; }
     if (tl_bank_fault(fb)) {
@@ -1519,9 +1557,13 @@ static void run_prompt(const char *prompt)
 /* ::multi -- several prompts, one pass over the weights for all of them. Three quarters of a pass is the card
  * read, which one prompt or eight cost the same; each extra prompt adds only its arithmetic. */
 #define MULTI_MAX 8
-#define MULTI_IDS 1024
-static int g_multi_want = 0, g_multi_n = 0;
-DMAMEM static int32_t mids[MULTI_MAX][MULTI_IDS];
+/* ONE POOL of token ids for a ::multi group (2026-10-16), each prompt's ids (prompt + answer + 1) after the last
+ * one's. Was 8 x 1,024 (32 KB of OCRAM); the group can never need more than the cache's rows anyway -- the core
+ * refuses a group whose prompts and answers exceed max_seq -- so the pool is TL_MAX_SEQ + one per prompt, 12 KB,
+ * and the 20 KB went to the 30B's model table. */
+#define MIDS_POOL (3072 + MULTI_MAX)
+static int g_multi_want = 0, g_multi_n = 0, g_mids_used = 0;
+DMAMEM static int32_t mids[MIDS_POOL];
 static tl_seq_t mseq[MULTI_MAX];
 
 static void multi_emit(void *ctx, int s, int pos, int32_t fed, int32_t t1, float l1, int32_t t2, float l2)
@@ -1605,12 +1647,15 @@ static bool run_multi_once(int ns)
         sd_total / 1048576.0 / (t_sd > 0 ? t_sd : 1), t_sd, t_cmp, t_hid, t_ps,
         (unsigned long)ps_fix_r, (unsigned long)ps_fix_w, (unsigned long)ps_bad,
         (unsigned long)(ps_switches - sw0), (ps_switch_us - swus0) / 1e6, tmax);
+    say("STACK never_used %lu bytes (the deepest the stack has gone since boot leaves this much)", (unsigned long)stack_unused());
     say("  DONE. Type another prompt and press Enter.");
     return true;
 }
 
 static void run_multi(void)
 {
+    g_kv_len = 0;
+    tl_set_logits_from(0);                                   /* every sequence's every position is printed */                                            /* the sequences' rows overwrite the single prompt's */
     const int ns = g_multi_n;
     g_multi_n = 0;
     for (int i = 0; i < MULTI_MAX; i++) { g_multi_replay[i] = 0; g_multi_printed[i] = 0; }
@@ -1782,6 +1827,29 @@ FLASHMEM static void kbench(void)
         }
         say("KBENCH np %d rowbuf_n %.3f rowbuf_nw %.3f ocram_n %.3f ocram_nw %.3f cycles_per_weight_vector identical %s temp_c %.1f",
             np, cpw[0][0], cpw[0][1], cpw[1][0], cpw[1][1], differ ? "NO" : "yes", tempmonGetTemp());
+        /* where the batched kernel's cycles go (2026-10-16): the same kernel without the double combination (stage
+         * 1) and also without the scale unpacking (stage 2), rows in the DTCM row buffer; stage 0 must equal _n */
+        float cst[3];
+        for (int stage = 0; stage < 3; stage++) {
+            uint32_t best = 0xFFFFFFFFu;
+            for (int rep = 0; rep < 5; rep++) {
+                float o[8];
+                const uint32_t t0 = ARM_DWT_CYCCNT;
+                for (uint32_t r = 0; r < nr; r++) { gguf_dot_q4k_presum_n_stage(rbuf + (size_t)r * rb, np, qp, sp, mp, cols, o, stage); sink += o[np - 1]; }
+                const uint32_t c = ARM_DWT_CYCCNT - t0;
+                if (c < best) best = c;
+            }
+            cst[stage] = (float)best / ((float)nr * cols * np);
+        }
+        int sdiffer = 0;
+        for (uint32_t r = 0; r < nr; r++) {
+            float a[8], b[8];
+            gguf_dot_q4k_presum_n(rbuf + (size_t)r * rb, np, qp, sp, mp, cols, a);
+            gguf_dot_q4k_presum_n_stage(rbuf + (size_t)r * rb, np, qp, sp, mp, cols, b, 0);
+            sdiffer += memcmp(a, b, (size_t)np * sizeof(float)) != 0;
+        }
+        say("KBENCH stages np %d full %.3f no_double %.3f no_double_no_scales %.3f cycles_per_weight_vector stage0_identical %s",
+            np, cst[0], cst[1], cst[2], sdiffer ? "NO" : "yes");
     }
     say("KBENCH end temp_c %.1f", tempmonGetTemp());
 }
@@ -2765,6 +2833,7 @@ FLASHMEM static void stats(void)
     for (int i = 0; i < nuse; i++)
         say("STATS bank %d %s %s write %d read %d burst %d rate_mb_s %.2f", i, use[i].name, MODE_NAME[use[i].mode],
             NOPS[use[i].wi], NOPS[use[i].ri], use[i].nb, use[i].rate);
+    say("STATS stack_never_used %lu", (unsigned long)stack_unused());
     say("STATS ps_fix_r %lu ps_fix_w %lu ps_bad %lu temp_c %.1f gen %d max_seq %d uptime_s %lu",
         (unsigned long)ps_fix_r, (unsigned long)ps_fix_w, (unsigned long)ps_bad, tempmonGetTemp(), g_gen,
         info.max_seq, (unsigned long)(millis() / 1000));
@@ -2774,10 +2843,19 @@ static void dispatch_one(char *line);
 static void dispatch(char *line) { dispatch_one(line); sd_idle(); }   /* every command ends with the card idle */
 FLASHMEM static void dispatch_one(char *line)
 {
+    /* a command that may write the attention cache (benchmarks, PSRAM tests, anything not known harmless) makes the
+     * board forget what it holds: reuse only ever skips rows it is sure of */
+    if (line[0] == ':' && line[1] == ':') {
+        static const char *const SAFE[] = { "::gen", "::lookup", "::reuse", "::stats", "::hold", "::fifoirq", "::admamin", "::promptlogits", "::ringfault",
+                                            "::ffngroup", "::prefill", "::stop", "::share", "::multi", "::sdio", "::sdclk" };
+        bool safe = false;
+        for (unsigned i = 0; i < sizeof SAFE / sizeof SAFE[0] && !safe; i++) safe = !strncmp(line, SAFE[i], strlen(SAFE[i]));
+        if (!safe) g_kv_len = 0;
+    }
     if (!strcmp(line, "I") || !strcmp(line, "i")) {
-        say("I bench-one psram_llm v9 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu clk %lu model %s", nuse,
+        say("I bench-one psram_llm v9 banks %d ps_bytes %lu max_seq %d gen %d sdio %s overlap %d align %d slice %lu clk %lu model %s batch %d experts %d/%d", nuse,
             (unsigned long)nuse * BANKSZ, info.max_seq, g_gen, g_dma ? "dma" : "fifo", g_overlap, g_align, (unsigned long)g_slice_us,
-            sd_clk_now(), g_model_name);
+            sd_clk_now(), g_model_name, info.batch, info.n_used, info.n_expert);
         return;
     }
     if (!strncmp(line, "::model", 7)) {                      /* ::model NAME.gguf: record it, restart, open it */
@@ -2815,6 +2893,22 @@ FLASHMEM static void dispatch_one(char *line)
         if (nm >= 1 && nm <= 4) g_lookup_nmin = nm;
         g_lookup = v;
         say("LOOKUP %d match 4..%d%s", v, g_lookup_nmin, v ? "" : " (off: one token a pass)");
+        return;
+    }
+    if (!strncmp(line, "::promptlogits", 14)) {              /* ::promptlogits 0|1: the head at every prompt position */
+        g_promptlogits = atoi(line + 14) ? 1 : 0;
+        say("PROMPTLOGITS %d", g_promptlogits);
+        return;
+    }
+    if (!strncmp(line, "::ringfault", 11)) {                 /* ::ringfault N: test the ring's failure path */
+        g_ring_fault = atoi(line + 11);
+        say("RINGFAULT %d (that ring read fails halfway; the pass must go on through the file layer, exact)", g_ring_fault);
+        return;
+    }
+    if (!strncmp(line, "::reuse", 7)) {                      /* ::reuse 0|1: feed a prompt from where the cache differs */
+        g_reuse = atoi(line + 7) ? 1 : 0;
+        if (!g_reuse) g_kv_len = 0;
+        say("REUSE %d (the cache holds %d positions)", g_reuse, g_kv_len);
         return;
     }
     if (!strncmp(line, "::fifoirq", 9)) {                    /* ::fifoirq 0|1: FIFO passes fed by the interrupt */
@@ -2905,26 +2999,50 @@ FLASHMEM static void dispatch_one(char *line)
         if (v > MULTI_MAX) v = MULTI_MAX;
         g_multi_want = v;
         g_multi_n = 0;
+        g_mids_used = 0;
         say("MULTI %d", v);
         return;
     }
     unescape(line);
     if (g_multi_want > 0) {                   /* one of the prompts of a ::multi: encode it and wait for the rest */
         tl_seq_t *q = &mseq[g_multi_n];
-        const int n = tl_encode(line, mids[g_multi_n], MULTI_IDS - g_gen - 1);
+        int32_t *ids = mids + g_mids_used;
+        const int room = MIDS_POOL - g_mids_used - g_gen - 1;
+        const int n = room > 0 ? tl_encode(line, ids, room) : -1;
         if (n <= 0) { say("  multi prompt %d did not fit; ::multi cancelled", g_multi_n); say("RUN error=encode"); g_multi_want = 0; g_multi_n = 0; return; }
-        q->ids = mids[g_multi_n]; q->n_prompt = n; q->n_gen = g_gen;
+        q->ids = ids; q->n_prompt = n; q->n_gen = g_gen;
+        g_mids_used += n + g_gen + 1;
         DMAMEM static char ep[4096];
         esc(line, (int)strlen(line), ep, (int)sizeof ep);
         say("  multi prompt %d: \"%s\"  (%d tokens)", g_multi_n, ep, n);
         Serial.printf("S%d prompt ids:", g_multi_n);
-        for (int i = 0; i < n; i++) { Serial.print(' '); Serial.print((long)mids[g_multi_n][i]); }
+        for (int i = 0; i < n; i++) { Serial.print(' '); Serial.print((long)ids[i]); }
         Serial.println();
         g_multi_n++;
         if (--g_multi_want == 0) run_multi();
         return;
     }
     run_prompt(line);
+}
+
+/* THE STACK'S HIGH-WATER MARK (2026-10-16). The ring (8 KB of DTCM) took the stack from 34 KB to 21 KB; whether
+ * that is enough is measured, not assumed: at boot the unused stack is painted, and after every run the words
+ * the stack never reached are counted (the core's MPU guard -- 32 bytes at _ebss -- traps an overflow outright). */
+extern unsigned long _ebss;
+#define STACK_PAINT 0xA5A5A5A5u
+static uint32_t *stack_floor(void) { return (uint32_t *)(((((uint32_t)&_ebss) + 31u) & ~31u) + 32u); }
+FLASHMEM static void stack_paint(void)
+{
+    uint32_t sp;
+    __asm__ volatile("mov %0, sp" : "=r"(sp));
+    for (uint32_t *p = stack_floor(); p < (uint32_t *)(sp - 1024u); p++) *p = STACK_PAINT;
+}
+FLASHMEM static uint32_t stack_unused(void)
+{
+    const uint32_t *p = stack_floor();
+    uint32_t n = 0;
+    while (p[n] == STACK_PAINT) n++;
+    return n * 4u;
 }
 
 FLASHMEM void setup()
@@ -2945,6 +3063,7 @@ FLASHMEM void setup()
     ARM_DEMCR |= ARM_DEMCR_TRCENA;
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
+    stack_paint();
     Serial.begin(115200);
     const uint32_t w0 = millis();
     while (!Serial && millis() - w0 < 5000) delay(10);
@@ -3013,6 +3132,9 @@ FLASHMEM void setup()
         info.n_layer, info.dim, info.hidden, info.n_heads, info.n_kv, info.head_dim, info.vocab,
         (unsigned long)info.n_merges);
     say("    %.0f parameters in the file", info.params);
+    if (info.n_expert)
+        say("    mixture of experts: %d a layer, %d picked per token, each %d wide -- only those come off the card;"
+            " a pass feeds up to %d positions", info.n_expert, info.n_used, info.eff, info.batch);
     say("    read from the card per token: %llu bytes", (unsigned long long)info.sd_bytes_per_token);
     say("    the model stays on the card: weights, norms and biases read from %s every pass; the tokenizer's"
         " tables in %s (%lu bytes, %s)", g_model_name, g_tok_name, (unsigned long)info.tok_store_bytes,

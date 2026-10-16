@@ -366,7 +366,7 @@ void model_free(model_t *m)
     memset(m, 0, sizeof(*m));
 }
 
-#if defined(__AVX2__)
+#if defined(__AVX2__) && defined(MODEL_ROUTER_AVX2)
   #include <immintrin.h>
   /* Dot of two float arrays, eight lanes at a time.
    *
@@ -828,7 +828,9 @@ static void route(model_t *m, const mlayer_t *L, const float *xin, int *pick, fl
 #endif
     for (int e = 0; e < ne; e++) {
         const float *row = L->router + (size_t)e * dim;
-#if defined(__AVX2__)
+        /* the scalar order unless asked: the Teensy core sums the router the same way, and an eight-lane sum
+         * rounds differently -- it could swap two experts whose probabilities agree to seven digits */
+#if defined(__AVX2__) && defined(MODEL_ROUTER_AVX2)
         p[e] = fdot_avx2(row, xin, dim);
 #else
         float acc = 0.0f;
@@ -852,6 +854,20 @@ static void route(model_t *m, const mlayer_t *L, const float *xin, int *pick, fl
     float sum = 0.0f;
     for (int j = 0; j < k; j++) sum += wgt[j];
     if (sum > 0.0f) for (int j = 0; j < k; j++) wgt[j] /= sum;
+    /* THE EXPERTS ARE SUMMED IN ASCENDING EXPERT NUMBER (2026-10-16), not in the order they were picked. The
+     * picks and their renormalised weights are exactly as above; only the order in which the eight weighted
+     * outputs are added moves, and float addition is order-sensitive in the last bits. The Teensy core
+     * (tl_core.c) feeds several prompt positions per pass over the card, and each expert is read once for
+     * every position that picked it -- in expert order, front to back through the file. Each position's sum
+     * then arrives in expert order, and the only way that equals this reference to the bit is for the
+     * reference to add in the same order. A stable insertion sort of eight. */
+    for (int j = 1; j < k; j++) {
+        const int pe = pick[j];
+        const float pw = wgt[j];
+        int q = j - 1;
+        while (q >= 0 && pick[q] > pe) { pick[q + 1] = pick[q]; wgt[q + 1] = wgt[q]; q--; }
+        pick[q + 1] = pe; wgt[q + 1] = pw;
+    }
 }
 
 void model_layers(model_t *m, int pos, int stream)

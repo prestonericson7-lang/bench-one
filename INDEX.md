@@ -27,6 +27,7 @@ If you know what you want, use the table. If you do not, start at
 | See a 3-billion-parameter model run on one Teensy, explained for anyone | [docs/57](docs/57-what-we-built-and-what-it-does.md) — every measured number in plain English; then [docs/55](docs/55-teensy-psram-llm-usable-numbers.md) for the numbers and [docs/56](docs/56-one-chip-one-job.md) for the design |
 | Know where this goes next, and what has to be proven at each step | [docs/58](docs/58-roadmap-what-this-makes-possible.md) — the roadmap; every line labelled measured, arithmetic or proposal |
 | Understand the machine's equations and the levers not yet pulled | [docs/59](docs/59-going-deeper.md) — one token, positions per pass, the node ceiling, splitting across boards; speculative decoding, the 30B, the stall budget, bytes per token |
+| See a 30-billion-parameter model on the same Teensy | [docs/62](docs/62-a-30b-on-a-teensy.md) — Qwen3-Coder-30B-A3B, a mixture of experts: 8 of 128 experts a layer come off the card, the same 1.92 GB a token as the 3B; exact to the PC reference, checked against llama.cpp and float |
 | See how it is built at each scale, and how it changes AI | [docs/60](docs/60-implementation-at-every-scale.md) — module, shelf, fabric node, bench machine, shed, network: parts, cost, power, output, gates; the five axes and the order of moves |
 | Wire the five items into one machine | [machine/README.md](machine/README.md) — the build sheet; [machine/wiring/png/](machine/wiring/png/) — nine one-screen pages, start with 1 |
 | See the machine actually work | [docs/40](docs/40-psram-bank-brought-up.md) — 8 MB of PSRAM verified on hardware, and what it cost |
@@ -55,7 +56,7 @@ If you know what you want, use the table. If you do not, start at
 ## The compartments
 
 ```
-docs/         58 numbered documents + 11 research files    the engineering record
+docs/         59 numbered documents + 11 research files    the engineering record
 firmware/     570 files                                    everything that runs on a board
 hardware/     142 files                                    the Zynq FPGA board, enclosures, wiring drawings
 accel/        220 files                                    the FPGA and the Teensy as the Orange Pi's accelerators
@@ -76,7 +77,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **58 numbered documents**, 01 to 61 | the record itself |
+| **59 numbered documents**, 01 to 62 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |

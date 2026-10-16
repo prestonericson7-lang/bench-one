@@ -29,6 +29,7 @@ import glob
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import time
@@ -197,25 +198,61 @@ def main():
         fails += 0 if n_ok == len(prompts) else 1
         note("- group %s, prompt batched: %d of %d prompts identical" % (G, n_ok, len(prompts)))
     note("")
-    note("## 3. Answered together (TL_MULTI)")
+    # ---- 2d the output head only at the prompt's last position (TL_LOGITS_LAST, the board's default) ----------
+    note("## 2d. The output head only at each prompt's last position (TL_LOGITS_LAST, tl_set_logits_from)")
     note("")
-    mfile = os.path.join(out, "multi_prompts.txt")
-    with open(mfile, "w", encoding="utf-8", newline="\n") as f:
-        for p in prompts:
-            f.write(chat_template.escape(p) + "\n")
+    n_ok = 0
+    for k, p in enumerate(prompts):
+        got = os.path.join(out, "logitslast_%d.txt" % k)
+        rc, err = run("tl_host.exe", [p, str(a.gen)], {"TL_PREFILL": "1", "TL_LOGITS_LAST": "1"}, got)
+        reflines = open(os.path.join(out, "ref_%d.txt" % k), encoding="utf-8").read().splitlines()
+        npr = len(next((l for l in reflines if l.startswith("prompt ids:")), "prompt ids:").split(":", 1)[1].split())
+        ref = [l for l in reflines if l.startswith("step ")]
+        mine = [l for l in open(got, encoding="utf-8").read().splitlines() if l.startswith("step ")]
+        ok = rc == 0 and npr > 0 and mine == ref[npr - 1:]
+        n_ok += 1 if ok else 0
+        if not ok:
+            note("- prompt %d: DIFFERENT (%d lines, expected the reference's from position %d)" % (k, len(mine), npr - 1))
+    fails += 0 if n_ok == len(prompts) else 1
+    note("- %d of %d prompts: every line from the prompt's last position on identical to tl_ref" % (n_ok, len(prompts)))
+    note("")
+    # A pass feeds at most the model's batch (tl_batch: 8 for the 3B; 4 for the 30B, whose query takes two rows a
+    # position), so the prompts are answered together in groups of that many -- one group for the 3B, as always.
+    rc, err = run("tl_host.exe", [prompts[0], "0"], {}, os.path.join(out, "batch_probe.txt"))
+    mb = re.search(r"batch (\d+)", err)
+    B = int(mb.group(1)) if mb else 8
+    groups = [list(range(i, min(i + B, len(prompts)))) for i in range(0, len(prompts), B)]
+    mfiles = []
+    for gi, grp in enumerate(groups):
+        mf = os.path.join(out, "multi_prompts.txt" if len(groups) == 1 else "multi_prompts_g%d.txt" % gi)
+        with open(mf, "w", encoding="utf-8", newline="\n") as f:
+            for k in grp:
+                f.write(chat_template.escape(prompts[k]) + "\n")
+        mfiles.append(mf)
+
+    def multi_groups(exe, tag, env_extra):
+        """each group answered together; returns (prompts identical, summary lines, rc of the last run)"""
+        n_ok, lines, rc = 0, [], 0
+        for gi, grp in enumerate(groups):
+            pre = os.path.join(out, "%s_" % tag if len(groups) == 1 else "%s_g%d_" % (tag, gi))
+            e = dict(env_extra, TL_MULTI=mfiles[gi], TL_MULTI_OUT=pre)
+            rc, err = run(exe, ["-", str(a.gen)], e, pre + "run.out")
+            lines += [s.strip() for s in err.splitlines() if s.startswith("multi:") or "copies its first" in s or "retired" in s]
+            for j, k in enumerate(grp):
+                ok = rc == 0 and os.path.exists(pre + "%d.txt" % j) and same(os.path.join(out, "ref_%d.txt" % k), pre + "%d.txt" % j)
+                n_ok += 1 if ok else 0
+                if not ok:
+                    lines.append("prompt %d together: DIFFERENT" % k)
+        return n_ok, lines, rc
+
+    note("## 3. Answered together (TL_MULTI), %d at a time (the model's batch)" % B)
+    note("")
     for share in ("0", "1"):
-        pre = os.path.join(out, "multi_s%s_" % share)
-        rc, err = run("tl_host.exe", ["-", str(a.gen)], {"TL_MULTI": mfile, "TL_MULTI_OUT": pre, "TL_MULTI_SHARE": share},
-                      os.path.join(out, "multi_s%s.out" % share))
-        note("- shared openings %s: %s" % ("on" if share == "1" else "off",
-                                           next((s for s in err.splitlines() if s.startswith("multi:")), "no summary (rc %d)" % rc)))
-        for s in err.splitlines():
-            if "copies its first" in s:
-                note("  - " + s.strip())
-        for k in range(len(prompts)):
-            ok = os.path.exists(pre + "%d.txt" % k) and same(os.path.join(out, "ref_%d.txt" % k), pre + "%d.txt" % k)
-            fails += 0 if ok else 1
-            note("  - prompt %d together: %s" % (k, "IDENTICAL" if ok else "DIFFERENT"))
+        n_ok, lines, rc = multi_groups("tl_host.exe", "multi_s%s" % share, {"TL_MULTI_SHARE": share})
+        fails += 0 if n_ok == len(prompts) else 1
+        note("- shared openings %s: %d of %d prompts identical" % ("on" if share == "1" else "off", n_ok, len(prompts)))
+        for s in lines:
+            note("  - " + s)
     note("")
 
     # ---- 3b a PSRAM bank fails mid-run --------------------------------------------------------------------------
@@ -232,14 +269,10 @@ def main():
         fails += 0 if ok else 1
         rec = next((s.strip() for s in err.splitlines() if s.startswith("recovery:")), "no recovery line (rc %d)" % rc)
         note("- prompt 0, %s: %s; %s" % (mode, "IDENTICAL" if ok else "DIFFERENT", rec))
-    pre = os.path.join(out, "fault_multi_")
-    rc, err = run("tl_host.exe", ["-", str(a.gen)], {"TL_MULTI": mfile, "TL_MULTI_OUT": pre, "TL_PS_FAULT": "3:200"},
-                  os.path.join(out, "fault_multi.out"))
-    n_ok = sum(1 for k in range(len(prompts))
-               if os.path.exists(pre + "%d.txt" % k) and same(os.path.join(out, "ref_%d.txt" % k), pre + "%d.txt" % k))
-    fails += 0 if (rc == 0 and n_ok == len(prompts)) else 1
+    n_ok, lines, rc = multi_groups("tl_host.exe", "fault_multi", {"TL_PS_FAULT": "3:200"})
+    fails += 0 if n_ok == len(prompts) else 1
     note("- all %d prompts together: %d identical after the fault (%s)" % (len(prompts), n_ok,
-         next((s.strip() for s in err.splitlines() if "retired" in s), "no retirement line (rc %d)" % rc)))
+         next((s for s in lines if "retired" in s), "no retirement line (rc %d)" % rc)))
     note("")
 
     # ---- 4 the Teensy's own kernels, emulated (README: dot_verify_m7.exe, tl_host_m7.exe) ---------------------
@@ -266,10 +299,7 @@ def main():
             fails += 0 if ok else 1
             note("- tl_host_m7, prompt %d, %s: %s" % (k, mode, "IDENTICAL" if ok else "DIFFERENT"))
         if not a.quick:
-            pre = os.path.join(out, "m7_multi_")
-            rc, err = run("tl_host_m7.exe", ["-", str(a.gen)], {"TL_MULTI": mfile, "TL_MULTI_OUT": pre}, os.path.join(out, "m7_multi.out"))
-            n_ok = sum(1 for k in range(len(prompts))
-                       if os.path.exists(pre + "%d.txt" % k) and same(os.path.join(out, "ref_%d.txt" % k), pre + "%d.txt" % k))
+            n_ok, lines, rc = multi_groups("tl_host_m7.exe", "m7_multi", {})
             fails += 0 if n_ok == len(prompts) else 1
             note("- tl_host_m7, all %d prompts together (batched kernels, shared openings): %d identical" % (len(prompts), n_ok))
         note("")

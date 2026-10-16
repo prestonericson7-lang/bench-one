@@ -36,6 +36,8 @@ typedef struct {
     uint32_t tok_store_bytes;         /* the tokenizer's tables in the card store (tl_plat.h) */
     int      tok_built;               /* 1: built from the model file on this open; 0: the store matched */
     double   params;                  /* weights in the file, counted from tensor shapes */
+    int      n_expert, n_used, eff;   /* mixture of experts: experts a layer, picked per token, hidden width (0: dense) */
+    int      batch;                   /* positions one pass may feed (tl_batch) */
 } tl_info_t;
 
 typedef struct {
@@ -120,6 +122,11 @@ int  tl_multi_share(int on);
  * halves). Only the order the rows come off the card changes, never a result. 0 returns the current value;
  * returns the previous one, or -1 for a g it does not take. */
 int  tl_set_ffn_group(int g);
+/* The batched pass's output head only for slots from `slot` on: 0 = every slot (the default), tl_step's n or more
+ * = none (the head's rows are then not even read). A prompt's positions need scores only at its last; the head
+ * is a tenth of the weights. Slots skipped report top1 = top2 = -1; the slots computed are unchanged to the bit.
+ * A negative slot returns the setting unchanged. Returns the previous setting. */
+int  tl_set_logits_from(int slot);
 typedef void (*tl_multi_emit_fn)(void *ctx, int seq, int pos, int32_t fed, int32_t top1, float l1,
                                  int32_t top2, float l2);
 /* Lays the sequences out in the attention cache. Returns 0, or -1 when they do not fit (tl_last_error). */

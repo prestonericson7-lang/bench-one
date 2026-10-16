@@ -457,6 +457,69 @@ within four seconds of the bus's own floor (3.757 million blocks × 10.3 µs ≈
 positions is now arithmetic-bound, about 18 s a position, so the M7's kernels are the next wall, not the
 card. The ring is the default (`::fifoirq 3`, `::admamin 8`).
 
+## 2026-10-16, late: not recomputing what the PSRAM already holds
+
+With the card no longer the wall, every pass from two positions is arithmetic -- so the question became what the
+M7 computes that it does not need to. The largest answer: **every new prompt recomputed the attention cache
+from position 0**, although a cache row depends only on the tokens up to its own position (the fact `::multi`'s
+shared openings already rest on, proven by `verify_pc.py`). Every chat prompt opens with the same 24-token
+system turn, and a conversation's next prompt contains the whole conversation so far.
+
+`::reuse 1` (default): the board remembers the tokens of the cache rows it knows are good -- accepted positions
+only; rows a rejected guess wrote lie beyond them -- and feeds a new prompt from the first position that
+differs, always computing at least the last prompt position (its scores choose the first answer token). A chip
+fault's re-layout, a `::multi` run or any command that may touch the cache makes it forget.
+
+Three prompts on one boot (`20261016-123353-psram_llm-reuse`), every printed step line identical to `tl_ref` on
+the whole prompt:
+
+| prompt | tokens | reused | first answer token |
+|---|---|---|---|
+| the chat question, cold | 45 | 0 | 920.2 s |
+| another question, same system turn | 43 | 29 (the system turn and "What is the difference between") | **291.6 s** |
+
+One conversation, its turns back to back (`20261016-131728-psram_llm-reuse`; all printed lines identical to
+`tl_ref`):
+
+| turn | prompt tokens | reused | computed | first answer token |
+|---|---|---|---|---|
+| 1 (the question again) | 45 | 44 | 1 | **45.3 s** |
+| 2 (turn 1, its answer, a new question) | 67 | 49 | 18 | **384.2 s** |
+| 3 | 87 | 71 | 16 | **331.7 s** |
+
+Without it a conversation's turns get slower as it grows (turn 3 would recompute 87 positions, about 11 passes);
+with it each turn costs only its new tokens. (A first ordering, with an unrelated prompt between a turn and the
+next, reused only the shared 29 -- correctly: there is one cache, and the unrelated prompt had overwritten the
+conversation from position 29.)
+
+## 2026-10-16, evening: logits only where they are used; the kernels read for what they do
+
+**The output head at the last prompt position only** (`::promptlogits 0`, default; `tl_set_logits_from`). A
+prompt position's scores are used only at the prompt's last position, and the head is a tenth of the weights; a
+non-final prompt pass now skips it entirely -- its rows are not even read. PC: `verify_pc.py` stage 2d, every line
+from the prompt's last position identical (8 of 8 on the 3B, 3 of 3 on the 30B).
+
+**Where the batched Q4_K kernel's cycles go**, by `::kbench`'s staged copies (`20261016-135957`, 8 vectors, rows in
+the DTCM row buffer, timed from flash): 2.43 cycles a weight a vector in the integer loop, 0.89 in the double tail,
+0.16 unpacking the scales. The integer loop, read off the image's own disassembly (`arm-none-eabi-objdump` of the
+ELF, then the same function compiled locally with the Teensy's flags -- identical opcodes), was 36 instructions for
+8 SMLADs, **6 of them stores and reloads of the weight pointer, an accumulator and the loop bound through the
+stack**: GCC's scheduling before register allocation hoists every load and lane build to the top of the iteration,
+17 values live in 14 registers. Two exact changes:
+
+- the nibble lane words by mask (`w & 0x000F000F` is the word SXTB16 makes of the low nibbles of bytes 0 and 2,
+  `(w >> 8)`, `(w >> 4)`, `(w >> 12)` the other three), low nibbles for both vectors before the high, and
+  `#pragma GCC optimize ("no-schedule-insns")` for the kernel file (ARM only): **30 instructions, no stack**. The
+  file's other hot loops spilled nothing before and keep their instruction counts.
+- **Q6_K's tail regrouped exactly.** The reference term `(double)s * d * sc * dot` rounds once, at the last product:
+  `s*d` (24 + 11 significant bits) and `*sc` (+8) are exact in a double. `sc*dot` is an exact integer under 2^24, so
+  `(s*d) * (double)(sc*dot)` rounds the same real number once -- the same double. Ten double operations per 32
+  weights per vector become six.
+
+`dot_verify` (native, and the M7 instructions emulated): every kernel identical to the scalar reference on 512 rows of
+11,008, batched at 1, 2, 5 and 8 vectors; both models' forward passes through the emulated M7 kernels identical to
+`tl_ref` (`m7_rerun.py`). Board speed: below.
+
 ## For the FPGA
 
 This is the layout to carry over: independent memories, each owning whole layers, a checksum beside every

@@ -45,6 +45,14 @@
  * same bits on the M7 as on the PC. */
 #if defined(__arm__) && defined(__GNUC__) && !defined(__clang__)
 #pragma GCC optimize ("fp-contract=off")
+/* No scheduling BEFORE register allocation (2026-10-16). It hoists every load and lane build of the batched Q4_K
+ * loop to the top of the iteration, which keeps 17 values live in 14 registers: the compiled loop stored and
+ * reloaded the weight pointer, one accumulator and the loop bound through the stack every 8 weights (6 of its 36
+ * instructions, competing with the 5 real loads for the one load/store unit). Without it the same loop is 30
+ * instructions and touches the stack not at all; the scheduler after allocation still orders what it can. A
+ * scheduling choice only: the instructions compute the same values. (Measured across this file's other hot
+ * loops: none spilled before, none changed instruction count.) */
+#pragma GCC optimize ("no-schedule-insns")
 #endif
 #include "gguf.h"
 
@@ -681,7 +689,15 @@ float gguf_dot_q4k_presum(const void *raw_, const int8_t *xq, const float *xs,
  *  so in its name. Subtracting timings of variants that differ by exactly one stage is the only way to
  *  attribute cost without guessing, and guessing is what produced the 61% estimate this replaces.
  * ------------------------------------------------------------------------------------------ */
-float gguf_dot_q4k_stage(const void *raw_, const int8_t *xq, const float *xs, uint64_t n, int stage)
+/* Instrumentation kernels live in flash on the Teensy (its I-cache runs a timing loop at full speed after the first
+ * pass), so they do not push the model's kernels' ITCM over a 32 KB bank edge -- which costs the stack 32 KB.
+ * Stage 0 of gguf_dot_q4k_presum_n_stage timed against gguf_dot_q4k_presum_n checks that placement costs nothing. */
+#if defined(__IMXRT1062__)
+#define GD_COLD __attribute__((section(".flashmem"), noinline))
+#else
+#define GD_COLD
+#endif
+GD_COLD float gguf_dot_q4k_stage(const void *raw_, const int8_t *xq, const float *xs, uint64_t n, int stage)
 {
     const uint8_t *raw = (const uint8_t *)raw_;
     const uint64_t nb = n / QK_K;
@@ -959,7 +975,17 @@ static float dot_q6_k_neon(const uint8_t *raw, const int8_t *xq, const float *xs
 #endif
 
 #if GGUF_HAVE_M7DSP
-/* Bit-identical to dot_q6_k_ref. All eight integer dots are computed before any float arithmetic runs,
+/* Q6K_TAIL (2026-10-16): the reference's term is (double)s * d * sc * dot, left to right. Its first two products
+ * are EXACT -- s is a float (24 significant bits), d a half-precision value (11), so s*d has at most 35 bits; sc is
+ * a signed byte (8), so s*d*sc has at most 43, well inside a double's 53 -- and the only rounding is the last
+ * product, RN(s*d*sc*dot). sc*dot is an exact integer (|sc| <= 128, |dot| <= 16*32*127, product under 2^24), so
+ * (s*d) * (double)(sc*dot) rounds THE SAME REAL NUMBER once: the same double, bit for bit. Two double conversions
+ * and two double multiplies a group fewer (the M7's double-precision unit is the slow part of this kernel: the
+ * staged measurement put 1.5 of its 4.96 cycles a multiply-add in this tail). A zero product's sign can differ
+ * (+0 for -0) and cannot matter: the running total starts at +0 and x + (+-0) is x, +0 + -0 is +0. The scalar
+ * reference keeps the original expression, and tests/dot_verify.c compares the two on every row.
+ *
+ * Bit-identical to dot_q6_k_ref. All eight integer dots are computed before any float arithmetic runs,
  * so the double accumulation happens in exactly the reference's order -- offset 0 to 3, and within each
  * offset scale group 0 then 1. Reordering the integer products inside a dot is free because integer
  * addition is exact; reordering the double sum would not be. */
@@ -995,9 +1021,9 @@ static float dot_q6_k_m7(const uint8_t *raw, const int8_t *xq, const float *xs, 
             }
 
             for (int o = 0; o < 4; o++) {
-                const float s = sx[(n128 + 32 * o) / ABLK];
+                const double sd = (double)sx[(n128 + 32 * o) / ABLK] * d;      /* exact (Q6K_TAIL) */
                 for (int g = 0; g < 2; g++)
-                    total += (double)s * d * sc[2 * o + g] * dot[o][g];
+                    total += sd * (double)(sc[2 * o + g] * dot[o][g]);
             }
             ql += 64;
             qh += 32;
@@ -1168,9 +1194,9 @@ float gguf_dot_q6k_w(const void *raw_, const int8_t *xq, const uint32_t *xw, con
                 dot[o][1] = gd_q6_dot16_w(qlb + 16, qh + 16, xo + 8, QLSH[o], HSH[o]);
             }
             for (int o = 0; o < 4; o++) {
-                const float s = sx[(n128 + 32 * o) / ABLK];
+                const double sd = (double)sx[(n128 + 32 * o) / ABLK] * d;      /* exact (Q6K_TAIL) */
                 for (int g = 0; g < 2; g++)
-                    total += (double)s * d * sc[2 * o + g] * dot[o][g];
+                    total += sd * (double)(sc[2 * o + g] * dot[o][g]);
             }
             ql += 64;
             qh += 32;
@@ -1243,23 +1269,30 @@ void gguf_dot_q4k_presum_n(const void *raw_, int np, const int8_t *const *xq, co
                  * vector's double accumulation is the single kernel's expression, unchanged. */
                 int p = 0;
                 for (; p + 1 < np; p += 2) {
+                    /* LOW NIBBLES FOR BOTH VECTORS, THEN HIGH (2026-10-16), each nibble lane word made by a mask: the
+                     * low nibbles of bytes 0 and 2 as two 16-bit lanes are w & 0x000F000F -- exactly the word SXTB16
+                     * makes of w & 0x0F0F0F0F, since a nibble sign-extends to itself -- and bytes 1 and 3's are
+                     * (w >> 8) & 0x000F000F, the high nibbles (w >> 4) and (w >> 12) the same way. The same words in,
+                     * the same SMLADs on them: the same integers. Two lane words live instead of four, which with
+                     * the pragma at the top keeps the loop out of the stack (see there). */
                     const int8_t *x0 = xq[p] + b * QK_K + j, *x1 = xq[p + 1] + b * QK_K + j;
                     int32_t a0 = 0, c0 = 0, a1 = 0, c1 = 0;        /* low-nibble dot, high-nibble dot, x2 */
                     for (int k = 0; k < 32; k += 4) {
-                        const uint32_t w  = gd_ld32(q + k);
-                        const uint32_t lo = w & 0x0F0F0F0Fu, hi = (w >> 4) & 0x0F0F0F0Fu;
-                        const uint32_t la = gd_sxtb16(lo), lb = gd_sxtb16r8(lo);
-                        const uint32_t ha = gd_sxtb16(hi), hb = gd_sxtb16r8(hi);
-                        const uint32_t v0 = gd_ld32(x0 + k), u0 = gd_ld32(x0 + 32 + k);
-                        const uint32_t v1 = gd_ld32(x1 + k), u1 = gd_ld32(x1 + 32 + k);
-                        a0 = gd_smlad(la, gd_sxtb16(v0), a0);
-                        a0 = gd_smlad(lb, gd_sxtb16r8(v0), a0);
-                        c0 = gd_smlad(ha, gd_sxtb16(u0), c0);
-                        c0 = gd_smlad(hb, gd_sxtb16r8(u0), c0);
-                        a1 = gd_smlad(la, gd_sxtb16(v1), a1);
-                        a1 = gd_smlad(lb, gd_sxtb16r8(v1), a1);
-                        c1 = gd_smlad(ha, gd_sxtb16(u1), c1);
-                        c1 = gd_smlad(hb, gd_sxtb16r8(u1), c1);
+                        const uint32_t w = gd_ld32(q + k);
+                        uint32_t la = w & 0x000F000Fu, lb = (w >> 8) & 0x000F000Fu;
+                        uint32_t v = gd_ld32(x0 + k);
+                        a0 = gd_smlad(la, gd_sxtb16(v), a0);
+                        a0 = gd_smlad(lb, gd_sxtb16r8(v), a0);
+                        v = gd_ld32(x1 + k);
+                        a1 = gd_smlad(la, gd_sxtb16(v), a1);
+                        a1 = gd_smlad(lb, gd_sxtb16r8(v), a1);
+                        la = (w >> 4) & 0x000F000Fu; lb = (w >> 12) & 0x000F000Fu;
+                        v = gd_ld32(x0 + 32 + k);
+                        c0 = gd_smlad(la, gd_sxtb16(v), c0);
+                        c0 = gd_smlad(lb, gd_sxtb16r8(v), c0);
+                        v = gd_ld32(x1 + 32 + k);
+                        c1 = gd_smlad(la, gd_sxtb16(v), c1);
+                        c1 = gd_smlad(lb, gd_sxtb16r8(v), c1);
                     }
                     dot0[p] = a0; dot1[p] = c0; dot0[p + 1] = a1; dot1[p + 1] = c1;
                 }
@@ -1292,6 +1325,99 @@ void gguf_dot_q4k_presum_n(const void *raw_, int np, const int8_t *const *xq, co
     }
 #endif
     for (int p = 0; p < np; p++) out[p] = gguf_dot_q4k_presum(raw_, xq[p], xs[p], xsum[p], n);
+}
+
+/* INSTRUMENTATION, not a kernel anybody should call for a result (2026-10-16): gguf_dot_q4k_presum_n with stages
+ * removed, so ::kbench can attribute the batched kernel's 3.23 cycles a weight a vector (eight vectors) the way
+ * gguf_dot_q4k_stage did the single kernel's 5.4 -- by timing variants that differ by exactly one stage.
+ *   stage 0  the real kernel (the same arithmetic as gguf_dot_q4k_presum_n)
+ *   stage 1  the double combination replaced by an integer accumulation (dot * sc - sum * m)
+ *   stage 2  also without gguf_q4k_scale_min (sc = 1, m = 0)
+ * Stages 1 and 2 return arithmetic nonsense; the caller times them. */
+GD_COLD void gguf_dot_q4k_presum_n_stage(const void *raw_, int np, const int8_t *const *xq, const float *const *xs,
+                                 const int32_t *const *xsum, uint64_t n, float *out, int stage)
+{
+#if GGUF_HAVE_M7DSP
+    if (np > 1 && np <= GGUF_NPOS_MAX) {
+        const uint8_t *raw = (const uint8_t *)raw_;
+        const uint64_t nb = n / QK_K;
+        double total[GGUF_NPOS_MAX];
+        int64_t itotal[GGUF_NPOS_MAX];
+        for (int p = 0; p < np; p++) { total[p] = 0.0; itotal[p] = 0; }
+        for (uint64_t b = 0; b < nb; b++) {
+            const uint8_t *blk = raw + b * 144u;
+            uint16_t hd, hm;
+            memcpy(&hd, blk + 0, 2);
+            memcpy(&hm, blk + 2, 2);
+            const float d    = gguf_fp16(hd);
+            const float dmin = gguf_fp16(hm);
+            const uint8_t *sc_raw = blk + 4;
+            const uint8_t *q      = blk + 16;
+            int is = 0;
+            for (int j = 0; j < QK_K; j += 64) {
+                uint8_t sc0 = 1, m0 = 0, sc1 = 1, m1 = 0;
+                if (stage < 2) { gguf_q4k_scale_min(is + 0, sc_raw, &sc0, &m0); gguf_q4k_scale_min(is + 1, sc_raw, &sc1, &m1); }
+                const double A0 = (double)d * sc0, B0 = (double)dmin * m0;
+                const double A1 = (double)d * sc1, B1 = (double)dmin * m1;
+                int32_t dot0[GGUF_NPOS_MAX], dot1[GGUF_NPOS_MAX];
+                int p = 0;
+                for (; p + 1 < np; p += 2) {                        /* the _n kernel's loop, as it is (2026-10-16) */
+                    const int8_t *x0 = xq[p] + b * QK_K + j, *x1 = xq[p + 1] + b * QK_K + j;
+                    int32_t a0 = 0, c0 = 0, a1 = 0, c1 = 0;
+                    for (int k = 0; k < 32; k += 4) {
+                        const uint32_t w = gd_ld32(q + k);
+                        uint32_t la = w & 0x000F000Fu, lb = (w >> 8) & 0x000F000Fu;
+                        uint32_t v = gd_ld32(x0 + k);
+                        a0 = gd_smlad(la, gd_sxtb16(v), a0);
+                        a0 = gd_smlad(lb, gd_sxtb16r8(v), a0);
+                        v = gd_ld32(x1 + k);
+                        a1 = gd_smlad(la, gd_sxtb16(v), a1);
+                        a1 = gd_smlad(lb, gd_sxtb16r8(v), a1);
+                        la = (w >> 4) & 0x000F000Fu; lb = (w >> 12) & 0x000F000Fu;
+                        v = gd_ld32(x0 + 32 + k);
+                        c0 = gd_smlad(la, gd_sxtb16(v), c0);
+                        c0 = gd_smlad(lb, gd_sxtb16r8(v), c0);
+                        v = gd_ld32(x1 + 32 + k);
+                        c1 = gd_smlad(la, gd_sxtb16(v), c1);
+                        c1 = gd_smlad(lb, gd_sxtb16r8(v), c1);
+                    }
+                    dot0[p] = a0; dot1[p] = c0; dot0[p + 1] = a1; dot1[p + 1] = c1;
+                }
+                if (p < np) {                                       /* an odd count: the last vector alone, as _n */
+                    const int8_t *x0 = xq[p] + b * QK_K + j;
+                    int32_t a0 = 0, c0 = 0;
+                    for (int k = 0; k < 32; k += 4) {
+                        const uint32_t w  = gd_ld32(q + k);
+                        const uint32_t lo = w & 0x0F0F0F0Fu, hi = (w >> 4) & 0x0F0F0F0Fu;
+                        const uint32_t v0 = gd_ld32(x0 + k), u0 = gd_ld32(x0 + 32 + k);
+                        a0 = gd_smlad(gd_sxtb16(lo), gd_sxtb16(v0), a0);
+                        a0 = gd_smlad(gd_sxtb16r8(lo), gd_sxtb16r8(v0), a0);
+                        c0 = gd_smlad(gd_sxtb16(hi), gd_sxtb16(u0), c0);
+                        c0 = gd_smlad(gd_sxtb16r8(hi), gd_sxtb16r8(u0), c0);
+                    }
+                    dot0[p] = a0; dot1[p] = c0;
+                }
+                for (int p2 = 0; p2 < np; p2++) {
+                    const float   *sx = xs[p2] + b * (QK_K / ABLK);
+                    const int32_t *sm = xsum[p2] + b * (QK_K / ABLK);
+                    if (stage < 1) {
+                        total[p2] += (double)sx[is + 0] * (A0 * dot0[p2] - B0 * sm[is + 0]);
+                        total[p2] += (double)sx[is + 1] * (A1 * dot1[p2] - B1 * sm[is + 1]);
+                    } else {
+                        itotal[p2] += (int64_t)dot0[p2] * sc0 - (int64_t)sm[is + 0] * m0;
+                        itotal[p2] += (int64_t)dot1[p2] * sc1 - (int64_t)sm[is + 1] * m1;
+                    }
+                }
+                q += 32;
+                is += 2;
+            }
+        }
+        for (int p = 0; p < np; p++) out[p] = stage == 0 ? (float)total[p] : (float)(double)itotal[p];
+        return;
+    }
+#endif
+    (void)stage;
+    gguf_dot_q4k_presum_n(raw_, np, xq, xs, xsum, n, out);
 }
 
 /* The same, with every vector PRE-WIDENED (gguf_widen_act: each 4 activation bytes as their two 16-bit lane
@@ -1453,9 +1579,9 @@ void gguf_dot_q_n(uint32_t type, const void *raw_, int np, const int8_t *const *
                 for (int p = 0; p < np; p++) {
                     const float *sx = xs[p] + b * (QK_K / ABLK);
                     for (int o = 0; o < 4; o++) {
-                        const float s = sx[(n128 + 32 * o) / ABLK];
+                        const double sd = (double)sx[(n128 + 32 * o) / ABLK] * d;  /* exact (Q6K_TAIL) */
                         for (int g = 0; g < 2; g++)
-                            total[p] += (double)s * d * sc[2 * o + g] * dot[p][o][g];
+                            total[p] += sd * (double)(sc[2 * o + g] * dot[p][o][g]);
                     }
                 }
                 ql += 64;

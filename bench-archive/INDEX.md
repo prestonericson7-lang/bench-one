@@ -149,3 +149,5 @@ been in can be returned to by flashing one file. Newest last.
 | 20261016-113354 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ::sdfifo cycle -- production ring open/read/close/file-read/reopen, with and without RSTD |
 | 20261016-113914 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ring stream's own close (park, CMD12 in ADMA2, RSTD, clear), DS_ADDR canary, status cleared before signals |
 | 20261016-120228 | psram_llm | ac88742+dirty | 1819 | 2026-10-16 final for the SanDisk Ultra: ::fifoirq 3 (DMA ring) and ::admamin 8 by default |
+| 20261016-123156 | psram_llm | e7b49f1+dirty | 1819 | 2026-10-16: ::reuse -- a prompt is fed from the first position the attention cache does not already hold |
+| 20261016-135957 | psram_llm | e7b49f1+dirty | 2489 | logits-last, stack HWM, ringfault, kbench stages (PC regression 20261016-124252 ALL IDENTICAL) |

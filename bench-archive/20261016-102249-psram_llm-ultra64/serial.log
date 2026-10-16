@@ -1,0 +1,271 @@
+
+[board_cmd 2026-10-16 10:22:50] >>> I
+10:24:10 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+10:24:10 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+10:24:10 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+10:24:10 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+10:24:10 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+10:24:10 |   >> The capital of France is Paris
+10:24:10 |     prefill=0..4: 124.4 s: SD 1834.8 MB in 2.2 s (833.43 MB/s), PSRAM 283 KB read 94.2 KB written in 0.12 s, compute 122.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:24:10 | STAGES prefill=0..4 embed=0.004 qkv=6.92 att=0.645 wo=5.20 ffn=95.63 head=15.97 hidden=68.07 temp_c=47.7
+10:24:10 | CARD prefill=0..4 fifoirq opens=3277 interrupts=7518194
+10:25:09 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+10:25:09 |   >> The capital of France is Paris.
+10:25:09 |     step=5: 58.7 s: SD 1834.8 MB in 16.8 s (109.44 MB/s), PSRAM 113 KB read 18.8 KB written in 0.05 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:25:09 | STAGES step=5 embed=0.001 qkv=3.55 att=0.159 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=49.0
+10:25:09 | CARD step=5 fifoirq opens=217 interrupts=7512074
+10:26:08 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+10:26:08 |   >> The capital of France is Paris. Paris
+10:26:08 |     step=6: 58.7 s: SD 1834.8 MB in 16.8 s (109.41 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:26:08 | STAGES step=6 embed=0.001 qkv=3.55 att=0.167 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=49.0
+10:26:08 | CARD step=6 fifoirq opens=217 interrupts=7512074
+10:27:06 | step 7 pos 7 fed 12095 -> top1 374 20.5606785 top2 702 17.2204037 text " is"
+10:27:06 |   >> The capital of France is Paris. Paris is
+10:27:06 |     step=7: 58.8 s: SD 1834.8 MB in 16.8 s (109.41 MB/s), PSRAM 151 KB read 18.8 KB written in 0.06 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:27:06 | STAGES step=7 embed=0.001 qkv=3.55 att=0.175 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=49.6
+10:27:06 | CARD step=7 fifoirq opens=217 interrupts=7512074
+10:28:05 | step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+10:28:05 |   >> The capital of France is Paris. Paris is the
+10:28:05 |     step=8: 58.8 s: SD 1834.8 MB in 16.8 s (109.42 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:28:05 | STAGES step=8 embed=0.001 qkv=3.55 att=0.184 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.3
+10:28:05 | CARD step=8 fifoirq opens=217 interrupts=7512074
+10:29:04 | step 9 pos 9 fed 279 -> top1 7772 18.4694843 top2 1429 17.291029 text " largest"
+10:29:04 |   >> The capital of France is Paris. Paris is the largest
+10:29:04 |     step=9: 58.8 s: SD 1834.8 MB in 16.8 s (109.42 MB/s), PSRAM 188 KB read 18.8 KB written in 0.07 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:29:04 | STAGES step=9 embed=0.001 qkv=3.55 att=0.192 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.3
+10:29:04 | CARD step=9 fifoirq opens=217 interrupts=7512074
+10:30:03 | step 10 pos 10 fed 7772 -> top1 3283 21.7598343 top2 323 19.3194656 text " city"
+10:30:03 |   >> The capital of France is Paris. Paris is the largest city
+10:30:03 |     step=10: 58.8 s: SD 1834.8 MB in 16.8 s (109.41 MB/s), PSRAM 207 KB read 18.8 KB written in 0.07 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:30:03 | STAGES step=10 embed=0.001 qkv=3.55 att=0.200 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.3
+10:30:03 | CARD step=10 fifoirq opens=217 interrupts=7512074
+10:31:01 | step 11 pos 11 fed 3283 -> top1 304 21.3497658 top2 323 18.2502346 text " in"
+10:31:01 |   >> The capital of France is Paris. Paris is the largest city in
+10:31:01 |     step=11: 58.8 s: SD 1834.8 MB in 16.8 s (109.39 MB/s), PSRAM 226 KB read 18.8 KB written in 0.08 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:31:01 | STAGES step=11 embed=0.001 qkv=3.55 att=0.208 wo=2.60 ffn=44.74 head=7.69 hidden=41.45 temp_c=50.3
+10:31:01 | CARD step=11 fifoirq opens=217 interrupts=7512074
+10:32:00 | step 12 pos 12 fed 304 -> top1 9625 20.1627922 top2 279 17.4065971 text " France"
+10:32:00 |   >> The capital of France is Paris. Paris is the largest city in France
+10:32:00 |     step=12: 58.8 s: SD 1834.8 MB in 16.8 s (109.39 MB/s), PSRAM 245 KB read 18.8 KB written in 0.08 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:32:00 | STAGES step=12 embed=0.001 qkv=3.55 att=0.217 wo=2.60 ffn=44.74 head=7.69 hidden=41.45 temp_c=50.3
+10:32:00 | CARD step=12 fifoirq opens=217 interrupts=7512074
+10:32:59 | step 13 pos 13 fed 9625 -> top1 323 20.8321648 top2 13 19.0905323 text " and"
+10:32:59 |   >> The capital of France is Paris. Paris is the largest city in France and
+10:32:59 |     step=13: 58.8 s: SD 1834.8 MB in 16.8 s (109.41 MB/s), PSRAM 264 KB read 18.8 KB written in 0.09 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:32:59 | STAGES step=13 embed=0.001 qkv=3.55 att=0.225 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.9
+10:32:59 | CARD step=13 fifoirq opens=217 interrupts=7512074
+10:33:58 | step 14 pos 14 fed 323 -> top1 374 19.3079033 top2 279 19.3019466 text " is"
+10:33:58 |   >> The capital of France is Paris. Paris is the largest city in France and is
+10:33:58 |     step=14: 58.8 s: SD 1834.8 MB in 16.8 s (109.41 MB/s), PSRAM 283 KB read 18.8 KB written in 0.09 s, compute 42.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:33:58 | STAGES step=14 embed=0.001 qkv=3.55 att=0.233 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.3
+10:33:58 | CARD step=14 fifoirq opens=217 interrupts=7512074
+10:34:57 | step 15 pos 15 fed 374 -> top1 3881 20.1735954 top2 279 18.9148178 text " known"
+10:34:57 |   >> The capital of France is Paris. Paris is the largest city in France and is known
+10:34:57 |     step=15: 58.8 s: SD 1834.8 MB in 16.8 s (109.40 MB/s), PSRAM 302 KB read 18.8 KB written in 0.10 s, compute 42.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:34:57 | STAGES step=15 embed=0.001 qkv=3.55 att=0.241 wo=2.60 ffn=44.73 head=7.69 hidden=41.45 temp_c=50.3
+10:34:57 | CARD step=15 fifoirq opens=217 interrupts=7512074
+10:35:56 | step 16 pos 16 fed 3881 -> top1 369 22.3402996 top2 438 19.6439362 text " for"
+10:35:56 |   >> The capital of France is Paris. Paris is the largest city in France and is known for
+10:35:56 |     step=16: 58.8 s: SD 1834.8 MB in 16.8 s (109.39 MB/s), PSRAM 320 KB read 18.8 KB written in 0.10 s, compute 42.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:35:56 | STAGES step=16 embed=0.001 qkv=3.55 att=0.250 wo=2.60 ffn=44.74 head=7.69 hidden=41.45 temp_c=50.9
+10:35:56 | CARD step=16 fifoirq opens=217 interrupts=7512074
+10:36:54 | step 17 pos 17 fed 369 -> top1 1181 23.4017372 top2 1657 16.6195412 text " its"
+10:36:54 |   >> The capital of France is Paris. Paris is the largest city in France and is known for its
+10:36:54 |     step=17: 58.8 s: SD 1834.8 MB in 16.8 s (109.40 MB/s), PSRAM 339 KB read 18.8 KB written in 0.11 s, compute 42.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+10:36:54 | STAGES step=17 embed=0.001 qkv=3.55 att=0.258 wo=2.60 ffn=44.74 head=7.69 hidden=41.45 temp_c=50.3
+10:36:54 | CARD step=17 fifoirq opens=217 interrupts=7512074
+
+[board_cmd 2026-10-16 10:37:50] >>> ::hold
+
+[board_cmd 2026-10-16 10:44:55] >>> I
+10:44:55 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+
+[board_cmd 2026-10-16 10:44:55] >>> ::sdtrace
+10:44:55 | TRACE begin temp_c 49.6
+10:44:55 | TRACE polled request 0.23 request_to_first_words 1.65 first_to_drained 9.58 drained_to_stop 0.09 block 11.56 us; no request needed 1 of 64; err 0
+10:44:55 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:44:55 |     qwen3b.gguf: 1929903072 bytes
+10:44:55 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:44:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:44:55 | TRACE irq as_fifoirq request_to_block_in 10.65 block_in_to_drained 4.33 drained_to_stop 0.12 stop_to_request 0.19 block 15.29 us; err 0
+10:44:55 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:44:55 |     qwen3b.gguf: 1929903072 bytes
+10:44:55 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:44:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:44:55 | TRACE irq request_after_rta request_to_block_in 10.65 block_in_to_drained 4.33 drained_to_stop 0.12 stop_to_request 0.23 block 15.32 us; err 0
+10:44:55 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:44:55 |     qwen3b.gguf: 1929903072 bytes
+10:44:55 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:44:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:44:55 | TRACE irq clear_all_status request_to_block_in 10.65 block_in_to_drained 4.33 drained_to_stop 0.12 stop_to_request 0.19 block 15.29 us; err 0
+10:44:55 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:44:55 |     qwen3b.gguf: 1929903072 bytes
+10:44:55 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:44:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:44:55 | TRACE end temp_c 49.6
+
+[board_cmd 2026-10-16 10:45:06] >>> I
+10:45:06 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+
+[board_cmd 2026-10-16 10:45:06] >>> ::sdfifo irq
+10:45:06 | FIFOX begin temp_c 49.6
+10:45:06 | FIFOX file mb_s 39.16 (SdFat's file layer, the reference)
+10:45:07 | FIFOX irq wml 128 work_us 0 mb_s 32.94 us_per_block 15.54 interrupts 8192 data OK temp_c 49.6
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 128 work_us 10 mb_s 30.02 us_per_block 17.05 interrupts 8192 data OK temp_c 49.6
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 128 work_us 15 mb_s 23.33 us_per_block 21.94 interrupts 8192 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 128 work_us 20 mb_s 19.00 us_per_block 26.94 interrupts 8192 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 128 work_us 25 mb_s 16.08 us_per_block 31.84 interrupts 8192 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 128 work_us 30 mb_s 13.89 us_per_block 36.86 interrupts 8192 data OK temp_c 49.6
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 64 work_us 0 mb_s 38.44 us_per_block 13.32 interrupts 15366 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 64 work_us 10 mb_s 26.59 us_per_block 19.26 interrupts 15290 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 64 work_us 15 mb_s 21.10 us_per_block 24.27 interrupts 15263 data OK temp_c 49.0
+10:45:07 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:07 |     qwen3b.gguf: 1929903072 bytes
+10:45:07 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:07 | FIFOX irq wml 64 work_us 20 mb_s 17.51 us_per_block 29.24 interrupts 15249 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 64 work_us 25 mb_s 14.96 us_per_block 34.22 interrupts 15202 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 64 work_us 30 mb_s 13.06 us_per_block 39.21 interrupts 15229 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 32 work_us 0 mb_s 41.78 us_per_block 12.26 interrupts 29718 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 32 work_us 10 mb_s 23.45 us_per_block 21.83 interrupts 29300 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 32 work_us 15 mb_s 18.88 us_per_block 27.11 interrupts 32764 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 32 work_us 20 mb_s 16.09 us_per_block 31.83 interrupts 29585 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:08 | FIFOX irq wml 32 work_us 25 mb_s 13.91 us_per_block 36.80 interrupts 29381 data OK temp_c 49.0
+10:45:08 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:08 |     qwen3b.gguf: 1929903072 bytes
+10:45:08 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 32 work_us 30 mb_s 12.25 us_per_block 41.80 interrupts 29388 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 0 mb_s 37.38 us_per_block 13.70 interrupts 58172 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 10 mb_s 21.71 us_per_block 23.58 interrupts 58114 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 15 mb_s 17.92 us_per_block 28.57 interrupts 57737 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 20 mb_s 15.25 us_per_block 33.57 interrupts 58029 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 25 mb_s 13.28 us_per_block 38.56 interrupts 58126 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX irq wml 16 work_us 30 mb_s 11.76 us_per_block 43.55 interrupts 58174 data OK temp_c 49.0
+10:45:09 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:09 |     qwen3b.gguf: 1929903072 bytes
+10:45:09 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:09 | FIFOX file again mb_s 43.81 data OK
+10:45:09 | FIFOX end temp_c 49.0
+
+[board_cmd 2026-10-16 10:45:33] >>> I
+10:45:33 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+
+[board_cmd 2026-10-16 10:45:33] >>> ::sdadma
+10:45:33 | ADMA begin temp_c 49.6
+10:45:33 | ADMA fifo mb_s 39.17
+10:45:33 |     SD up (DMA_SDIO), clock 99000 kHz
+10:45:33 |     qwen3b.gguf: 1929903072 bytes
+10:45:33 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:33 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:33 | ADMA sdma read_size 65536 mb_s 41.54 data OK
+10:45:34 | ADMA adma2 read_size 4096 desc 32768 mb_s 13.55 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 16384 desc 32768 mb_s 28.39 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 65024 desc 65024 mb_s 34.68 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 65536 desc 32768 mb_s 39.54 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 65536 desc 16384 mb_s 39.66 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 114688 desc 57344 mb_s 41.96 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 114688 desc 28672 mb_s 42.16 data OK adma_err 0x00000000
+10:45:34 | ADMA adma2 read_size 65536 wml 128 brst 16 blen 7 mb_s 39.58 data OK
+10:45:34 | ADMA adma2 read_size 65536 wml 64 brst 16 blen 7 mb_s 39.65 data OK
+10:45:34 | ADMA adma2 read_size 65536 wml 16 brst 16 blen 7 mb_s 39.67 data OK
+10:45:34 | ADMA adma2 read_size 65536 wml 128 brst 8 blen 0 mb_s 39.62 data OK
+10:45:34 |     SD up (FIFO_SDIO), clock 99000 kHz
+10:45:34 |     qwen3b.gguf: 1929903072 bytes
+10:45:34 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+10:45:34 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+10:45:34 | ADMA end temp_c 49.0
+
+[board_cmd 2026-10-16 10:45:57] >>> I
+10:45:57 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+
+[board_cmd 2026-10-16 10:45:57] >>> ::fifoirq 0
+10:45:57 | FIFOIRQ 0 wml 128
+
+[board_cmd 2026-10-16 10:45:59] >>> ::admamin 1
+10:45:59 | ADMAMIN 1

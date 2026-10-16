@@ -1,0 +1,12 @@
+
+[board_cmd 2026-10-16 11:26:58] >>> I
+11:27:32 | step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+11:27:32 |   >> The capital of France is Paris. Paris is the
+11:27:32 |     step=8: 58.8 s: SD 1834.8 MB in 16.8 s (109.04 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+11:27:32 | STAGES step=8 embed=0.001 qkv=3.55 att=0.185 wo=2.60 ffn=44.73 head=7.69 hidden=41.39 temp_c=50.9
+11:27:32 | CARD step=8 fifoirq opens=217 interrupts=7512074
+11:28:31 | step 9 pos 9 fed 279 -> top1 7772 18.4694843 top2 1429 17.291029 text " largest"
+11:28:31 |   >> The capital of France is Paris. Paris is the largest
+11:28:31 |     step=9: 58.8 s: SD 1834.8 MB in 16.8 s (109.05 MB/s), PSRAM 188 KB read 18.8 KB written in 0.07 s, compute 41.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+11:28:31 | STAGES step=9 embed=0.001 qkv=3.55 att=0.193 wo=2.60 ffn=44.73 head=7.69 hidden=41.39 temp_c=50.9
+11:28:31 | CARD step=9 fifoirq opens=217 interrupts=7512074

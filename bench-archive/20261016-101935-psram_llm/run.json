@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-101935",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 150,
+  "note": "2026-10-16 exFAT fix: tokenizer store write fills the gap before a seek past the valid length (SanDisk Ultra 64 GB exFAT halted at the first write)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 651021
+}

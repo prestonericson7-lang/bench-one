@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-105736",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16: ::sdfifo adma (one open CMD18, ADMA2 copies, interrupt per block) + ::fifoirq 2 production path",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 659661
+}

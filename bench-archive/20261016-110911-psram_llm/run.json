@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-110911",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16: ::fifoirq 3 -- the card streaming by ADMA2 into a Link-looped DTCM ring, reads copied out, rows worked while blocks are not in",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 668301
+}

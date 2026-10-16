@@ -1,0 +1,13 @@
+11:11:34 > I
+11:11:34 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+11:11:34 > ::gen 1
+11:11:34 | GEN 1
+11:11:44 > one
+11:11:44 |   prompt: "one"  (1 tokens, generating 1, prompt batched through tl_prefill)
+11:11:44 | prompt ids: 603
+11:11:44 |   card: 1 position in this pass -> FIFO
+11:11:44 |     SD up (FIFO_SDIO), clock 99000 kHz
+11:11:44 |     qwen3b.gguf: 1929903072 bytes
+11:11:44 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+11:11:44 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+11:11:44 | SDIO fifo

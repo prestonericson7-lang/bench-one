@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-113354",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 40,
+  "note": "2026-10-16: ::sdfifo cycle -- production ring open/read/close/file-read/reopen, with and without RSTD",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 688461
+}

@@ -1,0 +1,15 @@
+11:19:11 > I
+11:19:11 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf
+11:19:11 > ::gen 1
+11:19:11 | GEN 1
+11:19:21 > one
+11:19:21 |   prompt: "one"  (1 tokens, generating 1, prompt batched through tl_prefill)
+11:19:21 | prompt ids: 603
+11:19:21 |   card: 1 position in this pass -> FIFO
+11:19:21 |     SD up (FIFO_SDIO), clock 99000 kHz
+11:19:21 |     qwen3b.gguf: 1929903072 bytes
+11:19:21 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+11:19:21 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+11:19:21 | SDIO fifo
+11:19:23 |     fifoirq 3: read of 49 sectors at 737851 stopped (0x77208899, PRES_STATE 0xF088820E, ADMA_ERR 0x00000003); back to the file layer
+11:19:23 |     fifoirq OFF; the card restarted, this block read through the file layer

@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-110520",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16: ::sdfifo ring (one open ADMA2 transfer into a Link-looped ring, interrupt per block grants room)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 665421
+}

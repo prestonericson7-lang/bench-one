@@ -138,3 +138,14 @@ been in can be returned to by flashing one file. Newest last.
 | 20261016-035831 | psram_llm | 51b8e9d+dirty | 1829 | 2026-10-16 night: ::lookup K N (match 4..N, default 1), run_prompt_once in flash; for the lookup runs at ::fifoirq costs |
 | 20261016-061459 | psram_llm | 51b8e9d+dirty | 3270 | 2026-10-16 final: ::fifoirq 1 and ::admamin 7 by default (measured), CARD id at boot, lookup K N |
 | 20261016-061724 | psram_llm | 51b8e9d+dirty | 6211 | 2026-10-16 final (same source as 061459), boot logged in full for the CARD id line |
+| 20261016-101935 | psram_llm | ac88742+dirty | 6192 | 2026-10-16 exFAT fix: tokenizer store write fills the gap before a seek past the valid length (SanDisk Ultra 64 GB exFAT halted at the first write) |
+| 20261016-105736 | psram_llm | ac88742+dirty | 1819 | 2026-10-16: ::sdfifo adma (one open CMD18, ADMA2 copies, interrupt per block) + ::fifoirq 2 production path |
+| 20261016-110127 | psram_llm | ac88742+dirty | 1712 | 2026-10-16: open ADMA2 transfer, tables end in a one-block overflow descriptor (End ends the data phase) |
+| 20261016-110520 | psram_llm | ac88742+dirty | 1819 | 2026-10-16: ::sdfifo ring (one open ADMA2 transfer into a Link-looped ring, interrupt per block grants room) |
+| 20261016-110911 | psram_llm | ac88742+dirty | 1819 | 2026-10-16: ::fifoirq 3 -- the card streaming by ADMA2 into a Link-looped DTCM ring, reads copied out, rows worked while blocks are not in |
+| 20261016-111345 | psram_llm | ac88742+dirty | 2642 | 2026-10-16: print CrashReport at boot (diagnose the ring-mode fault) |
+| 20261016-111706 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ring stream closed only when parked at a block gap; DS_ADDR to scratch and DMAEN off before leaving ADMA2 (fix for the 11:11 IACCVIOL) |
+| 20261016-113011 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ring experiment in DTCM vs OCRAM (production ring failed in DTCM) |
+| 20261016-113354 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ::sdfifo cycle -- production ring open/read/close/file-read/reopen, with and without RSTD |
+| 20261016-113914 | psram_llm | ac88742+dirty | 2337 | 2026-10-16: ring stream's own close (park, CMD12 in ADMA2, RSTD, clear), DS_ADDR canary, status cleared before signals |
+| 20261016-120228 | psram_llm | ac88742+dirty | 1819 | 2026-10-16 final for the SanDisk Ultra: ::fifoirq 3 (DMA ring) and ::admamin 8 by default |

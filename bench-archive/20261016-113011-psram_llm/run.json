@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-113011",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 40,
+  "note": "2026-10-16: ring experiment in DTCM vs OCRAM (production ring failed in DTCM)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 685581
+}

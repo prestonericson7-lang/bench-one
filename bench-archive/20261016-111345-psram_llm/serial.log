@@ -1,0 +1,48 @@
+
+========================================================================
+  psram_llm v9 -- a 3B-parameter language model on a Teensy 4.1
+  the model: all of it on the microSD, streamed every token
+  PSRAM:     the attention cache -- the model's working memory, nothing of the model
+  cpu 600 MHz, 48.3 C
+========================================================================
+CRASH report from the previous run follows
+CrashReport:
+  A problem occurred at (system time) 11:11:46
+  Code was executing from address 0xBF370000
+  CFSR: 1
+	(IACCVIOL) Instruction Access Violation
+  Temperature inside the chip was 48.33 °C
+  Startup CPU clock speed is 600MHz
+CRASH report end
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 12, running at write  3 read 16 burst 96 setup  0 ->  9.51 MB/s
+      CS1  quad        edge write  0 read 14, running at write  3 read 20 burst 96 setup  0 ->  8.37 MB/s
+      Y0   no quad setting survives 1024 kB
+      Y0   single 0x03 edge write  3 read 13, running at write  6 read 18 burst 40 setup 16 ->  2.17 MB/s
+      Y0   single 0x0B edge write  3 read  8, running at write  6 read 11 burst 56 setup 16 ->  2.83 MB/s
+      Y1   no quad setting survives 1024 kB
+      Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y2   no quad setting survives 1024 kB
+      Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+      Y3   no quad setting survives 1024 kB
+      Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y4   no quad setting survives 1024 kB
+      Y4   single 0x03 edge write  4 read 10, running at write  7 read 13 burst 56 setup 16 ->  2.65 MB/s
+      Y4   single 0x0B edge write  5 read  7, running at write  8 read 10 burst 56 setup 16 ->  2.95 MB/s

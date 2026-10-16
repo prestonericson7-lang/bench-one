@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-111706",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 40,
+  "note": "2026-10-16: ring stream closed only when parked at a block gap; DS_ADDR to scratch and DMAEN off before leaving ADMA2 (fix for the 11:11 IACCVIOL)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 685581
+}

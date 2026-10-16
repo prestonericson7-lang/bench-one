@@ -372,7 +372,8 @@ arithmetic-bound, and at seven ADMA2 is cheaper again, so the rule for this buil
 made 2025-10, 7,864,320 sectors (4 GB) -- placeholder fields, a no-name card. The bus delivers 30.1 MB/s when
 the card has the data ready; this card's memory sustains 18.5. A card that sustains the bus's rate would
 take a pass from about 104 s to about 64 s (3.757 million blocks × 17.0 µs) with nothing else changed. That is
-a few dollars and two minutes of `::sdtrace`, not a measurement made here.
+a few dollars and two minutes of `::sdtrace`, not a measurement made here. *(Measured the same afternoon,
+below: a SanDisk Ultra runs the bus at 99 MHz, and with the card streaming into a ring a token takes 42.7 s.)*
 
 **What one ADMA2 command costs a pass.** `tl_host.exe` with `TL_READCENSUS=1` counts every read exactly as the
 board's card sees it (a count of the code's reads, never a timing): a decode pass is 87,479 pipeline commands
@@ -395,6 +396,66 @@ Pre-widening the activation bytes buys 0.4–2.7%, and where the row sits buys n
 its loads and SMLAD chains, as the one-token kernel was (above). The compiled inner loop is 36 instructions
 for eight SMLADs; at eight vectors the bench's 3.23 cycles a weight is 185.6 Mw/s per vector, and `::bench`'s
 real-row figure, 183.5 Mw/s (3.27 cycles), is what the passes show.
+
+## 2026-10-16, afternoon: a real card, and the card streaming into a ring
+
+**The card.** The owner swapped the no-name 4 GB card for a SanDisk Ultra 64 GB (CID manufacturer 0x03,
+product "SK64G", exFAT; `qwen3b.gguf` copied and checked by SHA-256 against the model's own name). First boot
+halted building the tokenizer store: SdFat's `ExFatFile::seekSet` refuses a position past the file's valid
+length, and the core writes the store's rows from offset 512 before its header -- FAT32 allows that seek,
+exFAT does not. `plat_tok_write` now fills the gap with zeros first (`20261016-101935`). The clock sweep kept
+99 MHz (43.5 MB/s by its measure, against 23.9 for the old card), and `::sdtrace` on the new card: **the first
+words of a block 1.65 µs after the request** (the old card: 13.6), **11.56 µs a block polled** -- the 99 MHz bus
+itself. France: every logged step line identical.
+
+**Then the CPU was the bottleneck, twice over.**
+
+| one-token pass | |
+|---|---|
+| interrupt-fed FIFO (`::fifoirq 1`) | **58.7 s** -- 15.3 µs a block: the block in (10.65 µs), then the CPU drains 128 words from the port (4.33 µs, 37 ns a word) before the next can be asked for; a lower watermark only adds interrupts |
+| ADMA2, one command per 24 KB read | **109.6 s** -- ~0.75 ms of card command latency on each of 87,479 reads, an A1 card's 1,500 random reads a second. (`::sdadma` said 39.6 MB/s at 64 KB: its reads had untimed checksum pauses between them again.) |
+
+**One open DMA transfer.** NXP's own driver continues a DMA transfer from a block gap by loading a descriptor
+table and setting Continue (mcux-sdk `fsl_usdhc.c`, "boot data continuous"). Three experiments on the board
+settled how the controller behaves (`::sdfifo adma`, `20261016-105736`, `110127`):
+
+- with Stop At Block Gap set, ADMA2 **pauses and continues at every block gap in the middle of a descriptor**:
+  48 blocks, 48 interrupts, every byte right;
+- an **End descriptor ends the data phase** itself (afterwards no transfer is active; Continue resumes nothing);
+- the engine **fetches its next descriptor the moment the current one finishes** -- a table written at the
+  read's last block gap is ignored (it had already parked on the following descriptor, `0x200166CC`).
+
+So the engine is never given a new table: **one Tran over a ring and a Link back to it**, forever, and an
+interrupt at each block's stop grants the next block only while the ring has room. The card streams ahead
+into the ring while the core computes; a pipeline read copies its sectors out (0.51 µs a block from DTCM).
+`::sdfifo ring` (`20261016-110520`, `113011`): **45.2–45.6 MB/s, one interrupt a block, every byte right**, an
+8 KB ring as good as 32 KB.
+
+**Getting it into the pass took two crashes, kept here.** In a pass the stream is closed for every norm or bias
+read and reopened elsewhere, which the ring test never did. Closing through SdFat's `readStop` (it clears Stop
+At Block Gap, then CMD12) and then leaving ADMA2 let the controller move data by *simple* DMA to `DS_ADDR`:
+the first time SdFat had last pointed it at a buffer on the stack (crash report: instruction access violation
+at `0xBF370000` -- card bytes as a return address); the second time at the scratch block it was moved to, and
+the variables after it came back holding card bytes (the symbol map put `fqi_err`, `rq_prod`, `fqi_done` right
+after it). The ring now has its own close -- park at a block gap, CMD12 while still in ADMA2, wait for the data
+lines, reset the data side (RSTD), clear every transfer bit and status -- and `DS_ADDR` points at a 4 KB
+canary while a DMA stream is open. `::sdfifo cycle` runs the production functions the way a pass does (24
+runs of 8 sequential 24 KB reads, a file-layer read between runs): **384 reads, 0 wrong, 0 failed, canary
+untouched** (`20261016-113914`).
+
+**The ring in real passes** (`::fifoirq 3`, `20261016-114129-psram_llm-passcost`; every pass's step lines
+identical to `tl_ref`, 8 of 8):
+
+| positions | 1 (decode) | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| this morning, the old card | 104.8 | 131.1 | 141.9 | 142.1 | 142.3 | 142.5 | 147.0 | 161.3 |
+| SanDisk, interrupt-fed FIFO | 58.7 | | | | | | | |
+| **SanDisk, the ring** | **42.7** | **54.5** | **72.5** | **91.0** | **109.4** | **127.1** | **145.6** | 160.8 (ADMA2) |
+
+**A token in 42.7 s, 2.45× this morning**, with 29.3 of its 29.8 s of arithmetic under a card wait of 12.9 s --
+within four seconds of the bus's own floor (3.757 million blocks × 10.3 µs ≈ 39 s). Every pass from two
+positions is now arithmetic-bound, about 18 s a position, so the M7's kernels are the next wall, not the
+card. The ring is the default (`::fifoirq 3`, `::admamin 8`).
 
 ## For the FPGA
 

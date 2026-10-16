@@ -52,7 +52,9 @@ Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 | `::sdpath file\|adma` | how a pipeline read reaches the card: SdFat's file layer, or (in DMA mode) whole sectors straight to the card object with an ADMA2 descriptor table for the core's buffer |
 | `::sdadma` | the card by ADMA2 at three read sizes, 2 MB each checked byte for byte against FIFO and against SdFat's simple DMA (`ADMA …` lines) |
 | `::sdfifo` | the FIFO read with arithmetic between a block's request and its drain: SdFat's block handshake (`gap`), the infinite transfer without Stop At Block Gap (`stream`), 48-block bursts with pauses (`burst48`) and an interrupt draining each block while the CPU works (`irq`); 2 MB each checked byte for byte (`FIFOX …` lines) |
-| `::fifoirq 0\|1` | FIFO pipeline reads fed by the card controller's interrupt (a whole block per Buffer Read Ready; the next block asked for at each block gap) while the core's pending rows run, one transfer kept open across consecutive reads; any other card access closes it first. Default 1 (since 2026-10-16, measured: 2–6 positions cheaper, one position equal); `::fifoirq 16\|32\|64\|128` also sets the read watermark (no difference measured). A failure turns it off, restarts the card and reads that block through the file layer. Per pass `CARD … fifoirq opens=… interrupts=…`. Moves only the time |
+| `::fifoirq N` | how a FIFO-path pipeline read reaches the card. 0: SdFat's file layer. 1: one open transfer fed by the card controller's interrupt, the CPU draining the port. 2: the same, copied by ADMA2 into each read. **3 (default): the card streaming by ADMA2 into a 16-block DTCM ring (a Tran over the ring and a Link back), one interrupt per block granting the next while there is room; reads copy out of it; the card prefetches while the core computes.** 16/32/64/128 = mode 1 at that read watermark. Any other card access closes the stream first (the ring by its own close: park, CMD12, data-line reset). A failure turns it off, restarts the card and reads through the file layer. Per pass `CARD … fifoirq opens=… interrupts=…`. Moves only the time |
+| `::sdtrace` | the cycle counter at each step of 64 blocks of the FIFO handshake, polled and interrupt-fed (`TRACE …`) |
+| `::sdfifo adma\|ring\|cycle` | one open ADMA2 transfer per read (`adma`); the ring with work per block (`ring`); the production ring opened, read and closed the way a pass does, 192 reads against the file layer, a 4 KB canary for stray DMA (`cycle`) |
 | `::lookup K` | after the prompt, each pass also checks up to K tokens guessed from the context (the tokens that followed the most recent earlier occurrence of the last 4, 3 or 2 tokens); the guesses are kept only as far as the model's own greedy choice agrees, so the step lines are the plain run's. Per pass `lookup=P guessed=k kept=j`; at the end `LOOKUP k=… passes=… drafted=… accepted=…`. `::lookup 0` = off |
 | `::ffngroup G` | a batched pass computes the feed-forward's gate and up G rows at a time (32–256, a multiple of 32; default 256), read in near-equal whole row-buffer blocks; 32 = the pre-2026-10-16 order. Moves only the time |
 | `::kbench` | the batched Q4_K kernel against the pre-widened one at 2/3/4/5/8 vectors, rows in the DTCM row buffer and in OCRAM, cycles per weight per vector, fewest of 5, bit-identity checked (`KBENCH …`) |
@@ -122,6 +124,18 @@ Test files: `id | tokens to generate | prompt`, one per line; `#` comments; line
 board as commands (e.g. `::prefill 0` before an A/B test); `@multi <id> | <tokens>` … `@end` around
 `id | prompt` lines is a group answered together. `summary.md` also checks that tests reaching the same prompt
 by different paths (batched, per token, inside a group) printed identical step lines.
+
+## State on 2026-10-16, afternoon
+
+- **The card is a SanDisk Ultra 64 GB (exFAT) and the card streams by DMA into a ring** (`::fifoirq 3`, the
+  default): **a token in 42.7 s** (this morning 104.8 s on the 4 GB no-name card), every pass size 1–8 exact
+  against `tl_ref`; passes of 2–8 positions 54.5 / 72.5 / 91.0 / 109.4 / 127.1 / 145.6 / 160.8 s, now set by
+  the M7's arithmetic. `docs/56` "afternoon" has the experiments (`::sdtrace`, `::sdfifo adma|ring|cycle`), the
+  two crashes on the way and the fix.
+- **exFAT cards work**: the tokenizer store is written through a gap fill (SdFat's exFAT refuses a seek past
+  the valid length).
+- **A crash prints its report at the next boot** (`CRASH report …`), unless the power was cut.
+- Speculative decoding at these costs: 1.08× (one guess); `::lookup 1 2` turns it on.
 
 ## State on 2026-10-16
 

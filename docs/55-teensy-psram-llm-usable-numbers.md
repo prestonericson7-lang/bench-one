@@ -28,15 +28,15 @@ every boot: 6.8 s), then answered France exactly, 7 of 7 (`20260927-222806-psram
 
 ## What a user gets
 
-| | **2026-10-16 (card fed by its interrupt)** | v9g (faster batched kernels) | v9c (card path per pass) | v9 (chips as memories) | v8b | v7b | archive (10-16 / v9e / v9c / v9 / v8b / v7b) |
-|---|---|---|---|---|---|---|---|
-| a real chat question (45 tokens with the chat template) to its **first answer token** | **938.8 s (15.6 min)** | 955.5 s (15.9 min) | 1,118.4 s | 1,589.9 s | 1,615.4 s | 1,707.9 s | `20261016-063554` / `20260928-101322` / `052543` / `013821` / `20260927-234517` / `183958` |
-| each answer token after that | **104.4 s** (the card's own floor: docs/56) | 105.1 s | 105.1 s | 105.1 s | 105.7 s | 113.2 s | same |
-| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same | same | same | same |
-| reading a prompt | about **177 tokens an hour** (8-position passes unchanged; a 5-position tail 126.7 s, was 143.8) | 8 tokens per 162–164 s pass: about 177 tokens an hour | 149 | 105 | 103 | 97 | same |
-| writing an answer, one user | about **34 tokens an hour**; with `::lookup 3 1` 0.96–2.31× on four measured answers (1.67× together), 1.17× on average at 24 tokens and 1.31× at 200 (docs/59 L1) | about 34 tokens an hour | 34 | 34 | 34 | 32 | |
-| longest conversation the cache holds | **2,608 positions, and any one chip can fail** (7 of 8 chips this boot) | 2,608 positions, and any one chip can fail (docs/56) | 3,072, no spare | 3,072 | 2,048 | |
-| PSRAM over the run | 6.6 s, 59 chip selects, 0 writes redone, 0 rows re-read | 6.5 s, 59 chip selects, 1 write redone (chip Y4), 0 rows re-read | 34.8 s | | | |
+| | **2026-10-16 pm (SanDisk card, DMA ring)** | 2026-10-16 am (card fed by its interrupt) | v9g (faster batched kernels) | v9c (card path per pass) | v9 (chips as memories) | v8b | v7b | archive (10-16 / v9e / v9c / v9 / v8b / v7b) |
+|---|---|---|---|---|---|---|---|---|
+| a real chat question (45 tokens with the chat template) to its **first answer token** | **920.7 s (15.3 min)** | 938.8 s (15.6 min) | 955.5 s (15.9 min) | 1,118.4 s | 1,589.9 s | 1,615.4 s | 1,707.9 s | `20261016-120424` / `063554` / `20260928-101322` / `052543` / `013821` / `20260927-234517` / `183958` |
+| each answer token after that | **43.1 s** (the 99 MHz bus nearly; the M7's arithmetic hidden under it) | 104.4 s (the old card's own floor: docs/56) | 105.1 s | 105.1 s | 105.1 s | 105.7 s | 113.2 s | same |
+| the answer | "SPI (Serial Peripheral Interface" — 49 of 49 steps equal to the PC, logit delta 0.0 | same | same | same | same | same | same | same |
+| reading a prompt | about **178 tokens an hour** (8-position passes arithmetic-bound at 161 s; a 5-position tail 111.1 s) | about 177 tokens an hour (8-position passes unchanged; a 5-position tail 126.7 s, was 143.8) | 8 tokens per 162–164 s pass: about 177 tokens an hour | 149 | 105 | 103 | 97 | same |
+| writing an answer, one user | about **84 tokens an hour**; with `::lookup 1 2` 1.08× more (docs/59 L1) | about 34 tokens an hour; with `::lookup 3 1` 0.96–2.31× on four measured answers (1.67× together), 1.17× on average at 24 tokens and 1.31× at 200 (docs/59 L1) | about 34 tokens an hour | 34 | 34 | 34 | 32 | |
+| longest conversation the cache holds | **2,608 positions, and any one chip can fail** | 2,608 positions, and any one chip can fail (7 of 8 chips this boot) | 2,608 positions, and any one chip can fail (docs/56) | 3,072, no spare | 3,072 | 2,048 | |
+| PSRAM over the run | 6.6 s, 0 writes redone, 0 rows re-read | 6.6 s, 59 chip selects, 0 writes redone, 0 rows re-read | 6.5 s, 59 chip selects, 1 write redone (chip Y4), 0 rows re-read | 34.8 s | | | |
 
 Eight prompts at once (4 plain, 4 chat, 16 tokens each): 39 passes, 211 positions (72 of them shared
 openings), **1.81 h** for all eight on v9c (v6: 2.63 h), 8 of 8 equal to the PC; a pass feeding eight answers

@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-113914",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 40,
+  "note": "2026-10-16: ring stream's own close (park, CMD12 in ADMA2, RSTD, clear), DS_ADDR canary, status cleared before signals",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 688461
+}

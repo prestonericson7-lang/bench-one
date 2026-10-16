@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-120228",
+  "sketch": "psram_llm",
+  "git": "ac88742",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16 final for the SanDisk Ultra: ::fifoirq 3 (DMA ring) and ::admamin 8 by default",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 688461
+}

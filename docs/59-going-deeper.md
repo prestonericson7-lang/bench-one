@@ -189,6 +189,13 @@ fast; a summary of a pasted paragraph more than twice.
 *Label:* measured on the board, exact; the aggregate over the survey is the PC simulation, now checked
 against the board to 1.1%.
 
+**And with a fast card it shrinks again** (same afternoon, docs/56: a SanDisk card streaming into a DMA ring).
+A token costs 42.7 s, but every added position costs about 18 s of arithmetic (2 positions 54.5 s, 3 72.5,
+4 91.0), so a guess is no longer free. At those costs the best setting is one guess matched on the last 3 or 2
+tokens: **1.08×** over the 63 answers (`20261016-114129-psram_llm-passcost/alpha_sim.md`). The base rate
+gained 2.45× from the card and the ring; guessing on top is now a few percent, and the next lever for one user
+is the arithmetic itself.
+
 ### L2 — A 30-billion-parameter mixture-of-experts at the 3B's speed
 
 Qwen3-Coder-30B-A3B runs in this project's core on the PC and agrees with llama.cpp token for token

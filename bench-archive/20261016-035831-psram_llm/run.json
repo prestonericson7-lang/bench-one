@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-035831",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16 night: ::lookup K N (match 4..N, default 1), run_prompt_once in flash; for the lookup runs at ::fifoirq costs",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 648141
+}

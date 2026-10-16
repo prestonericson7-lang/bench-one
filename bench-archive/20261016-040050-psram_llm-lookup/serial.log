@@ -1,0 +1,863 @@
+04:00:50 > I
+04:00:50 | I bench-one psram_llm v9 banks 7 ps_bytes 58720256 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000 model qwen3b.gguf
+04:00:50 > ::gen 24
+04:00:50 | GEN 24
+04:00:50 > ::lookup 3 1
+04:00:50 | LOOKUP 3 match 4..1
+04:00:50 > const add = (a, b) =>
+04:00:50 |   prompt: "const add = (a, b) =>"  (9 tokens, generating 24, prompt batched through tl_prefill)
+04:00:50 | prompt ids: 1024 912 284 320 64 11 293 8 589
+04:00:50 | SDPATH adma
+04:03:31 | step 0 pos 0 fed 1024 -> top1 264 13.2165222 top2 198 13.0862331 text " a"
+04:03:31 | step 1 pos 1 fed 912 -> top1 284 22.2646904 top2 10142 19.0967312 text " ="
+04:03:31 | step 2 pos 2 fed 284 -> top1 320 25.8575249 top2 729 23.5821152 text " ("
+04:03:31 | step 3 pos 3 fed 320 -> top1 64 24.5673351 top2 87 22.6852684 text "a"
+04:03:31 | step 4 pos 4 fed 64 -> top1 11 24.1463776 top2 25 22.917593 text ","
+04:03:31 | step 5 pos 5 fed 11 -> top1 293 25.6716156 top2 2503 16.7090645 text " b"
+04:03:31 | step 6 pos 6 fed 293 -> top1 8 26.3052654 top2 11 21.4369545 text ")"
+04:03:31 | step 7 pos 7 fed 8 -> top1 589 25.5211773 top2 6274 18.4978962 text " =>"
+04:03:31 |     prefill=0..7: 161.3 s: SD 1834.8 MB in 1.9 s (961.10 MB/s), PSRAM 678 KB read 150.8 KB written in 0.25 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:03:31 | STAGES prefill=0..7 embed=0.007 qkv=8.95 att=1.131 wo=6.68 ffn=124.11 head=20.46 hidden=144.39 temp_c=50.9
+04:03:31 | CARD prefill=0..7 fifoirq opens=0 interrupts=0
+04:03:31 |   card: 1 position in this pass -> FIFO
+04:03:31 |     SD up (FIFO_SDIO), clock 66000 kHz
+04:03:31 |     qwen3b.gguf: 1929903072 bytes
+04:03:31 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+04:03:31 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:03:31 | SDIO fifo
+04:03:31 | SDPATH file
+04:05:16 | step 8 pos 8 fed 589 -> top1 264 24.2201939 top2 341 22.3103123 text " a"
+04:05:16 |   >> const add = (a, b) => a
+04:05:16 |     prefill=8..8: 105.1 s: SD 1834.8 MB in 70.3 s (26.12 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:05:16 | STAGES prefill=8..8 embed=0.001 qkv=6.05 att=0.189 wo=4.58 ffn=80.58 head=13.72 hidden=34.58 temp_c=50.9
+04:05:16 | CARD prefill=8..8 fifoirq opens=3277 interrupts=7518194
+04:07:00 | step 9 pos 9 fed 264 -> top1 488 24.2598743 top2 35093 19.4856796 text " +"
+04:07:00 |   >> const add = (a, b) => a +
+04:07:00 |     lookup=9 guessed=0 kept=0: 104.1 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 188 KB read 18.8 KB written in 0.07 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.
+04:07:00 | STAGES lookup=9 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.192 wo=4.59 ffn=79.54 head=13.72 hidden=34.34 temp_c=51.6
+04:07:00 | CARD lookup=9 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:08:45 | step 10 pos 10 fed 488 -> top1 293 25.7788315 top2 65 16.9011631 text " b"
+04:08:45 |   >> const add = (a, b) => a + b
+04:08:45 |     lookup=10 guessed=0 kept=0: 104.1 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 207 KB read 18.8 KB written in 0.07 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:08:45 | STAGES lookup=10 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.200 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+04:08:45 | CARD lookup=10 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:10:33 | step 11 pos 11 fed 293 -> top1 280 24.3387356 top2 401 23.2796383 text ";\x0A"
+04:10:33 |   >> const add = (a, b) => a + b;
+04:10:33 |     lookup=11 guessed=3 kept=0: 108.7 s: SD 1834.8 MB in 5.5 s (334.59 MB/s), PSRAM 1018 KB read 75.4 KB written in 0.30 s, compute 102.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:10:33 | STAGES lookup=11 guessed=3 kept=0 embed=0.002 qkv=6.16 att=0.870 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=51.6
+04:10:33 | CARD lookup=11 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:12:17 | step 12 pos 12 fed 280 -> top1 1024 25.6799507 top2 5354 22.5621357 text "const"
+04:12:17 |   >> const add = (a, b) => a + b;
+04:12:17 | const
+04:12:17 |     lookup=12 guessed=0 kept=0: 104.1 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 245 KB read 18.8 KB written in 0.08 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:12:17 | STAGES lookup=12 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.217 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+04:12:17 | CARD lookup=12 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:14:06 | step 13 pos 13 fed 1024 -> top1 32256 21.0830994 top2 30270 19.4139729 text " subtract"
+04:14:06 |   >> const add = (a, b) => a + b;
+04:14:06 | const subtract
+04:14:06 |     lookup=13 guessed=3 kept=0: 108.7 s: SD 1834.8 MB in 5.5 s (334.50 MB/s), PSRAM 1168 KB read 75.4 KB written in 0.34 s, compute 102.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:14:06 | STAGES lookup=13 guessed=3 kept=0 embed=0.002 qkv=6.16 att=0.936 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+04:14:06 | CARD lookup=13 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:15:50 | step 14 pos 14 fed 32256 -> top1 284 27.2380428 top2 43606 17.5407658 text " ="
+04:15:50 |   >> const add = (a, b) => a + b;
+04:15:50 | const subtract =
+04:15:50 |     lookup=14 guessed=0 kept=0: 104.1 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 283 KB read 18.8 KB written in 0.09 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:15:50 | STAGES lookup=14 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.233 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+04:15:50 | CARD lookup=14 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:17:39 | step 15 pos 15 fed 284 -> top1 320 28.1235142 top2 729 18.7195206 text " ("
+04:17:39 |   >> const add = (a, b) => a + b;
+04:17:39 | const subtract = (
+04:17:39 | step 16 pos 16 fed 320 -> top1 64 27.5139198 top2 87 18.3929615 text "a"
+04:17:39 |   >> const add = (a, b) => a + b;
+04:17:39 | const subtract = (a
+04:17:39 | step 17 pos 17 fed 64 -> top1 11 27.2127209 top2 8402 20.066618 text ","
+04:17:39 |   >> const add = (a, b) => a + b;
+04:17:39 | const subtract = (a,
+04:17:39 | step 18 pos 18 fed 11 -> top1 293 26.1070957 top2 220 15.4441853 text " b"
+04:17:39 |   >> const add = (a, b) => a + b;
+04:17:39 | const subtract = (a, b
+04:17:39 |     lookup=15 guessed=3 kept=3: 108.8 s: SD 1834.8 MB in 5.5 s (334.58 MB/s), PSRAM 1319 KB read 75.4 KB written in 0.38 s, compute 102.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:17:39 | STAGES lookup=15 guessed=3 kept=3 embed=0.002 qkv=6.16 att=1.003 wo=4.61 ffn=83.19 head=13.84 hidden=94.70 temp_c=50.9
+04:17:39 | CARD lookup=15 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+04:19:28 | step 19 pos 19 fed 293 -> top1 8 27.8612194 top2 11 18.4739399 text ")"
+04:19:28 |   >> const add = (a, b) => a + b;
+04:19:28 | const subtract = (a, b)
+04:19:28 | step 20 pos 20 fed 8 -> top1 589 25.8797092 top2 220 16.913065 text " =>"
+04:19:28 |   >> const add = (a, b) => a + b;
+04:19:28 | const subtract = (a, b) =>
+04:19:28 | step 21 pos 21 fed 589 -> top1 264 26.2143993 top2 293 18.0615768 text " a"
+04:19:28 |   >> const add = (a, b) => a + b;
+04:19:28 | const subtract = (a, b) => a
+04:19:28 | step 22 pos 22 fed 264 -> top1 481 25.5795021 top2 488 18.0950336 text " -"
+04:19:28 |   >> const add = (a, b) => a + b;
+04:19:28 | const subtract = (a, b) => a -
+04:19:28 |     lookup=19 guessed=3 kept=3: 108.9 s: SD 1834.8 MB in 5.5 s (334.48 MB/s), PSRAM 1621 KB read 75.4 KB written in 0.46 s, compute 103.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:19:28 | STAGES lookup=19 guessed=3 kept=3 embed=0.002 qkv=6.16 att=1.135 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=51.6
+04:19:28 | CARD lookup=19 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+04:21:12 | step 23 pos 23 fed 481 -> top1 293 26.2040234 top2 65 17.7665653 text " b"
+04:21:12 |   >> const add = (a, b) => a + b;
+04:21:12 | const subtract = (a, b) => a - b
+04:21:12 |     lookup=23 guessed=0 kept=0: 104.2 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 452 KB read 18.8 KB written in 0.14 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:21:12 | STAGES lookup=23 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.308 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=51.6
+04:21:12 | CARD lookup=23 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:23:01 | step 24 pos 24 fed 293 -> top1 280 25.5475922 top2 401 23.1118202 text ";\x0A"
+04:23:01 |   >> const add = (a, b) => a + b;
+04:23:01 | const subtract = (a, b) => a - b;
+04:23:01 |     lookup=24 guessed=3 kept=0: 109.1 s: SD 1834.8 MB in 5.5 s (334.75 MB/s), PSRAM 1997 KB read 75.4 KB written in 0.55 s, compute 103.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:23:01 | STAGES lookup=24 guessed=3 kept=0 embed=0.002 qkv=6.16 att=1.301 wo=4.61 ffn=83.19 head=13.84 hidden=94.69 temp_c=50.9
+04:23:01 | CARD lookup=24 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:24:50 | step 25 pos 25 fed 280 -> top1 1024 27.0159416 top2 322 20.5461845 text "const"
+04:24:50 |   >> const add = (a, b) => a + b;
+04:24:50 | const subtract = (a, b) => a - b;
+04:24:50 | const
+04:24:50 | step 26 pos 26 fed 1024 -> top1 30270 23.325037 top2 21749 20.7354813 text " multiply"
+04:24:50 |   >> const add = (a, b) => a + b;
+04:24:50 | const subtract = (a, b) => a - b;
+04:24:50 | const multiply
+04:24:50 |     lookup=25 guessed=3 kept=1: 109.1 s: SD 1834.8 MB in 5.5 s (334.71 MB/s), PSRAM 2073 KB read 75.4 KB written in 0.57 s, compute 103.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:24:50 | STAGES lookup=25 guessed=3 kept=1 embed=0.002 qkv=6.16 att=1.334 wo=4.61 ffn=83.19 head=13.84 hidden=94.70 temp_c=51.6
+04:24:50 | CARD lookup=25 guessed=3 kept=1 fifoirq opens=3277 interrupts=7518194
+04:26:35 | step 27 pos 27 fed 30270 -> top1 284 27.3839588 top2 220 17.3773193 text " ="
+04:26:35 |   >> const add = (a, b) => a + b;
+04:26:35 | const subtract = (a, b) => a - b;
+04:26:35 | const multiply =
+04:26:35 |     lookup=27 guessed=0 kept=0: 104.2 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 528 KB read 18.8 KB written in 0.15 s, compute 34.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:26:35 | STAGES lookup=27 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.341 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=51.6
+04:26:35 | CARD lookup=27 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:28:24 | step 28 pos 28 fed 284 -> top1 320 27.4289742 top2 729 17.0390301 text " ("
+04:28:24 |   >> const add = (a, b) => a + b;
+04:28:24 | const subtract = (a, b) => a - b;
+04:28:24 | const multiply = (
+04:28:24 | step 29 pos 29 fed 320 -> top1 64 28.8879089 top2 87 18.7985325 text "a"
+04:28:24 |   >> const add = (a, b) => a + b;
+04:28:24 | const subtract = (a, b) => a - b;
+04:28:24 | const multiply = (a
+04:28:24 | step 30 pos 30 fed 64 -> top1 11 27.228529 top2 8402 18.6604691 text ","
+04:28:24 |   >> const add = (a, b) => a + b;
+04:28:24 | const subtract = (a, b) => a - b;
+04:28:24 | const multiply = (a,
+04:28:24 | step 31 pos 31 fed 11 -> top1 293 26.176939 top2 220 14.7188339 text " b"
+04:28:24 |   >> const add = (a, b) => a + b;
+04:28:24 | const subtract = (a, b) => a - b;
+04:28:24 | const multiply = (a, b
+04:28:24 |     lookup=28 guessed=3 kept=3: 109.2 s: SD 1834.8 MB in 5.5 s (334.56 MB/s), PSRAM 2299 KB read 75.4 KB written in 0.63 s, compute 103.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:28:24 | STAGES lookup=28 guessed=3 kept=3 embed=0.002 qkv=6.16 att=1.433 wo=4.61 ffn=83.20 head=13.84 hidden=94.71 temp_c=51.6
+04:28:24 | CARD lookup=28 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+04:30:08 | step 32 pos 32 fed 293 -> top1 8 27.9534016 top2 11 17.8141766 text ")"
+04:30:08 |   >> const add = (a, b) => a + b;
+04:30:08 | const subtract = (a, b) => a - b;
+04:30:08 | const multiply = (a, b)
+04:30:08 |     lookup=32 guessed=0 kept=0: 104.3 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 622 KB read 18.8 KB written in 0.18 s, compute 34.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:30:08 | STAGES lookup=32 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.383 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=51.6
+04:30:08 | CARD lookup=32 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:30:08 | LOOKUP k=3 passes=14 drafted=21 accepted=10
+04:30:08 |   ANSWER: " a + b;\x0Aconst subtract = (a, b) => a - b;\x0Aconst multiply = (a, b)"
+04:30:08 |   16 passes over the weights in 1758 s (prompt 266 s), 109.9 s each; 28.67 GB read from the card
+04:30:08 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+04:30:08 | RUN n_prompt=9 n_gen=24 prefill=1 passes=16 total_s=1758.2 prompt_s=266.5 per_pass_s=109.89 sd_gb=28.669 sd_mbs=49.33 sd_s=595.1 compute_s=1158.8 hidden_s=1082.2 ps_s=4.3 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=96 ps_sw_s=0.20 temp_max_c=51.6
+04:30:08 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nI have 3 apples and eat one. How many apples do I have?<|im_end|>\n<|im_start|>assistant\n
+04:30:08 |   DONE. Type another prompt and press Enter.
+04:30:08 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AI have 3 apples and eat one. How many apples do I have?<|im_end|>\x0A<|im_start|>assistant\x0A"  (45 to
+04:30:08 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 40 614 220 18 40676 323 8180 825 13 2585 1657 40676 653 358 614 30 151645 198 151644 77091 198
+04:30:08 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+04:30:08 |     SD up (DMA_SDIO), clock 66000 kHz
+04:30:08 |     qwen3b.gguf: 1929903072 bytes
+04:30:09 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 786 ms)
+04:30:09 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:30:09 | SDIO dma
+04:30:09 | SDPATH adma
+04:32:51 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+04:32:51 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+04:32:51 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+04:32:51 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+04:32:51 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+04:32:51 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+04:32:51 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+04:32:51 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+04:32:51 |     prefill=0..7: 161.3 s: SD 1834.8 MB in 1.9 s (961.06 MB/s), PSRAM 678 KB read 150.8 KB written in 0.25 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:32:51 | STAGES prefill=0..7 embed=0.008 qkv=8.94 att=1.131 wo=6.68 ffn=124.10 head=20.46 hidden=144.38 temp_c=52.2
+04:32:51 | CARD prefill=0..7 fifoirq opens=0 interrupts=0
+04:35:32 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+04:35:32 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+04:35:32 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+04:35:32 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+04:35:32 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+04:35:32 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+04:35:32 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+04:35:32 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+04:35:32 |     prefill=8..15: 161.9 s: SD 1834.8 MB in 1.9 s (960.46 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.56 s, compute 159.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:35:32 | STAGES prefill=8..15 embed=0.008 qkv=8.95 att=1.663 wo=6.68 ffn=124.12 head=20.46 hidden=144.38 temp_c=51.6
+04:35:32 | CARD prefill=8..15 fifoirq opens=0 interrupts=0
+04:38:15 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+04:38:15 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+04:38:15 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+04:38:15 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+04:38:15 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+04:38:15 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+04:38:15 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+04:38:15 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+04:38:15 |     prefill=16..23: 162.4 s: SD 1834.8 MB in 1.9 s (960.12 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.86 s, compute 159.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:38:15 | STAGES prefill=16..23 embed=0.008 qkv=8.95 att=2.194 wo=6.68 ffn=124.12 head=20.47 hidden=144.37 temp_c=51.6
+04:38:15 | CARD prefill=16..23 fifoirq opens=0 interrupts=0
+04:40:58 | step 24 pos 24 fed 40 -> top1 614 18.4432945 top2 2776 18.129509 text " have"
+04:40:58 | step 25 pos 25 fed 614 -> top1 264 20.4169788 top2 458 17.9702721 text " a"
+04:40:58 | step 26 pos 26 fed 220 -> top1 16 17.9209747 top2 17 17.489996 text "1"
+04:40:58 | step 27 pos 27 fed 18 -> top1 15 17.173872 top2 4755 15.5973558 text "0"
+04:40:58 | step 28 pos 28 fed 40676 -> top1 323 19.458601 top2 11 18.4453163 text " and"
+04:40:58 | step 29 pos 29 fed 323 -> top1 220 19.4388332 top2 358 17.0043793 text " "
+04:40:58 | step 30 pos 30 fed 8180 -> top1 220 20.1819267 top2 825 17.536665 text " "
+04:40:58 | step 31 pos 31 fed 825 -> top1 13 18.2493324 top2 11 17.8878899 text "."
+04:40:58 |     prefill=24..31: 162.9 s: SD 1834.8 MB in 1.9 s (961.87 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.17 s, compute 159.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:40:58 | STAGES prefill=24..31 embed=0.008 qkv=8.95 att=2.724 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+04:40:58 | CARD prefill=24..31 fifoirq opens=0 interrupts=0
+04:43:41 | step 32 pos 32 fed 13 -> top1 2585 19.0178413 top2 4695 17.172224 text " How"
+04:43:41 | step 33 pos 33 fed 2585 -> top1 1657 22.9541702 top2 1753 16.792408 text " many"
+04:43:41 | step 34 pos 34 fed 1657 -> top1 40676 21.3724861 top2 653 16.3729076 text " apples"
+04:43:41 | step 35 pos 35 fed 40676 -> top1 653 21.5443821 top2 525 17.738615 text " do"
+04:43:41 | step 36 pos 36 fed 653 -> top1 358 23.8118534 top2 498 19.6307278 text " I"
+04:43:41 | step 37 pos 37 fed 358 -> top1 614 23.2012329 top2 1431 17.1718941 text " have"
+04:43:41 | step 38 pos 38 fed 614 -> top1 2115 20.9715137 top2 1431 19.694912 text " left"
+04:43:41 | step 39 pos 39 fed 30 -> top1 151645 21.0067463 top2 151644 14.8094978 text "<|im_end|>"
+04:43:41 |     prefill=32..39: 163.5 s: SD 1834.8 MB in 1.9 s (961.60 MB/s), PSRAM 5502 KB read 150.8 KB written in 1.48 s, compute 160.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:43:41 | STAGES prefill=32..39 embed=0.008 qkv=8.95 att=3.254 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+04:43:41 | CARD prefill=32..39 fifoirq opens=0 interrupts=0
+04:43:41 |   card: 5 positions in this pass -> FIFO
+04:43:41 |     SD up (FIFO_SDIO), clock 66000 kHz
+04:43:41 |     qwen3b.gguf: 1929903072 bytes
+04:43:41 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 115 ms)
+04:43:41 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:43:41 | SDIO fifo
+04:43:41 | SDPATH file
+04:45:48 | step 40 pos 40 fed 151645 -> top1 198 24.3469448 top2 151644 22.8700066 text "\x0A"
+04:45:48 | step 41 pos 41 fed 198 -> top1 151644 26.472168 top2 151645 17.5823097 text "<|im_start|>"
+04:45:48 | step 42 pos 42 fed 151644 -> top1 198 24.1413689 top2 151644 21.8726673 text "\x0A"
+04:45:48 | step 43 pos 43 fed 77091 -> top1 2610 19.5333042 top2 6025 18.0144749 text "You"
+04:45:48 | step 44 pos 44 fed 198 -> top1 2610 19.0120468 top2 6025 18.3836269 text "You"
+04:45:48 |   >> <|im_start|>system
+04:45:48 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:45:48 | <|im_start|>user
+04:45:48 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:45:48 | <|im_start|>assistant
+04:45:48 | You
+04:45:48 |     prefill=40..44: 126.7 s: SD 1834.8 MB in 2.7 s (684.34 MB/s), PSRAM 4051 KB read 94.2 KB written in 1.09 s, compute 122.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+04:45:48 | STAGES prefill=40..44 embed=0.003 qkv=6.94 att=2.307 wo=5.22 ffn=96.20 head=15.99 hidden=92.49 temp_c=51.6
+04:45:48 | CARD prefill=40..44 fifoirq opens=3277 interrupts=7518194
+04:47:38 | step 45 pos 45 fed 2610 -> top1 614 19.9920177 top2 1035 18.2931843 text " have"
+04:47:38 |   >> <|im_start|>system
+04:47:38 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:47:38 | <|im_start|>user
+04:47:38 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:47:38 | <|im_start|>assistant
+04:47:38 | You have
+04:47:38 |     lookup=45 guessed=3 kept=0: 109.8 s: SD 1834.8 MB in 5.5 s (334.70 MB/s), PSRAM 3580 KB read 75.4 KB written in 0.96 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:47:38 | STAGES lookup=45 guessed=3 kept=0 embed=0.003 qkv=6.16 att=1.997 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+04:47:38 | CARD lookup=45 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:49:28 | step 46 pos 46 fed 614 -> top1 220 20.5249596 top2 1378 17.9207439 text " "
+04:49:28 |   >> <|im_start|>system
+04:49:28 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:49:28 | <|im_start|>user
+04:49:28 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:49:28 | <|im_start|>assistant
+04:49:28 | You have 
+04:49:28 |     lookup=46 guessed=3 kept=0: 109.8 s: SD 1834.8 MB in 5.5 s (334.70 MB/s), PSRAM 3656 KB read 75.4 KB written in 0.98 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:49:28 | STAGES lookup=46 guessed=3 kept=0 embed=0.002 qkv=6.16 att=2.030 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=51.6
+04:49:28 | CARD lookup=46 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:51:18 | step 47 pos 47 fed 220 -> top1 17 22.6478901 top2 18 16.835165 text "2"
+04:51:18 |   >> <|im_start|>system
+04:51:18 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:51:18 | <|im_start|>user
+04:51:18 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:51:18 | <|im_start|>assistant
+04:51:18 | You have 2
+04:51:18 |     lookup=47 guessed=3 kept=0: 109.9 s: SD 1834.8 MB in 5.5 s (334.72 MB/s), PSRAM 3731 KB read 75.4 KB written in 1.00 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:51:18 | STAGES lookup=47 guessed=3 kept=0 embed=0.002 qkv=6.16 att=2.063 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+04:51:18 | CARD lookup=47 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:53:02 | step 48 pos 48 fed 17 -> top1 40676 25.9628086 top2 803 16.4058323 text " apples"
+04:53:02 |   >> <|im_start|>system
+04:53:02 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:53:02 | <|im_start|>user
+04:53:02 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:53:02 | <|im_start|>assistant
+04:53:02 | You have 2 apples
+04:53:02 |     lookup=48 guessed=0 kept=0: 104.4 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 923 KB read 18.8 KB written in 0.26 s, compute 34.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:53:02 | STAGES lookup=48 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.515 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+04:53:02 | CARD lookup=48 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:54:52 | step 49 pos 49 fed 40676 -> top1 2115 21.1674671 top2 13 19.1436157 text " left"
+04:54:52 |   >> <|im_start|>system
+04:54:52 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:54:52 | <|im_start|>user
+04:54:52 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:54:52 | <|im_start|>assistant
+04:54:52 | You have 2 apples left
+04:54:52 |     lookup=49 guessed=3 kept=0: 109.9 s: SD 1834.8 MB in 5.5 s (334.45 MB/s), PSRAM 3882 KB read 75.4 KB written in 1.03 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:54:52 | STAGES lookup=49 guessed=3 kept=0 embed=0.002 qkv=6.16 att=2.129 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+04:54:52 | CARD lookup=49 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:56:36 | step 50 pos 50 fed 2115 -> top1 13 21.2346153 top2 1283 20.0849514 text "."
+04:56:36 |   >> <|im_start|>system
+04:56:36 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:56:36 | <|im_start|>user
+04:56:36 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:56:36 | <|im_start|>assistant
+04:56:36 | You have 2 apples left.
+04:56:36 |     lookup=50 guessed=0 kept=0: 104.4 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 961 KB read 18.8 KB written in 0.27 s, compute 34.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+04:56:36 | STAGES lookup=50 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.532 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+04:56:36 | CARD lookup=50 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+04:58:26 | step 51 pos 51 fed 13 -> top1 151645 21.2757988 top2 4636 15.4634132 text "<|im_end|>"
+04:58:26 |   >> <|im_start|>system
+04:58:26 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+04:58:26 | <|im_start|>user
+04:58:26 | I have 3 apples and eat one. How many apples do I have?<|im_end|>
+04:58:26 | <|im_start|>assistant
+04:58:26 | You have 2 apples left.<|im_end|>
+04:58:26 |     lookup=51 guessed=3 kept=0: 110.0 s: SD 1834.8 MB in 5.5 s (334.66 MB/s), PSRAM 4033 KB read 75.4 KB written in 1.07 s, compute 103.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+04:58:26 | STAGES lookup=51 guessed=3 kept=0 embed=0.003 qkv=6.16 att=2.195 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+04:58:26 | CARD lookup=51 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+04:58:26 | LOOKUP k=3 passes=7 drafted=15 accepted=0
+04:58:26 |   ANSWER: "You have 2 apples left.<|im_end|>"
+04:58:26 |   13 passes over the weights in 1697 s (prompt 939 s), 130.5 s each; 23.29 GB read from the card
+04:58:26 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+04:58:26 | RUN n_prompt=45 n_gen=24 prefill=1 passes=13 total_s=1697.0 prompt_s=938.7 per_pass_s=130.54 sd_gb=23.294 sd_mbs=133.95 sd_s=178.1 compute_s=1508.0 hidden_s=1356.4 ps_s=11.0 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=78 ps_sw_s=0.16 temp_max_c=5
+04:58:26 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nIf today is Monday, what day is it in three days?<|im_end|>\n<|im_start|>assistant\n
+04:58:26 |   DONE. Type another prompt and press Enter.
+04:58:27 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AIf today is Monday, what day is it in three days?<|im_end|>\x0A<|im_start|>assistant\x0A"  (42 tokens, 
+04:58:27 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 2679 3351 374 7014 11 1128 1899 374 432 304 2326 2849 30 151645 198 151644 77091 198
+04:58:27 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+04:58:27 |     SD up (DMA_SDIO), clock 66000 kHz
+04:58:27 |     qwen3b.gguf: 1929903072 bytes
+04:58:28 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 786 ms)
+04:58:28 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+04:58:28 | SDIO dma
+04:58:28 | SDPATH adma
+05:01:09 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+05:01:09 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+05:01:09 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+05:01:09 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+05:01:09 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+05:01:09 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+05:01:09 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+05:01:09 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+05:01:09 |     prefill=0..7: 161.3 s: SD 1834.8 MB in 1.9 s (961.70 MB/s), PSRAM 678 KB read 150.8 KB written in 0.25 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:01:09 | STAGES prefill=0..7 embed=0.008 qkv=8.94 att=1.131 wo=6.68 ffn=124.10 head=20.46 hidden=144.32 temp_c=51.6
+05:01:09 | CARD prefill=0..7 fifoirq opens=0 interrupts=0
+05:03:51 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+05:03:51 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+05:03:51 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+05:03:51 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+05:03:51 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+05:03:51 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+05:03:51 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+05:03:51 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+05:03:51 |     prefill=8..15: 161.9 s: SD 1834.8 MB in 1.9 s (961.82 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.56 s, compute 159.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:03:51 | STAGES prefill=8..15 embed=0.008 qkv=8.95 att=1.663 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+05:03:51 | CARD prefill=8..15 fifoirq opens=0 interrupts=0
+05:06:33 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+05:06:33 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+05:06:33 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+05:06:33 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+05:06:33 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+05:06:33 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+05:06:33 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+05:06:33 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+05:06:33 |     prefill=16..23: 162.4 s: SD 1834.8 MB in 1.9 s (961.61 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.86 s, compute 159.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:06:33 | STAGES prefill=16..23 embed=0.008 qkv=8.95 att=2.194 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+05:06:33 | CARD prefill=16..23 fifoirq opens=0 interrupts=0
+05:09:16 | step 24 pos 24 fed 2679 -> top1 498 16.4350777 top2 264 16.2297592 text " you"
+05:09:16 | step 25 pos 25 fed 3351 -> top1 374 19.2342052 top2 594 17.106163 text " is"
+05:09:16 | step 26 pos 26 fed 374 -> top1 7014 16.188345 top2 7920 15.5878305 text " Monday"
+05:09:16 | step 27 pos 27 fed 7014 -> top1 11 20.4322891 top2 323 18.3576221 text ","
+05:09:16 | step 28 pos 28 fed 11 -> top1 1128 19.3988056 top2 323 16.6335278 text " what"
+05:09:16 | step 29 pos 29 fed 1128 -> top1 1899 22.7945614 top2 374 21.2937222 text " day"
+05:09:16 | step 30 pos 30 fed 1899 -> top1 315 21.8236523 top2 686 21.6091175 text " of"
+05:09:16 | step 31 pos 31 fed 374 -> top1 432 18.9181404 top2 279 17.4924164 text " it"
+05:09:16 |     prefill=24..31: 162.9 s: SD 1834.8 MB in 1.9 s (961.88 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.17 s, compute 159.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:09:16 | STAGES prefill=24..31 embed=0.008 qkv=8.95 att=2.724 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+05:09:16 | CARD prefill=24..31 fifoirq opens=0 interrupts=0
+05:12:00 | step 32 pos 32 fed 432 -> top1 220 19.1648502 top2 1283 17.9085293 text " "
+05:12:00 | step 33 pos 33 fed 304 -> top1 220 19.887846 top2 1378 17.1708584 text " "
+05:12:00 | step 34 pos 34 fed 2326 -> top1 5555 20.0663605 top2 2849 19.9855309 text " weeks"
+05:12:00 | step 35 pos 35 fed 2849 -> top1 30 21.0621586 top2 504 20.4943867 text "?"
+05:12:00 | step 36 pos 36 fed 30 -> top1 151645 20.5441265 top2 1416 14.5248775 text "<|im_end|>"
+05:12:00 | step 37 pos 37 fed 151645 -> top1 198 24.5795155 top2 151644 22.7512474 text "\x0A"
+05:12:00 | step 38 pos 38 fed 198 -> top1 151644 26.4499722 top2 151645 17.5504169 text "<|im_start|>"
+05:12:00 | step 39 pos 39 fed 151644 -> top1 198 23.7112541 top2 151644 22.3350372 text "\x0A"
+05:12:00 |     prefill=32..39: 163.5 s: SD 1834.8 MB in 1.9 s (961.89 MB/s), PSRAM 5502 KB read 150.8 KB written in 1.48 s, compute 160.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:12:00 | STAGES prefill=32..39 embed=0.008 qkv=8.95 att=3.254 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+05:12:00 | CARD prefill=32..39 fifoirq opens=0 interrupts=0
+05:12:00 |   card: 2 positions in this pass -> FIFO
+05:12:00 |     SD up (FIFO_SDIO), clock 66000 kHz
+05:12:00 |     qwen3b.gguf: 1929903072 bytes
+05:12:00 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+05:12:00 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+05:12:00 | SDIO fifo
+05:12:00 | SDPATH file
+05:13:46 | step 40 pos 40 fed 77091 -> top1 2679 19.7108727 top2 1249 17.2567883 text "If"
+05:13:46 | step 41 pos 41 fed 198 -> top1 2679 20.0168648 top2 1249 18.0503635 text "If"
+05:13:46 |   >> <|im_start|>system
+05:13:46 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:13:46 | <|im_start|>user
+05:13:46 | If today is Monday, what day is it in three days?<|im_end|>
+05:13:46 | <|im_start|>assistant
+05:13:46 | If
+05:13:46 |     prefill=40..41: 105.9 s: SD 1834.8 MB in 47.4 s (38.72 MB/s), PSRAM 1564 KB read 37.7 KB written in 0.43 s, compute 58.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:13:46 | STAGES prefill=40..41 embed=0.001 qkv=6.08 att=0.904 wo=4.59 ffn=80.59 head=13.72 hidden=57.44 temp_c=51.6
+05:13:46 | CARD prefill=40..41 fifoirq opens=3277 interrupts=7518194
+05:15:35 | step 42 pos 42 fed 2679 -> top1 3351 23.7151909 top2 432 19.0878525 text " today"
+05:15:35 |   >> <|im_start|>system
+05:15:35 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:15:35 | <|im_start|>user
+05:15:35 | If today is Monday, what day is it in three days?<|im_end|>
+05:15:35 | <|im_start|>assistant
+05:15:35 | If today
+05:15:35 | step 43 pos 43 fed 3351 -> top1 374 23.326973 top2 320 18.1742268 text " is"
+05:15:35 |   >> <|im_start|>system
+05:15:35 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:15:35 | <|im_start|>user
+05:15:35 | If today is Monday, what day is it in three days?<|im_end|>
+05:15:35 | <|im_start|>assistant
+05:15:35 | If today is
+05:15:35 | step 44 pos 44 fed 374 -> top1 7014 24.1848068 top2 264 17.3094692 text " Monday"
+05:15:35 |   >> <|im_start|>system
+05:15:35 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:15:35 | <|im_start|>user
+05:15:35 | If today is Monday, what day is it in three days?<|im_end|>
+05:15:35 | <|im_start|>assistant
+05:15:35 | If today is Monday
+05:15:35 | step 45 pos 45 fed 7014 -> top1 11 23.1876621 top2 323 18.7972221 text ","
+05:15:35 |   >> <|im_start|>system
+05:15:35 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:15:35 | <|im_start|>user
+05:15:35 | If today is Monday, what day is it in three days?<|im_end|>
+05:15:35 | <|im_start|>assistant
+05:15:35 | If today is Monday,
+05:15:35 |     lookup=42 guessed=3 kept=3: 109.7 s: SD 1834.8 MB in 5.5 s (334.76 MB/s), PSRAM 3354 KB read 75.4 KB written in 0.90 s, compute 103.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:15:35 | STAGES lookup=42 guessed=3 kept=3 embed=0.002 qkv=6.16 att=1.897 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+05:15:35 | CARD lookup=42 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+05:17:25 | step 46 pos 46 fed 11 -> top1 1221 21.1634541 top2 304 20.5467834 text " then"
+05:17:25 |   >> <|im_start|>system
+05:17:25 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:17:25 | <|im_start|>user
+05:17:25 | If today is Monday, what day is it in three days?<|im_end|>
+05:17:25 | <|im_start|>assistant
+05:17:25 | If today is Monday, then
+05:17:25 |     lookup=46 guessed=3 kept=0: 109.8 s: SD 1834.8 MB in 5.5 s (334.69 MB/s), PSRAM 3656 KB read 75.4 KB written in 0.98 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:17:25 | STAGES lookup=46 guessed=3 kept=0 embed=0.003 qkv=6.16 att=2.030 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=51.6
+05:17:25 | CARD lookup=46 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+05:19:10 | step 47 pos 47 fed 1221 -> top1 304 21.0408688 top2 2326 19.8420162 text " in"
+05:19:10 |   >> <|im_start|>system
+05:19:10 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:19:10 | <|im_start|>user
+05:19:10 | If today is Monday, what day is it in three days?<|im_end|>
+05:19:10 | <|im_start|>assistant
+05:19:10 | If today is Monday, then in
+05:19:10 |     lookup=47 guessed=0 kept=0: 104.4 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 904 KB read 18.8 KB written in 0.25 s, compute 34.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+05:19:10 | STAGES lookup=47 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.507 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+05:19:10 | CARD lookup=47 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+05:20:59 | step 48 pos 48 fed 304 -> top1 2326 23.4865799 top2 825 17.0263882 text " three"
+05:20:59 |   >> <|im_start|>system
+05:20:59 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:20:59 | <|im_start|>user
+05:20:59 | If today is Monday, what day is it in three days?<|im_end|>
+05:20:59 | <|im_start|>assistant
+05:20:59 | If today is Monday, then in three
+05:20:59 | step 49 pos 49 fed 2326 -> top1 2849 25.9958591 top2 803 19.3509674 text " days"
+05:20:59 |   >> <|im_start|>system
+05:20:59 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:20:59 | <|im_start|>user
+05:20:59 | If today is Monday, what day is it in three days?<|im_end|>
+05:20:59 | <|im_start|>assistant
+05:20:59 | If today is Monday, then in three days
+05:20:59 | step 50 pos 50 fed 2849 -> top1 432 20.1891632 top2 11 19.6198597 text " it"
+05:20:59 |   >> <|im_start|>system
+05:20:59 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:20:59 | <|im_start|>user
+05:20:59 | If today is Monday, what day is it in three days?<|im_end|>
+05:20:59 | <|im_start|>assistant
+05:20:59 | If today is Monday, then in three days it
+05:20:59 |     lookup=48 guessed=3 kept=2: 109.9 s: SD 1834.8 MB in 5.5 s (334.70 MB/s), PSRAM 3806 KB read 75.4 KB written in 1.01 s, compute 103.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:20:59 | STAGES lookup=48 guessed=3 kept=2 embed=0.002 qkv=6.16 att=2.096 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+05:20:59 | CARD lookup=48 guessed=3 kept=2 fifoirq opens=3277 interrupts=7518194
+05:22:49 | step 51 pos 51 fed 432 -> top1 686 24.3457394 top2 1035 19.5972977 text " will"
+05:22:49 |   >> <|im_start|>system
+05:22:49 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:22:49 | <|im_start|>user
+05:22:49 | If today is Monday, what day is it in three days?<|im_end|>
+05:22:49 | <|im_start|>assistant
+05:22:49 | If today is Monday, then in three days it will
+05:22:49 |     lookup=51 guessed=3 kept=0: 110.0 s: SD 1834.8 MB in 5.5 s (334.56 MB/s), PSRAM 4033 KB read 75.4 KB written in 1.07 s, compute 103.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:22:49 | STAGES lookup=51 guessed=3 kept=0 embed=0.002 qkv=6.16 att=2.195 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+05:22:49 | CARD lookup=51 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+05:24:34 | step 52 pos 52 fed 686 -> top1 387 23.7177925 top2 1083 17.3831234 text " be"
+05:24:34 |   >> <|im_start|>system
+05:24:34 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:24:34 | <|im_start|>user
+05:24:34 | If today is Monday, what day is it in three days?<|im_end|>
+05:24:34 | <|im_start|>assistant
+05:24:34 | If today is Monday, then in three days it will be
+05:24:34 |     lookup=52 guessed=0 kept=0: 104.4 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 999 KB read 18.8 KB written in 0.27 s, compute 35.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0
+05:24:34 | STAGES lookup=52 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.548 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+05:24:34 | CARD lookup=52 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+05:26:18 | step 53 pos 53 fed 387 -> top1 7794 21.2318649 top2 7920 19.1315651 text " Thursday"
+05:26:18 |   >> <|im_start|>system
+05:26:18 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:26:18 | <|im_start|>user
+05:26:18 | If today is Monday, what day is it in three days?<|im_end|>
+05:26:18 | <|im_start|>assistant
+05:26:18 | If today is Monday, then in three days it will be Thursday
+05:26:18 |     lookup=53 guessed=0 kept=0: 104.4 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 1018 KB read 18.8 KB written in 0.28 s, compute 35.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+05:26:18 | STAGES lookup=53 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.556 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=51.6
+05:26:18 | CARD lookup=53 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+05:28:03 | step 54 pos 54 fed 7794 -> top1 13 22.1716576 top2 382 17.1169224 text "."
+05:28:03 |   >> <|im_start|>system
+05:28:03 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:28:03 | <|im_start|>user
+05:28:03 | If today is Monday, what day is it in three days?<|im_end|>
+05:28:03 | <|im_start|>assistant
+05:28:03 | If today is Monday, then in three days it will be Thursday.
+05:28:03 |     lookup=54 guessed=0 kept=0: 104.5 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 1036 KB read 18.8 KB written in 0.28 s, compute 35.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+05:28:03 | STAGES lookup=54 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.565 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=51.6
+05:28:03 | CARD lookup=54 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+05:29:53 | step 55 pos 55 fed 13 -> top1 151645 21.8319397 top2 4710 14.4270687 text "<|im_end|>"
+05:29:53 |   >> <|im_start|>system
+05:29:53 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:29:53 | <|im_start|>user
+05:29:53 | If today is Monday, what day is it in three days?<|im_end|>
+05:29:53 | <|im_start|>assistant
+05:29:53 | If today is Monday, then in three days it will be Thursday.<|im_end|>
+05:29:53 |     lookup=55 guessed=3 kept=0: 110.1 s: SD 1834.8 MB in 5.5 s (334.69 MB/s), PSRAM 4334 KB read 75.4 KB written in 1.15 s, compute 103.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:29:53 | STAGES lookup=55 guessed=3 kept=0 embed=0.002 qkv=6.16 att=2.328 wo=4.61 ffn=83.20 head=13.84 hidden=94.69 temp_c=50.9
+05:29:53 | CARD lookup=55 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+05:29:53 | LOOKUP k=3 passes=9 drafted=15 accepted=5
+05:29:53 |   ANSWER: "If today is Monday, then in three days it will be Thursday.<|im_end|>"
+05:29:53 |   15 passes over the weights in 1885 s (prompt 918 s), 125.7 s each; 26.88 GB read from the card
+05:29:53 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+05:29:53 | RUN n_prompt=42 n_gen=24 prefill=1 passes=15 total_s=1885.3 prompt_s=917.9 per_pass_s=125.68 sd_gb=26.877 sd_mbs=76.20 sd_s=361.2 compute_s=1513.1 hidden_s=1389.9 ps_s=11.0 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=90 ps_sw_s=0.19 temp_max_c=51
+05:29:53 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nSummarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>\n<|im_start|>assistant\n
+05:29:53 |   DONE. Type another prompt and press Enter.
+05:29:54 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0ASummarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB
+05:29:54 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 9190 5612 551 304 825 11652 25 576 69053 88 220 19 13 16 374 264 8003 7152 4479 448 264 220 21 15 15 36494 30486 89902 5251 22 11 220 16 13339 315 22038 323 35995 369 4960 11405 33905 23595 13 151645 198 151644 77091 198
+05:29:54 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+05:29:54 |     SD up (DMA_SDIO), clock 66000 kHz
+05:29:54 |     qwen3b.gguf: 1929903072 bytes
+05:29:54 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 785 ms)
+05:29:54 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+05:29:54 | SDIO dma
+05:29:54 | SDPATH adma
+05:32:36 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+05:32:36 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+05:32:36 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+05:32:36 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+05:32:36 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+05:32:36 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+05:32:36 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+05:32:36 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+05:32:36 |     prefill=0..7: 161.3 s: SD 1834.8 MB in 1.9 s (961.73 MB/s), PSRAM 678 KB read 150.8 KB written in 0.25 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:32:36 | STAGES prefill=0..7 embed=0.008 qkv=8.94 att=1.131 wo=6.68 ffn=124.10 head=20.46 hidden=144.32 temp_c=51.6
+05:32:36 | CARD prefill=0..7 fifoirq opens=0 interrupts=0
+05:35:18 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+05:35:18 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+05:35:18 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+05:35:18 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+05:35:18 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+05:35:18 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+05:35:18 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+05:35:18 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+05:35:18 |     prefill=8..15: 161.9 s: SD 1834.8 MB in 1.9 s (962.39 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.56 s, compute 159.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:35:18 | STAGES prefill=8..15 embed=0.008 qkv=8.95 att=1.663 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+05:35:18 | CARD prefill=8..15 fifoirq opens=0 interrupts=0
+05:38:00 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+05:38:00 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+05:38:00 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+05:38:00 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+05:38:00 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+05:38:00 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+05:38:00 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+05:38:00 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+05:38:00 |     prefill=16..23: 162.4 s: SD 1834.8 MB in 1.9 s (962.15 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.86 s, compute 159.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:38:00 | STAGES prefill=16..23 embed=0.008 qkv=8.95 att=2.194 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+05:38:00 | CARD prefill=16..23 fifoirq opens=0 interrupts=0
+05:40:43 | step 24 pos 24 fed 9190 -> top1 5612 20.9606209 top2 279 17.0537872 text "mar"
+05:40:43 | step 25 pos 25 fed 5612 -> top1 551 23.4178505 top2 4849 18.0893192 text "ize"
+05:40:43 | step 26 pos 26 fed 551 -> top1 279 19.2032394 top2 419 16.133606 text " the"
+05:40:43 | step 27 pos 27 fed 304 -> top1 220 18.7453423 top2 264 18.1874008 text " "
+05:40:43 | step 28 pos 28 fed 825 -> top1 11652 20.83008 top2 14311 18.7759151 text " sentence"
+05:40:43 | step 29 pos 29 fed 11652 -> top1 279 17.0677013 top2 25 16.8554611 text " the"
+05:40:43 | step 30 pos 30 fed 25 -> top1 330 14.5087948 top2 576 14.332675 text " \""
+05:40:43 | step 31 pos 31 fed 576 -> top1 2813 14.3398685 top2 4549 14.2300634 text " company"
+05:40:43 |     prefill=24..31: 162.9 s: SD 1834.8 MB in 1.9 s (962.44 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.17 s, compute 159.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:40:43 | STAGES prefill=24..31 embed=0.008 qkv=8.95 att=2.724 wo=6.68 ffn=124.12 head=20.47 hidden=144.32 temp_c=51.6
+05:40:43 | CARD prefill=24..31 fifoirq opens=0 interrupts=0
+05:43:26 | step 32 pos 32 fed 69053 -> top1 6 13.0406761 top2 315 12.7270374 text "'"
+05:43:26 | step 33 pos 33 fed 88 -> top1 220 15.7601795 top2 8003 14.1811895 text " "
+05:43:26 | step 34 pos 34 fed 220 -> top1 19 20.7631035 top2 18 20.0847721 text "4"
+05:43:26 | step 35 pos 35 fed 19 -> top1 13 19.9570026 top2 1993 16.014658 text "."
+05:43:26 | step 36 pos 36 fed 13 -> top1 15 20.28055 top2 16 19.1725101 text "0"
+05:43:26 | step 37 pos 37 fed 16 -> top1 374 16.9368477 top2 8003 16.243763 text " is"
+05:43:26 | step 38 pos 38 fed 374 -> top1 264 19.2137661 top2 458 17.7730026 text " a"
+05:43:26 | step 39 pos 39 fed 264 -> top1 8003 17.0788879 top2 31945 15.6744442 text " micro"
+05:43:26 |     prefill=32..39: 163.5 s: SD 1834.8 MB in 1.9 s (961.46 MB/s), PSRAM 5502 KB read 150.8 KB written in 1.48 s, compute 160.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:43:26 | STAGES prefill=32..39 embed=0.008 qkv=8.95 att=3.254 wo=6.68 ffn=124.12 head=20.47 hidden=144.31 temp_c=51.6
+05:43:26 | CARD prefill=32..39 fifoirq opens=0 interrupts=0
+05:46:10 | step 40 pos 40 fed 8003 -> top1 7152 22.8747902 top2 43111 17.1266747 text "controller"
+05:46:10 | step 41 pos 41 fed 7152 -> top1 4479 19.2165508 top2 429 17.3100605 text " board"
+05:46:10 | step 42 pos 42 fed 4479 -> top1 3118 17.9143543 top2 429 17.7891521 text " based"
+05:46:10 | step 43 pos 43 fed 448 -> top1 220 18.2459354 top2 264 17.9092655 text " "
+05:46:10 | step 44 pos 44 fed 264 -> top1 220 17.0327988 top2 89902 16.0960217 text " "
+05:46:10 | step 45 pos 45 fed 220 -> top1 18 20.8880424 top2 21 20.1290836 text "3"
+05:46:10 | step 46 pos 46 fed 21 -> top1 19 24.2433319 top2 15 18.7736759 text "4"
+05:46:10 | step 47 pos 47 fed 15 -> top1 15 19.8343735 top2 36494 18.5922318 text "0"
+05:46:10 |     prefill=40..47: 164.0 s: SD 1834.8 MB in 1.9 s (961.63 MB/s), PSRAM 6708 KB read 150.8 KB written in 1.79 s, compute 160.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:46:10 | STAGES prefill=40..47 embed=0.008 qkv=8.95 att=3.784 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+05:46:10 | CARD prefill=40..47 fifoirq opens=0 interrupts=0
+05:48:55 | step 48 pos 48 fed 15 -> top1 36494 21.5466652 top2 37492 20.9420643 text " MHz"
+05:48:55 | step 49 pos 49 fed 36494 -> top1 30486 17.4316368 top2 89902 16.841074 text " ARM"
+05:48:55 | step 50 pos 50 fed 30486 -> top1 89902 24.3955917 top2 386 16.9464417 text " Cortex"
+05:48:55 | step 51 pos 51 fed 89902 -> top1 5251 22.42173 top2 386 19.673336 text "-M"
+05:48:55 | step 52 pos 52 fed 5251 -> top1 19 20.9122849 top2 22 19.6943111 text "4"
+05:48:55 | step 53 pos 53 fed 22 -> top1 17654 19.3295135 top2 6200 17.6253643 text " processor"
+05:48:55 | step 54 pos 54 fed 11 -> top1 220 19.6945915 top2 264 16.5328541 text " "
+05:48:55 | step 55 pos 55 fed 220 -> top1 16 20.4064007 top2 17 20.1684532 text "1"
+05:48:55 |     prefill=48..55: 164.5 s: SD 1834.8 MB in 1.9 s (962.28 MB/s), PSRAM 7914 KB read 150.8 KB written in 2.09 s, compute 160.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:48:55 | STAGES prefill=48..55 embed=0.008 qkv=8.95 att=4.314 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+05:48:55 | CARD prefill=48..55 fifoirq opens=0 interrupts=0
+05:51:40 | step 56 pos 56 fed 16 -> top1 17 20.3021297 top2 21 20.2366486 text "2"
+05:51:40 | step 57 pos 57 fed 13339 -> top1 315 19.7730904 top2 8217 17.4179153 text " of"
+05:51:40 | step 58 pos 58 fed 315 -> top1 22038 18.534893 top2 8217 17.9356537 text " RAM"
+05:51:40 | step 59 pos 59 fed 22038 -> top1 11 21.8171406 top2 323 18.2336941 text ","
+05:51:40 | step 60 pos 60 fed 323 -> top1 220 20.3435516 top2 264 16.7826691 text " "
+05:51:40 | step 61 pos 61 fed 35995 -> top1 369 19.6023865 top2 311 16.5286503 text " for"
+05:51:40 | step 62 pos 62 fed 369 -> top1 220 17.0643578 top2 20913 16.512188 text " "
+05:51:40 | step 63 pos 63 fed 4960 -> top1 6813 16.20891 top2 10703 16.005785 text " components"
+05:51:40 |     prefill=56..63: 165.1 s: SD 1834.8 MB in 1.9 s (961.90 MB/s), PSRAM 9120 KB read 150.8 KB written in 2.40 s, compute 160.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:51:40 | STAGES prefill=56..63 embed=0.008 qkv=8.95 att=4.844 wo=6.68 ffn=124.12 head=20.46 hidden=144.32 temp_c=51.6
+05:51:40 | CARD prefill=56..63 fifoirq opens=0 interrupts=0
+05:54:26 | step 64 pos 64 fed 11405 -> top1 33905 18.5109997 top2 17 16.7167091 text "RAM"
+05:54:26 | step 65 pos 65 fed 33905 -> top1 11 18.1980782 top2 13 17.7693233 text ","
+05:54:26 | step 66 pos 66 fed 23595 -> top1 13 18.3459549 top2 11 18.0248871 text "."
+05:54:26 | step 67 pos 67 fed 13 -> top1 1084 17.9319935 top2 151645 17.3296032 text " It"
+05:54:26 | step 68 pos 68 fed 151645 -> top1 198 25.9801216 top2 151644 22.0413532 text "\x0A"
+05:54:26 | step 69 pos 69 fed 198 -> top1 151644 26.5287132 top2 151645 17.4499302 text "<|im_start|>"
+05:54:26 | step 70 pos 70 fed 151644 -> top1 198 26.894825 top2 151645 19.8875237 text "\x0A"
+05:54:26 | step 71 pos 71 fed 77091 -> top1 785 19.7431622 top2 10022 16.6184216 text "The"
+05:54:26 |     prefill=64..71: 165.6 s: SD 1834.8 MB in 1.9 s (962.09 MB/s), PSRAM 10326 KB read 150.8 KB written in 2.71 s, compute 161.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:54:26 | STAGES prefill=64..71 embed=0.008 qkv=8.95 att=5.377 wo=6.68 ffn=124.12 head=20.47 hidden=144.31 temp_c=51.6
+05:54:26 | CARD prefill=64..71 fifoirq opens=0 interrupts=0
+05:54:26 |   card: 1 position in this pass -> FIFO
+05:54:26 |     SD up (FIFO_SDIO), clock 66000 kHz
+05:54:26 |     qwen3b.gguf: 1929903072 bytes
+05:54:26 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+05:54:26 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+05:54:26 | SDIO fifo
+05:54:26 | SDPATH file
+05:56:11 | step 72 pos 72 fed 198 -> top1 785 20.0751171 top2 19237 14.5251436 text "The"
+05:56:11 |   >> <|im_start|>system
+05:56:11 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:56:11 | <|im_start|>user
+05:56:11 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:56:11 | <|im_start|>assistant
+05:56:11 | The
+05:56:11 |     prefill=72..72: 105.6 s: SD 1834.8 MB in 70.2 s (26.13 MB/s), PSRAM 1376 KB read 18.8 KB written in 0.37 s, compute 35.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+05:56:11 | STAGES prefill=72..72 embed=0.001 qkv=6.05 att=0.720 wo=4.58 ffn=80.57 head=13.72 hidden=34.59 temp_c=50.9
+05:56:11 | CARD prefill=72..72 fifoirq opens=3277 interrupts=7518194
+05:57:56 | step 73 pos 73 fed 785 -> top1 69053 21.711153 top2 26202 15.6120129 text " Teens"
+05:57:56 |   >> <|im_start|>system
+05:57:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:57:56 | <|im_start|>user
+05:57:56 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:57:56 | <|im_start|>assistant
+05:57:56 | The Teens
+05:57:56 |     lookup=73 guessed=0 kept=0: 104.6 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 1394 KB read 18.8 KB written in 0.38 s, compute 35.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+05:57:56 | STAGES lookup=73 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.722 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+05:57:56 | CARD lookup=73 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+05:59:47 | step 74 pos 74 fed 69053 -> top1 88 30.749073 top2 645 16.0277119 text "y"
+05:59:47 |   >> <|im_start|>system
+05:59:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:59:47 | <|im_start|>user
+05:59:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:59:47 | <|im_start|>assistant
+05:59:47 | The Teensy
+05:59:47 | step 75 pos 75 fed 88 -> top1 220 22.9770107 top2 374 14.2521296 text " "
+05:59:47 |   >> <|im_start|>system
+05:59:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:59:47 | <|im_start|>user
+05:59:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:59:47 | <|im_start|>assistant
+05:59:47 | The Teensy 
+05:59:47 | step 76 pos 76 fed 220 -> top1 19 25.8275928 top2 18 13.960885 text "4"
+05:59:47 |   >> <|im_start|>system
+05:59:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:59:47 | <|im_start|>user
+05:59:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:59:47 | <|im_start|>assistant
+05:59:47 | The Teensy 4
+05:59:47 | step 77 pos 77 fed 19 -> top1 13 24.7897682 top2 1993 15.0266905 text "."
+05:59:47 |   >> <|im_start|>system
+05:59:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+05:59:47 | <|im_start|>user
+05:59:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+05:59:47 | <|im_start|>assistant
+05:59:47 | The Teensy 4.
+05:59:47 |     lookup=74 guessed=3 kept=3: 110.8 s: SD 1834.8 MB in 5.5 s (334.83 MB/s), PSRAM 5766 KB read 75.4 KB written in 1.51 s, compute 103.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+05:59:47 | STAGES lookup=74 guessed=3 kept=3 embed=0.002 qkv=6.16 att=2.959 wo=4.61 ffn=83.20 head=13.84 hidden=94.69 temp_c=50.9
+05:59:47 | CARD lookup=74 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+06:01:38 | step 78 pos 78 fed 13 -> top1 16 24.0928764 top2 220 17.9086952 text "1"
+06:01:38 |   >> <|im_start|>system
+06:01:38 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:01:38 | <|im_start|>user
+06:01:38 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:01:38 | <|im_start|>assistant
+06:01:38 | The Teensy 4.1
+06:01:38 | step 79 pos 79 fed 16 -> top1 374 19.8951569 top2 8003 18.10425 text " is"
+06:01:38 |   >> <|im_start|>system
+06:01:38 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:01:38 | <|im_start|>user
+06:01:38 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:01:38 | <|im_start|>assistant
+06:01:38 | The Teensy 4.1 is
+06:01:38 | step 80 pos 80 fed 374 -> top1 264 21.7313251 top2 458 19.1506138 text " a"
+06:01:38 |   >> <|im_start|>system
+06:01:38 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:01:38 | <|im_start|>user
+06:01:38 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:01:38 | <|im_start|>assistant
+06:01:38 | The Teensy 4.1 is a
+06:01:38 | step 81 pos 81 fed 264 -> top1 8003 18.6067944 top2 16830 16.8133335 text " micro"
+06:01:38 |   >> <|im_start|>system
+06:01:38 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:01:38 | <|im_start|>user
+06:01:38 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:01:38 | <|im_start|>assistant
+06:01:38 | The Teensy 4.1 is a micro
+06:01:38 |     lookup=78 guessed=3 kept=3: 110.9 s: SD 1834.8 MB in 5.5 s (334.57 MB/s), PSRAM 6068 KB read 75.4 KB written in 1.59 s, compute 103.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+06:01:38 | STAGES lookup=78 guessed=3 kept=3 embed=0.002 qkv=6.16 att=3.091 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+06:01:38 | CARD lookup=78 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+06:03:29 | step 82 pos 82 fed 8003 -> top1 7152 26.3722172 top2 6461 16.8670731 text "controller"
+06:03:29 |   >> <|im_start|>system
+06:03:29 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:03:29 | <|im_start|>user
+06:03:29 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:03:29 | <|im_start|>assistant
+06:03:29 | The Teensy 4.1 is a microcontroller
+06:03:29 | step 83 pos 83 fed 7152 -> top1 4479 20.8447952 top2 448 16.3452492 text " board"
+06:03:29 |   >> <|im_start|>system
+06:03:29 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:03:29 | <|im_start|>user
+06:03:29 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:03:29 | <|im_start|>assistant
+06:03:29 | The Teensy 4.1 is a microcontroller board
+06:03:29 | step 84 pos 84 fed 4479 -> top1 16445 18.8681526 top2 448 18.5535698 text " featuring"
+06:03:29 |   >> <|im_start|>system
+06:03:29 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:03:29 | <|im_start|>user
+06:03:29 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:03:29 | <|im_start|>assistant
+06:03:29 | The Teensy 4.1 is a microcontroller board featuring
+06:03:29 |     lookup=82 guessed=3 kept=2: 111.0 s: SD 1834.8 MB in 5.5 s (334.60 MB/s), PSRAM 6369 KB read 75.4 KB written in 1.67 s, compute 103.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+06:03:29 | STAGES lookup=82 guessed=3 kept=2 embed=0.003 qkv=6.16 att=3.224 wo=4.61 ffn=83.20 head=13.84 hidden=94.69 temp_c=50.9
+06:03:29 | CARD lookup=82 guessed=3 kept=2 fifoirq opens=3277 interrupts=7518194
+06:05:13 | step 85 pos 85 fed 16445 -> top1 264 21.1188965 top2 458 17.2245522 text " a"
+06:05:13 |   >> <|im_start|>system
+06:05:13 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:05:13 | <|im_start|>user
+06:05:13 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:05:13 | <|im_start|>assistant
+06:05:13 | The Teensy 4.1 is a microcontroller board featuring a
+06:05:13 |     lookup=85 guessed=0 kept=0: 104.7 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 1621 KB read 18.8 KB written in 0.43 s, compute 35.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+06:05:13 | STAGES lookup=85 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.822 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+06:05:13 | CARD lookup=85 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+06:07:05 | step 86 pos 86 fed 264 -> top1 220 20.6008701 top2 1550 16.7659626 text " "
+06:07:05 |   >> <|im_start|>system
+06:07:05 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:07:05 | <|im_start|>user
+06:07:05 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:07:05 | <|im_start|>assistant
+06:07:05 | The Teensy 4.1 is a microcontroller board featuring a 
+06:07:05 |     lookup=86 guessed=3 kept=0: 111.2 s: SD 1834.8 MB in 5.5 s (334.68 MB/s), PSRAM 6671 KB read 75.4 KB written in 1.75 s, compute 103.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+06:07:05 | STAGES lookup=86 guessed=3 kept=0 embed=0.003 qkv=6.16 att=3.356 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+06:07:05 | CARD lookup=86 guessed=3 kept=0 fifoirq opens=3277 interrupts=7518194
+06:08:56 | step 87 pos 87 fed 220 -> top1 21 24.8288422 top2 16 17.0510616 text "6"
+06:08:56 |   >> <|im_start|>system
+06:08:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:08:56 | <|im_start|>user
+06:08:56 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:08:56 | <|im_start|>assistant
+06:08:56 | The Teensy 4.1 is a microcontroller board featuring a 6
+06:08:56 | step 88 pos 88 fed 21 -> top1 15 26.9415188 top2 19 18.3939342 text "0"
+06:08:56 |   >> <|im_start|>system
+06:08:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:08:56 | <|im_start|>user
+06:08:56 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:08:56 | <|im_start|>assistant
+06:08:56 | The Teensy 4.1 is a microcontroller board featuring a 60
+06:08:56 | step 89 pos 89 fed 15 -> top1 15 28.6838017 top2 36494 15.5865269 text "0"
+06:08:56 |   >> <|im_start|>system
+06:08:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:08:56 | <|im_start|>user
+06:08:56 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:08:56 | <|im_start|>assistant
+06:08:56 | The Teensy 4.1 is a microcontroller board featuring a 600
+06:08:56 | step 90 pos 90 fed 15 -> top1 36494 25.7529449 top2 37492 21.1052628 text " MHz"
+06:08:56 |   >> <|im_start|>system
+06:08:56 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:08:56 | <|im_start|>user
+06:08:56 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:08:56 | <|im_start|>assistant
+06:08:56 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz
+06:08:56 |     lookup=87 guessed=3 kept=3: 111.2 s: SD 1834.8 MB in 5.5 s (334.59 MB/s), PSRAM 6746 KB read 75.4 KB written in 1.76 s, compute 104.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+06:08:56 | STAGES lookup=87 guessed=3 kept=3 embed=0.002 qkv=6.16 att=3.389 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+06:08:56 | CARD lookup=87 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+06:10:47 | step 91 pos 91 fed 36494 -> top1 30486 20.6604404 top2 89902 16.4033928 text " ARM"
+06:10:47 |   >> <|im_start|>system
+06:10:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:10:47 | <|im_start|>user
+06:10:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:10:47 | <|im_start|>assistant
+06:10:47 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM
+06:10:47 | step 92 pos 92 fed 30486 -> top1 89902 27.113924 top2 48270 17.6148853 text " Cortex"
+06:10:47 |   >> <|im_start|>system
+06:10:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:10:47 | <|im_start|>user
+06:10:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:10:47 | <|im_start|>assistant
+06:10:47 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex
+06:10:47 | step 93 pos 93 fed 89902 -> top1 5251 26.2315559 top2 386 17.7673416 text "-M"
+06:10:47 |   >> <|im_start|>system
+06:10:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:10:47 | <|im_start|>user
+06:10:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:10:47 | <|im_start|>assistant
+06:10:47 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex-M
+06:10:47 | step 94 pos 94 fed 5251 -> top1 22 26.8801365 top2 220 14.8341541 text "7"
+06:10:47 |   >> <|im_start|>system
+06:10:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:10:47 | <|im_start|>user
+06:10:47 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:10:47 | <|im_start|>assistant
+06:10:47 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex-M7
+06:10:47 |     lookup=91 guessed=3 kept=3: 111.3 s: SD 1834.8 MB in 5.5 s (334.78 MB/s), PSRAM 7048 KB read 75.4 KB written in 1.84 s, compute 104.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 
+06:10:47 | STAGES lookup=91 guessed=3 kept=3 embed=0.003 qkv=6.16 att=3.522 wo=4.61 ffn=83.20 head=13.84 hidden=94.70 temp_c=50.9
+06:10:47 | CARD lookup=91 guessed=3 kept=3 fifoirq opens=3277 interrupts=7518194
+06:12:34 | step 95 pos 95 fed 22 -> top1 17654 20.6850891 top2 11 19.6523323 text " processor"
+06:12:34 |   >> <|im_start|>system
+06:12:34 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:12:34 | <|im_start|>user
+06:12:34 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:12:34 | <|im_start|>assistant
+06:12:34 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex-M7 processor
+06:12:34 |     lookup=95 guessed=1 kept=0: 106.8 s: SD 1834.8 MB in 47.4 s (38.72 MB/s), PSRAM 3637 KB read 37.7 KB written in 0.96 s, compute 58.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+06:12:34 | STAGES lookup=95 guessed=1 kept=0 embed=0.001 qkv=6.08 att=1.816 wo=4.59 ffn=80.59 head=13.72 hidden=57.43 temp_c=51.6
+06:12:34 | CARD lookup=95 guessed=1 kept=0 fifoirq opens=3277 interrupts=7518194
+06:14:19 | step 96 pos 96 fed 17654 -> top1 11 22.2969379 top2 448 19.0135841 text ","
+06:14:19 |   >> <|im_start|>system
+06:14:19 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+06:14:19 | <|im_start|>user
+06:14:19 | Summarize in one sentence: The Teensy 4.1 is a microcontroller board with a 600 MHz ARM Cortex-M7, 1 MB of RAM and pads for extra PSRAM chips.<|im_end|>
+06:14:19 | <|im_start|>assistant
+06:14:19 | The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex-M7 processor,
+06:14:19 |     lookup=96 guessed=0 kept=0: 104.8 s: SD 1834.8 MB in 69.2 s (26.51 MB/s), PSRAM 1828 KB read 18.8 KB written in 0.49 s, compute 35.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (
+06:14:19 | STAGES lookup=96 guessed=0 kept=0 embed=0.001 qkv=6.05 att=0.913 wo=4.59 ffn=79.53 head=13.72 hidden=34.34 temp_c=50.9
+06:14:19 | CARD lookup=96 guessed=0 kept=0 fifoirq opens=217 interrupts=7512074
+06:14:19 | LOOKUP k=3 passes=10 drafted=19 accepted=14
+06:14:19 |   ANSWER: "The Teensy 4.1 is a microcontroller board featuring a 600 MHz ARM Cortex-M7 processor,"
+06:14:19 |   20 passes over the weights in 2664 s (prompt 1577 s), 133.2 s each; 35.84 GB read from the card
+06:14:19 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+06:14:19 | RUN n_prompt=73 n_gen=24 prefill=1 passes=20 total_s=2664.2 prompt_s=1576.9 per_pass_s=133.21 sd_gb=35.836 sd_mbs=97.78 sd_s=375.3 compute_s=2262.8 hidden_s=2062.1 ps_s=26.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=120 ps_sw_s=0.25 temp_max_c=

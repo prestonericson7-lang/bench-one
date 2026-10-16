@@ -16,6 +16,8 @@ bench-archive/<stamp>-psram_llm-pcverify/{report.md, *.txt} and exits non-zero o
   2  FORWARD    for each prompt, tl_host (weights from the file every token, PSRAM a separate store) against
                 tl_ref (shared/model_q.c's fused path): every step line -- ids, both logits to nine digits,
                 second-best token -- per token, and again with the prompt batched (TL_PREFILL=1).
+  2b LOOKUP     the board's ::lookup rule (TL_LOOKUP, 4..2 tokens matched, 6 guesses): every line still identical.
+  2c GROUPS     the batched pass with gate/up groups of 32 and 128 rows (TL_FFN_GROUP; 256 is stage 2's).
   3  TOGETHER   the same prompts answered together (TL_MULTI, tl_multi_pass), shared openings off and on:
                 each prompt's lines against its own tl_ref run.
   4  M7         if tests/dot_verify_m7.exe and tests/tl_host_m7.exe exist (README: built with -DGD_EMULATE_M7),
@@ -172,6 +174,28 @@ def main():
             fails += 0 if ok else 1
             note("- prompt %d, %s: %s (%d lines) -- %r" % (k, mode, "IDENTICAL" if ok else "DIFFERENT",
                                                          sum(1 for _ in open(ref, encoding="utf-8")), p[:60]))
+    note("")
+    # ---- 2b the board's ::lookup rule; 2c the batched pass's other gate/up groups (2026-10-16) -----------------
+    note("## 2b. Speculative decoding from the context (TL_LOOKUP, the board's ::lookup 6: last 4..2 tokens, 6 guesses)")
+    note("")
+    for k, p in enumerate(prompts):
+        got = os.path.join(out, "lookup_%d.txt" % k)
+        rc, err = run("tl_host.exe", [p, str(a.gen)], {"TL_LOOKUP": "1", "TL_NMAX": "4", "TL_NMIN": "2", "TL_DRAFT": "6"}, got)
+        ok = rc == 0 and same(os.path.join(out, "ref_%d.txt" % k), got)
+        fails += 0 if ok else 1
+        st = next((s.strip() for s in err.splitlines() if s.startswith("lookup:")), "no lookup line (rc %d)" % rc)
+        note("- prompt %d: %s; %s" % (k, "IDENTICAL" if ok else "DIFFERENT", st))
+    note("")
+    note("## 2c. The batched pass's gate/up group (TL_FFN_GROUP; 256 is the default, run in 2)")
+    note("")
+    for G in ("32", "128"):
+        n_ok = 0
+        for k, p in enumerate(prompts):
+            got = os.path.join(out, "group%s_%d.txt" % (G, k))
+            rc, err = run("tl_host.exe", [p, str(a.gen)], {"TL_PREFILL": "1", "TL_FFN_GROUP": G}, got)
+            n_ok += 1 if rc == 0 and same(os.path.join(out, "ref_%d.txt" % k), got) else 0
+        fails += 0 if n_ok == len(prompts) else 1
+        note("- group %s, prompt batched: %d of %d prompts identical" % (G, n_ok, len(prompts)))
     note("")
     note("## 3. Answered together (TL_MULTI)")
     note("")

@@ -119,7 +119,7 @@ Where the time goes in the current firmware (`20260928-101322`, and the stage br
 | **reading 8 words of a question** | **161–164 s** | 1.9 s left showing; ~150 s hidden under the arithmetic | 160 s (99%) | 0.26–1.55 s |
 
 A single word is limited by how fast the card can be read at all (24 MB/s; the 99 MHz test showed the card
-sets that). A batch of words is limited by the processor's arithmetic. Both limits are the card interface:
+sets that -- *2026-10-16: 18.5 MB/s sustained; the 24 was measured with read-ahead pauses in it, docs/56*). A batch of words is limited by the processor's arithmetic. Both limits are the card interface:
 the mode that reads fast needs the processor, and the mode that frees the processor reads 30% slower.
 
 **What would move it** (arithmetic on the numbers above, not a measurement): a second storage device read

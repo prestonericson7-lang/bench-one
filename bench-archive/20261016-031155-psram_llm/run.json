@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-031155",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16 night: ::lookup (k=0 -> tl_forward), ::sdfifo (gap/stream/burst48/irq), ::fifoirq (interrupt-fed FIFO overlap, off), FFN groups near-equal reads, SwiGLU fused in place",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 642381
+}

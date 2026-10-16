@@ -964,7 +964,9 @@ static uint32_t mfp_used[MF_POOL], mfp_tick;
  * the card twice on 2026-09-27 -- 03:26, and 12:22 after a CLEAN ::stop between two reads -- each time until USB
  * power was cut. So every command the board handles ends with the transfer closed, and so does boot. */
 static bool g_sd_up;
-static void sd_idle(void) { if (g_sd_up) sd.card()->syncDevice(); }
+static bool fq_open;                         /* ::fifoirq's own CMD18 is open (THE FIFO READ FED BY AN INTERRUPT) */
+FLASHMEM __attribute__((noinline)) static void fq_close(void);
+static void sd_idle(void) { if (fq_open) fq_close(); if (g_sd_up) sd.card()->syncDevice(); }
 /* the card's bus clock as SdFat set it (SdioCard; sd.card() is its base interface) */
 static unsigned long sd_khz(void) { return (unsigned long)static_cast<SdioCard *>(sd.card())->kHzSdClk(); }
 
@@ -1131,15 +1133,17 @@ FLASHMEM int plat_tok_open(uint32_t bytes)
 }
 int plat_tok_read(uint32_t a, void *dst, uint32_t n)
 {
+    if (fq_open) fq_close();
     if (!tf_open || !tf.seekSet(a)) return -1;
     return tf.read(dst, n) == (int)n ? 0 : -1;
 }
 int plat_tok_write(uint32_t a, const void *src, uint32_t n)
 {
+    if (fq_open) fq_close();
     if (!tf_open || !tf.seekSet(a)) return -1;
     return tf.write(src, n) == n ? 0 : -1;
 }
-int plat_tok_flush(void) { return (tf_open && tf.sync()) ? 0 : -1; }
+int plat_tok_flush(void) { if (fq_open) fq_close(); return (tf_open && tf.sync()) ? 0 : -1; }
 
 /* ::sdio fifo|dma -- restart the card in the other mode, for an A/B on one build: close every handle, close
  * the transfer (sd_idle: the card is left idle, never mid-transfer), end, begin in the new mode, reopen. */
@@ -1167,6 +1171,157 @@ FLASHMEM static bool sdio_switch(bool dma)
 
 static int mf_read_at(uint64_t off, void *dst, uint32_t n, uint32_t need);
 
+/* uSDHC bits, from SdFat's SdioTeensy.h (shared with ::sdfifo below) */
+#define FX_BREN    (1u << 11)               /* PRES_STATE: buffer read enable (>= RD_WML words waiting) */
+#define FX_RTA     (1u << 9)                /* PRES_STATE: read transfer active */
+#define FX_SDOFF   (1u << 7)                /* PRES_STATE: SD clock gated off internally */
+#define FX_SABGREQ (1u << 16)               /* PROT_CTRL: stop at block gap request */
+#define FX_CREQ    (1u << 17)               /* PROT_CTRL: continue request */
+#define FX_TC      (1u << 1)                /* INT_STATUS: transfer complete */
+#define FX_BRR     (1u << 5)                /* INT_STATUS / _EN / SIGNAL_EN: buffer read ready */
+#define FX_ERR     ((1u << 16) | (1u << 17) | (1u << 18) | (1u << 19) | (1u << 20) | (1u << 21) | (1u << 22) | \
+                    (1u << 24) | (1u << 28))   /* CTOE CCE CEBE CIE DTOE DCE DEBE AC12E DMAE (SdFat's ERROR mask) */
+/* sd.card() is SdFat's base interface; begun with SdioConfig (always, here) it is SdCardFactory's SdioCard member,
+ * whose streaming calls readStart/readStop are not in the base. */
+static SdioCard *fx_card(void) { return static_cast<SdioCard *>(sd.card()); }
+
+/* THE FIFO READ FED BY AN INTERRUPT (::fifoirq 0|1, 2026-10-16; on by default once measured). FIFO reads
+ * this card at 24 MB/s but SdFat's readData() spins until each block is in, so a FIFO pass is card time PLUS
+ * arithmetic. Here the card is fed by the controller's interrupt instead: read watermark 128 words, Buffer
+ * Read Ready drains a whole block into the core's buffer, and the stop at the block gap (Transfer Complete)
+ * asks for the next -- SdFat's own handshake (SABGREQ / CREQ) moved into the handler -- while the core's
+ * pending rows run in plat_sd_read_overlap, whole and uninterrupted, as they do under DMA. One CMD18 stays
+ * open, parked at a block gap, across consecutive pipeline reads (the card is never re-addressed, which is
+ * what costs ADMA2 274 us a command); any other card access (norms and biases, the tokenizer store, a mode
+ * switch, the end of a command) closes it first. The last sector read is kept: the next block usually starts
+ * inside it. Same bytes, so the same step lines; a failure closes, restarts the card, turns this off and
+ * reads the block through the file layer. */
+static int g_fifoirq = 1;                   /* on by default since 2026-10-16 (measured, docs/56): 2..6 positions cheaper, 1 equal */
+static void halt(const char *why);
+static uint32_t fq_next;                                  /* the card sector the open transfer delivers next */
+static uint32_t fq_tail_sec = 0xFFFFFFFFu;                /* the last sector read, kept in fq_tail */
+__attribute__((aligned(4))) static uint8_t fq_tail[512];
+static volatile uint32_t fqi_done, fqi_err, fqi_parked, fqi_irqs, fqi_wpos;
+static uint32_t *fqi_dst, fqi_total, fq_wml0, fq_sten0;
+static uint32_t fq_opens;                                 /* transfers opened (each one a card re-address) */
+/* The read watermark (::fifoirq N, words: 16, 32, 64 or 128). At 128 the handler drains a block only once all
+ * of it is in, and the next block waits behind that 4.7 us drain (::sdfifo 2026-10-16: 27.6 us a block against
+ * the polled read's 21.5); below 128 it drains while the block arrives, a WML at a time. */
+static uint32_t fq_wml = 128;
+
+FLASHMEM __attribute__((noinline)) static void fq_isr(void)
+{
+    const uint32_t st = USDHC1_INT_STATUS;
+    fqi_irqs++;
+    if (st & FX_ERR) { USDHC1_INT_STATUS = st & FX_ERR; fqi_err = st; USDHC1_INT_SIGNAL_EN = 0; return; }
+    if (st & FX_BRR) {
+        USDHC1_INT_STATUS = FX_BRR;
+        const uint32_t w = fq_wml;
+        while (USDHC1_PRES_STATE & FX_BREN) {             /* every whole WML waiting, not just the first */
+            if (fqi_done >= fqi_total) {                  /* data nobody asked for: the handshake broke */
+                for (uint32_t i = 0; i < w; i++) (void)USDHC1_DATA_BUFF_ACC_PORT;
+                fqi_err = 0x80000000u;
+                break;
+            }
+            uint32_t *p = fqi_dst + fqi_done * 128u + fqi_wpos;
+            for (uint32_t i = 0; i < w; i++) p[i] = USDHC1_DATA_BUFF_ACC_PORT;
+            fqi_wpos += w;
+            if (fqi_wpos >= 128u) { fqi_wpos = 0; fqi_done++; }
+        }
+    }
+    if (st & FX_TC) {                                     /* parked at the block gap */
+        USDHC1_INT_STATUS = FX_TC;
+        if (fqi_done < fqi_total) {
+            USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+            USDHC1_PROT_CTRL |= FX_CREQ;
+            USDHC1_PROT_CTRL |= FX_SABGREQ;
+        } else fqi_parked = 1;
+    }
+    asm volatile("dsb");
+}
+
+FLASHMEM __attribute__((noinline)) static void fq_close(void)
+{
+    if (!fq_open) return;
+    USDHC1_INT_SIGNAL_EN = 0;
+    USDHC1_INT_STATUS_EN = fq_sten0;
+    USDHC1_WTMK_LVL = fq_wml0;                            /* SdFat's readData() drains 16 words per wait */
+    fq_open = false;
+    fx_card()->readStop();
+}
+
+/* whole sectors at file offset a (sector-aligned) into d, working `work` while they come in. 0, or -1: the
+ * caller restarts the card and reads through the file layer. */
+FLASHMEM __attribute__((noinline)) static int fq_read(uint64_t a, uint8_t *d, uint32_t len, int (*work)(void *), void *ctx)
+{
+    uint32_t sec = (uint32_t)(mf_sector0 + a / 512u), nsec = len / 512u;
+    if (sec == fq_tail_sec) { memcpy(d, fq_tail, 512); d += 512; sec++; nsec--; }
+    if (!nsec) return 0;
+    fqi_dst = (uint32_t *)d; fqi_total = nsec; fqi_done = 0; fqi_err = 0; fqi_parked = 0; fqi_wpos = 0;
+    if (!fq_open || fq_next != sec) {
+        fq_close();
+        sd.card()->syncDevice();                          /* SdFat's own open transfer, if any */
+        fq_wml0 = USDHC1_WTMK_LVL; fq_sten0 = USDHC1_INT_STATUS_EN;
+        USDHC1_WTMK_LVL = (fq_wml0 & ~0xFFu) | fq_wml;
+        USDHC1_INT_STATUS_EN = fq_sten0 | FX_BRR | FX_TC;
+        USDHC1_INT_STATUS = FX_BRR | FX_TC;
+        attachInterruptVector(IRQ_SDHC1, fq_isr);         /* every sd.begin re-attaches SdFat's handler */
+        NVIC_SET_PRIORITY(IRQ_SDHC1, 6 * 16);
+        NVIC_ENABLE_IRQ(IRQ_SDHC1);
+        USDHC1_INT_SIGNAL_EN = FX_BRR | FX_TC | FX_ERR;
+        fq_open = true; fq_opens++;
+        if (!fx_card()->readStart(sec)) { fqi_err = 0x20000000u; }
+    } else {                                              /* parked right after the previous block: go on */
+        noInterrupts();
+        USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+        USDHC1_PROT_CTRL |= FX_CREQ;
+        USDHC1_PROT_CTRL |= FX_SABGREQ;
+        interrupts();
+    }
+    fq_next = sec + nsec;
+    uint32_t last = 0, t = micros();
+    while (!fqi_err && !(fqi_done == nsec && fqi_parked)) {
+        if (work && fqi_done < nsec) { if (!work(ctx)) work = 0; continue; }
+        if (fqi_done != last) { last = fqi_done; t = micros(); }
+        else if (micros() - t > 200000u) { fqi_err = 0x40000000u; break; }
+    }
+    if (fqi_err) {
+        say("    fifoirq: read of %lu sectors at %lu stopped after %lu (0x%08lX, PRES_STATE 0x%08lX); back to the file layer",
+            (unsigned long)nsec, (unsigned long)sec, (unsigned long)fqi_done, (unsigned long)fqi_err, (unsigned long)USDHC1_PRES_STATE);
+        fq_close();
+        fq_tail_sec = 0xFFFFFFFFu;
+        return -1;
+    }
+    memcpy(fq_tail, d + (nsec - 1) * 512u, 512);
+    fq_tail_sec = sec + nsec - 1;
+    return 0;
+}
+
+/* after each pass with ::fifoirq on: transfers opened (card re-addressed) and interrupts taken in it */
+FLASHMEM __attribute__((noinline)) static void fq_report(const char *what)
+{
+    static uint32_t o0, i0;
+    if (g_fifoirq) say("CARD %s fifoirq opens=%lu interrupts=%lu", what, (unsigned long)(fq_opens - o0), (unsigned long)(fqi_irqs - i0));
+    o0 = fq_opens; i0 = fqi_irqs;
+}
+
+/* ::fifoirq: the whole sectors around a pipeline read (the core's room for them, tl_plat.h) by fq_read; false
+ * = read it the usual way (not FIFO, not contiguous, past the file, or a failure -- which turns ::fifoirq off) */
+FLASHMEM __attribute__((noinline)) static bool fq_try(uint64_t off, void *dst, uint32_t n, int (*work)(void *), void *ctx)
+{
+    if (!mf_contig) return false;
+    const uint32_t pre = (uint32_t)(off & 511u);
+    const uint64_t a = off - pre;
+    uint8_t *d = (uint8_t *)dst - pre;
+    const uint32_t len = (pre + n + 511u) & ~511u;
+    if (((uintptr_t)d & 3u) || a + len > ((mf_size + 511u) & ~511ull)) return false;
+    if (fq_read(a, d, len, work, ctx) == 0) return true;
+    g_fifoirq = 0;
+    say("    fifoirq OFF; the card restarted, this block read through the file layer");
+    if (!sdio_switch(false)) halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)");
+    return false;
+}
+
 /* A pipeline read (tl_plat.h). In DMA mode with ::align 1 it reads the whole sectors around the block into
  * the room the core leaves for them: one CMD18 for the block. Unaligned, SdFat splits it into a head sector
  * and a tail sector through its cache and a middle by DMA -- two or three card commands, each with the card's
@@ -1176,6 +1331,7 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
 {
     poll_stop();                             /* before the work is armed: Serial.available() calls yield() */
     if (g_abort) return -1;
+    if (!g_dma && g_fifoirq && fq_try(off, dst, n, work, ctx)) return 0;
     uint64_t a = off;
     uint8_t *d = (uint8_t *)dst;
     uint32_t len = n;
@@ -1217,6 +1373,7 @@ int plat_sd_read(uint64_t off, void *dst, uint32_t n)
 static int mf_read_once(uint64_t off, void *dst, uint32_t n, uint32_t need);
 static int mf_read_at(uint64_t off, void *dst, uint32_t n, uint32_t need)
 {
+    if (fq_open) fq_close();                 /* the file layer needs the card to itself */
     const int r = mf_read_once(off, dst, n, need);
     if (!r || !g_sddvs) return r;
     say("    card read failed at %lu kHz: back to SdFat's clock, card restarted, read again", sd_clk_now());
@@ -1369,12 +1526,24 @@ void plat_emit(const char *s, int n) { Serial.write((const uint8_t *)s, (size_t)
  *                   keeps the fastest that reads right ("CLKSWEEP ..." lines)
  *    ::sdclk N      card clock = 198 MHz / N (2..16); "::sdclk 0" = SdFat's own
  *    ::admamin N    a pass with N or more positions reads the card by ADMA2 with the arithmetic under the read,
- *                   a smaller one by FIFO (default 3, measured: docs/56); 0 = no automatic switching
+ *                   a smaller one by FIFO (default 7 with ::fifoirq; 3 before 2026-10-16: docs/56); 0 = no switching
  *    ::sdpath file|adma  a pipeline read goes through SdFat's file layer (default) or, in DMA mode, straight to
  *                   the card object as whole sectors with an ADMA2 descriptor table for the core's buffer
  *    ::sdadma       the card by ADMA2 (descriptor DMA) at four read sizes, 2 MB each checked byte for byte
  *                   against FIFO and against SdFat's simple DMA ("ADMA ..." lines)
  *                   (every one of these four gives the same step lines; they move only the time)
+ *    ::sdfifo       the FIFO read with arithmetic (a timed spin) between each block's request and its drain,
+ *                   with and without Stop At Block Gap; then 48-block bursts with pauses between, reads alone
+ *                   timed; 2 MB each checked byte for byte ("FIFOX ..." lines)
+ *    ::sdtrace      the cycle counter at each step of the FIFO block handshake, polled and interrupt-fed
+ *    ::fifoirq 0|1  FIFO pipeline reads fed by the card's interrupt, the pending rows worked meanwhile, one
+ *                   transfer kept open across reads (default 1; 16/32/64/128 = on at that read watermark;
+ *                   same step lines, only the time moves)
+ *    ::kbench       the batched Q4_K kernel, cycles per weight per vector at 2..8 vectors ("KBENCH ...")
+ *    ::ffngroup G   a batched pass computes gate/up G rows at a time (32..256; 32 = the pre-2026-10-16 order)
+ *    ::lookup K [N] after the prompt, each pass also checks up to K tokens guessed from the context (the
+ *                   tokens that followed the last 4..N tokens' most recent earlier occurrence, N default 1); 0 = off.
+ *                   Same step lines as without; fewer passes when the guesses are right ("LOOKUP ...")
  *    anything else  a prompt. \n \t \\ are unescaped, so code and chat templates fit on one line
  *
  *  Machine-readable lines for tests/psram_llm/suite.py: "step ...", "S<k> step ..." (prompt k of a ::multi),
@@ -1457,6 +1626,9 @@ static bool read_line(char *out, int max, uint32_t wait_ms)
 }
 
 static int g_prefill = 1;                 /* ::prefill 0|1 -- the prompt through tl_prefill, or one token at a time */
+static int g_lookup = 0;                  /* ::lookup K [N] -- guess up to K tokens a pass from the context (0: off) */
+static int g_lookup_nmin = 1;             /* ... matching the last 4 down to N tokens (2026-10-16: 4..1, k 3 is best at the
+                                             interrupt-fed pass costs, alpha_sim.py) */
 
 /* One position's line, exactly the format tests/tl_host.c and tests/tl_ref.c print, and the text so far. */
 /* WHICH WAY THE CARD IS READ IS DECIDED PER PASS (v9c). Measured 2026-09-28 (docs/56): a batched pass of 5
@@ -1464,7 +1636,8 @@ static int g_prefill = 1;                 /* ::prefill 0|1 -- the prompt through
  * 104.8 s by FIFO and 137.5 s by ADMA2, because 29 s of arithmetic cannot hide 131 s of card. So a pass with
  * g_adma_min or more positions reads the card by ADMA2 with the overlap, a smaller one by FIFO; the switch
  * is a card restart (about 2 s), made only when the answer changes -- once per prompt, a few per group. */
-static int g_adma_min = 3;                   /* ::admamin N; 0 = never switch automatically */
+static int g_adma_min = 7;                   /* ::admamin N; 0 = never switch automatically. 3 until 2026-10-16; 7 with
+                                                ::fifoirq, where FIFO hides the arithmetic too and ADMA2 wins only from 7 */
 static void card_for_slots(int slots)
 {
     if (!mf_contig || g_adma_min <= 0) return;
@@ -1484,7 +1657,7 @@ static void card_for_slots(int slots)
 static int g_replay_to, g_run_steps;                 /* one prompt: steps printed before the fault / so far */
 static int g_multi_replay[8], g_multi_printed[8];    /* MULTI_MAX prompts: positions printed, per sequence */
 
-static void emit_step(const char *prompt, int n, int step, int32_t fed, int32_t t1, float l1, int32_t t2, float l2,
+FLASHMEM static void emit_step(const char *prompt, int n, int step, int32_t fed, int32_t t1, float l1, int32_t t2, float l2,
                       char *gen, int *gl, int genmax)
 {
     static char txt[256], e[1024];
@@ -1504,7 +1677,7 @@ static void emit_step(const char *prompt, int n, int step, int32_t fed, int32_t 
     }
 }
 
-static void pass_lines(const char *what, const tl_stats_t &st, float tc)
+FLASHMEM static void pass_lines(const char *what, const tl_stats_t &st, float tc)
 {
     static uint32_t sw_prev;
     static uint64_t swus_prev;
@@ -1517,9 +1690,10 @@ static void pass_lines(const char *what, const tl_stats_t &st, float tc)
     sw_prev = ps_switches; swus_prev = ps_switch_us;
     say("STAGES %s embed=%.3f qkv=%.2f att=%.3f wo=%.2f ffn=%.2f head=%.2f hidden=%.2f temp_c=%.1f",
         what, st.t_embed, st.t_qkv, st.t_att, st.t_wo, st.t_ffn, st.t_head, st.t_hidden, tc);
+    fq_report(what);
 }
 
-static bool run_prompt_once(const char *prompt)
+FLASHMEM static bool run_prompt_once(const char *prompt)
 {
     g_abort = false;                      /* a ::stop that arrived while idle is not a stop for this run */
     static int32_t ids[1024];
@@ -1577,6 +1751,76 @@ static bool run_prompt_once(const char *prompt)
         }
         step0 = n;
         if (next == info.eos) ended = true;
+    }
+    /* ::lookup K (2026-10-16): speculative decoding from the context. Each pass feeds the pending token plus up to
+     * K guesses -- the tokens that followed the most recent earlier occurrence of the last 4 down to N tokens -- and
+     * keeps the guesses only as far as the model's own greedy choice agrees, so every step line is the line plain
+     * decoding prints (tl_prefill's outputs are tl_forward's; tests/tl_host.c TL_LOOKUP, docs/54). Rows a
+     * rejected guess wrote into the cache lie beyond the accepted position: the next pass writes those rows before
+     * any position reads them. Simulated on the PC reference (alpha_sim.py, 63 answers) with the board's measured
+     * pass costs: 4..2 tokens matched, 6 guesses -> 1.19x at the FIFO/ADMA2 costs; 4..1 and 3 guesses -> 1.31x
+     * (24-token answers 1.17x) at ::fifoirq's, where 2..4 positions cost what one does. */
+    if (g_lookup > 0 && g_prefill && !ended && step0 < n + g_gen) {
+        DMAMEM static int32_t lctx[1024 + 512 + 8], lo1[64], lo2[64], lfeed[64], ldraft[64];   /* OCRAM: RAM1 is the stack's */
+        DMAMEM static float   lf1[64], lf2[64];
+        int kmax = g_lookup < tl_batch() - 1 ? g_lookup : tl_batch() - 1;
+        if (kmax > 63) kmax = 63;
+        int drafted = 0, accepted = 0, lpasses = 0;
+        memcpy(lctx, ids, (size_t)n * sizeof(int32_t));
+        int pos = step0;
+        while (!ended && pos < n + g_gen) {
+            lctx[pos] = next;
+            int lim = n + g_gen - pos - 1;
+            if (lim > kmax) lim = kmax;
+            int k = 0;
+            for (int m = 4; m >= g_lookup_nmin && !k && lim > 0; m--) {   /* the most recent earlier match of the last m */
+                if (pos + 1 < m + 1) continue;
+                const int32_t *suf = lctx + pos + 1 - m;
+                for (int s = pos - m; s >= 0 && !k; s--) {
+                    if (memcmp(lctx + s, suf, (size_t)m * sizeof(int32_t))) continue;
+                    while (k < lim && s + m + k <= pos) { ldraft[k] = lctx[s + m + k]; k++; }
+                }
+            }
+            lfeed[0] = next;
+            for (int i = 0; i < k; i++) lfeed[i + 1] = ldraft[i];
+            card_for_slots(k + 1);
+            tl_stats_reset();
+            /* no guess: the ordinary one-position pass (104.8 s measured; tl_prefill over 1 position took 121.1 s,
+             * the batched path's read order -- same outputs either way) */
+            if (k ? tl_prefill(lfeed, k + 1, pos, lo1, lf1, lo2, lf2)
+                  : tl_forward(lfeed[0], pos, lo1, lf1, lo2, lf2)) {
+                if (g_abort) { say("  STOPPED at step %d by ::stop, between two card reads", pos); say("RUN error=stopped step=%d", pos); g_abort = false; return true; }
+                say("  lookup pass failed at step %d: %s", pos, tl_last_error());
+                if (tl_fault_bank() >= 0) return false;
+                say("RUN error=forward step=%d", pos);
+                return true;
+            }
+            passes++; lpasses++; drafted += k;
+            tl_stats_t st;
+            tl_stats(&st);
+            ps_fix_r += st.ps_rows_reread; ps_bad += st.ps_rows_bad;
+            total += st.t_total; t_sd += st.t_sd; t_ps += st.t_ps; t_cmp += st.t_compute; t_hid += st.t_hidden;
+            sd_total += st.sd_bytes;
+            const float tc = tempmonGetTemp();
+            if (tc > tmax) tmax = tc;
+            emit_step(prompt, n, pos, lfeed[0], lo1[0], lf1[0], lo2[0], lf2[0], gen, &gl, (int)sizeof gen);
+            if (lo1[0] == info.eos) ended = true;
+            int j = 0;
+            while (!ended && j < k && lo1[j] == ldraft[j]) {
+                j++;
+                emit_step(prompt, n, pos + j, lfeed[j], lo1[j], lf1[j], lo2[j], lf2[j], gen, &gl, (int)sizeof gen);
+                if (lo1[j] == info.eos) ended = true;
+            }
+            accepted += j;
+            for (int i = 0; i < j; i++) lctx[pos + 1 + i] = ldraft[i];
+            char what[48];
+            snprintf(what, sizeof what, "lookup=%d guessed=%d kept=%d", pos, k, j);
+            pass_lines(what, st, tc);
+            next = lo1[j];
+            pos += j + 1;
+        }
+        say("LOOKUP k=%d passes=%d drafted=%d accepted=%d", kmax, lpasses, drafted, accepted);
+        ended = true;                                                   /* the generation is done */
     }
     if (!ended && step0 < n + g_gen) card_for_slots(1);
     for (int step = step0; !ended && step < n + g_gen; step++) {
@@ -1860,6 +2104,68 @@ FLASHMEM static void bench_kernel(const char *label, int layer, int which)
         }
 }
 
+/* ::kbench (2026-10-16) -- where the batched Q4_K kernel's cycles go (docs/59 L3), by the M7's cycle counter.
+ * ffn_gate of layer 0, 16 rows, in the core's own row buffer (tl_rowbuf: DTCM, uncached -- where a pass works
+ * rows) and in the cached OCRAM arena; np = 2, 3, 4, 5, 8 vectors (the same vector repeated: the arithmetic does
+ * not depend on the values). The production kernel (gguf_dot_q4k_presum_n) against the pre-widened one
+ * (gguf_dot_q4k_presum_nw), whose outputs must carry the same bits on every row. Each figure is the fewest
+ * cycles of 5 timed runs over the 16 rows (an interrupt can only add cycles), per weight per vector. */
+FLASHMEM static void kbench(void)
+{
+    uint64_t off; uint32_t type, rows, cols, rb;
+    if (tl_matrix(0, 4, &off, &type, &rows, &cols, &rb) || type != GGML_Q4_K) { say("KBENCH ffn_gate_L0 absent or not Q4_K"); return; }
+    uint32_t rbytes = 0;
+    uint8_t *rbuf = (uint8_t *)tl_rowbuf(&rbytes);
+    uint32_t nr = rbytes / rb;
+    if (nr > 16) nr = 16;
+    if (!nr || cols > 11008 || nr * rb > SDBUF_BYTES) { say("KBENCH rows do not fit"); return; }
+    arm_dcache_flush_delete(sdbuf, nr * rb);
+    if (plat_sd_read(off, sdbuf, nr * rb)) { say("KBENCH read failed"); return; }
+    memcpy(rbuf, sdbuf, nr * rb);
+    uint32_t x = 0x2545F491u;
+    for (uint32_t i = 0; i < cols; i++) { x = x * 1664525u + 1013904223u; bx[i] = ((int32_t)(x >> 8) - 8388608) / 8388608.0f; }
+    gguf_quantize_act(bx, cols, bxq, bxs);
+    gguf_act_sums(bxq, cols, bxsum);
+    gguf_widen_act(bxq, cols, bxw);
+    const int8_t *qp[8]; const uint32_t *wp[8]; const float *sp[8]; const int32_t *mp[8];
+    for (int p = 0; p < 8; p++) { qp[p] = bxq; wp[p] = bxw; sp[p] = bxs; mp[p] = bxsum; }
+    say("KBENCH begin temp_c %.1f rows %lu cols %lu", tempmonGetTemp(), (unsigned long)nr, (unsigned long)cols);
+    static const int NPS[] = { 2, 3, 4, 5, 8 };
+    volatile float sink = 0;
+    for (unsigned ni = 0; ni < sizeof NPS / sizeof NPS[0]; ni++) {
+        const int np = NPS[ni];
+        float cpw[2][2];                                    /* [place: 0 rowbuf DTCM, 1 OCRAM][kernel: 0 _n, 1 _nw] */
+        for (int place = 0; place < 2; place++)
+            for (int kern = 0; kern < 2; kern++) {
+                const uint8_t *base = place ? sdbuf : rbuf;
+                uint32_t best = 0xFFFFFFFFu;
+                for (int rep = 0; rep < 5; rep++) {
+                    float o[8];
+                    const uint32_t t0 = ARM_DWT_CYCCNT;
+                    for (uint32_t r = 0; r < nr; r++) {
+                        if (kern) gguf_dot_q4k_presum_nw(base + (size_t)r * rb, np, qp, wp, sp, mp, cols, o);
+                        else      gguf_dot_q4k_presum_n(base + (size_t)r * rb, np, qp, sp, mp, cols, o);
+                        sink += o[np - 1];
+                    }
+                    const uint32_t c = ARM_DWT_CYCCNT - t0;
+                    if (c < best) best = c;
+                }
+                cpw[place][kern] = (float)best / ((float)nr * cols * np);
+            }
+        /* the answer: the pre-widened kernel against the production one, every row, every vector, to the bit */
+        int differ = 0;
+        for (uint32_t r = 0; r < nr; r++) {
+            float a[8], b[8];
+            gguf_dot_q4k_presum_n(rbuf + (size_t)r * rb, np, qp, sp, mp, cols, a);
+            gguf_dot_q4k_presum_nw(rbuf + (size_t)r * rb, np, qp, wp, sp, mp, cols, b);
+            differ += memcmp(a, b, (size_t)np * sizeof(float)) != 0;
+        }
+        say("KBENCH np %d rowbuf_n %.3f rowbuf_nw %.3f ocram_n %.3f ocram_nw %.3f cycles_per_weight_vector identical %s temp_c %.1f",
+            np, cpw[0][0], cpw[0][1], cpw[1][0], cpw[1][1], differ ? "NO" : "yes", tempmonGetTemp());
+    }
+    say("KBENCH end temp_c %.1f", tempmonGetTemp());
+}
+
 /* the card at three read sizes into the cached arena, and at 4 KB into DTCM, in the mode it is in */
 /* 2 MB of the model at off in 64 KB reads: MB/s over the reads alone, and FNV-1a 64 of the bytes. The
  * target is the cached arena, so in DMA mode its lines are dropped before each read and after it (aligned
@@ -1937,9 +2243,25 @@ FLASHMEM static void sd_sweep(void)
 /* ::sdclksweep -- see "THE CARD'S CLOCK". FIFO, 8 MB in four places at SdFat's 49.5 MHz for the reference
  * sums; then each faster divider reads the same 8 MB twice. The first divider that fails or reads one wrong
  * byte ends the sweep, and the card is restarted at SdFat's clock before anything else. */
+/* Which card is in the slot (its CID register): the card, not the bus, sets the pass time -- it sustains
+ * 18.5 MB/s where the bus delivers 30.1 (::sdtrace, 2026-10-16) -- so a log should say which card it measured.
+ * The serial number is left out: these logs are published. */
+FLASHMEM static void card_id_say(void)
+{
+    cid_t c;
+    if (!sd.card()->readCID(&c)) { say("CARD id unreadable"); return; }
+    char oid[3] = { c.oid[0], c.oid[1], 0 }, pnm[6] = { c.pnm[0], c.pnm[1], c.pnm[2], c.pnm[3], c.pnm[4], 0 };
+    for (int i = 0; i < 5; i++) if (pnm[i] < 32 || pnm[i] > 126) pnm[i] = '?';
+    for (int i = 0; i < 2; i++) if (oid[i] < 32 || oid[i] > 126) oid[i] = '?';
+    say("CARD id manufacturer 0x%02X oem %s product %s rev %u.%u made %u-%02u sectors %lu", (unsigned)c.mid, oid, pnm,
+        (unsigned)c.prv_n, (unsigned)c.prv_m, 2000u + 16u * c.mdt_year_high + c.mdt_year_low, (unsigned)c.mdt_month,
+        (unsigned long)sd.card()->sectorCount());
+}
+
 FLASHMEM static void sd_clk_sweep(void)
 {
     static const uint64_t OFF[4] = { 64ull << 20, 512ull << 20, 1024ull << 20, 1536ull << 20 };
+    card_id_say();
     say("CLKSWEEP begin temp_c %.1f", tempmonGetTemp());
     const bool was_dma = g_dma;
     g_sddvs = 0;
@@ -2089,6 +2411,351 @@ FLASHMEM static void sd_adma_sweep(void)
     say("ADMA end temp_c %.1f", tempmonGetTemp());
 }
 
+/* CAN ARITHMETIC RUN UNDER A FIFO READ? (::sdfifo, 2026-10-16). FIFO reads this card at 24 MB/s against
+ * ADMA2's 18.6 MB/s streaming plus 274 us a command, but a FIFO pass cannot hide its arithmetic: SdFat's
+ * readData() (SdioTeensy.cpp) asks the card for one block (Continue Request, with Stop At Block Gap set) and
+ * then spins in waitTimeout(), which never yields, until the block is in the controller's buffer. The card is
+ * idle at every block gap anyway. So: issue the Continue Request, run arithmetic while the block arrives, then
+ * drain it -- the same registers in the same order as readData(), with the work in the middle.
+ *   gap     SdFat's handshake per block, with `work` microseconds of spinning between the request and the drain
+ *   stream  Stop At Block Gap cleared: the infinite CMD18 runs on and the controller must gate the card's
+ *           clock when its buffer is full (PRES_STATE SDOFF, counted at the end of each spin)
+ * 2 MB of the model per setting, read by sector straight from the card object (the file is contiguous) into
+ * the arena 64 KB at a time; each 64 KB is summed outside the timing and the sum must equal the file layer's
+ * (sd_region). Every wait has a timeout; a setting that fails is reported and the card restarted. In stream
+ * mode the card runs on while a 64 KB piece is summed, so the first block after it drains at once: < 1% of
+ * the timing. Bits: FX_* above (from SdFat's SdioTeensy.h). */
+static uint32_t fx_sdoff;
+static uint64_t fx_wait_cyc;                /* cycles spent waiting for blocks after the work: the card's latency */
+FLASHMEM static int fx_block(uint32_t *p32, uint32_t work_cyc, bool gap)
+{
+    if (gap && !(USDHC1_PRES_STATE & FX_RTA)) {
+        USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+        noInterrupts();
+        USDHC1_PROT_CTRL |= FX_CREQ;
+        USDHC1_PROT_CTRL |= FX_SABGREQ;
+        interrupts();
+    }
+    if (work_cyc) {
+        const uint32_t c0 = ARM_DWT_CYCCNT;
+        while (ARM_DWT_CYCCNT - c0 < work_cyc) {}
+        if (USDHC1_PRES_STATE & FX_SDOFF) fx_sdoff++;
+    }
+    const uint32_t t0 = micros(), w0 = ARM_DWT_CYCCNT;
+    for (int iw = 0; iw < 512 / (4 * 16); iw++) {          /* RD_WML is SdFat's 16 words */
+        while (!(USDHC1_PRES_STATE & FX_BREN)) if (micros() - t0 > 100000u) return -1;
+        for (int i = 0; i < 16; i++) p32[i] = USDHC1_DATA_BUFF_ACC_PORT;
+        p32 += 16;
+    }
+    fx_wait_cyc += ARM_DWT_CYCCNT - w0;
+    if (gap) {
+        while (!(USDHC1_INT_STATUS & (FX_TC | FX_ERR))) if (micros() - t0 > 100000u) return -2;
+        const uint32_t st = USDHC1_INT_STATUS;
+        USDHC1_INT_STATUS = st;
+        return ((st & FX_TC) && !(st & FX_ERR)) ? 0 : -3;
+    }
+    const uint32_t st = USDHC1_INT_STATUS;
+    if (st & FX_ERR) { USDHC1_INT_STATUS = st; return -3; }
+    return 0;
+}
+
+/* the interrupt-fed FIFO read (FIFOX irq): state shared with the handler */
+static volatile uint32_t fxi_done, fxi_used, fxi_err, fxi_parked, fxi_irqs, fxi_wpos;   /* blocks in; summed */
+static uint32_t *fxi_dst, fxi_ring, fxi_total, fxi_wml = 128;
+FLASHMEM static void fx_isr(void)
+{
+    const uint32_t st = USDHC1_INT_STATUS;
+    fxi_irqs++;
+    if (st & FX_ERR) { USDHC1_INT_STATUS = st & FX_ERR; fxi_err = st; USDHC1_INT_SIGNAL_EN = 0; return; }
+    if (st & FX_BRR) {                      /* a watermark of words waits: drain every whole one there is */
+        USDHC1_INT_STATUS = FX_BRR;
+        while (USDHC1_PRES_STATE & FX_BREN) {
+            uint32_t *p = fxi_dst + (fxi_done % fxi_ring) * 128u + fxi_wpos;
+            for (uint32_t i = 0; i < fxi_wml; i++) p[i] = USDHC1_DATA_BUFF_ACC_PORT;
+            fxi_wpos += fxi_wml;
+            if (fxi_wpos >= 128u) { fxi_wpos = 0; fxi_done++; }
+        }
+    }
+    if (st & FX_TC) {                       /* parked at the block gap: the next block, if there is room */
+        USDHC1_INT_STATUS = FX_TC;
+        if (fxi_done < fxi_total) {
+            if (fxi_done - fxi_used < fxi_ring) {
+                USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+                USDHC1_PROT_CTRL |= FX_CREQ;
+                USDHC1_PROT_CTRL |= FX_SABGREQ;
+            } else fxi_parked = 1;
+        }
+    }
+    asm volatile("dsb");
+}
+
+/* WHERE THE INTERRUPT-FED READ LOSES 6 us A BLOCK (::sdtrace, 2026-10-16). The polled handshake reads a block
+ * in 21.5 us; the interrupt-fed one in 27.6 us at every read watermark from 16 to 128 words (2 to 16
+ * interrupts a block), so it is neither interrupt latency nor where the drain starts. The cycle counter at
+ * each step of the handshake, 64 blocks of the model, for the polled read (SdFat's readData order) and for the
+ * interrupt read in three forms: as ::fifoirq does it; the request held until Read Transfer Active has
+ * cleared (readData's own test); every status bit cleared at the stop as readData does (it writes back the
+ * whole register, not just the bits it waited on). Means over blocks 4..63, microseconds. */
+#define TR_N 64
+DMAMEM static uint32_t tr_c[TR_N][4];
+static volatile uint32_t tr_b, tr_mode;
+FLASHMEM __attribute__((noinline)) static void tr_isr(void)
+{
+    const uint32_t st = USDHC1_INT_STATUS, c = ARM_DWT_CYCCNT;
+    if (st & FX_ERR) { USDHC1_INT_STATUS = st & FX_ERR; fxi_err = st; USDHC1_INT_SIGNAL_EN = 0; return; }
+    const uint32_t b = tr_b;
+    if (st & FX_BRR) {
+        USDHC1_INT_STATUS = FX_BRR;
+        if (b < TR_N) tr_c[b][0] = c;                     /* the block is in */
+        uint32_t *p = (uint32_t *)(sdbuf + (b % TR_N) * 512u);
+        for (int i = 0; i < 128; i++) p[i] = USDHC1_DATA_BUFF_ACC_PORT;
+        if (b < TR_N) tr_c[b][1] = ARM_DWT_CYCCNT;        /* drained */
+    }
+    if (st & FX_TC) {
+        if (tr_mode == 2) USDHC1_INT_STATUS = st & ~FX_ERR; else USDHC1_INT_STATUS = FX_TC;
+        if (b < TR_N) tr_c[b][2] = ARM_DWT_CYCCNT;        /* stopped at the gap */
+        tr_b = b + 1;
+        if (b + 1 < TR_N) {
+            if (tr_mode == 1) { const uint32_t c0 = ARM_DWT_CYCCNT; while ((USDHC1_PRES_STATE & FX_RTA) && ARM_DWT_CYCCNT - c0 < 30000u) {} }
+            USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+            USDHC1_PROT_CTRL |= FX_CREQ;
+            USDHC1_PROT_CTRL |= FX_SABGREQ;
+            tr_c[b + 1][3] = ARM_DWT_CYCCNT;              /* the next block asked for */
+        }
+    }
+    asm volatile("dsb");
+}
+
+FLASHMEM static void sd_trace(void)
+{
+    say("TRACE begin temp_c %.1f", tempmonGetTemp());
+    if (!mf_contig) { say("TRACE end: the model file is not contiguous"); return; }
+    const bool was_dma = g_dma;
+    if (g_dma && !sdio_switch(false)) { say("TRACE end: FIFO restart failed"); return; }
+    const uint32_t sec0 = (uint32_t)(mf_sector0 + (512ull << 20) / 512u);
+    const float us = F_CPU_ACTUAL / 1e6f;
+    /* polled: [0] entry, [1] after the request (or entry if none was needed), [2] first words ready, [3] drained;
+     * the stop's Transfer Complete is the next block's entry */
+    {
+        sd_idle();
+        int err = 0, no_req = 0;
+        if (!fx_card()->readStart(sec0)) err = -10;
+        for (int b = 0; b < TR_N && !err; b++) {
+            tr_c[b][0] = ARM_DWT_CYCCNT;
+            if (!(USDHC1_PRES_STATE & FX_RTA)) {
+                USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+                noInterrupts(); USDHC1_PROT_CTRL |= FX_CREQ; USDHC1_PROT_CTRL |= FX_SABGREQ; interrupts();
+            } else no_req++;
+            tr_c[b][1] = ARM_DWT_CYCCNT;
+            const uint32_t t0 = micros();
+            uint32_t *p = (uint32_t *)(sdbuf + b * 512u);
+            for (int iw = 0; iw < 8 && !err; iw++) {
+                while (!(USDHC1_PRES_STATE & FX_BREN)) if (micros() - t0 > 100000u) { err = -1; break; }
+                if (iw == 0) tr_c[b][2] = ARM_DWT_CYCCNT;
+                for (int i = 0; i < 16; i++) p[i] = USDHC1_DATA_BUFF_ACC_PORT;
+                p += 16;
+            }
+            tr_c[b][3] = ARM_DWT_CYCCNT;
+            while (!err && !(USDHC1_INT_STATUS & (FX_TC | FX_ERR))) if (micros() - t0 > 100000u) err = -2;
+            const uint32_t st = USDHC1_INT_STATUS;
+            USDHC1_INT_STATUS = st;
+            if (st & FX_ERR) err = -3;
+        }
+        fx_card()->readStop();
+        double a = 0, r = 0, d = 0, g = 0, t = 0;
+        for (int b = 4; b < TR_N - 1; b++) {
+            a += tr_c[b][1] - tr_c[b][0]; r += tr_c[b][2] - tr_c[b][1]; d += tr_c[b][3] - tr_c[b][2];
+            g += tr_c[b + 1][0] - tr_c[b][3]; t += tr_c[b + 1][0] - tr_c[b][0];
+        }
+        const double n = TR_N - 5;
+        say("TRACE polled request %.2f request_to_first_words %.2f first_to_drained %.2f drained_to_stop %.2f block %.2f us; no request needed %d of %d; err %d",
+            a / n / us, r / n / us, d / n / us, g / n / us, t / n / us, no_req, TR_N, err);
+        if (!sdio_switch(false)) { halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+    }
+    /* interrupt: [3] request (from the previous stop), [0] block in (Buffer Read Ready, watermark 128), [1] drained,
+     * [2] stopped at the gap */
+    static const char *const NM[3] = { "as_fifoirq", "request_after_rta", "clear_all_status" };
+    for (int mode = 0; mode < 3; mode++) {
+        sd_idle();
+        int err = 0;
+        tr_b = 0; tr_mode = (uint32_t)mode; fxi_err = 0;
+        const uint32_t wml0 = USDHC1_WTMK_LVL, sten0 = USDHC1_INT_STATUS_EN;
+        USDHC1_WTMK_LVL = (wml0 & ~0xFFu) | 128u;
+        USDHC1_INT_STATUS_EN = sten0 | FX_BRR | FX_TC;
+        USDHC1_INT_STATUS = 0xFFFFFFFFu;
+        attachInterruptVector(IRQ_SDHC1, tr_isr);
+        NVIC_SET_PRIORITY(IRQ_SDHC1, 6 * 16);
+        NVIC_ENABLE_IRQ(IRQ_SDHC1);
+        USDHC1_INT_SIGNAL_EN = FX_BRR | FX_TC | FX_ERR;
+        tr_c[0][3] = ARM_DWT_CYCCNT;
+        if (!fx_card()->readStart(sec0)) err = -10;
+        const uint32_t t0 = micros();
+        while (!err && tr_b < TR_N) { if (fxi_err) err = -3; else if (micros() - t0 > 200000u) err = -1; }
+        USDHC1_INT_SIGNAL_EN = 0;
+        USDHC1_INT_STATUS_EN = sten0;
+        USDHC1_WTMK_LVL = wml0;
+        fx_card()->readStop();
+        double r = 0, d = 0, g = 0, q = 0, t = 0;
+        for (int b = 4; b < TR_N - 1; b++) {
+            r += tr_c[b][0] - tr_c[b][3]; d += tr_c[b][1] - tr_c[b][0]; g += tr_c[b][2] - tr_c[b][1];
+            q += tr_c[b + 1][3] - tr_c[b][2]; t += tr_c[b + 1][3] - tr_c[b][3];
+        }
+        const double n = TR_N - 5;
+        say("TRACE irq %s request_to_block_in %.2f block_in_to_drained %.2f drained_to_stop %.2f stop_to_request %.2f block %.2f us; err %d",
+            NM[mode], r / n / us, d / n / us, g / n / us, q / n / us, t / n / us, err);
+        if (!sdio_switch(false)) { halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+    }
+    if (was_dma && !sdio_switch(true)) { say("TRACE end: DMA restart failed"); return; }
+    say("TRACE end temp_c %.1f", tempmonGetTemp());
+}
+
+FLASHMEM static void sd_fifo_sweep(bool irq_only)
+{
+    say("FIFOX begin temp_c %.1f", tempmonGetTemp());
+    if (!mf_contig) { say("FIFOX end: the model file is not contiguous, no sector arithmetic"); return; }
+    const bool was_dma = g_dma;
+    if (g_dma && !sdio_switch(false)) { say("FIFOX end: FIFO restart failed"); return; }
+    const uint64_t OFF = 512ull << 20;
+    uint64_t ref = 0;
+    float rf = 0;
+    if (!sd_region(OFF, &ref, &rf)) { say("FIFOX end: reference read failed"); return; }
+    say("FIFOX file mb_s %.2f (SdFat's file layer, the reference)", rf);
+    static const uint16_t WORK[10] = { 0, 5, 10, 15, 20, 25, 30, 40, 60, 0 };
+    const uint32_t cyc_us = F_CPU_ACTUAL / 1000000u;
+    for (int mode = 0; mode < 2 && !irq_only; mode++) {
+        const bool gap = mode == 0;
+        for (int w = 0; w < 10; w++) {
+            sd_idle();
+            const uint32_t K = 64u * 1024u, N = 2u << 20;
+            uint64_t h = 1469598103934665603ull;
+            uint32_t us = 0;
+            int err = 0;
+            fx_sdoff = 0; fx_wait_cyc = 0;
+            if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+            if (!err && !gap) {                       /* readStart set Stop At Block Gap: clear it, continue */
+                USDHC1_PROT_CTRL &= ~FX_SABGREQ;
+                USDHC1_PROT_CTRL |= FX_CREQ;
+            }
+            for (uint32_t got = 0; !err && got < N; got += K) {
+                const uint32_t t0 = micros();
+                for (uint32_t b = 0; b < K / 512u && !err; b++)
+                    err = fx_block((uint32_t *)(sdbuf + b * 512u), WORK[w] * cyc_us, gap);
+                us += micros() - t0;
+                if (!err) for (uint32_t i = 0; i < K; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+            }
+            const bool stopped = fx_card()->readStop();
+            const float mbs = us ? 2.0f * 1.048576f / (us / 1e6f) : 0.0f;
+            say("FIFOX %s work_us %u mb_s %.2f us_per_block %.2f wait_us_per_block %.2f sdoff %lu data %s%s temp_c %.1f",
+                gap ? "gap" : "stream", WORK[w], err ? 0.0f : mbs, err ? 0.0f : us / 4096.0f,
+                err ? 0.0f : (float)((double)fx_wait_cyc / cyc_us / 4096.0), (unsigned long)fx_sdoff,
+                err ? "FAILED" : h == ref ? "OK" : "WRONG", stopped ? "" : " (stop failed)", tempmonGetTemp());
+            if (err) say("FIFOX   error %d, PRES_STATE 0x%08lX INT_STATUS 0x%08lX; restarting the card", err,
+                         (unsigned long)USDHC1_PRES_STATE, (unsigned long)USDHC1_INT_STATUS);
+            /* a full restart after every setting: no state carried from one to the next */
+            if (!sdio_switch(false)) { say("FIFOX end: restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+        }
+    }
+    /* burst: a FIFO pass's own pattern -- 48 blocks (one 24 KB row block) back to back, then a pause while that
+     * block's rows are worked -- with only the reads timed. A 2-position pass read its 1834.8 MB in 67.5 s and a
+     * one-position pass in 76.1 s (2026-10-16): the longer pause per block went with the faster reads. If the
+     * card reads ahead while parked at a block gap, read time per burst falls as the pause grows. */
+    static const uint16_t PAUSE[8] = { 0, 100, 200, 400, 600, 1000, 2000, 0 };
+    for (int w = 0; w < 8 && !irq_only; w++) {
+        sd_idle();
+        const uint32_t K = 64u * 1024u, N = 2u << 20;
+        uint64_t h = 1469598103934665603ull;
+        uint32_t cyc = 0;
+        int err = 0;
+        fx_wait_cyc = 0;
+        if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+        uint32_t blk = 0;
+        for (uint32_t got = 0; !err && got < N; got += K) {
+            for (uint32_t b = 0; b < K / 512u && !err; b++, blk++) {
+                const uint32_t c0 = ARM_DWT_CYCCNT;
+                err = fx_block((uint32_t *)(sdbuf + b * 512u), 0, true);
+                cyc += ARM_DWT_CYCCNT - c0;
+                if (blk % 48u == 47u && PAUSE[w]) {
+                    const uint32_t p0 = ARM_DWT_CYCCNT;
+                    while (ARM_DWT_CYCCNT - p0 < PAUSE[w] * cyc_us) {}
+                }
+            }
+            if (!err) for (uint32_t i = 0; i < K; i++) { h ^= sdbuf[i]; h *= 1099511628211ull; }
+        }
+        const bool stopped = fx_card()->readStop();
+        const float rus = (float)cyc / cyc_us;
+        say("FIFOX burst48 pause_us %u read_mb_s %.2f read_us_per_block %.2f data %s%s temp_c %.1f", PAUSE[w],
+            err ? 0.0f : 2.0f * 1.048576f / (rus / 1e6f), err ? 0.0f : rus / 4096.0f,
+            err ? "FAILED" : h == ref ? "OK" : "WRONG", stopped ? "" : " (stop failed)", tempmonGetTemp());
+        if (err) say("FIFOX   error %d, PRES_STATE 0x%08lX INT_STATUS 0x%08lX; restarting the card", err,
+                     (unsigned long)USDHC1_PRES_STATE, (unsigned long)USDHC1_INT_STATUS);
+        if (!sdio_switch(false)) { say("FIFOX end: restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+    }
+    /* irq: the card fed by an interrupt while the CPU works -- the design that would need no change to the core.
+     * Read watermark = 128 words (a whole block): Buffer Read Ready fires when a block is in; the handler drains
+     * it into a 64 KB ring; the stop at the block gap then fires Transfer Complete and the handler asks for the
+     * next block (SdFat's own handshake, moved into the interrupt). Meanwhile the main loop sums each block from
+     * the ring and spins `work` us after it -- whole rows of arithmetic, uninterrupted. When the ring is full the
+     * handler leaves the card parked and the main loop asks once it has room. Timed: the whole 2 MB.
+     * The read watermark 128 / 64 / 32 / 16 words: at 128 a block is drained only once all of it is in (and the
+     * next waits behind the drain); lower, the handler drains while the block arrives. */
+    static const uint8_t WMLS[4] = { 128, 64, 32, 16 };
+    static const uint8_t IWORK[6] = { 0, 10, 15, 20, 25, 30 };
+    for (int m = 0; m < 4; m++)
+    for (int iw = 0; iw < 6; iw++) {
+        const uint32_t wk = IWORK[iw];
+        sd_idle();
+        const uint32_t N = 2u << 20, NB = N / 512u, RING = 128u;
+        uint64_t h = 1469598103934665603ull;
+        int err = 0;
+        fxi_dst = (uint32_t *)sdbuf; fxi_ring = RING; fxi_total = NB; fxi_done = 0; fxi_used = 0; fxi_err = 0;
+        fxi_parked = 0; fxi_irqs = 0; fxi_wpos = 0; fxi_wml = WMLS[m];
+        const uint32_t wml0 = USDHC1_WTMK_LVL, sten0 = USDHC1_INT_STATUS_EN;
+        USDHC1_WTMK_LVL = (wml0 & ~0xFFu) | WMLS[m];
+        USDHC1_INT_STATUS_EN = sten0 | FX_BRR | FX_TC;
+        USDHC1_INT_STATUS = 0xFFFFFFFFu;
+        attachInterruptVector(IRQ_SDHC1, fx_isr);
+        NVIC_SET_PRIORITY(IRQ_SDHC1, 6 * 16);
+        NVIC_ENABLE_IRQ(IRQ_SDHC1);
+        USDHC1_INT_SIGNAL_EN = FX_BRR | FX_TC | FX_ERR;
+        const uint32_t t0 = micros();
+        if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+        for (uint32_t j = 0; !err && j < NB; j++) {
+            const uint32_t tw = micros();
+            while (fxi_done <= j) {                                  /* the block is not in yet */
+                if (fxi_err) { err = -3; break; }
+                if (micros() - tw > 100000u) { err = -1; break; }
+            }
+            if (err) break;
+            const uint8_t *bp = sdbuf + (j % RING) * 512u;
+            for (uint32_t i = 0; i < 512u; i++) { h ^= bp[i]; h *= 1099511628211ull; }
+            if (wk) { const uint32_t c0 = ARM_DWT_CYCCNT; while (ARM_DWT_CYCCNT - c0 < wk * cyc_us) {} }
+            noInterrupts();
+            fxi_used = j + 1;                                        /* block j's slot is free again */
+            const bool resume = fxi_parked && fxi_done < fxi_total;
+            if (resume) { fxi_parked = 0; USDHC1_PROT_CTRL &= ~FX_SABGREQ; USDHC1_PROT_CTRL |= FX_CREQ; USDHC1_PROT_CTRL |= FX_SABGREQ; }
+            interrupts();
+        }
+        const uint32_t us = micros() - t0;
+        USDHC1_INT_SIGNAL_EN = 0;
+        USDHC1_INT_STATUS_EN = sten0;
+        USDHC1_WTMK_LVL = wml0;
+        const bool stopped = fx_card()->readStop();
+        say("FIFOX irq wml %u work_us %lu mb_s %.2f us_per_block %.2f interrupts %lu data %s%s temp_c %.1f", WMLS[m], (unsigned long)wk,
+            err ? 0.0f : 2.0f * 1.048576f / (us / 1e6f), err ? 0.0f : us / 4096.0f, (unsigned long)fxi_irqs,
+            err ? "FAILED" : h == ref ? "OK" : "WRONG", stopped ? "" : " (stop failed)", tempmonGetTemp());
+        if (err) say("FIFOX   error %d, blocks in %lu, PRES_STATE 0x%08lX INT_STATUS 0x%08lX; restarting the card", err,
+                     (unsigned long)fxi_done, (unsigned long)USDHC1_PRES_STATE, (unsigned long)USDHC1_INT_STATUS);
+        /* the restart (sd.begin) re-attaches SdFat's own handler and status mask */
+        if (!sdio_switch(false)) { say("FIFOX end: restart failed"); halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)"); return; }
+    }
+    float r2 = 0;
+    uint64_t s2 = 0;
+    const bool ok2 = sd_region(OFF, &s2, &r2);
+    say("FIFOX file again mb_s %.2f data %s", ok2 ? r2 : 0.0f, !ok2 ? "FAILED" : s2 == ref ? "OK" : "WRONG");
+    if (was_dma && !sdio_switch(true)) { say("FIFOX end: DMA restart failed"); return; }
+    say("FIFOX end temp_c %.1f", tempmonGetTemp());
+}
+
 FLASHMEM static void card_bench(void)
 {
     static const uint32_t SZ[3] = { 4096, 16384, 65536 };
@@ -2235,6 +2902,33 @@ FLASHMEM static void dispatch_one(char *line)
         return;
     }
     if (!strcmp(line, "::bench")) { bench(); return; }
+    if (!strcmp(line, "::kbench")) { kbench(); return; }
+    if (!strncmp(line, "::lookup", 8)) {                     /* ::lookup K: speculative decoding from the context */
+        char *e = 0;
+        int v = (int)strtol(line + 8, &e, 10);
+        if (v < 0) v = 0;
+        if (v > tl_batch() - 1) v = tl_batch() - 1;
+        const int nm = (e && *e) ? atoi(e) : 0;
+        if (nm >= 1 && nm <= 4) g_lookup_nmin = nm;
+        g_lookup = v;
+        say("LOOKUP %d match 4..%d%s", v, g_lookup_nmin, v ? "" : " (off: one token a pass)");
+        return;
+    }
+    if (!strncmp(line, "::fifoirq", 9)) {                    /* ::fifoirq 0|1: FIFO passes fed by the interrupt */
+        const int v = atoi(line + 9);                        /* 0 off; 1 on (watermark kept); 16/32/64/128 on at that watermark */
+        fq_close();
+        if (v == 16 || v == 32 || v == 64 || v == 128) fq_wml = (uint32_t)v;
+        g_fifoirq = v ? 1 : 0;
+        say("FIFOIRQ %d wml %lu%s", g_fifoirq, (unsigned long)fq_wml, g_fifoirq ? " (FIFO pipeline reads fed by the card's interrupt, arithmetic under them)" : "");
+        return;
+    }
+    if (!strncmp(line, "::ffngroup", 10)) {                  /* ::ffngroup N: batched gate/up rows per group (32 = the old order) */
+        const int v = atoi(line + 10);
+        const int was = tl_set_ffn_group(v ? v : 0);
+        if (was < 0) say("FFNGROUP %d refused: 32..256, a multiple of 32", v);
+        else say("FFNGROUP %d (was %d)", v ? v : was, was);
+        return;
+    }
     if (!strcmp(line, "::stats")) { stats(); return; }
     if (!strcmp(line, "::hold"))  { say("HOLD waiting for prompts"); return; }
     if (!strncmp(line, "::prefill", 9)) { g_prefill = atoi(line + 9) ? 1 : 0; say("PREFILL %d", g_prefill); return; }
@@ -2250,6 +2944,9 @@ FLASHMEM static void dispatch_one(char *line)
     if (!strcmp(line, "::sdsweep")) { sd_sweep(); return; }
     if (!strcmp(line, "::sdclksweep")) { sd_clk_sweep(); return; }
     if (!strcmp(line, "::sdadma")) { sd_adma_sweep(); return; }
+    if (!strcmp(line, "::sdfifo")) { sd_fifo_sweep(false); return; }
+    if (!strcmp(line, "::sdfifo irq")) { sd_fifo_sweep(true); return; }
+    if (!strcmp(line, "::sdtrace")) { sd_trace(); return; }
     if (!strncmp(line, "::admamin", 9)) {                    /* ::admamin N: passes with >= N positions go by ADMA2; 0 = never */
         long v = strtol(line + 9, NULL, 10);
         if (v < 0) v = 0;

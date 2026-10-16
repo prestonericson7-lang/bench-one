@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-034757",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16 night: ::fifoirq N = read watermark (16/32/64/128), ISR drains every whole watermark waiting; ::sdfifo irq sweeps it",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 642381
+}

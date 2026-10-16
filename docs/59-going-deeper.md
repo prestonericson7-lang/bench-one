@@ -94,7 +94,8 @@ storage never has to move at all.
 A Teensy with a card is a storage device with a processor on it (docs/58 §2). Two arithmetic facts about
 that module:
 
-**Bandwidth.** One $5 card streams 24 MB/s to its own processor. A thousand of them stream 24 GB/s in
+**Bandwidth.** One $5 card streams 24 MB/s to its own processor (*2026-10-16: 18.5 MB/s sustained, docs/56;
+the arithmetic below scales with it*). A thousand of them stream 24 GB/s in
 aggregate — within a factor of 1.2 of this desktop's measured DRAM read (29.4 GB/s, docs/23) — out of
 flash, which costs nothing to hold. The card is $5 of the module's $50; the processor beside it is the
 cost. That is docs/36's finding from the other direction: the scarce thing is addressable memory with a
@@ -141,6 +142,52 @@ measurement is the first step; the board work after it is a rollback of rejected
 one-layer-per-chip layout makes a matter of overwriting rows from the accepted position.
 
 *Label:* arithmetic on measured pass costs; α unmeasured.
+
+**Measured, 2026-10-16.** α is a property of the model and the text, so it was measured on the reference's
+own answers: 63 fresh survey answers, 7,120 tokens (`20261016-0024{42,44,46,48}-psram_llm-survey`),
+simulated by `tests/psram_llm/alpha_sim.py` with the board's measured cost of every pass size
+(`20261016-002736-psram_llm-passcost`: 1 position 104.8 s, 2 131.1, 3–6 ≈ 142, 7 147.0, 8 161.3). The
+simulation is exactly the board's rule -- proven by running that rule on the PC (`tl_host` `TL_LOOKUP`) on
+four answers: every step line identical to the reference, and passes, guesses and kept guesses equal to the
+simulation's, answer for answer.
+
+- **α ≈ 0.28, not 0.5–0.9.** The best setting -- match the last 4, 3 or 2 tokens, guess 6 -- keeps 28% of its
+  guesses and averages 1.27 tokens a pass: **1.19× over 200-token answers** (fact 1.27×, arithmetic 1.21×,
+  code 1.20×, chat 1.10×). Every setting tried is at least 1.05×; a card-mode switch costing 0, 1 or 2 s
+  moves the best from 1.189× to 1.184×.
+- **Short answers gain less.** Capped at 24 tokens the 63 answers together run 1.09× and the median answer
+  1.01×: the guesses come from the context, and a short answer has not yet written much of its own to copy.
+  The exception is an answer that quotes its prompt -- a one-sentence summary of a pasted paragraph, 2.26×.
+  The worst answer is 0.89×: guesses that keep failing cost the bigger pass for nothing.
+- So L1 is real, exact and modest on this model -- a fifth, not "two to three times" -- and the table above
+  should be read at α = 0.3. What would move it is a cheaper 2–4 position pass, which is a card question
+  (docs/56, 2026-10-16), not a guessing question.
+- **The card answered the same night.** With the card fed by its interrupt (`::fifoirq`), a pass of 2, 3 or
+  4 positions costs what one costs (104.0 / 105.2 / 105.4 / 108.1 s, `20261016-031635-psram_llm-passcost`),
+  and the best guessing changes with it: match down to **one** token, guess **three**. Same 63 answers:
+  **1.31×** over 200 tokens (code 1.36×, chat 1.22×), **1.17×** at 24 tokens (median 1.13×, worst 0.97×),
+  against 1.19× / 1.09× for the old setting at the old costs. The board's own measurement is below.
+
+**On the board** (`::lookup 3 1`, 24 tokens, `20261016-040050-psram_llm-lookup`; four survey answers chosen to
+span the range -- the PC's aggregate over all 63 at this length is 1.17×; die 50.9–52.2 °C):
+
+| prompt | step lines | passes / guessed / kept (board = PC prediction) | answer tokens | with guesses | plain | speed-up |
+|---|---|---|---|---|---|---|
+| `const add = (a, b) =>` (code) | 33 of 33 identical | 14 / 21 / 10 | 24 | 1,491.6 s | 2,498.4 s | **1.68×** |
+| "I have 3 apples and eat one…" (chat) | 52 of 52 | 7 / 15 / 0 | 7 | 758.2 s | 730.8 s | 0.96× |
+| "If today is Monday, what day is it in three days?" | 56 of 56 | 9 / 15 / 5 | 14 | 967.2 s | 1,461.6 s | **1.51×** |
+| "Summarize in one sentence: The Teensy 4.1 is…" | 97 of 97 | 10 / 19 / 14 | 24 | 1,087.3 s | 2,512.8 s | **2.31×** |
+| all four | identical | | | 4,304.3 s | 7,203.6 s | **1.67×** |
+
+"Plain" is the answer's tokens times the run's own pass without a guess (104.1–104.4 s). Every step line
+equals the PC reference; the board's counts equal `alpha_sim.py`'s for every answer (the summary's
+correction note explains one stale figure), and its predicted time was within 1.1% of the board's (4,255.5
+against 4,304.3 s; passes slow slightly as the cache grows). The cost of guessing wrong is the "apples" row:
+every guess failed and the answer took 4% longer. An answer that repeats its question runs half again as
+fast; a summary of a pasted paragraph more than twice.
+
+*Label:* measured on the board, exact; the aggregate over the survey is the PC simulation, now checked
+against the board to 1.1%.
 
 ### L2 — A 30-billion-parameter mixture-of-experts at the 3B's speed
 
@@ -287,7 +334,7 @@ vanished, and can be revived where they win now. Three of them are visible in th
 - **Scheduling computation to a sweeping medium.** Drum-memory machines placed each instruction on the
   drum so it arrived under the head the moment the previous one finished ("optimum programming"; the IBM
   650's assembler did it automatically). Cheap random-access RAM killed the technique. This board revives
-  it: the weights sweep past at 24 MB/s and the arithmetic is scheduled to their arrival; the batched pass
+  it: the weights sweep past at 18.5 MB/s (docs/56, 2026-10-16) and the arithmetic is scheduled to their arrival; the batched pass
   is the optimisation of doing everything the current byte allows before it is gone.
 - **Algorithms for sequential media.** Tape sorts, and later the external-memory model that counts cost in
   blocks transferred rather than operations. The equations of §1 are that model with B as the block count.
@@ -341,11 +388,11 @@ Measurements first, builds second; PC where the quantity is a model property, bo
 
 | # | measurement | where | settles |
 |---|---|---|---|
-| 1 | α: how often a guess taken from the context matches the model's next token, on the survey prompts | PC (model property) | whether L1 is 2× or nothing |
+| 1 | α: how often a guess taken from the context matches the model's next token, on the survey prompts | PC (model property) | whether L1 is 2× or nothing -- **measured 2026-10-16: α ≈ 0.28, 1.19× (L1)** |
 | 2 | the 30B's bytes a token at Q4_K_M, its cache bytes a position, and its expert-gather pattern | PC (file property) | L2's arithmetic |
 | 3 | perplexity of the 3B with each tensor class at 2 bits, one class at a time | PC (model property) | L4's per-tensor widths |
 | 4 | the board's power during a pass | board, a USB meter | every energy sentence |
-| 5 | the M7 cycle counter around each instruction group of one row | board, one build | L3: is there 1.5× in the kernel |
+| 5 | the M7 cycle counter around each instruction group of one row | board, one build | L3: is there 1.5× in the kernel -- **measured 2026-10-16 (docs/56): 0.4–2.7% left by pre-widening; row placement nothing** |
 | 6 | the USB host path's raw read rate | board, one build | L5's R |
 | 7 | then, one board build per lever, each proven by identical step lines before it is timed | board | — |
 

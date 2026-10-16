@@ -1294,6 +1294,93 @@ void gguf_dot_q4k_presum_n(const void *raw_, int np, const int8_t *const *xq, co
     for (int p = 0; p < np; p++) out[p] = gguf_dot_q4k_presum(raw_, xq[p], xs[p], xsum[p], n);
 }
 
+/* The same, with every vector PRE-WIDENED (gguf_widen_act: each 4 activation bytes as their two 16-bit lane
+ * words, made once per matrix instead of once per row). EXPERIMENTAL, 2026-10-16 -- not called by the model
+ * yet; the board's ::kbench times it against gguf_dot_q4k_presum_n. The compiled inner loop of the _n kernel is
+ * 36 instructions for 8 SMLADs, 8 of them SXTB16s on activation words that are the same for every row of the
+ * matrix (and 6 more are spills). Here those 8 SXTB16s become 4 loads, which the M7 can issue beside an ALU
+ * instruction. The lane words are the very words the _n kernel makes, the SMLADs the same in the same order,
+ * so the integers are the same; the double expressions are copied unchanged. tests/dot_verify.c checks it. */
+void gguf_dot_q4k_presum_nw(const void *raw_, int np, const int8_t *const *xq, const uint32_t *const *xw,
+                            const float *const *xs, const int32_t *const *xsum, uint64_t n, float *out)
+{
+#if GGUF_HAVE_M7DSP
+    if (!g_force_scalar && np > 1 && np <= GGUF_NPOS_MAX) {
+        const uint8_t *raw = (const uint8_t *)raw_;
+        const uint64_t nb = n / QK_K;
+        double total[GGUF_NPOS_MAX];
+        for (int p = 0; p < np; p++) total[p] = 0.0;
+        for (uint64_t b = 0; b < nb; b++) {
+            const uint8_t *blk = raw + b * 144u;
+            uint16_t hd, hm;
+            memcpy(&hd, blk + 0, 2);
+            memcpy(&hm, blk + 2, 2);
+            const float d    = gguf_fp16(hd);
+            const float dmin = gguf_fp16(hm);
+            const uint8_t *sc_raw = blk + 4;
+            const uint8_t *q      = blk + 16;
+            int is = 0;
+            for (int j = 0; j < QK_K; j += 64) {
+                uint8_t sc0, m0, sc1, m1;
+                gguf_q4k_scale_min(is + 0, sc_raw, &sc0, &m0);
+                gguf_q4k_scale_min(is + 1, sc_raw, &sc1, &m1);
+                const double A0 = (double)d * sc0, B0 = (double)dmin * m0;
+                const double A1 = (double)d * sc1, B1 = (double)dmin * m1;
+                int32_t dot0[GGUF_NPOS_MAX], dot1[GGUF_NPOS_MAX];
+                int p = 0;
+                for (; p + 1 < np; p += 2) {
+                    /* byte e of a vector is lane words e/2 (SXTB16) and e/2+1 (SXTB16 ROR 8) of its widened copy */
+                    const uint32_t *w0 = xw[p] + (b * QK_K + j) / 2, *w1 = xw[p + 1] + (b * QK_K + j) / 2;
+                    int32_t a0 = 0, c0 = 0, a1 = 0, c1 = 0;
+                    for (int k = 0; k < 32; k += 4) {
+                        const uint32_t w  = gd_ld32(q + k);
+                        const uint32_t lo = w & 0x0F0F0F0Fu, hi = (w >> 4) & 0x0F0F0F0Fu;
+                        const uint32_t la = gd_sxtb16(lo), lb = gd_sxtb16r8(lo);
+                        const uint32_t ha = gd_sxtb16(hi), hb = gd_sxtb16r8(hi);
+                        const int h = k / 2;
+                        a0 = gd_smlad(la, w0[h], a0);
+                        a0 = gd_smlad(lb, w0[h + 1], a0);
+                        c0 = gd_smlad(ha, w0[16 + h], c0);
+                        c0 = gd_smlad(hb, w0[16 + h + 1], c0);
+                        a1 = gd_smlad(la, w1[h], a1);
+                        a1 = gd_smlad(lb, w1[h + 1], a1);
+                        c1 = gd_smlad(ha, w1[16 + h], c1);
+                        c1 = gd_smlad(hb, w1[16 + h + 1], c1);
+                    }
+                    dot0[p] = a0; dot1[p] = c0; dot0[p + 1] = a1; dot1[p + 1] = c1;
+                }
+                if (p < np) {                                       /* an odd count: the last vector alone */
+                    const uint32_t *w0 = xw[p] + (b * QK_K + j) / 2;
+                    int32_t a0 = 0, c0 = 0;
+                    for (int k = 0; k < 32; k += 4) {
+                        const uint32_t w  = gd_ld32(q + k);
+                        const uint32_t lo = w & 0x0F0F0F0Fu, hi = (w >> 4) & 0x0F0F0F0Fu;
+                        const int h = k / 2;
+                        a0 = gd_smlad(gd_sxtb16(lo), w0[h], a0);
+                        a0 = gd_smlad(gd_sxtb16r8(lo), w0[h + 1], a0);
+                        c0 = gd_smlad(gd_sxtb16(hi), w0[16 + h], c0);
+                        c0 = gd_smlad(gd_sxtb16r8(hi), w0[16 + h + 1], c0);
+                    }
+                    dot0[p] = a0; dot1[p] = c0;
+                }
+                for (int p2 = 0; p2 < np; p2++) {
+                    const float   *sx = xs[p2] + b * (QK_K / ABLK);
+                    const int32_t *sm = xsum[p2] + b * (QK_K / ABLK);
+                    total[p2] += (double)sx[is + 0] * (A0 * dot0[p2] - B0 * sm[is + 0]);
+                    total[p2] += (double)sx[is + 1] * (A1 * dot1[p2] - B1 * sm[is + 1]);
+                }
+                q += 32;
+                is += 2;
+            }
+        }
+        for (int p = 0; p < np; p++) out[p] = (float)total[p];
+        return;
+    }
+#endif
+    (void)xw;
+    for (int p = 0; p < np; p++) out[p] = gguf_dot_q4k_presum(raw_, xq[p], xs[p], xsum[p], n);
+}
+
 void gguf_dot_q_n(uint32_t type, const void *raw_, int np, const int8_t *const *xq, const float *const *xs,
                   uint64_t n, float *out)
 {

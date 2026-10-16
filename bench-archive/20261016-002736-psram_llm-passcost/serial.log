@@ -1,0 +1,243 @@
+00:27:36 > I
+00:27:36 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 66000
+00:27:36 > ::gen 1
+00:27:36 | GEN 1
+00:27:46 > one
+00:27:46 |   prompt: "one"  (1 tokens, generating 1, prompt batched through tl_prefill)
+00:27:46 | prompt ids: 603
+00:29:47 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:29:47 |   >> one 
+00:29:47 |     prefill=0..0: 121.1 s: SD 1834.8 MB in 92.3 s (19.87 MB/s), PSRAM 19 KB read 18.8 KB written in 0.02 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 7 (0.014 s)
+00:29:47 | STAGES prefill=0..0 embed=0.001 qkv=6.13 att=0.115 wo=4.63 ffn=96.41 head=13.80 hidden=0.00 temp_c=41.2
+00:31:32 | step 1 pos 1 fed 220 -> top1 16 12.6973457 top2 17 12.2594004 text "1"
+00:31:32 |   >> one 1
+00:31:32 |     step=1: 104.8 s: SD 1834.8 MB in 76.1 s (24.11 MB/s), PSRAM 38 KB read 18.8 KB written in 0.03 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:31:32 | STAGES step=1 embed=0.001 qkv=6.14 att=0.122 wo=4.63 ffn=80.09 head=13.80 hidden=0.00 temp_c=41.2
+00:31:32 |   ANSWER: " 1"
+00:31:32 |   2 passes over the weights in 226 s (prompt 121 s), 112.9 s each; 3.58 GB read from the card
+00:31:32 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:31:32 | RUN n_prompt=1 n_gen=1 prefill=1 passes=2 total_s=225.9 prompt_s=121.1 per_pass_s=112.93 sd_gb=3.584 sd_mbs=21.78 sd_s=168.5 compute_s=57.4 hidden_s=0.0 ps_s=0.0 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=9 ps_sw_s=0.02 temp_max_c=41.2
+00:31:32 > one two
+00:31:32 |   DONE. Type another prompt and press Enter.
+00:31:32 |   prompt: "one two"  (2 tokens, generating 1, prompt batched through tl_prefill)
+00:31:32 | prompt ids: 603 1378
+00:33:43 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:33:43 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:33:43 |   >> one two three
+00:33:43 |     prefill=0..1: 131.1 s: SD 1834.8 MB in 83.3 s (22.02 MB/s), PSRAM 57 KB read 37.7 KB written in 0.04 s, compute 47.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:33:43 | STAGES prefill=0..1 embed=0.001 qkv=6.48 att=0.234 wo=4.86 ffn=104.29 head=15.22 hidden=0.00 temp_c=41.9
+00:35:28 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:35:28 |   >> one two three four
+00:35:28 |     step=2: 104.8 s: SD 1834.8 MB in 76.1 s (24.11 MB/s), PSRAM 57 KB read 18.8 KB written in 0.03 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:35:28 | STAGES step=2 embed=0.001 qkv=6.14 att=0.130 wo=4.63 ffn=80.08 head=13.80 hidden=0.00 temp_c=41.2
+00:35:28 |   ANSWER: " three four"
+00:35:28 |   2 passes over the weights in 236 s (prompt 131 s), 117.9 s each; 3.58 GB read from the card
+00:35:28 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:35:28 | RUN n_prompt=2 n_gen=1 prefill=1 passes=2 total_s=235.9 prompt_s=131.1 per_pass_s=117.94 sd_gb=3.584 sd_mbs=23.02 sd_s=159.4 compute_s=76.4 hidden_s=0.0 ps_s=0.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=41.9
+00:35:28 > one two three
+00:35:28 |   DONE. Type another prompt and press Enter.
+00:35:28 |   prompt: "one two three"  (3 tokens, generating 1, prompt batched through tl_prefill)
+00:35:28 | prompt ids: 603 1378 2326
+00:35:28 |   card: 3 positions in this pass -> ADMA2 with the arithmetic under the read
+00:35:28 |     SD up (DMA_SDIO), clock 66000 kHz
+00:35:28 |     qwen3b.gguf: 1929903072 bytes
+00:35:29 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:35:29 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:35:29 | SDIO dma
+00:35:29 | SDPATH adma
+00:37:51 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:37:51 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:37:51 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:37:51 |   >> one two three four
+00:37:51 |     prefill=0..2: 141.9 s: SD 1834.8 MB in 75.3 s (24.36 MB/s), PSRAM 113 KB read 56.5 KB written in 0.06 s, compute 66.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:37:51 | STAGES prefill=0..2 embed=0.003 qkv=7.89 att=0.360 wo=5.93 ffn=109.84 head=17.86 hidden=66.00 temp_c=43.8
+00:37:51 |   card: 1 position in this pass -> FIFO
+00:37:51 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:37:51 |     qwen3b.gguf: 1929903072 bytes
+00:37:51 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:37:51 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:37:51 | SDIO fifo
+00:37:51 | SDPATH file
+00:39:36 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:39:36 |   >> one two three four five
+00:39:36 |     step=3: 104.8 s: SD 1834.8 MB in 76.1 s (24.11 MB/s), PSRAM 75 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:39:36 | STAGES step=3 embed=0.001 qkv=6.14 att=0.138 wo=4.63 ffn=80.08 head=13.80 hidden=0.00 temp_c=41.9
+00:39:36 |   ANSWER: " four five"
+00:39:36 |   2 passes over the weights in 247 s (prompt 142 s), 123.3 s each; 3.58 GB read from the card
+00:39:36 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:39:36 | RUN n_prompt=3 n_gen=1 prefill=1 passes=2 total_s=246.7 prompt_s=141.9 per_pass_s=123.33 sd_gb=3.584 sd_mbs=24.23 sd_s=151.4 compute_s=95.1 hidden_s=66.0 ps_s=0.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=43.8
+00:39:36 > one two three four
+00:39:36 |   DONE. Type another prompt and press Enter.
+00:39:36 |   prompt: "one two three four"  (4 tokens, generating 1, prompt batched through tl_prefill)
+00:39:36 | prompt ids: 603 1378 2326 3040
+00:39:36 |   card: 4 positions in this pass -> ADMA2 with the arithmetic under the read
+00:39:36 |     SD up (DMA_SDIO), clock 66000 kHz
+00:39:36 |     qwen3b.gguf: 1929903072 bytes
+00:39:36 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:39:36 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:39:36 | SDIO dma
+00:39:36 | SDPATH adma
+00:41:58 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:41:58 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:41:58 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:41:58 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:41:58 |   >> one two three four five
+00:41:58 |     prefill=0..3: 142.1 s: SD 1834.8 MB in 56.6 s (32.40 MB/s), PSRAM 188 KB read 75.4 KB written in 0.08 s, compute 85.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:41:58 | STAGES prefill=0..3 embed=0.004 qkv=7.92 att=0.494 wo=5.93 ffn=109.85 head=17.86 hidden=84.70 temp_c=43.8
+00:41:58 |   card: 1 position in this pass -> FIFO
+00:41:58 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:41:58 |     qwen3b.gguf: 1929903072 bytes
+00:41:59 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:41:59 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:41:59 | SDIO fifo
+00:41:59 | SDPATH file
+00:43:43 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+00:43:43 |   >> one two three four five six
+00:43:43 |     step=4: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 94 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:43:43 | STAGES step=4 embed=0.001 qkv=6.14 att=0.146 wo=4.63 ffn=80.07 head=13.80 hidden=0.00 temp_c=42.5
+00:43:43 |   ANSWER: " five six"
+00:43:43 |   2 passes over the weights in 247 s (prompt 142 s), 123.4 s each; 3.58 GB read from the card
+00:43:43 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:43:43 | RUN n_prompt=4 n_gen=1 prefill=1 passes=2 total_s=246.9 prompt_s=142.1 per_pass_s=123.43 sd_gb=3.584 sd_mbs=27.65 sd_s=132.7 compute_s=114.0 hidden_s=84.7 ps_s=0.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=43.8
+00:43:43 > one two three four five
+00:43:43 |   DONE. Type another prompt and press Enter.
+00:43:43 |   prompt: "one two three four five"  (5 tokens, generating 1, prompt batched through tl_prefill)
+00:43:43 | prompt ids: 603 1378 2326 3040 4236
+00:43:43 |   card: 5 positions in this pass -> ADMA2 with the arithmetic under the read
+00:43:43 |     SD up (DMA_SDIO), clock 66000 kHz
+00:43:43 |     qwen3b.gguf: 1929903072 bytes
+00:43:44 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:43:44 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:43:44 | SDIO dma
+00:43:44 | SDPATH adma
+00:46:07 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:46:07 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:46:07 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:46:07 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:46:07 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+00:46:07 |   >> one two three four five six
+00:46:07 |     prefill=0..4: 142.3 s: SD 1834.8 MB in 37.8 s (48.60 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 104.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:46:07 | STAGES prefill=0..4 embed=0.005 qkv=7.96 att=0.635 wo=5.94 ffn=109.87 head=17.86 hidden=103.58 temp_c=43.8
+00:46:07 |   card: 1 position in this pass -> FIFO
+00:46:07 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:46:07 |     qwen3b.gguf: 1929903072 bytes
+00:46:07 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 112 ms)
+00:46:07 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:46:07 | SDIO fifo
+00:46:07 | SDPATH file
+00:47:51 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+00:47:51 |   >> one two three four five six seven
+00:47:51 |     step=5: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:47:51 | STAGES step=5 embed=0.001 qkv=6.14 att=0.154 wo=4.63 ffn=80.07 head=13.80 hidden=0.00 temp_c=41.9
+00:47:51 |   ANSWER: " six seven"
+00:47:51 |   2 passes over the weights in 247 s (prompt 142 s), 123.5 s each; 3.58 GB read from the card
+00:47:51 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:47:51 | RUN n_prompt=5 n_gen=1 prefill=1 passes=2 total_s=247.1 prompt_s=142.3 per_pass_s=123.53 sd_gb=3.584 sd_mbs=32.24 sd_s=113.8 compute_s=133.1 hidden_s=103.6 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=43.8
+00:47:51 > one two three four five six
+00:47:51 |   DONE. Type another prompt and press Enter.
+00:47:52 |   prompt: "one two three four five six"  (6 tokens, generating 1, prompt batched through tl_prefill)
+00:47:52 | prompt ids: 603 1378 2326 3040 4236 4743
+00:47:52 |   card: 6 positions in this pass -> ADMA2 with the arithmetic under the read
+00:47:52 |     SD up (DMA_SDIO), clock 66000 kHz
+00:47:52 |     qwen3b.gguf: 1929903072 bytes
+00:47:52 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:47:52 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:47:52 | SDIO dma
+00:47:52 | SDPATH adma
+00:50:15 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:50:15 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:50:15 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:50:15 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:50:15 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+00:50:15 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+00:50:15 |   >> one two three four five six seven
+00:50:15 |     prefill=0..5: 142.5 s: SD 1834.8 MB in 19.9 s (92.01 MB/s), PSRAM 396 KB read 113.1 KB written in 0.15 s, compute 122.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:50:15 | STAGES prefill=0..5 embed=0.006 qkv=7.99 att=0.785 wo=5.95 ffn=109.92 head=17.86 hidden=121.42 temp_c=43.8
+00:50:15 |   card: 1 position in this pass -> FIFO
+00:50:15 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:50:15 |     qwen3b.gguf: 1929903072 bytes
+00:50:15 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:50:15 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:50:15 | SDIO fifo
+00:50:15 | SDPATH file
+00:52:00 | step 6 pos 6 fed 8094 -> top1 8063 19.1211243 top2 271 13.05721 text " eight"
+00:52:00 |   >> one two three four five six seven eight
+00:52:00 |     step=6: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:52:00 | STAGES step=6 embed=0.001 qkv=6.14 att=0.161 wo=4.63 ffn=80.07 head=13.80 hidden=0.00 temp_c=42.5
+00:52:00 |   ANSWER: " seven eight"
+00:52:00 |   2 passes over the weights in 247 s (prompt 143 s), 123.7 s each; 3.58 GB read from the card
+00:52:00 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:52:00 | RUN n_prompt=6 n_gen=1 prefill=1 passes=2 total_s=247.3 prompt_s=142.5 per_pass_s=123.66 sd_gb=3.584 sd_mbs=38.22 sd_s=96.0 compute_s=151.1 hidden_s=121.4 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=43.8
+00:52:00 > one two three four five six seven
+00:52:00 |   DONE. Type another prompt and press Enter.
+00:52:00 |   prompt: "one two three four five six seven"  (7 tokens, generating 1, prompt batched through tl_prefill)
+00:52:00 | prompt ids: 603 1378 2326 3040 4236 4743 8094
+00:52:00 |   card: 7 positions in this pass -> ADMA2 with the arithmetic under the read
+00:52:00 |     SD up (DMA_SDIO), clock 66000 kHz
+00:52:00 |     qwen3b.gguf: 1929903072 bytes
+00:52:01 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:52:01 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:52:01 | SDIO dma
+00:52:01 | SDPATH adma
+00:54:28 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:54:28 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:54:28 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:54:28 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:54:28 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+00:54:28 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+00:54:28 | step 6 pos 6 fed 8094 -> top1 8063 19.1211243 top2 271 13.05721 text " eight"
+00:54:28 |   >> one two three four five six seven eight
+00:54:28 |     prefill=0..6: 147.0 s: SD 1834.8 MB in 5.5 s (332.16 MB/s), PSRAM 528 KB read 131.9 KB written in 0.18 s, compute 141.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:54:28 | STAGES prefill=0..6 embed=0.007 qkv=8.13 att=0.942 wo=6.05 ffn=113.51 head=18.32 hidden=139.25 temp_c=44.4
+00:54:28 |   card: 1 position in this pass -> FIFO
+00:54:28 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:54:28 |     qwen3b.gguf: 1929903072 bytes
+00:54:28 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:54:28 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:54:28 | SDIO fifo
+00:54:28 | SDPATH file
+00:56:13 | step 7 pos 7 fed 8063 -> top1 11627 18.4602776 top2 8063 12.975194 text " nine"
+00:56:13 |   >> one two three four five six seven eight nine
+00:56:13 |     step=7: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 151 KB read 18.8 KB written in 0.05 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:56:13 | STAGES step=7 embed=0.001 qkv=6.14 att=0.169 wo=4.63 ffn=80.07 head=13.80 hidden=0.00 temp_c=43.1
+00:56:13 |   ANSWER: " eight nine"
+00:56:13 |   2 passes over the weights in 252 s (prompt 147 s), 125.9 s each; 3.58 GB read from the card
+00:56:13 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+00:56:13 | RUN n_prompt=7 n_gen=1 prefill=1 passes=2 total_s=251.8 prompt_s=147.0 per_pass_s=125.89 sd_gb=3.584 sd_mbs=44.97 sd_s=81.6 compute_s=169.9 hidden_s=139.3 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=44.4
+00:56:13 > one two three four five six seven eight
+00:56:13 |   DONE. Type another prompt and press Enter.
+00:56:13 |   prompt: "one two three four five six seven eight"  (8 tokens, generating 1, prompt batched through tl_prefill)
+00:56:13 | prompt ids: 603 1378 2326 3040 4236 4743 8094 8063
+00:56:13 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+00:56:13 |     SD up (DMA_SDIO), clock 66000 kHz
+00:56:13 |     qwen3b.gguf: 1929903072 bytes
+00:56:13 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:56:13 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:56:13 | SDIO dma
+00:56:13 | SDPATH adma
+00:58:55 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+00:58:55 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+00:58:55 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+00:58:55 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+00:58:55 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+00:58:55 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+00:58:55 | step 6 pos 6 fed 8094 -> top1 8063 19.1211243 top2 271 13.05721 text " eight"
+00:58:55 | step 7 pos 7 fed 8063 -> top1 11627 18.4602776 top2 8063 12.975194 text " nine"
+00:58:55 |   >> one two three four five six seven eight nine
+00:58:55 |     prefill=0..7: 161.3 s: SD 1834.8 MB in 1.9 s (967.90 MB/s), PSRAM 678 KB read 150.8 KB written in 0.23 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+00:58:55 | STAGES prefill=0..7 embed=0.008 qkv=8.94 att=1.108 wo=6.68 ffn=124.07 head=20.47 hidden=148.56 temp_c=45.1
+00:58:55 |   card: 1 position in this pass -> FIFO
+00:58:55 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:58:55 |     qwen3b.gguf: 1929903072 bytes
+00:58:55 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:58:55 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:58:55 | SDIO fifo
+00:58:55 | SDPATH file
+01:00:40 | step 8 pos 8 fed 11627 -> top1 5779 16.8847084 top2 7168 13.4062357 text " ten"
+01:00:40 |   >> one two three four five six seven eight nine ten
+01:00:40 |     step=8: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:00:40 | STAGES step=8 embed=0.001 qkv=6.14 att=0.177 wo=4.63 ffn=80.06 head=13.80 hidden=0.00 temp_c=43.8
+01:00:40 |   ANSWER: " nine ten"
+01:00:40 |   2 passes over the weights in 266 s (prompt 161 s), 133.0 s each; 3.58 GB read from the card
+01:00:40 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:00:40 | RUN n_prompt=8 n_gen=1 prefill=1 passes=2 total_s=266.1 prompt_s=161.3 per_pass_s=133.04 sd_gb=3.584 sd_mbs=47.07 sd_s=78.0 compute_s=187.8 hidden_s=148.6 ps_s=0.3 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=45.1

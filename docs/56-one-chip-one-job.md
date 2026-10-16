@@ -139,7 +139,9 @@ anything that moves the rate:
 | 65,536 B, watermark 128, burst 8, enables off | | 16.5 / 17.3 |
 
 Nothing moves it: **the controller's ADMA2 path streams this card at 16.5–17.3 MB/s, full stop**, against
-FIFO's 23.9 on the same bus and clock. The shape below 64 KB is a fixed cost per command (about 250 µs, the
+FIFO's 23.9 on the same bus and clock. *(Corrected 2026-10-16, below: the FIFO figure was timed with an
+untimed checksum pause between pieces, in which the card read ahead; read back to back, FIFO streams at
+18.5 MB/s too.)* The shape below 64 KB is a fixed cost per command (about 250 µs, the
 card's set-up for a fresh CMD18, which FIFO never pays because it keeps one transfer open) on top of that
 rate. So ADMA2 is 2.3× the simple-DMA path and still 30% under FIFO; what it buys is that the CPU is free
 during the read.
@@ -254,10 +256,145 @@ tried twice.
 Where that leaves the two kinds of pass on this board: an eight-position pass is arithmetic-bound at about
 160 s with the card's ~150 s of reading hidden under it; a one-token pass is card-bound at FIFO's 76 s plus
 29 s of arithmetic that cannot hide behind a slower DMA read. Both walls are the card interface: FIFO cannot
-free the CPU, and the CPU-free path streams 30% slower. The lever past both is a second storage channel
+free the CPU, and the CPU-free path streams 30% slower. *(Both halves corrected 2026-10-16, below: an
+interrupt frees the CPU under a FIFO read, and the one-token pass was already at the card's own 18.5 MB/s.)* The lever past both is a second storage channel
 read by DMA -- the Teensy 4.1's USB host port (480 Mb/s, EHCI with its own DMA) with half the weights on a
 USB drive would run beside the card and under the arithmetic; that is hardware the bench does not have
 yet, so it is a proposal with the arithmetic, not a measurement.
+
+## 2026-10-16: the batched pass's read order, and what a card command costs
+
+The board was re-measured first (`20261016-001951-psram_llm-state`, `002459-bench`): card 24.00 MB/s against
+24.04 on 09-28, the batched kernel 183.47 against 183.44 Mw/s, an 8-position pass 161.3 s both days. Six
+chips qualify (CS0, CS1 quad; Y5, Y1, Y3, Y2 single); the owner counts seven fitted.
+
+**The cost of a pass over P positions** had been measured only at 1, 5 and 8. `pass_cost.py`
+(`20261016-002736-psram_llm-passcost`; die temperature beside each):
+
+| positions | 1 (decode) | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| seconds | 104.8 | 131.1 | 141.9 | 142.1 | 142.3 | 142.5 | 147.0 | 161.3 |
+| die °C | 41.2 | 41.9 | 43.8 | 43.8 | 43.8 | 43.8 | 44.4 | 45.1 |
+
+Three to six positions cost the same 142 s: that is the ADMA2 read itself, with the arithmetic hidden under
+it. Two positions (FIFO, nothing hidden) cost 26 s more than one, and its card wait was 83.4 s against a
+decode pass's 76.1 s for the same 1,834.8 MB.
+
+**Why: the read order.** The batched feed-forward read gate and up in alternating 16-row halves -- 1,376 reads
+and 688 jumps between the two tensors a layer, where the decode path reads 1,048 with one jump. In FIFO mode
+every jump closes the card's open transfer and starts another; 688 × 36 layers ≈ 24,800 restarts at ≈ 0.3 ms
+is 7.4 s, the excess measured. The core now computes gate and up a group of G rows at a time (default 256,
+`::ffngroup`), the group cut into near-equal whole row-buffer reads, and SwiGLU is applied in place as each
+up row arrives (the same expression on the same two floats, so the same bits; 8 KB less OCRAM). Proven on the
+PC at G = 32, 128 and 256 against `tl_ref` (`verify_pc.py` stage 2c). On the board (`20261016-011800-psram_llm-abffn`;
+step lines of every run identical to `tl_ref` on the board's exact prompt -- see that summary's correction):
+
+| pass | G = 32 (the old order) | G = 256 |
+|---|---|---|
+| 2 positions (FIFO) | 131.2 s, card wait 83.4 s | **115.4 s**, card wait 67.5 s |
+| 5 positions (ADMA2) | 142.2 s | 140.7 s |
+| 8 positions (ADMA2) | 161.4–163.4 s, card wait 1.9 s | 163.9–165.5 s, card wait 3.9 s |
+
+The 8-position regression was the group's tail: 256 rows at 21 a read is twelve full reads and one of four
+rows, and under ADMA2 each read hides behind the previous block's arithmetic, so the read after a 4-row tail
+hid behind four rows. The near-equal cut (thirteen reads of about 20 rows, the same number of commands,
+reads under 8 KB down from 3,312 to 216 a pass by the PC count) is in the next build.
+
+The 2-position pass now waits **less** on the card than a decode pass (67.5 s against 76.1 s) for the same
+bytes, with the arithmetic (47.8 s) matching the kernel bench. FIFO parks the card at a block gap while the
+CPU computes, and a pause per block that is longer (21 rows at 27 µs, against 19.6 µs at one position) went
+with faster reads: the card appears to read ahead while parked. `::sdfifo` measures it directly.
+
+**What the FIFO read can carry** (`::sdfifo`, `20261016-031155-psram_llm`; 2 MB per setting, every byte summed
+against the file layer's read, all right). SdFat's `readData()` asks for one block (Continue Request, with
+Stop At Block Gap set) and spins until it is in; here the same registers are driven by hand with a timed
+slug of work between the request and the drain:
+
+| work between request and drain | 0 | 5 µs | 10 µs | 15 µs | 20 µs | 30 µs | 60 µs |
+|---|---|---|---|---|---|---|---|
+| MB/s | 23.79 | 23.77 | 23.79 | 23.79 | 20.21 | 14.52 | 7.85 |
+| wait left per block | 21.1 µs | 16.1 | 11.0 | 6.0 | 4.8 | 4.7 | 4.7 |
+
+Up to 15 µs of arithmetic a block hides completely; past about 17 the card parks (the controller gates its
+clock, `SDOFF`, rather than overrun) and a block costs the work plus 4.74 µs -- the CPU's own drain of 128
+words from the controller's port, 37 ns a word. Without Stop At Block Gap (one unbroken CMD18) the numbers
+are the same to 1%: the handshake costs nothing.
+
+**The card reads ahead while parked.** 48 blocks back to back, then a pause, the reads alone timed:
+
+| pause per 48 blocks | 0 | 100 µs | 200 µs | 400 µs and up |
+|---|---|---|---|---|
+| read time per block | 21.52 µs | 19.56 | 17.49 | **17.01** (30.1 MB/s) |
+
+The bus delivers a block the card already holds in 17.0 µs; what the card holds depends on how long it was
+left alone.
+
+**An interrupt instead of the spin** (`irq`): read watermark 128 words, Buffer Read Ready drains a block into a
+ring, the stop at the block gap asks for the next, and the main loop works whole "rows" meanwhile. 18.55 MB/s
+flat from 0 to 20 µs of work a block, every byte right, 2 interrupts a block, 27.6 µs a block. A lower read
+watermark (64, 32, 16 words; 4 to 16 interrupts a block, `20261016-034757-psram_llm`) changed nothing: 27.7 µs.
+
+**And then the 21.5 µs turned out not to be the card.** `::sdtrace` (`20261016-035248-psram_llm`) puts the
+cycle counter on each step of 64 consecutive blocks with nothing in between: the **polled** read also takes
+27.98 µs a block (13.6 µs from the request to the first words, then the rest at the bus's rate), the
+interrupt-fed one 27.8 in all three forms tried (as `::fifoirq` does it; the request held until Read Transfer
+Active clears; every status bit cleared as `readData()` does). Every measurement that showed 21.5 µs had an
+untimed pause in it: the 64 KB checksum between pieces, about 0.77 ms at seven cycles a byte, during which the
+card read ahead -- 128 × 27.7 µs = 128 × 21.5 µs + 0.79 ms. So:
+
+- **This card streams at 18.5 MB/s (27.7 µs a block), FIFO or ADMA2 alike.** The 09-28 comparison "ADMA2
+  17.3 against FIFO 23.9" timed FIFO with read-ahead pauses in it and ADMA2 without (each ADMA2 read is a fresh
+  CMD18, which the card cannot read ahead for). The table at the top of the ADMA2 section stands as measured;
+  its reading -- that FIFO is the faster path at the card -- does not.
+- **A one-token FIFO pass was already bound by the card**, not by card plus arithmetic: 3.757 million blocks ×
+  27.7 µs = 104.1 s, against 104.8 s measured. Its 28.7 s of arithmetic ran while the card read ahead; "card
+  wait 76 s + compute 29 s" was bus time plus pause time, with the card busy throughout.
+- **The floor for a pass on this card is about 104 s**, whatever the arithmetic does. What lowers it is
+  fewer bytes, a faster card, or a second channel -- not a cleverer read.
+
+**The interrupt-fed read in real passes** (`::fifoirq 1` with every pass of 1–7 positions on FIFO,
+`20261016-031635-psram_llm-passcost`; the 8-position pass by ADMA2 for reference):
+
+| positions | 1 (decode) | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| this morning (FIFO, or ADMA2 from 3; `002736`), s | 104.8 | 131.1 | 141.9 | 142.1 | 142.3 | 142.5 | 147.0 | 161.3 |
+| after the read order (G = 256, `011800`), s | | 115.4 | | | 140.7 | | | 163.9 |
+| **`::fifoirq`** (and near-equal group reads), s | 104.0 | **105.2** | **105.4** | **108.1** | **124.6** | 142.2 | 160.5 | 161.4 (ADMA2) |
+| arithmetic hidden under the read, s | 34.2 | 57.2 | 79.4 | 95.1 | 92.2 | 85.0 | 90.1 | 144.4 |
+
+Every pass up to four positions now costs what a one-token pass costs: the card's floor, with the arithmetic
+under it. From five the interrupt's drain (≈ 6 µs of CPU a block, about 24 s a pass) makes the pass
+arithmetic-bound, and at seven ADMA2 is cheaper again, so the rule for this build is `::fifoirq 1` with
+`::admamin 7`. The 8-position pass is back to 161.4 s: the near-equal group reads removed the regression.
+
+**Which card sets that floor.** The final build prints the card's CID register at boot
+(`20261016-061724-psram_llm`): manufacturer 0x05, OEM bytes unprintable, product name "asdfg", revision 2.2,
+made 2025-10, 7,864,320 sectors (4 GB) -- placeholder fields, a no-name card. The bus delivers 30.1 MB/s when
+the card has the data ready; this card's memory sustains 18.5. A card that sustains the bus's rate would
+take a pass from about 104 s to about 64 s (3.757 million blocks × 17.0 µs) with nothing else changed. That is
+a few dollars and two minutes of `::sdtrace`, not a measurement made here.
+
+**What one ADMA2 command costs a pass.** `tl_host.exe` with `TL_READCENSUS=1` counts every read exactly as the
+board's card sees it (a count of the code's reads, never a timing): a decode pass is 87,479 pipeline commands
+averaging 22.5 KB (1,967 MB with sector rounding) and 182 plain reads; a 5-position pass 99,215 commands with
+G = 32 and 89,927 with G = 256. With 09-28's fit (274 µs a command + 18.6 MB/s) a 5-position pass's read is
+24.6 s of command set-up and 100.9 s of streaming, 125.5 s, against ≈ 141 s measured: the set-up explains
+two thirds of the gap above pure streaming. (That FIFO streams faster, 41.8 µs a KB against ADMA2's 52.4, was
+the reading at this point; it was wrong -- see below: both stream at about 54 µs a KB, 27.7 a block.)
+
+**The kernel's last cycles** (`::kbench`, same archive; cycles per weight per vector, fewest of five runs over
+16 real rows; every result bit-identical to the production kernel):
+
+| vectors | 2 | 3 | 4 | 5 | 8 |
+|---|---|---|---|---|---|
+| production kernel, rows in DTCM | 3.964 | 3.682 | 3.485 | 3.414 | 3.232 |
+| activations pre-widened | 3.949 | 3.583 | 3.477 | 3.355 | 3.220 |
+| production kernel, rows in OCRAM | 3.965 | 3.681 | 3.484 | 3.414 | 3.232 |
+
+Pre-widening the activation bytes buys 0.4–2.7%, and where the row sits buys nothing: the loop is bound by
+its loads and SMLAD chains, as the one-token kernel was (above). The compiled inner loop is 36 instructions
+for eight SMLADs; at eight vectors the bench's 3.23 cycles a weight is 185.6 Mw/s per vector, and `::bench`'s
+real-row figure, 183.5 Mw/s (3.27 cycles), is what the passes show.
 
 ## For the FPGA
 

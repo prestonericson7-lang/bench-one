@@ -302,6 +302,9 @@ static float   KB[TL_MAX_KVDIM], VB[TL_MAX_KVDIM];
 #ifndef TL_BATCH
 #define TL_BATCH       8          /* prompt positions per pass over the weights in tl_prefill */
 #endif
+#ifndef TL_FFN_GMAX
+#define TL_FFN_GMAX    256        /* largest group of gate/up rows a batched pass computes before SwiGLU */
+#endif
 
 /* ONE ARENA, TWO LAYOUTS.
  *
@@ -317,7 +320,7 @@ typedef struct {
     float   xs[TL_BATCH][TL_MAX_DIM / 32 + 1];
     int32_t xsum[TL_BATCH][TL_MAX_DIM / 32 + 1];
     float   k[TL_BATCH][TL_MAX_KVDIM], v[TL_BATCH][TL_MAX_KVDIM];
-    float   g[TL_BATCH][32], u[TL_BATCH][32];
+    float   g[TL_BATCH][TL_FFN_GMAX];   /* one group of gate rows, then SwiGLU(gate, up) in place (tl_set_ffn_group) */
     union {
         float q[TL_BATCH][TL_MAX_DIM];
         struct {
@@ -334,6 +337,9 @@ static union { tl_batch_t b; tl_tok_t t; } AR TL_BIG;
 #define PB  (AR.b)
 
 void *tl_scratch(uint32_t *bytes) { if (bytes) *bytes = (uint32_t)sizeof AR; return &AR; }
+/* one of the two row buffers a pass works rows from (DTCM on the Teensy, not cached); a board's kernel bench
+ * borrows it between passes, so it times rows where the model keeps them */
+void *tl_rowbuf(uint32_t *bytes) { if (bytes) *bytes = TL_PIPEBUF; return PIPE[0]; }
 int   tl_batch(void) { return TL_BATCH; }
 static int8_t  XQ[TL_MAX_HIDDEN];
 static float   XS[TL_MAX_HIDDEN / 32 + 1];
@@ -1745,12 +1751,35 @@ static int head_n(const tten_t *w, int n, int presum, float *b1, int32_t *i1, fl
     return pipeline(next_rowsn, &it);
 }
 
-/* gate and up, 32 rows of each at a time for every position, then SwiGLU, and each 32 quantized straight into
- * PB.c.h. The 32 rows come in halves of 16 (a 32-row gate block of 18 KB x 2 does not fit a PIPE half), in the
- * same order as before: gate 0..15, gate 16..31, up 0..15, up 16..31, SwiGLU. */
+/* gate and up for every position, a GROUP of G rows of each at a time, then SwiGLU over the group, each 32 of it
+ * quantized straight into PB.c.h.
+ *
+ * WHY THE GROUP (2026-10-16, measured): until now G was 32, read as four 16-row blocks -- gate 0..15, gate
+ * 16..31, up 0..15, up 16..31 -- because 32 output rows per position was all the buffer held. That is 1,376
+ * card reads a layer, the reads hopping between the gate and the up matrix 688 times, where the one-position
+ * path (stream_rows) reads gate whole and then up whole: 1,048 reads, one hop. Measured on the board, a
+ * two-position prompt pass waited 83.3 s for the card against 76.1 s for the decode pass after it -- same bytes,
+ * same card, same clock. With G = 256 and full PIPE blocks it is 1,118 reads and 86 hops.
+ *
+ * THE ANSWER CANNOT CHANGE. Each row's dot is the same call on the same bytes; each SwiGLU element the same
+ * expression of the same two floats; each 32 of the hidden vector quantized by the same call as before. Only
+ * the order in which rows come off the card moves. G = 32 with 16-row blocks is exactly the old order. Rows
+ * are placed by their absolute index (r % G): the pipeline works block i while block i+1 is read, after the
+ * iterator has already moved on. */
+static int g_ffn_group = TL_FFN_GMAX;
+
+int tl_set_ffn_group(int g)
+{
+    if (g == 0) return g_ffn_group;
+    if (g < 32 || g > TL_FFN_GMAX || g % 32) return -1;
+    const int was = g_ffn_group;
+    g_ffn_group = g;
+    return was;
+}
+
 typedef struct {
     const tlayer_t *L;
-    int n, down_presum, gp, up, half, b0, part;           /* part 0..3: gate lo, gate hi, up lo, up hi */
+    int n, down_presum, gp, up, G, blk[2], b0, part, r;   /* part 0 gate, 1 up; r = rows of it done in this group */
     const int8_t *xqp[TL_BATCH];
     const float *xsp[TL_BATCH];
     const int32_t *xmp[TL_BATCH];
@@ -1762,7 +1791,7 @@ static void row_gate(void *c, const uint8_t *p, int r)
     float v[TL_BATCH];
     if (it->gp) gguf_dot_q4k_presum_n(p, it->n, it->xqp, it->xsp, it->xmp, it->L->wg.cols, v);
     else        gguf_dot_q_n(it->L->wg.type, p, it->n, it->xqp, it->xsp, it->L->wg.cols, v);
-    for (int q = 0; q < it->n; q++) PB.g[q][r & 31] = v[q];
+    for (int q = 0; q < it->n; q++) PB.g[q][r % it->G] = v[q];
 }
 
 static void row_up(void *c, const uint8_t *p, int r)
@@ -1771,21 +1800,28 @@ static void row_up(void *c, const uint8_t *p, int r)
     float v[TL_BATCH];
     if (it->up) gguf_dot_q4k_presum_n(p, it->n, it->xqp, it->xsp, it->xmp, it->L->wu.cols, v);
     else        gguf_dot_q_n(it->L->wu.type, p, it->n, it->xqp, it->xsp, it->L->wu.cols, v);
-    for (int q = 0; q < it->n; q++) PB.u[q][r & 31] = v[q];
+    /* SwiGLU the moment the up value exists, over the gate value in place: the same expression on the same two
+     * floats as computing it later from a separate up buffer, so the same bits, and 8 KB less OCRAM */
+    for (int q = 0; q < it->n; q++) {
+        float *h = &PB.g[q][r % it->G];
+        const float g = *h;
+        *h = (g / (1.0f + tlm_expf(-g))) * v[q];
+    }
 }
 
-static void swiglu_block(void *c, int r0, int k)
+/* after the last up block of a group: its SwiGLU values (row_up) quantized 32 at a time, exactly as the old
+ * 32-row step did */
+static void swiglu_group(void *c, int r0, int k)
 {
     it_ffn *it = (it_ffn *)c;
-    const int b0 = (r0 + k - 1) & ~31;
-    for (int q = 0; q < it->n; q++) {
-        float h[32];
-        for (int j = 0; j < 32; j++) {
-            const float g = PB.g[q][j];
-            h[j] = (g / (1.0f + tlm_expf(-g))) * PB.u[q][j];
+    const int g0 = ((r0 + k - 1) / it->G) * it->G;
+    const int gn = (M.hidden - g0) < it->G ? (M.hidden - g0) : it->G;
+    for (int b = 0; b < gn; b += 32) {
+        const int b0 = g0 + b;
+        for (int q = 0; q < it->n; q++) {
+            gguf_quantize_act(&PB.g[q][b], 32, PB.c.h.hq[q] + b0, &PB.c.h.hs[q][b0 / 32]);
+            if (it->down_presum) gguf_act_sums(PB.c.h.hq[q] + b0, 32, &PB.c.h.hsum[q][b0 / 32]);
         }
-        gguf_quantize_act(h, 32, PB.c.h.hq[q] + b0, &PB.c.h.hs[q][b0 / 32]);
-        if (it->down_presum) gguf_act_sums(PB.c.h.hq[q] + b0, 32, &PB.c.h.hsum[q][b0 / 32]);
     }
 }
 
@@ -1793,13 +1829,24 @@ static int next_ffn(void *v, tl_job *j)
 {
     it_ffn *it = (it_ffn *)v;
     if (it->b0 >= M.hidden) return 0;
-    const int isup = it->part >= 2;
-    const tten_t *w = isup ? &it->L->wu : &it->L->wg;
-    const int r0 = it->b0 + (it->part & 1) * it->half;
+    const int gn = (M.hidden - it->b0) < it->G ? (M.hidden - it->b0) : it->G;
+    const tten_t *w = it->part ? &it->L->wu : &it->L->wg;
+    /* the group's rows in nb near-equal reads, never a full set and a small tail: under ADMA2 a read hides behind
+     * the previous block's rows, and the read after a 4-row tail hid behind 4 rows (board, 2026-10-16: an
+     * 8-position pass +2.5 s, card wait 1.9 -> 3.9 s). Same reads, same row order; G=32 is still 16 + 16. */
+    const int nb = (gn + it->blk[it->part] - 1) / it->blk[it->part];
+    const int even = (gn + nb - 1) / nb;
+    const int k = (gn - it->r) < even ? (gn - it->r) : even;
+    const int r0 = it->b0 + it->r;
     j->off = w->off + (uint64_t)r0 * w->row_bytes; j->rb = w->row_bytes;
-    j->r0 = r0; j->k = it->half; j->row = isup ? row_up : row_gate;
-    j->done = (it->part == 3) ? swiglu_block : 0; j->c = it;
-    if (++it->part == 4) { it->part = 0; it->b0 += 32; }
+    j->r0 = r0; j->k = k; j->row = it->part ? row_up : row_gate;
+    j->done = (it->part == 1 && it->r + k == gn) ? swiglu_group : 0; j->c = it;
+    it->r += k;
+    if (it->r == gn) {
+        it->r = 0;
+        if (it->part == 0) it->part = 1;
+        else { it->part = 0; it->b0 += gn; }
+    }
     return 1;
 }
 
@@ -1809,11 +1856,20 @@ static int ffn_gate_up_n(const tlayer_t *L, int n, int down_presum)
     memset(&it, 0, sizeof it);
     it.L = L; it.n = n; it.down_presum = down_presum;
     it.gp = L->wg.type == GGML_Q4_K; it.up = L->wu.type == GGML_Q4_K;
-    it.half = 16;
-    if ((uint32_t)it.half * L->wg.row_bytes > TL_PIPEBUF || (uint32_t)it.half * L->wu.row_bytes > TL_PIPEBUF ||
-        (L->wg.row_bytes % 4) || (L->wu.row_bytes % 4)) {
-        snprintf(g_err, sizeof g_err, "16 gate/up rows do not fit a row buffer half aligned");
+    it.G = g_ffn_group;
+    if (M.hidden % 32 || (L->wg.row_bytes % 4) || (L->wu.row_bytes % 4)) {
+        snprintf(g_err, sizeof g_err, "gate/up rows not 4-aligned, or a hidden size not a multiple of 32");
         return -1;
+    }
+    for (int m = 0; m < 2; m++) {
+        const uint32_t rb = m ? L->wu.row_bytes : L->wg.row_bytes;
+        int b = it.G == 32 ? 16 : pipe_rows(rb);           /* 32: the old 16-row halves, exactly */
+        if (b > it.G) b = it.G;
+        if (b < 1 || (uint32_t)b * rb > TL_PIPEBUF) {
+            snprintf(g_err, sizeof g_err, "gate/up rows do not fit a row buffer half");
+            return -1;
+        }
+        it.blk[m] = b;
     }
     for (int p = 0; p < n; p++) { it.xqp[p] = PB.xq[p]; it.xsp[p] = PB.xs[p]; it.xmp[p] = PB.xsum[p]; }
     return pipeline(next_ffn, &it);

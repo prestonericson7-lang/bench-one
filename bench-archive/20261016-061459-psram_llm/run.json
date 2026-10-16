@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-061459",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 70,
+  "note": "2026-10-16 final: ::fifoirq 1 and ::admamin 7 by default (measured), CARD id at boot, lookup K N",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 648141
+}

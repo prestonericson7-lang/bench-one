@@ -216,6 +216,10 @@ float gguf_dot_q4k_presum(const void *raw, const int8_t *xq, const float *xs,
 #define GGUF_NPOS_MAX 8
 void gguf_dot_q4k_presum_n(const void *raw, int np, const int8_t *const *xq, const float *const *xs,
                            const int32_t *const *xsum, uint64_t n, float *out);
+/* The same with each vector also pre-widened (xw[p] from gguf_widen_act(xq[p], n, xw[p])): the same bits.
+ * EXPERIMENTAL (2026-10-16), timed by the board's ::kbench; the model does not call it yet. */
+void gguf_dot_q4k_presum_nw(const void *raw, int np, const int8_t *const *xq, const uint32_t *const *xw,
+                            const float *const *xs, const int32_t *const *xsum, uint64_t n, float *out);
 void gguf_dot_q_n(uint32_t type, const void *raw, int np, const int8_t *const *xq, const float *const *xs,
                   uint64_t n, float *out);
 

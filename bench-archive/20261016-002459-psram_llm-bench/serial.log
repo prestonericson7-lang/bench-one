@@ -1,0 +1,43 @@
+
+[board_cmd 2026-10-16 00:24:59] >>> I
+00:24:59 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio fifo overlap 1 align 1 slice 0 clk 66000
+
+[board_cmd 2026-10-16 00:24:59] >>> ::bench
+00:24:59 | BENCH begin temp_c 41.9
+00:25:00 | BENCH sd_seq read_size 4096 mb_s 18.51 sdio fifo
+00:25:01 | BENCH sd_seq read_size 16384 mb_s 18.51 sdio fifo
+00:25:02 | BENCH sd_seq read_size 65536 mb_s 18.52 sdio fifo
+00:25:03 | BENCH sd_seq_dtcm read_size 4096 mb_s 18.52 sdio fifo clock_khz 66000
+00:25:03 |     SD up (DMA_SDIO), clock 66000 kHz
+00:25:03 |     qwen3b.gguf: 1929903072 bytes
+00:25:04 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+00:25:04 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:25:06 | BENCH sd_seq read_size 4096 mb_s 7.49 sdio dma
+00:25:08 | BENCH sd_seq read_size 16384 mb_s 7.49 sdio dma
+00:25:10 | BENCH sd_seq read_size 65536 mb_s 7.49 sdio dma
+00:25:12 | BENCH sd_seq_dtcm read_size 4096 mb_s 7.49 sdio dma clock_khz 66000
+00:25:12 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:25:12 |     qwen3b.gguf: 1929903072 bytes
+00:25:13 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:25:13 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:25:13 | BENCH sd_random read_size 4096 count 256 ms_each 0.687 mb_s 5.69 fails 0
+00:25:14 | BENCH kernel ffn_gate_L0 type 12 path presum rows 56 cols 2048 mb_s 61.25 mweights_s 114.18
+00:25:15 | BENCH kernel ffn_gate_L0 type 12 path dot_q rows 56 cols 2048 mb_s 56.40 mweights_s 105.14
+00:25:16 | BENCH kernel ffn_gate_L0 type 12 path widened rows 56 cols 2048 mb_s 60.13 mweights_s 112.10
+00:25:17 | BENCH kernel_x8 ffn_gate_L0 type 12 vectors 8 mweights_s_per_vector 183.47
+00:25:18 | BENCH q4k_stage ffn_gate_L0 stage 0 cycles_per_weight 5.755 mweights_s 104.25
+00:25:19 | BENCH q4k_stage ffn_gate_L0 stage 1 cycles_per_weight 4.423 mweights_s 135.66
+00:25:20 | BENCH q4k_stage ffn_gate_L0 stage 2 cycles_per_weight 3.595 mweights_s 166.91
+00:25:21 | BENCH kernel ffn_down_L0 type 14 path dot_q rows 7 cols 11008 mb_s 60.25 mweights_s 77.02
+00:25:22 | BENCH kernel ffn_down_L0 type 14 path widened rows 7 cols 11008 mb_s 59.73 mweights_s 76.35
+00:25:23 | BENCH kernel_x8 ffn_down_L0 type 14 vectors 8 mweights_s_per_vector 121.50
+00:25:24 | BENCH kernel attn_v_L0 type 14 path dot_q rows 39 cols 2048 mb_s 61.39 mweights_s 78.47
+00:25:25 | BENCH kernel attn_v_L0 type 14 path widened rows 39 cols 2048 mb_s 63.53 mweights_s 81.21
+00:25:26 | BENCH kernel_x8 attn_v_L0 type 14 vectors 8 mweights_s_per_vector 121.73
+00:25:27 | BENCH kernel token_embd type 14 path dot_q rows 39 cols 2048 mb_s 61.40 mweights_s 78.49
+00:25:28 | BENCH kernel token_embd type 14 path widened rows 39 cols 2048 mb_s 63.57 mweights_s 81.26
+00:25:29 | BENCH kernel_x8 token_embd type 14 vectors 8 mweights_s_per_vector 121.75
+00:25:29 | BENCH psram_raw bank Y2 mode single 0x0B write_mb_s 6.44 read_mb_s 2.84 wrong 0
+00:25:30 | BENCH psram_plat bank Y2 verified_write_mb_s 2.01 read_mb_s 2.91 errors 0
+00:25:30 | BENCH cache_layer bank CS0 positions 1024 write_s 0.142 read_s 0.061 ms_per_position_read 0.060 rows_reread 0 bank_switches 1
+00:25:30 | BENCH end temp_c 40.6

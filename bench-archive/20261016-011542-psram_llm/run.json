@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-011542",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 20,
+  "note": "2026-10-16: batched gate/up read groups (::ffngroup), ::kbench, pre-widened batched kernel (bench only)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 616474
+}

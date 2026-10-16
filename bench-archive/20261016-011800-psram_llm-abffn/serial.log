@@ -1,0 +1,371 @@
+01:18:00 > I
+01:18:00 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000 model qwen3b.gguf
+01:18:00 > ::kbench
+01:18:00 | KBENCH begin temp_c 47.0 rows 16 cols 2048
+01:18:00 | KBENCH np 2 rowbuf_n 3.964 rowbuf_nw 3.949 ocram_n 3.965 ocram_nw 3.950 cycles_per_weight_vector identical yes temp_c 47.7
+01:18:00 | KBENCH np 3 rowbuf_n 3.682 rowbuf_nw 3.583 ocram_n 3.681 ocram_nw 3.583 cycles_per_weight_vector identical yes temp_c 47.0
+01:18:00 | KBENCH np 4 rowbuf_n 3.485 rowbuf_nw 3.477 ocram_n 3.484 ocram_nw 3.477 cycles_per_weight_vector identical yes temp_c 47.0
+01:18:00 | KBENCH np 5 rowbuf_n 3.414 rowbuf_nw 3.355 ocram_n 3.414 ocram_nw 3.355 cycles_per_weight_vector identical yes temp_c 47.7
+01:18:00 | KBENCH np 8 rowbuf_n 3.232 rowbuf_nw 3.220 ocram_n 3.232 ocram_nw 3.220 cycles_per_weight_vector identical yes temp_c 47.0
+01:18:00 | KBENCH end temp_c 47.0
+01:18:00 > ::ffngroup 32
+01:18:00 | FFNGROUP 32 (was 256)
+01:18:00 > ::gen 1
+01:18:00 | GEN 1
+01:18:00 > one two
+01:18:00 |   prompt: "one two"  (2 tokens, generating 1, prompt batched through tl_prefill)
+01:18:00 | prompt ids: 603 1378
+01:18:00 |   card: 2 positions in this pass -> FIFO
+01:18:00 |     SD up (FIFO_SDIO), clock 66000 kHz
+01:18:00 |     qwen3b.gguf: 1929903072 bytes
+01:18:00 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+01:18:00 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:18:00 | SDIO fifo
+01:20:11 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+01:20:11 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+01:20:11 |   >> one two three
+01:20:11 |     prefill=0..1: 131.2 s: SD 1834.8 MB in 83.4 s (22.01 MB/s), PSRAM 57 KB read 37.7 KB written in 0.04 s, compute 47.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:20:11 | STAGES prefill=0..1 embed=0.001 qkv=6.49 att=0.234 wo=4.87 ffn=104.38 head=15.22 hidden=0.00 temp_c=46.4
+01:21:56 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+01:21:56 |   >> one two three four
+01:21:56 |     step=2: 104.8 s: SD 1834.8 MB in 76.1 s (24.11 MB/s), PSRAM 57 KB read 18.8 KB written in 0.03 s, compute 28.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:21:56 | STAGES step=2 embed=0.001 qkv=6.14 att=0.130 wo=4.63 ffn=80.07 head=13.80 hidden=0.00 temp_c=46.4
+01:21:56 |   ANSWER: " three four"
+01:21:56 |   2 passes over the weights in 236 s (prompt 131 s), 118.0 s each; 3.58 GB read from the card
+01:21:56 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:21:56 | RUN n_prompt=2 n_gen=1 prefill=1 passes=2 total_s=236.0 prompt_s=131.2 per_pass_s=117.98 sd_gb=3.584 sd_mbs=23.01 sd_s=159.5 compute_s=76.4 hidden_s=0.0 ps_s=0.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=46.4
+01:21:56 > one two three four five
+01:21:56 |   DONE. Type another prompt and press Enter.
+01:21:56 |   prompt: "one two three four five"  (5 tokens, generating 1, prompt batched through tl_prefill)
+01:21:56 | prompt ids: 603 1378 2326 3040 4236
+01:21:56 |   card: 5 positions in this pass -> ADMA2 with the arithmetic under the read
+01:21:56 |     SD up (DMA_SDIO), clock 66000 kHz
+01:21:56 |     qwen3b.gguf: 1929903072 bytes
+01:21:57 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+01:21:57 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:21:57 | SDIO dma
+01:21:57 | SDPATH adma
+01:24:19 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+01:24:19 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+01:24:19 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+01:24:19 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+01:24:19 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+01:24:19 |   >> one two three four five six
+01:24:19 |     prefill=0..4: 142.2 s: SD 1834.8 MB in 37.7 s (48.71 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 104.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:24:19 | STAGES prefill=0..4 embed=0.005 qkv=7.96 att=0.636 wo=5.94 ffn=109.84 head=17.86 hidden=103.62 temp_c=48.3
+01:24:19 |   card: 1 position in this pass -> FIFO
+01:24:19 |     SD up (FIFO_SDIO), clock 66000 kHz
+01:24:19 |     qwen3b.gguf: 1929903072 bytes
+01:24:19 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 115 ms)
+01:24:19 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:24:19 | SDIO fifo
+01:24:19 | SDPATH file
+01:26:04 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+01:26:04 |   >> one two three four five six seven
+01:26:04 |     step=5: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:26:04 | STAGES step=5 embed=0.001 qkv=6.14 att=0.154 wo=4.63 ffn=80.06 head=13.79 hidden=0.00 temp_c=47.0
+01:26:04 |   ANSWER: " six seven"
+01:26:04 |   2 passes over the weights in 247 s (prompt 142 s), 123.5 s each; 3.58 GB read from the card
+01:26:04 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:26:04 | RUN n_prompt=5 n_gen=1 prefill=1 passes=2 total_s=247.0 prompt_s=142.2 per_pass_s=123.51 sd_gb=3.584 sd_mbs=32.26 sd_s=113.7 compute_s=133.1 hidden_s=103.6 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=48.3
+01:26:04 > ::gen 4
+01:26:04 |   DONE. Type another prompt and press Enter.
+01:26:04 | GEN 4
+01:26:04 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\n
+01:26:04 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+01:26:04 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198
+01:26:04 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+01:26:04 |     SD up (DMA_SDIO), clock 66000 kHz
+01:26:04 |     qwen3b.gguf: 1929903072 bytes
+01:26:05 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+01:26:05 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:26:05 | SDIO dma
+01:26:05 | SDPATH adma
+01:28:46 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+01:28:46 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+01:28:46 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+01:28:46 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+01:28:46 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+01:28:46 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+01:28:46 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+01:28:46 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+01:28:46 |     prefill=0..7: 161.4 s: SD 1834.8 MB in 1.9 s (975.65 MB/s), PSRAM 678 KB read 150.8 KB written in 0.23 s, compute 159.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:28:46 | STAGES prefill=0..7 embed=0.008 qkv=8.95 att=1.108 wo=6.68 ffn=124.15 head=20.46 hidden=148.55 temp_c=49.6
+01:31:28 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+01:31:28 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+01:31:28 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+01:31:28 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+01:31:28 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+01:31:28 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+01:31:28 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+01:31:28 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+01:31:28 |     prefill=8..15: 161.9 s: SD 1834.8 MB in 1.9 s (976.29 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.51 s, compute 159.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:31:28 | STAGES prefill=8..15 embed=0.008 qkv=8.95 att=1.614 wo=6.68 ffn=124.17 head=20.47 hidden=148.55 temp_c=49.6
+01:34:11 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+01:34:11 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+01:34:11 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+01:34:11 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+01:34:11 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+01:34:11 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+01:34:11 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+01:34:11 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+01:34:11 |     prefill=16..23: 162.4 s: SD 1834.8 MB in 1.9 s (977.65 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.79 s, compute 159.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:34:11 | STAGES prefill=16..23 embed=0.008 qkv=8.95 att=2.119 wo=6.68 ffn=124.17 head=20.47 hidden=148.55 temp_c=49.6
+01:36:53 | step 24 pos 24 fed 3838 -> top1 374 20.5358391 top2 525 19.992054 text " is"
+01:36:53 | step 25 pos 25 fed 374 -> top1 279 18.9274082 top2 264 16.2415924 text " the"
+01:36:53 | step 26 pos 26 fed 279 -> top1 6672 17.6220417 top2 7428 16.17729 text " difference"
+01:36:53 | step 27 pos 27 fed 6672 -> top1 1948 22.9239979 top2 304 18.2445908 text " between"
+01:36:53 | step 28 pos 28 fed 1948 -> top1 264 15.8514957 top2 279 14.6710205 text " a"
+01:36:53 | step 29 pos 29 fed 20429 -> top1 323 18.1734161 top2 320 17.1663532 text " and"
+01:36:53 | step 30 pos 30 fed 323 -> top1 358 16.3232059 top2 23267 14.5734882 text " I"
+01:36:53 | step 31 pos 31 fed 358 -> top1 17 23.4461136 top2 29456 18.2848511 text "2"
+01:36:54 |     prefill=24..31: 162.9 s: SD 1834.8 MB in 1.9 s (977.58 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.07 s, compute 160.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:36:54 | STAGES prefill=24..31 embed=0.008 qkv=8.95 att=2.623 wo=6.68 ffn=124.17 head=20.47 hidden=148.54 temp_c=49.6
+01:39:37 | step 32 pos 32 fed 17 -> top1 34 23.8728008 top2 50 17.9505405 text "C"
+01:39:37 | step 33 pos 33 fed 34 -> top1 304 18.9144287 top2 30 18.0652962 text " in"
+01:39:37 | step 34 pos 34 fed 30 -> top1 151645 19.395216 top2 3555 15.9097013 text "<|im_end|>"
+01:39:37 | step 35 pos 35 fed 21806 -> top1 304 17.2208939 top2 279 16.4594383 text " in"
+01:39:37 | step 36 pos 36 fed 304 -> top1 220 19.1881065 top2 264 18.9560089 text " "
+01:39:37 | step 37 pos 37 fed 1378 -> top1 22870 20.9250927 top2 3501 19.2265434 text " sentences"
+01:39:37 | step 38 pos 38 fed 22870 -> top1 13 19.4421368 top2 624 18.3163357 text "."
+01:39:37 | step 39 pos 39 fed 13 -> top1 151645 21.9751358 top2 151644 15.5827322 text "<|im_end|>"
+01:39:37 |     prefill=32..39: 163.4 s: SD 1834.8 MB in 1.9 s (977.07 MB/s), PSRAM 5502 KB read 150.8 KB written in 1.35 s, compute 160.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:39:37 | STAGES prefill=32..39 embed=0.007 qkv=8.95 att=3.127 wo=6.68 ffn=124.17 head=20.47 hidden=148.55 temp_c=49.6
+01:42:01 | step 40 pos 40 fed 151645 -> top1 198 26.6948795 top2 151644 21.3194408 text "\x0A"
+01:42:01 | step 41 pos 41 fed 198 -> top1 151644 26.3112354 top2 151645 17.5019531 text "<|im_start|>"
+01:42:01 | step 42 pos 42 fed 151644 -> top1 198 26.1842899 top2 151644 20.2932358 text "\x0A"
+01:42:01 | step 43 pos 43 fed 77091 -> top1 39779 19.1664219 top2 785 14.6496935 text "SPI"
+01:42:01 | step 44 pos 44 fed 198 -> top1 39779 19.3530884 top2 40 15.8442087 text "SPI"
+01:42:01 |   >> <|im_start|>system
+01:42:01 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+01:42:01 | <|im_start|>user
+01:42:01 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+01:42:01 | <|im_start|>assistant
+01:42:01 | SPI
+01:42:01 |     prefill=40..44: 143.8 s: SD 1834.8 MB in 37.6 s (48.74 MB/s), PSRAM 4051 KB read 94.2 KB written in 0.99 s, compute 105.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:42:01 | STAGES prefill=40..44 embed=0.005 qkv=7.95 att=2.214 wo=5.94 ffn=109.82 head=17.85 hidden=103.63 temp_c=49.6
+01:42:01 |   card: 1 position in this pass -> FIFO
+01:42:01 |     SD up (FIFO_SDIO), clock 66000 kHz
+01:42:01 |     qwen3b.gguf: 1929903072 bytes
+01:42:01 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+01:42:01 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:42:01 | SDIO fifo
+01:42:01 | SDPATH file
+01:43:46 | step 45 pos 45 fed 39779 -> top1 320 20.2314739 top2 374 18.7457199 text " ("
+01:43:46 |   >> <|im_start|>system
+01:43:46 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+01:43:46 | <|im_start|>user
+01:43:46 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+01:43:46 | <|im_start|>assistant
+01:43:46 | SPI (
+01:43:46 |     step=45: 105.1 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 867 KB read 18.8 KB written in 0.22 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:43:46 | STAGES step=45 embed=0.001 qkv=6.14 att=0.469 wo=4.63 ffn=80.06 head=13.80 hidden=0.00 temp_c=48.3
+01:45:31 | step 46 pos 46 fed 320 -> top1 5915 26.6293812 top2 16374 19.2809315 text "Serial"
+01:45:31 |   >> <|im_start|>system
+01:45:31 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+01:45:31 | <|im_start|>user
+01:45:31 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+01:45:31 | <|im_start|>assistant
+01:45:31 | SPI (Serial
+01:45:31 |     step=46: 105.1 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 886 KB read 18.8 KB written in 0.22 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:45:31 | STAGES step=46 embed=0.001 qkv=6.14 att=0.476 wo=4.63 ffn=80.06 head=13.80 hidden=0.00 temp_c=47.7
+01:47:16 | step 47 pos 47 fed 5915 -> top1 83000 28.7934093 top2 34588 20.9415283 text " Peripheral"
+01:47:16 |   >> <|im_start|>system
+01:47:16 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+01:47:16 | <|im_start|>user
+01:47:16 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+01:47:16 | <|im_start|>assistant
+01:47:16 | SPI (Serial Peripheral
+01:47:16 |     step=47: 105.1 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 904 KB read 18.8 KB written in 0.23 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:47:16 | STAGES step=47 embed=0.001 qkv=6.14 att=0.484 wo=4.63 ffn=80.06 head=13.79 hidden=0.00 temp_c=47.7
+01:49:01 | step 48 pos 48 fed 83000 -> top1 20019 30.4374809 top2 5665 23.3292427 text " Interface"
+01:49:01 |   >> <|im_start|>system
+01:49:01 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+01:49:01 | <|im_start|>user
+01:49:01 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+01:49:01 | <|im_start|>assistant
+01:49:01 | SPI (Serial Peripheral Interface
+01:49:01 |     step=48: 105.1 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 923 KB read 18.8 KB written in 0.23 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:49:01 | STAGES step=48 embed=0.001 qkv=6.14 att=0.492 wo=4.63 ffn=80.06 head=13.79 hidden=0.00 temp_c=48.3
+01:49:01 |   ANSWER: "SPI (Serial Peripheral Interface"
+01:49:01 |   10 passes over the weights in 1376 s (prompt 956 s), 137.6 s each; 17.92 GB read from the card
+01:49:01 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:49:01 | RUN n_prompt=45 n_gen=4 prefill=1 passes=10 total_s=1376.2 prompt_s=955.7 per_pass_s=137.62 sd_gb=17.918 sd_mbs=52.23 sd_s=351.3 compute_s=1019.0 hidden_s=846.4 ps_s=5.8 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=50 ps_sw_s=0.10 temp_max_c=49.6
+01:49:01 > ::ffngroup 256
+01:49:01 |   DONE. Type another prompt and press Enter.
+01:49:01 | FFNGROUP 256 (was 32)
+01:49:01 > ::gen 1
+01:49:01 | GEN 1
+01:49:01 > one two
+01:49:01 |   prompt: "one two"  (2 tokens, generating 1, prompt batched through tl_prefill)
+01:49:01 | prompt ids: 603 1378
+01:50:57 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+01:50:57 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+01:50:57 |   >> one two three
+01:50:57 |     prefill=0..1: 115.4 s: SD 1834.8 MB in 67.5 s (27.17 MB/s), PSRAM 57 KB read 37.7 KB written in 0.04 s, compute 47.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:50:57 | STAGES prefill=0..1 embed=0.001 qkv=6.49 att=0.234 wo=4.87 ffn=88.55 head=15.22 hidden=0.00 temp_c=48.3
+01:52:41 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+01:52:41 |   >> one two three four
+01:52:41 |     step=2: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 57 KB read 18.8 KB written in 0.03 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:52:41 | STAGES step=2 embed=0.001 qkv=6.14 att=0.130 wo=4.63 ffn=80.06 head=13.80 hidden=0.00 temp_c=47.7
+01:52:41 |   ANSWER: " three four"
+01:52:41 |   2 passes over the weights in 220 s (prompt 115 s), 110.1 s each; 3.58 GB read from the card
+01:52:41 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:52:41 | RUN n_prompt=2 n_gen=1 prefill=1 passes=2 total_s=220.1 prompt_s=115.4 per_pass_s=110.06 sd_gb=3.584 sd_mbs=25.55 sd_s=143.6 compute_s=76.4 hidden_s=0.0 ps_s=0.1 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=48.3
+01:52:41 > one two three four five
+01:52:41 |   DONE. Type another prompt and press Enter.
+01:52:41 |   prompt: "one two three four five"  (5 tokens, generating 1, prompt batched through tl_prefill)
+01:52:41 | prompt ids: 603 1378 2326 3040 4236
+01:52:41 |   card: 5 positions in this pass -> ADMA2 with the arithmetic under the read
+01:52:41 |     SD up (DMA_SDIO), clock 66000 kHz
+01:52:41 |     qwen3b.gguf: 1929903072 bytes
+01:52:42 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 788 ms)
+01:52:42 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:52:42 | SDIO dma
+01:52:42 | SDPATH adma
+01:55:03 | step 0 pos 0 fed 603 -> top1 220 11.4736958 top2 62 11.2807369 text " "
+01:55:03 | step 1 pos 1 fed 1378 -> top1 2326 15.4452066 top2 271 11.5118189 text " three"
+01:55:03 | step 2 pos 2 fed 2326 -> top1 3040 15.313961 top2 2326 11.960288 text " four"
+01:55:03 | step 3 pos 3 fed 3040 -> top1 4236 16.476635 top2 271 12.2444191 text " five"
+01:55:03 | step 4 pos 4 fed 4236 -> top1 4743 16.2739105 top2 4236 12.9392033 text " six"
+01:55:03 |   >> one two three four five six
+01:55:03 |     prefill=0..4: 140.7 s: SD 1834.8 MB in 36.2 s (50.74 MB/s), PSRAM 283 KB read 94.2 KB written in 0.11 s, compute 104.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:55:03 | STAGES prefill=0..4 embed=0.005 qkv=7.95 att=0.636 wo=5.94 ffn=108.33 head=17.85 hidden=101.76 temp_c=50.3
+01:55:03 |   card: 1 position in this pass -> FIFO
+01:55:03 |     SD up (FIFO_SDIO), clock 66000 kHz
+01:55:03 |     qwen3b.gguf: 1929903072 bytes
+01:55:03 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+01:55:03 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:55:03 | SDIO fifo
+01:55:03 | SDPATH file
+01:56:48 | step 5 pos 5 fed 4743 -> top1 8094 17.2506561 top2 271 12.4804792 text " seven"
+01:56:48 |   >> one two three four five six seven
+01:56:48 |     step=5: 104.8 s: SD 1834.8 MB in 76.1 s (24.12 MB/s), PSRAM 113 KB read 18.8 KB written in 0.04 s, compute 28.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:56:48 | STAGES step=5 embed=0.001 qkv=6.14 att=0.154 wo=4.63 ffn=80.06 head=13.80 hidden=0.00 temp_c=48.3
+01:56:48 |   ANSWER: " six seven"
+01:56:48 |   2 passes over the weights in 245 s (prompt 141 s), 122.7 s each; 3.58 GB read from the card
+01:56:48 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+01:56:48 | RUN n_prompt=5 n_gen=1 prefill=1 passes=2 total_s=245.5 prompt_s=140.7 per_pass_s=122.75 sd_gb=3.584 sd_mbs=32.70 sd_s=112.2 compute_s=133.1 hidden_s=101.8 ps_s=0.2 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=10 ps_sw_s=0.02 temp_max_c=50.3
+01:56:48 > ::gen 4
+01:56:48 |   DONE. Type another prompt and press Enter.
+01:56:48 | GEN 4
+01:56:48 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\n
+01:56:48 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+01:56:48 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198
+01:56:48 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+01:56:48 |     SD up (DMA_SDIO), clock 66000 kHz
+01:56:48 |     qwen3b.gguf: 1929903072 bytes
+01:56:49 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 787 ms)
+01:56:49 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+01:56:49 | SDIO dma
+01:56:49 | SDPATH adma
+01:59:32 | step 0 pos 0 fed 151644 -> top1 198 10.4213934 top2 62 9.58569908 text "\x0A"
+01:59:32 | step 1 pos 1 fed 8948 -> top1 62 10.6075563 top2 64 10.2361116 text "_"
+01:59:32 | step 2 pos 2 fed 198 -> top1 198 11.1926823 top2 715 8.76226616 text "\x0A"
+01:59:32 | step 3 pos 3 fed 2610 -> top1 220 10.1157064 top2 198 9.11127663 text " "
+01:59:32 | step 4 pos 4 fed 525 -> top1 198 11.4366217 top2 220 10.5452518 text "\x0A"
+01:59:32 | step 5 pos 5 fed 1207 -> top1 16948 20.5063801 top2 1103 17.1861629 text "wen"
+01:59:32 | step 6 pos 6 fed 16948 -> top1 11 16.432888 top2 198 13.0376654 text ","
+01:59:32 | step 7 pos 7 fed 11 -> top1 264 13.2992659 top2 458 11.940896 text " a"
+01:59:32 |     prefill=0..7: 163.4 s: SD 1834.8 MB in 4.0 s (464.21 MB/s), PSRAM 678 KB read 150.8 KB written in 0.23 s, compute 159.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+01:59:32 | STAGES prefill=0..7 embed=0.008 qkv=8.95 att=1.108 wo=6.68 ffn=126.20 head=20.46 hidden=142.28 temp_c=50.3
+02:02:16 | step 8 pos 8 fed 3465 -> top1 553 20.602375 top2 323 15.5373564 text " by"
+02:02:16 | step 9 pos 9 fed 553 -> top1 54364 20.3969193 top2 1207 14.4721584 text " Alibaba"
+02:02:16 | step 10 pos 10 fed 54364 -> top1 14817 24.0050201 top2 12360 15.8808908 text " Cloud"
+02:02:16 | step 11 pos 11 fed 14817 -> top1 13 20.4097118 top2 11 20.2645512 text "."
+02:02:16 | step 12 pos 12 fed 13 -> top1 358 12.7452459 top2 1446 12.0800371 text " I"
+02:02:16 | step 13 pos 13 fed 1446 -> top1 525 15.30935 top2 686 13.9945765 text " are"
+02:02:16 | step 14 pos 14 fed 525 -> top1 264 16.5776424 top2 458 15.2176676 text " a"
+02:02:16 | step 15 pos 15 fed 264 -> top1 15235 12.6108065 top2 1550 12.5662832 text " AI"
+02:02:16 |     prefill=8..15: 163.9 s: SD 1834.8 MB in 3.9 s (464.58 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.51 s, compute 159.5 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:02:16 | STAGES prefill=8..15 embed=0.008 qkv=8.95 att=1.614 wo=6.68 ffn=126.22 head=20.47 hidden=142.28 temp_c=50.3
+02:05:01 | step 16 pos 16 fed 10950 -> top1 15235 12.9672985 top2 8453 11.8095121 text " AI"
+02:05:01 | step 17 pos 17 fed 17847 -> top1 11 11.1107187 top2 358 10.591608 text ","
+02:05:01 | step 18 pos 18 fed 13 -> top1 358 11.6990128 top2 1446 11.1176014 text " I"
+02:05:01 | step 19 pos 19 fed 151645 -> top1 198 25.8919125 top2 151645 20.3116322 text "\x0A"
+02:05:01 | step 20 pos 20 fed 198 -> top1 40 9.36102676 top2 32 8.9063797 text "I"
+02:05:01 | step 21 pos 21 fed 151644 -> top1 198 24.6660156 top2 151645 20.1416683 text "\x0A"
+02:05:01 | step 22 pos 22 fed 872 -> top1 220 10.1679659 top2 198 9.52095413 text " "
+02:05:01 | step 23 pos 23 fed 198 -> top1 40 9.02136612 top2 785 8.61978912 text "I"
+02:05:01 |     prefill=16..23: 164.4 s: SD 1834.8 MB in 3.9 s (464.58 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.79 s, compute 159.7 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:05:01 | STAGES prefill=16..23 embed=0.008 qkv=8.95 att=2.119 wo=6.68 ffn=126.22 head=20.47 hidden=142.28 temp_c=50.3
+02:07:46 | step 24 pos 24 fed 3838 -> top1 374 20.5358391 top2 525 19.992054 text " is"
+02:07:46 | step 25 pos 25 fed 374 -> top1 279 18.9274082 top2 264 16.2415924 text " the"
+02:07:46 | step 26 pos 26 fed 279 -> top1 6672 17.6220417 top2 7428 16.17729 text " difference"
+02:07:46 | step 27 pos 27 fed 6672 -> top1 1948 22.9239979 top2 304 18.2445908 text " between"
+02:07:46 | step 28 pos 28 fed 1948 -> top1 264 15.8514957 top2 279 14.6710205 text " a"
+02:07:46 | step 29 pos 29 fed 20429 -> top1 323 18.1734161 top2 320 17.1663532 text " and"
+02:07:46 | step 30 pos 30 fed 323 -> top1 358 16.3232059 top2 23267 14.5734882 text " I"
+02:07:46 | step 31 pos 31 fed 358 -> top1 17 23.4461136 top2 29456 18.2848511 text "2"
+02:07:46 |     prefill=24..31: 165.0 s: SD 1834.8 MB in 3.9 s (464.59 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.07 s, compute 159.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:07:46 | STAGES prefill=24..31 embed=0.008 qkv=8.95 att=2.623 wo=6.68 ffn=126.22 head=20.47 hidden=142.28 temp_c=50.3
+02:10:31 | step 32 pos 32 fed 17 -> top1 34 23.8728008 top2 50 17.9505405 text "C"
+02:10:31 | step 33 pos 33 fed 34 -> top1 304 18.9144287 top2 30 18.0652962 text " in"
+02:10:31 | step 34 pos 34 fed 30 -> top1 151645 19.395216 top2 3555 15.9097013 text "<|im_end|>"
+02:10:31 | step 35 pos 35 fed 21806 -> top1 304 17.2208939 top2 279 16.4594383 text " in"
+02:10:31 | step 36 pos 36 fed 304 -> top1 220 19.1881065 top2 264 18.9560089 text " "
+02:10:31 | step 37 pos 37 fed 1378 -> top1 22870 20.9250927 top2 3501 19.2265434 text " sentences"
+02:10:31 | step 38 pos 38 fed 22870 -> top1 13 19.4421368 top2 624 18.3163357 text "."
+02:10:31 | step 39 pos 39 fed 13 -> top1 151645 21.9751358 top2 151644 15.5827322 text "<|im_end|>"
+02:10:31 |     prefill=32..39: 165.5 s: SD 1834.8 MB in 3.9 s (464.69 MB/s), PSRAM 5502 KB read 150.8 KB written in 1.35 s, compute 160.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:10:31 | STAGES prefill=32..39 embed=0.007 qkv=8.95 att=3.127 wo=6.68 ffn=126.22 head=20.47 hidden=142.27 temp_c=50.3
+02:12:54 | step 40 pos 40 fed 151645 -> top1 198 26.6948795 top2 151644 21.3194408 text "\x0A"
+02:12:54 | step 41 pos 41 fed 198 -> top1 151644 26.3112354 top2 151645 17.5019531 text "<|im_start|>"
+02:12:54 | step 42 pos 42 fed 151644 -> top1 198 26.1842899 top2 151644 20.2932358 text "\x0A"
+02:12:54 | step 43 pos 43 fed 77091 -> top1 39779 19.1664219 top2 785 14.6496935 text "SPI"
+02:12:54 | step 44 pos 44 fed 198 -> top1 39779 19.3530884 top2 40 15.8442087 text "SPI"
+02:12:54 |   >> <|im_start|>system
+02:12:54 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+02:12:54 | <|im_start|>user
+02:12:54 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+02:12:54 | <|im_start|>assistant
+02:12:54 | SPI
+02:12:54 |     prefill=40..44: 142.3 s: SD 1834.8 MB in 36.1 s (50.81 MB/s), PSRAM 4051 KB read 94.2 KB written in 0.99 s, compute 105.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:12:54 | STAGES prefill=40..44 embed=0.005 qkv=7.95 att=2.214 wo=5.94 ffn=108.30 head=17.85 hidden=101.76 temp_c=50.9
+02:12:54 |   card: 1 position in this pass -> FIFO
+02:12:54 |     SD up (FIFO_SDIO), clock 66000 kHz
+02:12:54 |     qwen3b.gguf: 1929903072 bytes
+02:12:54 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 114 ms)
+02:12:54 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+02:12:54 | SDIO fifo
+02:12:54 | SDPATH file
+02:14:39 | step 45 pos 45 fed 39779 -> top1 320 20.2314739 top2 374 18.7457199 text " ("
+02:14:39 |   >> <|im_start|>system
+02:14:39 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+02:14:39 | <|im_start|>user
+02:14:39 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+02:14:39 | <|im_start|>assistant
+02:14:39 | SPI (
+02:14:39 |     step=45: 105.1 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 867 KB read 18.8 KB written in 0.22 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:14:39 | STAGES step=45 embed=0.001 qkv=6.14 att=0.469 wo=4.63 ffn=80.03 head=13.79 hidden=0.00 temp_c=49.0
+02:16:24 | step 46 pos 46 fed 320 -> top1 5915 26.6293812 top2 16374 19.2809315 text "Serial"
+02:16:24 |   >> <|im_start|>system
+02:16:24 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+02:16:24 | <|im_start|>user
+02:16:24 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+02:16:24 | <|im_start|>assistant
+02:16:24 | SPI (Serial
+02:16:24 |     step=46: 105.1 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 886 KB read 18.8 KB written in 0.22 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:16:24 | STAGES step=46 embed=0.001 qkv=6.13 att=0.476 wo=4.63 ffn=80.03 head=13.79 hidden=0.00 temp_c=49.0
+02:18:09 | step 47 pos 47 fed 5915 -> top1 83000 28.7934093 top2 34588 20.9415283 text " Peripheral"
+02:18:09 |   >> <|im_start|>system
+02:18:09 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+02:18:09 | <|im_start|>user
+02:18:09 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+02:18:09 | <|im_start|>assistant
+02:18:09 | SPI (Serial Peripheral
+02:18:09 |     step=47: 105.1 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 904 KB read 18.8 KB written in 0.23 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:18:09 | STAGES step=47 embed=0.001 qkv=6.14 att=0.484 wo=4.63 ffn=80.03 head=13.79 hidden=0.00 temp_c=49.0
+02:19:54 | step 48 pos 48 fed 83000 -> top1 20019 30.4374809 top2 5665 23.3292427 text " Interface"
+02:19:54 |   >> <|im_start|>system
+02:19:54 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+02:19:54 | <|im_start|>user
+02:19:54 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+02:19:54 | <|im_start|>assistant
+02:19:54 | SPI (Serial Peripheral Interface
+02:19:54 |     step=48: 105.1 s: SD 1834.8 MB in 76.0 s (24.13 MB/s), PSRAM 923 KB read 18.8 KB written in 0.23 s, compute 28.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 5 (0.010 s)
+02:19:54 | STAGES step=48 embed=0.001 qkv=6.14 att=0.492 wo=4.63 ffn=80.03 head=13.79 hidden=0.00 temp_c=49.0
+02:19:54 |   ANSWER: "SPI (Serial Peripheral Interface"
+02:19:54 |   10 passes over the weights in 1385 s (prompt 964 s), 138.5 s each; 17.92 GB read from the card
+02:19:54 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+02:19:54 | RUN n_prompt=45 n_gen=4 prefill=1 passes=10 total_s=1384.8 prompt_s=964.5 per_pass_s=138.48 sd_gb=17.918 sd_mbs=50.96 sd_s=360.0 compute_s=1018.9 hidden_s=813.2 ps_s=5.8 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=50 ps_sw_s=0.10 temp_max_c=50.9

@@ -195,20 +195,23 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
 
     /* The batched kernels -- one row against GGUF_NPOS_MAX different vectors -- against the single-vector
      * kernel run on each vector: every output must carry the same bits. */
-    int batch_differ = 0;
+    int batch_differ = 0, batchw_differ = 0;
     {
         const int NP = GGUF_NPOS_MAX;
         int8_t  *bq[GGUF_NPOS_MAX];
         float   *bs[GGUF_NPOS_MAX];
         int32_t *bm[GGUF_NPOS_MAX];
+        uint32_t *bw[GGUF_NPOS_MAX];
         for (int p = 0; p < NP; p++) {
             bq[p] = (int8_t *)malloc((size_t)cols);
             bs[p] = (float *)malloc((size_t)(cols / 32 + 1) * sizeof(float));
             bm[p] = (int32_t *)malloc((size_t)(cols / 32 + 1) * sizeof(int32_t));
-            if (!bq[p] || !bs[p] || !bm[p]) { printf("  out of memory\n"); return 1; }
+            bw[p] = (uint32_t *)malloc((size_t)(cols / 2 + 2) * sizeof(uint32_t));
+            if (!bq[p] || !bs[p] || !bm[p] || !bw[p]) { printf("  out of memory\n"); return 1; }
             for (int i = 0; i < cols; i++) xf[i] = ((float)(rnd() % 20001) - 10000.0f) / (1000.0f + 700.0f * p);
             gguf_quantize_act(xf, (uint64_t)cols, bq[p], bs[p]);
             gguf_act_sums(bq[p], (uint64_t)cols, bm[p]);
+            gguf_widen_act(bq[p], (uint64_t)cols, bw[p]);
         }
         for (int r = 0; r < rows; r++) {
             const uint8_t *row = w + (size_t)r * rowb;
@@ -226,9 +229,20 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
                     memcpy(&u2, &s, 4);
                     batch_differ += (u1 != u2);
                 }
+                if (type == GGML_Q4_K) {   /* the pre-widened batched kernel (2026-10-16): the same bits again */
+                    float ow[GGUF_NPOS_MAX];
+                    gguf_dot_q4k_presum_nw(row, np, (const int8_t *const *)bq, (const uint32_t *const *)bw,
+                                           (const float *const *)bs, (const int32_t *const *)bm, (uint64_t)cols, ow);
+                    for (int p = 0; p < np; p++) {
+                        uint32_t u1, u2;
+                        memcpy(&u1, &ow[p], 4);
+                        memcpy(&u2, &o[p], 4);
+                        batchw_differ += (u1 != u2);
+                    }
+                }
             }
         }
-        for (int p = 0; p < NP; p++) { free(bq[p]); free(bs[p]); free(bm[p]); }
+        for (int p = 0; p < NP; p++) { free(bq[p]); free(bs[p]); free(bm[p]); free(bw[p]); }
     }
 
     const double bytes = (double)rowb * rows;
@@ -240,7 +254,10 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
            batch_differ ? "DIFFERS from the single-vector kernel" : "IDENTICAL to the single-vector kernel on every row and vector");
     if (type == GGML_Q4_K || type == GGML_Q6_K)
         printf("    widened-activation kernel: %s\n", wid_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
-    differ += presum_differ + batch_differ + wid_differ;
+    if (type == GGML_Q4_K)
+        printf("    pre-widened batched kernel, 1/2/5/8 vectors: %s\n",
+               batchw_differ ? "DIFFERS from the batched kernel" : "IDENTICAL to the batched kernel on every row and vector");
+    differ += presum_differ + batch_differ + wid_differ + batchw_differ;
     if (differ) {
         printf("    DIFFER on %d of %d rows, worst %.3e at row %d (%.9g against %.9g)\n",
                differ, rows, (double)worst, worst_row,

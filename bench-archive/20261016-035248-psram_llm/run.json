@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-035248",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 25,
+  "note": "2026-10-16 night: ::sdtrace (cycle counter at each step of the FIFO block handshake, polled vs interrupt)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 648141
+}

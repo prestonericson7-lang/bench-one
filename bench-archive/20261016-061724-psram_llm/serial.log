@@ -1,0 +1,157 @@
+
+========================================================================
+  psram_llm v9 -- a 3B-parameter language model on a Teensy 4.1
+  the model: all of it on the microSD, streamed every token
+  PSRAM:     the attention cache -- the model's working memory, nothing of the model
+  cpu 600 MHz, 49.6 C
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 13, running at write  3 read 18 burst 96 setup  0 ->  8.88 MB/s
+      CS1  quad        edge write  0 read 16, running at write  3 read 24 burst 96 setup  0 ->  7.49 MB/s
+      Y0   no quad setting survives 1024 kB
+        80 wrong over 1024 kB at write 5 read 18 burst 40
+      Y0   single 0x03 edge write  2 read 13, running at write  5 read 20 burst 40 setup 16 ->  2.04 MB/s
+        40 wrong over 1024 kB at write 6 read 11 burst 56
+      Y0   single 0x0B edge write  3 read  8, running at write  6 read 12 burst 56 setup 16 ->  2.72 MB/s
+      Y0: 20 wrong on stability pass 1; leaving it out
+      Y0: not usable
+      Y1   no quad setting survives 1024 kB
+      Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y2   no quad setting survives 1024 kB
+      Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.84 MB/s
+      Y3   no quad setting survives 1024 kB
+      Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y4   no quad setting survives 1024 kB
+      Y4   single 0x03 edge write  5 read 10, running at write  8 read 13 burst 56 setup 16 ->  2.64 MB/s
+      Y4   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+      Y5   no quad setting survives 1024 kB
+      Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+      Y5   single 0x0B edge write  0 read  6, running at write  3 read  9 burst 64 setup 16 ->  3.12 MB/s
+
+  proving every byte: fill all 7 banks (56 MB) with bank-tagged data, then read all back
+    CS0  filled 8 MB in 0.3 s
+    CS1  filled 8 MB in 0.3 s
+    Y5   filled 8 MB in 1.3 s
+    Y4   filled 8 MB in 1.8 s
+    Y1   filled 8 MB in 1.8 s
+    Y3   filled 8 MB in 1.3 s
+    Y2   filled 8 MB in 1.3 s
+    CS0  quad        read back 8 MB in 0.9 s (8.89 MB/s): 0 wrong
+    CS1  quad        read back 8 MB in 1.1 s (7.49 MB/s): 0 wrong
+    Y5   single 0x0B read back 8 MB in 2.7 s (3.12 MB/s): 0 wrong
+    Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+    Y1   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+    Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+    Y2   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 0 wrong
+  PSRAM in use: 7 banks, 58720256 bytes
+
+  SD card
+    SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+    uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+    qwen3b.gguf: 1929903072 bytes
+    contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 805 ms)
+CARD id manufacturer 0x05 oem ?? product asdfg rev 2.2 made 2025-10 sectors 7864320
+CLKSWEEP begin temp_c 49.6
+    SD up (FIFO_SDIO), clock 49500 kHz
+    qwen3b.gguf: 1929903072 bytes
+    contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 134 ms)
+CLKSWEEP khz 49500 divider 4 mb_s 22.93 (SdFat's, the reference)
+CLKSWEEP khz 66000 divider 3 mb_s 24.02 regions 8 wrong 0 failed 0
+CLKSWEEP khz 99000 divider 2 mb_s 23.87 regions 8 wrong 0 failed 0
+    SD up (DMA_SDIO), clock 49500 kHz
+    qwen3b.gguf: 1929903072 bytes
+    contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 806 ms)
+CLKSWEEP best khz 66000 divider 3 mb_s 24.02 (kept)
+CLKSWEEP end temp_c 49.6
+    sequential read: 32 MB in 4.47 s = 7.51 MB/s
+
+  opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+    qwen3b.tok: 8301328 bytes on the card, contiguous
+    3.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+    36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+    3085938688 parameters in the file
+    read from the card per token: 1923948176 bytes
+    the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+    PSRAM: 7 chips, the attention cache on 6 of them, one layer per region (1397888 bytes), 2608 positions; 42 layer slots, 6 spare (any one chip can fail) -- nothing of the model
+    layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 Y5 Y5 Y5 Y5 Y5 Y5 Y4 Y4 Y4 Y4 Y4 Y4 Y1 Y1 Y1 Y1 Y1 Y1 Y3 Y3 Y3 Y3 Y3 Y3
+
+  READY. Type a prompt and press Enter within 30 s, or the default runs
+
+  prompt: "The capital of France is"  (5 tokens, generating 16, prompt batched through tl_prefill)
+prompt ids: 785 6722 315 9625 374
+  card: 5 positions in this pass -> FIFO
+    SD up (FIFO_SDIO), clock 66000 kHz
+    qwen3b.gguf: 1929903072 bytes
+    contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 115 ms)
+    qwen3b.tok: 8301328 bytes on the card, contiguous
+SDIO fifo
+
+[board_cmd 2026-10-16 06:20:52] >>> I
+06:21:53 | step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+06:21:53 | step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+06:21:53 | step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+06:21:53 | step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+06:21:53 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+06:21:53 |   >> The capital of France is Paris
+06:21:53 |     prefill=0..4: 125.0 s: SD 1834.8 MB in 2.7 s (681.59 MB/s), PSRAM 283 KB read 94.2 KB written in 0.13 s, compute 122.2 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:21:53 | STAGES prefill=0..4 embed=0.003 qkv=6.93 att=0.650 wo=5.21 ffn=96.20 head=15.99 hidden=92.49 temp_c=50.3
+06:21:53 | CARD prefill=0..4 fifoirq opens=3277 interrupts=7518194
+06:23:37 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+06:23:37 |   >> The capital of France is Paris.
+06:23:37 |     step=5: 104.0 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 113 KB read 18.8 KB written in 0.05 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:23:37 | STAGES step=5 embed=0.001 qkv=6.05 att=0.160 wo=4.59 ffn=79.53 head=13.72 hidden=34.31 temp_c=50.9
+06:23:37 | CARD step=5 fifoirq opens=217 interrupts=7512074
+06:25:21 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+06:25:21 |   >> The capital of France is Paris. Paris
+06:25:21 |     step=6: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:25:21 | STAGES step=6 embed=0.001 qkv=6.05 att=0.168 wo=4.59 ffn=79.53 head=13.72 hidden=34.31 temp_c=50.9
+06:25:21 | CARD step=6 fifoirq opens=217 interrupts=7512074
+06:27:05 | step 7 pos 7 fed 12095 -> top1 374 20.5606785 top2 702 17.2204037 text " is"
+06:27:05 |   >> The capital of France is Paris. Paris is
+06:27:05 |     step=7: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 151 KB read 18.8 KB written in 0.06 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:27:05 | STAGES step=7 embed=0.001 qkv=6.05 att=0.177 wo=4.59 ffn=79.53 head=13.72 hidden=34.31 temp_c=51.6
+06:27:05 | CARD step=7 fifoirq opens=217 interrupts=7512074
+06:28:49 | step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+06:28:49 |   >> The capital of France is Paris. Paris is the
+06:28:49 |     step=8: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:28:49 | STAGES step=8 embed=0.001 qkv=6.05 att=0.185 wo=4.59 ffn=79.53 head=13.72 hidden=34.31 temp_c=50.9
+06:28:49 | CARD step=8 fifoirq opens=217 interrupts=7512074
+06:30:33 | step 9 pos 9 fed 279 -> top1 7772 18.4694843 top2 1429 17.291029 text " largest"
+06:30:33 |   >> The capital of France is Paris. Paris is the largest
+06:30:33 |     step=9: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 188 KB read 18.8 KB written in 0.07 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:30:33 | STAGES step=9 embed=0.001 qkv=6.05 att=0.193 wo=4.59 ffn=79.53 head=13.72 hidden=34.32 temp_c=50.9
+06:30:33 | CARD step=9 fifoirq opens=217 interrupts=7512074
+06:32:17 | step 10 pos 10 fed 7772 -> top1 3283 21.7598343 top2 323 19.3194656 text " city"
+06:32:17 |   >> The capital of France is Paris. Paris is the largest city
+06:32:17 |     step=10: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 207 KB read 18.8 KB written in 0.07 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:32:17 | STAGES step=10 embed=0.001 qkv=6.05 att=0.202 wo=4.59 ffn=79.53 head=13.72 hidden=34.32 temp_c=50.9
+06:32:17 | CARD step=10 fifoirq opens=217 interrupts=7512074
+06:34:01 | step 11 pos 11 fed 3283 -> top1 304 21.3497658 top2 323 18.2502346 text " in"
+06:34:01 |   >> The capital of France is Paris. Paris is the largest city in
+06:34:01 |     step=11: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 226 KB read 18.8 KB written in 0.08 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:34:01 | STAGES step=11 embed=0.001 qkv=6.05 att=0.210 wo=4.59 ffn=79.53 head=13.72 hidden=34.32 temp_c=51.6
+06:34:01 | CARD step=11 fifoirq opens=217 interrupts=7512074
+06:35:45 | step 12 pos 12 fed 304 -> top1 9625 20.1627922 top2 279 17.4065971 text " France"
+06:35:45 |   >> The capital of France is Paris. Paris is the largest city in France
+06:35:45 |     step=12: 104.1 s: SD 1834.8 MB in 69.2 s (26.50 MB/s), PSRAM 245 KB read 18.8 KB written in 0.08 s, compute 34.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+06:35:45 | STAGES step=12 embed=0.001 qkv=6.05 att=0.219 wo=4.59 ffn=79.53 head=13.72 hidden=34.31 temp_c=51.6
+06:35:45 | CARD step=12 fifoirq opens=217 interrupts=7512074
+
+[board_cmd 2026-10-16 06:35:52] >>> ::hold

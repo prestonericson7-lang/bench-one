@@ -21,11 +21,15 @@ Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 | `build.bat` | refreshes the shared copies, regenerates the .cpp, compiles; `build.bat upload` flashes |
 | `suite.py`, `tests_realistic.txt` (from `make_tests_realistic.py`), `tests_v7.txt` (from `make_tests_v7.py`) | the test process (below): v7's card-read A/B, then `tests_night2.txt`; `tests_night1.txt` is v4's |
 | `fake_board.py` | the board's serial protocol answered on the PC (`suite.py --fake`), to dry-run a test file before a board spends hours on it; every timing FAKE |
-| `verify_pc.py` | the PC half: tokenizer parity (core, reference, llama.cpp) and every step line of per-token, batched and together runs against the reference |
+| `verify_pc.py` | the PC half: tokenizer parity (core, reference, llama.cpp) and every step line of per-token, batched, lookup, every gate/up group and together runs against the reference |
 | `survey.py`, `survey2_prompts.txt` | what the model answers, on the PC reference the board reproduces |
 | `chat_template.py` | a chat prompt exactly as the file's own template renders it, escaped for one board line |
 | `compare_run.py`, `expected_france.txt` | one log against the PC reference |
 | `run_when_plugged.py` | flash once when the right board appears (identity-guarded) |
+| `pass_cost.py` | the board's time for one pass over P = 1..8 positions (a P-token prompt with `::gen 1`), die temperature with each |
+| `alpha_sim.py` | speculative decoding from the context on the reference's own answers: every match length and guess count, timed with the board's measured pass costs; exactly the board's `::lookup` rule |
+| `lookup_run.py` | `::lookup` on the board: every step line against the reference, the board's pass/guess/keep counts against `alpha_sim`, time against the run's own plain passes |
+| `ab_ffn.py` | `::kbench`, then the batched pass's gate/up read order A/B (`::ffngroup 32` against 256) |
 
 ## Commands (USB serial, one line each)
 
@@ -43,10 +47,15 @@ Usable numbers: `docs/55`; the story and every measurement: `docs/54`.
 | `::slice N` | rows per `yield()` during a DMA wait: 0 = one row (default), N = N µs of rows. These four move only the time; the step lines must not change |
 | `::sdclksweep` | the card clock above SdFat's 49.5 MHz (66, 99 MHz): 8 MB in four places read twice at each and checked byte for byte; keeps the fastest by measured rate (`CLKSWEEP …` lines). **Runs at every boot** |
 | `::sdclk N` | card clock = 198 MHz / N (2–16); `::sdclk 0` = SdFat's 49.5 MHz. A failed read above 49.5 MHz drops back for good and retries |
-| `::admamin N` | a pass with N or more positions reads the card by ADMA2 with the arithmetic run under the read, a smaller one by FIFO (default 3, measured in `docs/56`); `::admamin 0` = no automatic switching |
+| `::admamin N` | a pass with N or more positions reads the card by ADMA2 with the arithmetic run under the read, a smaller one by FIFO (default 7 with `::fifoirq`; 3 before 2026-10-16; measured in `docs/56`); `::admamin 0` = no automatic switching |
 | `::model NAME.gguf` | records NAME in `model.txt` on the card and restarts the board, which then opens that file (tokenizer store NAME.tok, built once). `::model` alone prints the current one. Default `qwen3b.gguf`; the `I` line ends with `model NAME`. The restart happens with the card idle |
 | `::sdpath file\|adma` | how a pipeline read reaches the card: SdFat's file layer, or (in DMA mode) whole sectors straight to the card object with an ADMA2 descriptor table for the core's buffer |
 | `::sdadma` | the card by ADMA2 at three read sizes, 2 MB each checked byte for byte against FIFO and against SdFat's simple DMA (`ADMA …` lines) |
+| `::sdfifo` | the FIFO read with arithmetic between a block's request and its drain: SdFat's block handshake (`gap`), the infinite transfer without Stop At Block Gap (`stream`), 48-block bursts with pauses (`burst48`) and an interrupt draining each block while the CPU works (`irq`); 2 MB each checked byte for byte (`FIFOX …` lines) |
+| `::fifoirq 0\|1` | FIFO pipeline reads fed by the card controller's interrupt (a whole block per Buffer Read Ready; the next block asked for at each block gap) while the core's pending rows run, one transfer kept open across consecutive reads; any other card access closes it first. Default 1 (since 2026-10-16, measured: 2–6 positions cheaper, one position equal); `::fifoirq 16\|32\|64\|128` also sets the read watermark (no difference measured). A failure turns it off, restarts the card and reads that block through the file layer. Per pass `CARD … fifoirq opens=… interrupts=…`. Moves only the time |
+| `::lookup K` | after the prompt, each pass also checks up to K tokens guessed from the context (the tokens that followed the most recent earlier occurrence of the last 4, 3 or 2 tokens); the guesses are kept only as far as the model's own greedy choice agrees, so the step lines are the plain run's. Per pass `lookup=P guessed=k kept=j`; at the end `LOOKUP k=… passes=… drafted=… accepted=…`. `::lookup 0` = off |
+| `::ffngroup G` | a batched pass computes the feed-forward's gate and up G rows at a time (32–256, a multiple of 32; default 256), read in near-equal whole row-buffer blocks; 32 = the pre-2026-10-16 order. Moves only the time |
+| `::kbench` | the batched Q4_K kernel against the pre-widened one at 2/3/4/5/8 vectors, rows in the DTCM row buffer and in OCRAM, cycles per weight per vector, fewest of 5, bit-identity checked (`KBENCH …`) |
 | `::sdsweep` | the simple-DMA path's read watermark × burst length × burst enables, each 2 MB checked against FIFO; keeps the fastest that reads right (`SWEEP …` lines) |
 | `::sdcfg W B L`, `::sdregs` | set the DMA watermark/burst by hand (`::sdcfg 0` = SdFat's); dump the SD controller's registers |
 | `::bench` | card at 4/16/64 KB and random 4 KB; the M7 kernels on real Q4_K and Q6_K rows, and the Q4_K dot timed in stages (`BENCH q4k_stage`); v6 adds the batched kernel with 8 vectors (`BENCH kernel_x8`); PSRAM raw and self-checked on a free bank |
@@ -113,6 +122,27 @@ Test files: `id | tokens to generate | prompt`, one per line; `#` comments; line
 board as commands (e.g. `::prefill 0` before an A/B test); `@multi <id> | <tokens>` … `@end` around
 `id | prompt` lines is a group answered together. `summary.md` also checks that tests reaching the same prompt
 by different paths (batched, per token, inside a group) printed identical step lines.
+
+## State on 2026-10-16
+
+- **On the board: the 2026-10-16 build** (`bench-archive/20261016-0*-psram_llm*`; `docs/56` "2026-10-16").
+  Seven PSRAM chips qualify on most boots (six on one). The card is fed by its interrupt (`::fifoirq 1`,
+  `::admamin 7`): a pass of one to four positions costs the card's own floor, 104.0–108.1 s, with the
+  arithmetic under it; five 124.6 s, eight 161.4 s.
+- **The card's real rate is 18.5 MB/s**, FIFO or ADMA2 (`::sdtrace`): the old "24 MB/s FIFO" was timed with
+  read-ahead pauses in it. A one-token pass was always at that floor; a faster card is now the lever for
+  every pass (the bus delivers 30.1 MB/s when the card keeps up).
+- **The batched feed-forward reads gate and up in groups of 256 rows** (`::ffngroup`), SwiGLU fused in place:
+  a 2-position pass 131.1 → 115.4 s by FIFO, 105.2 s with the interrupt.
+- **Speculative decoding from the context** (`::lookup 3 1`, `lookup_run.py`): exact (every step line equal
+  to the reference), the board's pass/guess/keep counts equal to `alpha_sim.py`'s, its time within 1.1% of
+  the prediction. Four answers, 24 tokens: 1.68× (code), 0.96× (every guess wrong), 1.51× (an answer that
+  repeats its question), 2.31× (a summary); 1.67× together (`20261016-040050-psram_llm-lookup`). Over the 63
+  survey answers the simulation says 1.17× at 24 tokens, 1.31× at 200 (`docs/59` L1).
+- **The card in the slot** reports manufacturer 0x05, product "asdfg", 4 GB (`CARD id` at boot): a no-name
+  card. A name-brand card is the cheapest experiment left -- `::sdtrace` shows its sustained rate.
+- PC: `verify_pc.py` ALL IDENTICAL, now with lookup decoding and every gate/up group
+  (`20261016-021117-psram_llm-pcverify`). Die 36.0–52.2 °C over the night.
 
 ## State on 2026-09-28
 

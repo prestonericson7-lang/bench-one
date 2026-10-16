@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-061724",
+  "sketch": "psram_llm",
+  "git": "51b8e9d",
+  "git_dirty": true,
+  "seconds": 150,
+  "note": "2026-10-16 final (same source as 061459), boot logged in full for the CARD id line",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 648141
+}

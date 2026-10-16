@@ -115,6 +115,11 @@ typedef struct {
  * one's -- every chat prompt's system turn -- copies those positions' cache rows instead of recomputing them.
  * Exact: a cache row depends only on the tokens up to its own position. Returns the previous setting. */
 int  tl_multi_share(int on);
+/* A batched pass computes the feed-forward's gate and up a group of g rows at a time (32..256, a multiple of
+ * 32; default 256), reading the card in whole row-buffer blocks; 32 is the pre-2026-10-16 order (16-row
+ * halves). Only the order the rows come off the card changes, never a result. 0 returns the current value;
+ * returns the previous one, or -1 for a g it does not take. */
+int  tl_set_ffn_group(int g);
 typedef void (*tl_multi_emit_fn)(void *ctx, int seq, int pos, int32_t fed, int32_t top1, float l1,
                                  int32_t top2, float l2);
 /* Lays the sequences out in the attention cache. Returns 0, or -1 when they do not fit (tl_last_error). */
@@ -126,6 +131,7 @@ int  tl_multi_pass(tl_seq_t *seqs, int n_seqs, tl_multi_emit_fn emit, void *ctx)
 /* The core's working arena, for a board to borrow BETWEEN passes (benchmarks, card tests). Its contents
  * do not survive a pass and a pass does not need them to survive. */
 void *tl_scratch(uint32_t *bytes);
+void *tl_rowbuf(uint32_t *bytes);    /* a pass's row buffer (DTCM on the Teensy), free between passes */
 
 /* The last error tl_forward hit, for the board to print. */
 const char *tl_last_error(void);

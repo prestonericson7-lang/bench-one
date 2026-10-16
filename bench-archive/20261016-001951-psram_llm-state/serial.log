@@ -1,0 +1,60 @@
+
+[board_cmd 2026-10-16 00:19:51] >>> I
+00:19:52 |     Y0   single 0x0B read back 8 MB in 3.0 s (2.84 MB/s): 111 wrong  -> DROPPED
+00:19:52 |   PSRAM in use: 6 banks, 50331648 bytes
+00:19:52 |   SD card
+00:19:52 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+00:19:52 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+00:19:52 |     qwen3b.gguf: 1929903072 bytes
+00:19:52 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 807 ms)
+00:19:52 | CLKSWEEP begin temp_c 36.0
+00:19:52 |     SD up (FIFO_SDIO), clock 49500 kHz
+00:19:52 |     qwen3b.gguf: 1929903072 bytes
+00:19:53 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 132 ms)
+00:19:53 | CLKSWEEP khz 49500 divider 4 mb_s 22.90 (SdFat's, the reference)
+00:19:54 | CLKSWEEP khz 66000 divider 3 mb_s 24.00 regions 8 wrong 0 failed 0
+00:19:55 | CLKSWEEP khz 99000 divider 2 mb_s 23.85 regions 8 wrong 0 failed 0
+00:19:55 |     SD up (DMA_SDIO), clock 49500 kHz
+00:19:55 |     qwen3b.gguf: 1929903072 bytes
+00:19:56 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 807 ms)
+00:19:56 | CLKSWEEP best khz 66000 divider 3 mb_s 24.00 (kept)
+00:19:56 | CLKSWEEP end temp_c 36.0
+00:20:00 |     sequential read: 32 MB in 4.48 s = 7.49 MB/s
+00:20:00 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+00:20:00 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:20:03 |     3.3 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+00:20:03 |     36 layers, dim 2048, hidden 11008, 16 heads (2 kv), head_dim 128, vocabulary 151936, 151387 merges
+00:20:03 |     3085938688 parameters in the file
+00:20:03 |     read from the card per token: 1923948176 bytes
+00:20:03 |     the model stays on the card: weights, norms and biases read from qwen3b.gguf every pass; the tokenizer's tables in qwen3b.tok (8301328 bytes, checked against the model and reused)
+00:20:03 |     PSRAM: 6 chips, the attention cache on 5 of them, one layer per region (1048416 bytes), 1956 positions; 48 layer slots, 12 spare (any one chip can fail) -- nothing of the model
+00:20:03 |     layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 CS1 CS1 Y5 Y5 Y5 Y5 Y5 Y5 Y5 Y5 Y1 Y1 Y1 Y1 Y1 Y1 Y1 Y1 Y3 Y3 Y3 Y3
+00:20:03 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+
+[board_cmd 2026-10-16 00:20:03] >>> ::hold
+00:20:03 | HOLD waiting for prompts
+
+[board_cmd 2026-10-16 00:20:03] >>> I
+00:20:03 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[board_cmd 2026-10-16 00:20:03] >>> I
+00:20:03 | I bench-one psram_llm v9 banks 6 ps_bytes 50331648 max_seq 1956 gen 16 sdio dma overlap 1 align 1 slice 0 clk 66000
+
+[board_cmd 2026-10-16 00:20:05] >>> ::stats
+00:20:05 | STATS bank 0 CS0 quad write 3 read 18 burst 96 rate_mb_s 8.82
+00:20:05 | STATS bank 1 CS1 quad write 3 read 24 burst 96 rate_mb_s 7.33
+00:20:05 | STATS bank 2 Y5 single 0x0B write 3 read 8 burst 64 rate_mb_s 3.25
+00:20:05 | STATS bank 3 Y1 single 0x0B write 7 read 10 burst 56 rate_mb_s 2.95
+00:20:05 | STATS bank 4 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+00:20:05 | STATS bank 5 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.84
+00:20:05 | STATS ps_fix_r 0 ps_fix_w 0 ps_bad 0 temp_c 36.7 gen 16 max_seq 1956 uptime_s 93
+
+[board_cmd 2026-10-16 00:20:07] >>> ::model
+00:20:07 |   prompt: "::model"  (2 tokens, generating 16, prompt batched through tl_prefill)
+00:20:07 | prompt ids: 486 2528
+00:20:07 |   card: 2 positions in this pass -> FIFO
+00:20:07 |     SD up (FIFO_SDIO), clock 66000 kHz
+00:20:07 |     qwen3b.gguf: 1929903072 bytes
+00:20:08 |     contiguous on the card, sectors 16776..3786119 (FAT32): every seek is one addition (checked in 113 ms)
+00:20:08 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+00:20:08 | SDIO fifo

@@ -90,8 +90,33 @@ int plat_tok_write(uint32_t a, const void *src, uint32_t n)
 }
 int plat_tok_flush(void) { return TKF ? fflush(TKF) : 0; }
 
+/* TL_READCENSUS=1: every model read counted, as the Teensy's card would see it -- an overlap (pipeline) read is
+ * one command of the whole sectors around it (ADMA2 path), a plain read one command of its bytes. Printed at
+ * exit, to stderr: commands and bytes by size, so a card model (per-command cost + rate) can be checked against
+ * the board's measured pass. A count of the code's reads, never a timing. */
+static long long g_rc_n[2], g_rc_b[2], g_rc_hist[2][8];
+static void read_census(int kind, uint64_t bytes)
+{
+    static const uint64_t lim[7] = { 1024, 4096, 8192, 16384, 20480, 24576, 32768 };
+    int h = 0;
+    while (h < 7 && bytes > lim[h]) h++;
+    g_rc_n[kind]++; g_rc_b[kind] += (long long)bytes; g_rc_hist[kind][h]++;
+}
+static void read_census_print(void)
+{
+    static const char *nm[8] = { "<=1K", "<=4K", "<=8K", "<=16K", "<=20K", "<=24K", "<=32K", ">32K" };
+    for (int k = 0; k < 2; k++) {
+        fprintf(stderr, "READCENSUS %s commands %lld bytes %lld", k ? "plain" : "pipeline", g_rc_n[k], g_rc_b[k]);
+        for (int h = 0; h < 8; h++) fprintf(stderr, " %s:%lld", nm[h], g_rc_hist[k][h]);
+        fprintf(stderr, "\n");
+    }
+}
+static int g_rc_on = -1, g_rc_in_overlap;
+
 int plat_sd_read(uint64_t off, void *dst, uint32_t n)
 {
+    if (g_rc_on < 0) { g_rc_on = getenv("TL_READCENSUS") && atoi(getenv("TL_READCENSUS")); if (g_rc_on) atexit(read_census_print); }
+    if (g_rc_on && !g_rc_in_overlap) read_census(1, n);
 #if defined(_WIN32)
     if (_fseeki64(F, (long long)off, SEEK_SET)) return -1;
 #else
@@ -119,8 +144,13 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
         if ((uintptr_t)(d - pre) % 32u) { fprintf(stderr, "plat_sd_read_overlap: dst - off%%512 not 32-aligned\n"); exit(9); }
         memset(d - pre, 0xA5, pre);
         memset(d + n, 0x5A, end - pre - n);
+        if (g_rc_on < 0) { g_rc_on = getenv("TL_READCENSUS") && atoi(getenv("TL_READCENSUS")); if (g_rc_on) atexit(read_census_print); }
+        if (g_rc_on) read_census(0, end);
     }
-    return plat_sd_read(off, dst, n);
+    g_rc_in_overlap = 1;
+    const int r = plat_sd_read(off, dst, n);
+    g_rc_in_overlap = 0;
+    return r;
 }
 uint64_t plat_sd_size(void) { return FS; }
 /* The PSRAM stand-in: TL_PSRAM_BANKS independent banks (default 8) of TL_PSRAM_BANK_MB (default 8), as the
@@ -217,6 +247,11 @@ int main(int argc, char **argv)
     char err[200];
     const double t0 = plat_now();
     if (tl_open(&in, err, sizeof err)) { fprintf(stderr, "tl_open: %s\n", err); return 1; }
+    memset(g_rc_n, 0, sizeof g_rc_n); memset(g_rc_b, 0, sizeof g_rc_b); memset(g_rc_hist, 0, sizeof g_rc_hist);  /* census: passes only */
+    /* TL_FFN_GROUP=g: the batched pass's gate/up group (32 = the pre-2026-10-16 card order); never a result */
+    if (getenv("TL_FFN_GROUP") && tl_set_ffn_group(atoi(getenv("TL_FFN_GROUP"))) < 0) {
+        fprintf(stderr, "TL_FFN_GROUP must be 32..256, a multiple of 32\n"); return 1;
+    }
     fprintf(stderr, "open %.2f s: %d layers dim %d hidden %d heads %d/%d head_dim %d vocab %d merges %u max_seq %d\n",
             plat_now() - t0, in.n_layer, in.dim, in.hidden, in.n_heads, in.n_kv, in.head_dim, in.vocab,
             in.n_merges, in.max_seq);
@@ -380,7 +415,8 @@ int main(int argc, char **argv)
 
     /* TL_LOOKUP=1: prompt-lookup decoding. The prompt goes through tl_prefill; then each pass feeds the pending
      * token plus a draft copied from the context (the tokens that followed the most recent earlier occurrence
-     * of the last 3, 2 or 1 tokens), and keeps the draft only as far as the model's own greedy choice agrees.
+     * of the last TL_NMAX..TL_NMIN tokens, default 3..1; the board's ::lookup uses 4..2), and keeps the draft only
+     * as far as the model's own greedy choice agrees; a pass with no draft is the ordinary tl_forward pass.
      * Every kept position's logits come from tl_prefill, which is identical to tl_forward, so the lines printed
      * must be identical to tl_ref.exe; only the number of passes changes. TL_DRAFT caps the draft length. */
     if (getenv("TL_LOOKUP") && atoi(getenv("TL_LOOKUP"))) {
@@ -390,6 +426,8 @@ int main(int argc, char **argv)
         int kmax = getenv("TL_DRAFT") ? atoi(getenv("TL_DRAFT")) : B - 1;
         if (kmax > B - 1) kmax = B - 1;
         if (kmax < 0) kmax = 0;
+        const int nmax = getenv("TL_NMAX") ? atoi(getenv("TL_NMAX")) : 3;
+        const int nmin = getenv("TL_NMIN") ? atoi(getenv("TL_NMIN")) : 1;
         int passes = 0, drafted = 0, accepted = 0, stop = 0;
         memcpy(ctx, ids, (size_t)n * sizeof(int32_t));
 #define PRINT_STEP(q, f, a1, b1, a2, b2) do { \
@@ -410,7 +448,7 @@ int main(int argc, char **argv)
             int lim = n + n_gen - pos - 1;
             if (lim > kmax) lim = kmax;
             int k = 0;
-            for (int m = 3; m >= 1 && !k && lim > 0; m--) {          /* most recent earlier match of the last m */
+            for (int m = nmax; m >= nmin && m >= 1 && !k && lim > 0; m--) {   /* most recent earlier match of the last m */
                 if (pos + 1 < m + 1) continue;
                 const int32_t *suf = ctx + pos + 1 - m;
                 for (int s = pos - m; s >= 0 && !k; s--) {
@@ -420,7 +458,9 @@ int main(int argc, char **argv)
             }
             feed[0] = next;
             for (int i = 0; i < k; i++) feed[i + 1] = draft[i];
-            if (tl_prefill(feed, k + 1, pos, o1, f1, o2, f2)) { fprintf(stderr, "prefill: %s\n", tl_last_error()); return 1; }
+            if (k ? tl_prefill(feed, k + 1, pos, o1, f1, o2, f2) : tl_forward(feed[0], pos, o1, f1, o2, f2)) {
+                fprintf(stderr, "lookup pass: %s\n", tl_last_error()); return 1;
+            }
             passes++;
             drafted += k;
             int j = 0;
@@ -431,6 +471,7 @@ int main(int argc, char **argv)
                 PRINT_STEP(pos + j, feed[j], o1[j], f1[j], o2[j], f2[j]);
             }
             for (int i = 0; i < j; i++) ctx[pos + 1 + i] = draft[i];
+            if (getenv("TL_LOOKUP_TRACE")) fprintf(stderr, "lookup pass at %d: guessed %d kept %d\n", pos, k, j);
             next = o1[j];
             pos += j + 1;
         }

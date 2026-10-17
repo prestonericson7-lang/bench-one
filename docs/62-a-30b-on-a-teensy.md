@@ -132,6 +132,22 @@ position's picks from the expert-hit counters, and counted distinct experts over
   the guess is right more than 32% of the time; verifying three costs 1.80 and needs 0.8 accepted tokens a pass. Weaker
   than on the dense 3B, where a guess costs almost nothing extra -- but not nothing.
 
+**Speculative lookup on the 30B, simulated on its own answers** (`alpha_sim.simulate` -- the board's `::lookup` rule
+-- on the reference's greedy answers to the eight prompts, 64 tokens each, 410 tokens after the first; a pass over P
+positions costing the card bytes above at 44 MB/s, 43.6 / 57.6 / 68.9 s for 1 / 2 / 3, and 83 s for 4, where four
+positions' arithmetic outlasts the read):
+
+| guesses a pass (`::lookup K`) | match | guesses right | decode time vs one token a pass |
+|---|---|---|---|
+| 1 | last 4..1 tokens (`::lookup 1 1`) | 82 of 147 (56%) | **1.093x** |
+| 2 | 4..1 | 105 of 243 | 1.092x |
+| 3 | 4..1 | 111 of 344 | 1.018x |
+| 1 | 4..2 | 54 of 84 | 1.071x |
+
+One guess a pass, from as short a match as one token, is the setting: 9% faster, exact (a wrong guess costs its
+experts and nothing else). More guesses do not pay on a mixture of experts -- every extra position drags in its own
+experts. The board keeps lookup off by default; `::lookup 1 1` turns it on.
+
 **What the jumps cost the card stream.** The board reads by ADMA2 into a ring that keeps one card stream open while
 reads follow each other; a read that jumps restarts it (a CMD12 and a CMD18). `tl_host`'s read census now models
 exactly that rule (`TL_READCENSUS=1`, "ring streams opened"); on the 3B it predicts **217 streams a decode pass --

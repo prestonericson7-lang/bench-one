@@ -11,6 +11,11 @@
   #include <sys/stat.h>
   #include <unistd.h>
 #endif
+#if defined(_WIN32) && !defined(GGUF_NO_MMAP)
+  #define WIN32_LEAN_AND_MEAN
+  #include <windows.h>
+  #include <io.h>
+#endif
 #if defined(_WIN32)
   #define SEEK64(f, off) _fseeki64((f), (long long)(off), SEEK_SET)
 #else
@@ -37,9 +42,18 @@ static const tinfo_t TYPES[16] = {
     { "Q4_K", 256, 144 }, { "Q5_K", 256, 176 }, { "Q6_K", 256, 210 }, { "Q8_K", 256, 292 }
 };
 
+/* BF16 (ggml type 30) sits far past the table: Qwen3-Next stores one small gate vector per layer in it. */
+static const tinfo_t TYPE_BF16 = { "BF16", 1, 2 };
+static const tinfo_t *tinfo(uint32_t type)
+{
+    if (type == GGML_BF16) return &TYPE_BF16;
+    return (type < 16 && TYPES[type].blk) ? &TYPES[type] : NULL;
+}
+
 const char *gguf_type_name(uint32_t type)
 {
-    return (type < 16 && TYPES[type].blk) ? TYPES[type].name : "UNKNOWN";
+    const tinfo_t *ti = tinfo(type);
+    return ti ? ti->name : "UNKNOWN";
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -207,6 +221,24 @@ int gguf_open(gguf_t *g, const char *path)
         }
     }
 #endif
+    /* WINDOWS TOO (2026-10-17). Without it every PC tool read the whole file into RAM: the 80B is 45 GB on a 48 GB
+     * machine, which fits alone and fails beside llama-server ("cannot allocate 288 MB"). A read-only view carries
+     * no commit charge; pages come from the file as they are touched, and the bytes are the file's, so nothing a
+     * tool computes changes. The view keeps the mapping object alive after its handle closes. */
+#if defined(_WIN32) && !defined(GGUF_NO_MMAP)
+    {
+        HANDLE fh = (HANDLE)_get_osfhandle(_fileno(g->f));
+        LARGE_INTEGER sz;
+        if (fh != INVALID_HANDLE_VALUE && GetFileSizeEx(fh, &sz) && sz.QuadPart > 0) {
+            HANDLE mh = CreateFileMappingW(fh, NULL, PAGE_READONLY, 0, 0, NULL);
+            if (mh) {
+                void *p = MapViewOfFile(mh, FILE_MAP_READ, 0, 0, 0);
+                CloseHandle(mh);
+                if (p) { g->map = (uint8_t *)p; g->map_len = (uint64_t)sz.QuadPart; }
+            }
+        }
+    }
+#endif
     return 0;
 }
 
@@ -223,6 +255,9 @@ void gguf_close(gguf_t *g)
 {
 #if !defined(_WIN32) && !defined(GGUF_NO_MMAP)
     if (g->map) munmap(g->map, (size_t)g->map_len);
+#endif
+#if defined(_WIN32) && !defined(GGUF_NO_MMAP)
+    if (g->map) UnmapViewOfFile(g->map);
 #endif
     if (g->kv) {
         for (uint64_t i = 0; i < g->n_kv; i++) {
@@ -319,8 +354,8 @@ uint64_t gguf_nelem(const gguf_tensor *t)
 uint64_t gguf_nbytes(const gguf_tensor *t)
 {
     const uint64_t n = gguf_nelem(t);
-    if (t->type >= 16 || !TYPES[t->type].blk) return 0;
-    const tinfo_t *ti = &TYPES[t->type];
+    const tinfo_t *ti = tinfo(t->type);
+    if (!ti) return 0;
     return (n / ti->blk) * ti->bytes;
 }
 
@@ -337,8 +372,9 @@ uint64_t gguf_nbytes(const gguf_tensor *t)
 
 uint64_t gguf_row_bytes(const gguf_tensor *t)
 {
-    if (t->type >= 16 || !TYPES[t->type].blk) return 0;
-    return (t->dims[0] / TYPES[t->type].blk) * TYPES[t->type].bytes;
+    const tinfo_t *ti = tinfo(t->type);
+    if (!ti) return 0;
+    return (t->dims[0] / ti->blk) * ti->bytes;
 }
 
 int gguf_read_raw_rows(gguf_t *g, const gguf_tensor *t, uint64_t row0, uint64_t n_rows, void *out)
@@ -386,11 +422,11 @@ int gguf_read_f32(gguf_t *g, const gguf_tensor *t, float *out)
 
 int gguf_read_rows_f32(gguf_t *g, const gguf_tensor *t, uint64_t row0, uint64_t n_rows, float *out)
 {
-    if (t->type >= 16 || !TYPES[t->type].blk) {
+    const tinfo_t *ti = tinfo(t->type);
+    if (!ti) {
         snprintf(g->err, sizeof(g->err), "%s: type %u not supported", t->name, t->type);
         return -1;
     }
-    const tinfo_t *ti = &TYPES[t->type];
     const uint64_t cols = t->dims[0];
     const uint64_t rows = t->dims[1] ? t->dims[1] : 1;
 

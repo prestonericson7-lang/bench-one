@@ -87,6 +87,9 @@ int main(int argc, char **argv)
     model_t m;
     if (model_load(&m, &g, n + n_gen + 8)) { fprintf(stderr, "load: %s\n", g.err); return 1; }
     model_set_fast(&m, 1);
+    /* Qwen3-Next: the recurrent state rounded to 16 bits after every token, as the Teensy keeps it -- IEEE half unless
+     * TL_STATE16 says otherwise (2 bfloat16, 0 fp32: the yardstick, not what the board computes) */
+    if (m.hybrid) model_set_state16(&m, getenv("TL_STATE16") ? atoi(getenv("TL_STATE16")) : 1);
     /* TL_REF_FLOAT=1: model_q's float path instead -- weights dequantized to float, float attention cache.
      * Not what the Teensy computes; it is the yardstick for how far the fused int8 path sits from float. */
     if (getenv("TL_REF_FLOAT") && atoi(getenv("TL_REF_FLOAT"))) {

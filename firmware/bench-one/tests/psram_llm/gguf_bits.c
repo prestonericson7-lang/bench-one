@@ -115,6 +115,45 @@ static void deq_q4_k(const uint8_t *raw, uint64_t n, float *y)
     }
 }
 
+/* Q5_K: Q4_K with a fifth bit per weight. 176 bytes: d, dmin, the same twelve bytes of 6-bit scales and
+ * minimums, then qh[32] -- bit 2i of byte l is the high bit of weight l in the first half of 64-weight group
+ * i, bit 2i+1 in its second half -- then the 128 bytes of nibbles in Q4_K's order. */
+#if defined(__IMXRT1062__)
+  #define GB_COLD __attribute__((section(".flashmem"), noinline))   /* the Teensy never dequantizes a Q5_K row */
+#else
+  #define GB_COLD
+#endif
+GB_COLD static void deq_q5_k(const uint8_t *raw, uint64_t n, float *y)
+{
+    const uint64_t nb = n / QK_K;
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 176u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4;
+        const uint8_t *qh     = blk + 16;
+        const uint8_t *q      = blk + 48;
+        int is = 0;
+        uint8_t u1 = 1, u2 = 2;
+        for (int j = 0; j < QK_K; j += 64) {
+            uint8_t sc, m;
+            gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+            const float d1 = d * sc, m1 = dmin * m;
+            gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+            const float d2 = d * sc, m2 = dmin * m;
+            for (int l = 0; l < 32; l++) *y++ = d1 * (float)((q[l] & 0x0F) + ((qh[l] & u1) ? 16 : 0)) - m1;
+            for (int l = 0; l < 32; l++) *y++ = d2 * (float)((q[l] >> 4)   + ((qh[l] & u2) ? 16 : 0)) - m2;
+            q += 32;
+            is += 2;
+            u1 = (uint8_t)(u1 << 2);
+            u2 = (uint8_t)(u2 << 2);
+        }
+    }
+}
+
 static void deq_q6_k(const uint8_t *raw, uint64_t n, float *y)
 {
     const uint64_t nb = n / QK_K;
@@ -199,7 +238,17 @@ int gguf_dequant(uint32_t type, const void *raw, uint64_t n, float *out)
     case GGML_Q4_0: if (n % 32)   return -1; deq_q4_0(p, n, out); return 0;
     case GGML_Q8_0: if (n % 32)   return -1; deq_q8_0(p, n, out); return 0;
     case GGML_Q4_K: if (n % QK_K) return -1; deq_q4_k(p, n, out); return 0;
+    case GGML_Q5_K: if (n % QK_K) return -1; deq_q5_k(p, n, out); return 0;
     case GGML_Q6_K: if (n % QK_K) return -1; deq_q6_k(p, n, out); return 0;
+    case GGML_BF16: {                       /* the top half of a float: exact, no rounding anywhere */
+        for (uint64_t i = 0; i < n; i++) {
+            uint16_t h;
+            memcpy(&h, p + i * 2, 2);
+            const uint32_t u = (uint32_t)h << 16;
+            memcpy(&out[i], &u, 4);
+        }
+        return 0;
+    }
     default:
         return -1;
     }

@@ -64,7 +64,7 @@ enum {
     GGML_F32 = 0, GGML_F16 = 1, GGML_Q4_0 = 2, GGML_Q4_1 = 3,
     GGML_Q5_0 = 6, GGML_Q5_1 = 7, GGML_Q8_0 = 8, GGML_Q8_1 = 9,
     GGML_Q2_K = 10, GGML_Q3_K = 11, GGML_Q4_K = 12, GGML_Q5_K = 13,
-    GGML_Q6_K = 14, GGML_Q8_K = 15
+    GGML_Q6_K = 14, GGML_Q8_K = 15, GGML_BF16 = 30
 };
 
 typedef struct {
@@ -95,7 +95,7 @@ typedef struct {
     gguf_kv     *kv;
     gguf_tensor *t;
     uint64_t     data_start;   /* absolute byte offset of the tensor blob */
-    uint8_t     *map;          /* the whole file mapped read-only (POSIX; NULL if not mapped) */
+    uint8_t     *map;          /* the whole file mapped read-only (POSIX and Windows; NULL if not mapped) */
     uint64_t     map_len;
     char         err[256];
 } gguf_t;
@@ -224,6 +224,11 @@ void gguf_dot_q4k_presum_n_stage(const void *raw, int np, const int8_t *const *x
                                  const int32_t *const *xsum, uint64_t n, float *out, int stage);
 void gguf_dot_q4k_presum_nw(const void *raw, int np, const int8_t *const *xq, const uint32_t *const *xw,
                             const float *const *xs, const int32_t *const *xsum, uint64_t n, float *out);
+/* Q5_K with the activation sums supplied (2026-10-17, Qwen3-Next's attn_qkv and shared expert): bit-identical to
+ * gguf_dot_q, one vector or np vectors per row read. */
+float gguf_dot_q5k_presum(const void *raw, const int8_t *xq, const float *xs, const int32_t *xsum, uint64_t n);
+void  gguf_dot_q5k_presum_n(const void *raw, int np, const int8_t *const *xq, const float *const *xs,
+                            const int32_t *const *xsum, uint64_t n, float *out);
 void gguf_dot_q_n(uint32_t type, const void *raw, int np, const int8_t *const *xq, const float *const *xs,
                   uint64_t n, float *out);
 

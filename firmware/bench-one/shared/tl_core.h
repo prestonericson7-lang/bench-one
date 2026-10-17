@@ -38,6 +38,12 @@ typedef struct {
     double   params;                  /* weights in the file, counted from tensor shapes */
     int      n_expert, n_used, eff;   /* mixture of experts: experts a layer, picked per token, hidden width (0: dense) */
     int      batch;                   /* positions one pass may feed (tl_batch) */
+    /* Qwen3-Next (2026-10-17): a hybrid whose linear-attention layers keep a recurrent state in PSRAM instead of
+     * a cache. ONE sequence, fed in order: a pass must continue the positions already fed or start again at 0,
+     * so a board must not reuse cache rows across prompts or guess ahead (::lookup) on it. */
+    int      hybrid, n_linear;        /* 0 0 on every other model */
+    uint32_t lin_bytes;               /* one linear layer's region: the 16-bit state, the convolution's, checksums */
+    int      shexp_ff;                /* the shared expert's hidden width (0: none) */
 } tl_info_t;
 
 typedef struct {
@@ -139,6 +145,22 @@ int  tl_multi_pass(tl_seq_t *seqs, int n_seqs, tl_multi_emit_fn emit, void *ctx)
  * do not survive a pass and a pass does not need them to survive. */
 void *tl_scratch(uint32_t *bytes);
 void *tl_rowbuf(uint32_t *bytes);    /* a pass's row buffer (DTCM on the Teensy), free between passes */
+
+/* Qwen3-Next's recurrent state at 16 bits: 1 IEEE half, 2 bfloat16, 3 int16 with a float scale per row -- model_q.c's model_set_state16,
+ * which must match. 0 returns the current mode; returns the previous one. Takes effect from the next position 0. */
+int  tl_set_state16(int mode);
+
+/* Whether the board reads back writes of data the core checksums itself (the recurrent state and convolution window):
+ * 1 yes (the default), 0 no -- a bad write is then caught by the row checksum on the next read. Returns the previous
+ * setting; any other value only reads it. */
+int  tl_set_psverify(int on);
+
+/* The state's half-precision rounding by the FPU instead of in integer arithmetic. tl_f16_selftest compares the two on
+ * every float and every half (minutes on a Teensy; progress is called 16 times) and returns the number that differ,
+ * -1 where there is no such unit; tl_set_f16hw(1) is refused (-1) until a run of it found none. Returns the previous
+ * setting. */
+long tl_f16_selftest(void (*progress)(int sixteenths, long bad));
+int  tl_set_f16hw(int on);
 
 /* The last error tl_forward hit, for the board to print. */
 const char *tl_last_error(void);

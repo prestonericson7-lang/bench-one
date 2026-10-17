@@ -93,6 +93,23 @@ static void fill_q6k(uint8_t *raw, uint64_t nblocks)
     }
 }
 
+/* Q5_K blocks are 176 bytes: two fp16, twelve bytes of 6-bit scales and minimums, 32 high-bit bytes, 128 nibble
+ * bytes -- random bytes are valid for everything but the two fp16, as in Q4_K. */
+static void fill_q5k(uint8_t *raw, uint64_t nblocks)
+{
+    for (uint64_t b = 0; b < nblocks; b++) {
+        uint8_t *p = raw + b * 176u;
+        for (int i = 0; i < 176; i++) p[i] = (uint8_t)(rnd() >> 7);
+        for (int k = 0; k < 2; k++) {
+            const uint16_t mant = (uint16_t)(rnd() & 0x03FF);
+            const uint16_t expo = (uint16_t)(0x0C + (rnd() % 6));
+            const uint16_t sign = (uint16_t)((rnd() & 1) << 15);
+            const uint16_t vv = (uint16_t)(sign | (expo << 10) | mant);
+            memcpy(p + k * 2, &vv, 2);
+        }
+    }
+}
+
 /* One type, end to end: build weights, run both kernels, compare bits, report the rate.
  *
  * Repeated until at least a second of work has happened in each. The first version ran for ten
@@ -157,12 +174,13 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
     /* Q4_K's presum kernel -- what the Teensy runs for every Q4_K matrix but q/k/v -- against the same
      * scalar results: the activation sums hoisted out must leave every bit where it was. */
     int presum_differ = 0;
-    if (type == GGML_Q4_K) {
+    if (type == GGML_Q4_K || type == GGML_Q5_K) {
         int32_t *xsum = (int32_t *)malloc((size_t)(cols / 32 + 1) * sizeof(int32_t));
         if (!xsum) { printf("  out of memory\n"); return 1; }
         gguf_act_sums(xq, (uint64_t)cols, xsum);
         for (int r = 0; r < rows; r++) {
-            const float c = gguf_dot_q4k_presum(w + (size_t)r * rowb, xq, xs, xsum, (uint64_t)cols);
+            const float c = type == GGML_Q4_K ? gguf_dot_q4k_presum(w + (size_t)r * rowb, xq, xs, xsum, (uint64_t)cols)
+                                              : gguf_dot_q5k_presum(w + (size_t)r * rowb, xq, xs, xsum, (uint64_t)cols);
             uint32_t ua, uc;
             memcpy(&ua, &a[r], 4);
             memcpy(&uc, &c, 4);
@@ -220,6 +238,9 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
                 if (type == GGML_Q4_K)
                     gguf_dot_q4k_presum_n(row, np, (const int8_t *const *)bq, (const float *const *)bs,
                                           (const int32_t *const *)bm, (uint64_t)cols, o);
+                else if (type == GGML_Q5_K)
+                    gguf_dot_q5k_presum_n(row, np, (const int8_t *const *)bq, (const float *const *)bs,
+                                          (const int32_t *const *)bm, (uint64_t)cols, o);
                 else
                     gguf_dot_q_n(type, row, np, (const int8_t *const *)bq, (const float *const *)bs, (uint64_t)cols, o);
                 for (int p = 0; p < np; p++) {
@@ -248,7 +269,7 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
     const double bytes = (double)rowb * rows;
     printf("  %s, %d rows of %d, %.1f MB, %d passes each\n", name, rows, cols,
            bytes / 1048576.0, reps);
-    if (type == GGML_Q4_K)
+    if (type == GGML_Q4_K || type == GGML_Q5_K)
         printf("    presum kernel: %s\n", presum_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
     printf("    batched kernel, 1..8 vectors per row: %s\n",
            batch_differ ? "DIFFERS from the single-vector kernel" : "IDENTICAL to the single-vector kernel on every row and vector");
@@ -287,6 +308,7 @@ int main(int argc, char **argv)
     int bad = 0;
     bad += run_type(GGML_Q4_K, "Q4_K", rows, cols, 144u, fill_q4k);
     bad += run_type(GGML_Q6_K, "Q6_K", rows, cols, 210u, fill_q6k);
+    bad += run_type(GGML_Q5_K, "Q5_K", rows, cols, 176u, fill_q5k);
 
     printf("  Single threaded on purpose. decode_limit runs these across eight cores, and a\n");
     printf("  per-core figure is the one that compares against a board.\n\n");

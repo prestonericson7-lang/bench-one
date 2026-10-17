@@ -38,7 +38,8 @@ def main():
     ap.add_argument("--gen", type=int, default=8)
     ap.add_argument("--prompt", action="append", help="a raw prompt (chat template not applied); repeatable")
     ap.add_argument("--limit", type=float, default=14400, help="seconds to wait for one prompt")
-    ap.add_argument("--pre", action="append", default=[], help="a board command sent before the prompts (repeatable), e.g. ::ringfault 1")
+    ap.add_argument("--pre", action="append", default=[], help="a board command sent before the prompts (repeatable), e.g. ::ringfault 1; "
+                    "CMD@REGEX@SECONDS waits that long for a reply matching REGEX (::f16test runs for minutes: '::f16test@^F16TEST bad=@900')")
     A = ap.parse_args()
     if A.prompt:
         prompts = [("prompt %d" % i, p) for i, p in enumerate(A.prompt)]
@@ -82,8 +83,10 @@ def main():
     ident = seen[-1]
     send("::gen %d" % A.gen); rd_until(r"^GEN", 10)
     for c in A.pre:
-        send(c)
-        rd_until(r"^[A-Z]+ ", 15)
+        cmd, pat, lim = (c.split("@") + [None, None])[:3] if "@" in c else (c, None, None)
+        send(cmd)
+        if rd_until(pat or r"^[A-Z]+ ", float(lim) if lim else 15)[0] is None and pat:
+            sys.exit("no reply to %s matching %s in %s s" % (cmd, pat, lim))
     rows = []
     for name, prompt in prompts:
         n0 = len(seen)

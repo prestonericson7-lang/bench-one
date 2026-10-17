@@ -1,0 +1,37 @@
+open 0.02 s: 48 layers dim 2048 hidden 0 heads 16/2 head_dim 256 vocab 151936 merges 151387 max_seq 1143 batch 4 experts 10/512 width 512
+params 79674391296  file 48506100512 bytes  read per token 2430879872 bytes
+PSRAM: 8 banks of 8388608; the attention cache on 7 of them, 1143 positions, one layer per region (1197864 bytes), 48 layer slots, 0 spare (any one bank can fail); nothing of the model. Tokenizer store 8301328 bytes (reused)
+  layer:bank 0:0 1:0 2:0 3:5 4:0 5:0 6:0 7:5 8:0 9:1 10:1 11:5 12:1 13:1 14:1 15:5 16:1 17:1 18:2 19:5 20:2 21:2 22:2 23:5 24:2 25:2 26:2 27:6 28:3 29:3 30:3 31:6 32:3 33:3 34:3 35:6 36:3 37:4 38:4 39:6 40:4 41:4 42:4 43:6 44:4 45:4 46:5 47:6
+  prefill positions 0..3: 8.58 s, SD 4085.3 MB
+  [silent corruption injected: bank 0, unverified write 1500, offset 2258272]
+  prefill positions 4..4: 2.83 s, SD 2318.3 MB
+  step 0: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+  step 1: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+  step 2: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+  step 3: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+  step 4: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+forward: PSRAM bank 0: state row 0 of layer 1 never read back right
+PSRAM bank 0 retired, its layers moved to spare slots; re-running the prompt from position 0
+  prefill positions 0..3: 8.61 s, SD 4085.3 MB
+  prefill positions 4..4: 2.85 s, SD 2318.3 MB
+R step 0 pos 0 fed 785 -> top1 2701 17.6839066 top2 220 15.8352652 text " following"
+  step 0: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+R step 1 pos 1 fed 6722 -> top1 315 17.6128998 top2 3283 16.7821827 text " of"
+  step 1: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+R step 2 pos 2 fed 315 -> top1 279 19.114687 top2 264 16.3069668 text " the"
+  step 2: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+R step 3 pos 3 fed 9625 -> top1 374 23.1727848 top2 11 20.4735909 text " is"
+  step 3: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+R step 4 pos 4 fed 374 -> top1 12095 20.8406658 top2 1304 16.7235432 text " Paris"
+  step 4: 0.00 s, SD 0.0 MB, PSRAM read 0.0 KB written 0.0 KB
+  step 5: 2.84 s, SD 2318.3 MB, PSRAM read 40973.1 KB written 38605.4 KB
+  step 6: 2.92 s, SD 2318.3 MB, PSRAM read 40985.3 KB written 38605.4 KB
+  step 7: 2.86 s, SD 2318.3 MB, PSRAM read 40997.6 KB written 38605.4 KB
+  step 8: 2.84 s, SD 2318.3 MB, PSRAM read 41009.9 KB written 38605.4 KB
+  step 9: 2.81 s, SD 2318.3 MB, PSRAM read 41022.2 KB written 38605.4 KB
+  step 10: 2.82 s, SD 2318.3 MB, PSRAM read 41034.5 KB written 38605.4 KB
+  step 11: 2.82 s, SD 2318.3 MB, PSRAM read 41046.8 KB written 38605.4 KB
+  step 12: 2.84 s, SD 2318.3 MB, PSRAM read 41059.0 KB written 38605.4 KB
+recovery: 5 lines re-run after the bank fault and compared with those printed before it: identical
+
+The capital of France is Paris. The capital of Germany is Berlin.

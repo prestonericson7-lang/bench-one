@@ -82,6 +82,22 @@ typedef struct {
      * read rather than three. */
     float *router;
     qten_t e_gate, e_up, e_down;
+
+    /* QWEN3-NEXT (2026-10-17): three layers in four are a gated DeltaNet -- linear attention, a recurrent
+     * state per head in place of a cache that grows with the context. Such a layer has no wq/wk/wv/wo:
+     *   w_qkv   dim -> 2*k_heads*state + v_heads*state   the q, k, v that pass through a causal convolution
+     *   w_z     dim -> v_heads*state                     the output gate
+     *   w_ba    dim -> 2*v_heads                         per value head: beta (write strength), alpha (decay)
+     *   w_sout  v_heads*state -> dim                     back to the residual
+     * conv1d is [channels][conv taps], oldest tap first; ssm_a = -exp(A_log), dt_bias and ssm_norm per head. */
+    int    linear;
+    int    lin_slot;                /* which recurrent state is this layer's, -1 on an attention layer */
+    qten_t w_qkv, w_z, w_ba, w_sout;
+    float *conv1d, *ssm_a, *dt_bias, *ssm_norm;
+
+    /* A shared expert beside the routed ones (Qwen3-Next): on every token, scaled by sigmoid(sh_inp . x). */
+    qten_t sh_gate, sh_up, sh_down;
+    float *sh_inp;
 } mlayer_t;
 
 typedef struct {
@@ -99,6 +115,28 @@ typedef struct {
     /* Zero on a dense model. n_expert_used of n_expert experts fire per token per layer, each with
      * its own feed-forward of width expert_ff. */
     int   n_expert, n_expert_used, expert_ff;
+
+    /* Rotary dimensions per head: head_dim on every model before Qwen3-Next, which rotates 64 of 256. */
+    int   n_rot;
+    /* The query projection carries a sigmoid gate after each head's query (Qwen3-Next): 2*q_dim rows. */
+    int   attn_gated;
+
+    /* THE HYBRID'S RECURRENT LAYERS (Qwen3-Next, 2026-10-17). hybrid is set when the file carries ssm.*
+     * metadata. Each linear layer keeps a state of v_heads x state x state and the last conv-1 inputs of
+     * every convolution channel; neither grows with the context. Both are reset at position 0.
+     *
+     * state16 rounds the recurrent state to 16 bits after every update -- 1 IEEE half, 2 bfloat16, 3 int16 with a
+     * float scale per 128-value row -- which
+     * is what the Teensy stores (72 MB at fp32 does not fit its PSRAM, 36 MB does). 0 keeps fp32, the
+     * yardstick a 16-bit state is judged against by perplexity. */
+    int    hybrid, n_linear;
+    int    ssm_conv, ssm_state, ssm_kheads, ssm_vheads, ssm_inner, ssm_ch;
+    int    state16;
+    float *ssm_s;          /* [n_linear][v_heads][state][state]: row j of a head is the keys' weights for value j */
+    float *ssm_cs;         /* [n_linear][conv-1][ch], oldest first */
+    float *lin_x, *lin_z, *lin_ba, *lin_o, *gate_buf;
+    int    shexp_ff;
+    float *sh_h, *sh_h2, *sh_out;
 
     /* Counts, filled in as the model runs, so the cache question can be answered with measurements
      * instead of an assumption about how skewed routing is. expert_hits is [layer][expert] over
@@ -367,6 +405,15 @@ int model_set_kv_f32(model_t *m, int on);
 
 /* Quantize the KV cache to 4 bits (stored one per byte, so this measures quality, not memory). */
 void model_set_kv_int4(model_t *m, int on);
+
+/* Qwen3-Next's recurrent state at fp32 (0), rounded after every update to IEEE half (1), bfloat16 (2) or int16 with
+ * a scale per row (3). */
+void model_set_state16(model_t *m, int mode);
+
+/* RESEARCH (2026-10-17): the router's float32 weights rounded in place, once -- 1 to bfloat16, 2 to int8 with a scale
+ * per expert row (amax/127, half away from zero) -- to measure what a smaller router copy on the card would cost the
+ * model. Irreversible for this model_t; not what the Teensy computes unless it reads the same rounded copy. */
+void model_round_router(model_t *m, int mode);
 
 /* Switch between the float reference and the fused integer path at runtime, so the same process can
  * run both and compare. */

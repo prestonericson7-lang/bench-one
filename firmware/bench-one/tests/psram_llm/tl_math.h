@@ -127,4 +127,79 @@ static inline void tlm_sincosf(float xf, float *sn, float *cs)
     }
 }
 
+/* softplus, log(1 + e^x), as ggml computes it (x itself above 20, where e^x swamps the 1); for Qwen3-Next's
+ * decay gate. Double inside, one rounding to float, like everything above. */
+static inline float tlm_softplusf(float x)
+{
+    if (x > 20.0f) return x;
+    return (float)tlm_log_d(1.0 + tlm_exp_d((double)x));
+}
+
+/* ---------------------------------------------------------------------------------------------
+ *  16-bit storage for a recurrent state (2026-10-17)
+ *
+ *  Qwen3-Next's 36 linear-attention layers each carry a 32 x 128 x 128 state: 72 MB at fp32, more than the
+ *  bench's PSRAM. At 16 bits it is 36 MB. Rounding is written out in integer arithmetic so the PC reference
+ *  and the Teensy round every value identically -- no FPU conversion instruction, no rounding-mode register.
+ *  Both round to nearest, ties to even, as IEEE conversions do.
+ * ------------------------------------------------------------------------------------------ */
+
+/* float -> IEEE half: overflow to infinity, subnormals kept, NaN stays NaN */
+static inline uint16_t tlm_f2h(float f)
+{
+    uint32_t x;
+    memcpy(&x, &f, 4);
+    const uint32_t sign = (x >> 16) & 0x8000u, ax = x & 0x7FFFFFFFu;
+    if (ax > 0x7F800000u) return (uint16_t)(sign | 0x7E00u);          /* NaN */
+    if (ax >= 0x477FF000u) return (uint16_t)(sign | 0x7C00u);         /* rounds past 65504: infinity */
+    if (ax < 0x38800000u) {                                            /* below 2^-14: a half subnormal */
+        if (ax <= 0x33000000u) return (uint16_t)sign;                  /* at most 2^-25: to zero (a tie goes even) */
+        const uint32_t mt = (ax & 0x7FFFFFu) | 0x800000u;
+        const int sh = 126 - (int)(ax >> 23);                          /* 14..24 */
+        const uint32_t r = mt >> sh, rem = mt & ((1u << sh) - 1u), half = 1u << (sh - 1);
+        return (uint16_t)(sign | (r + ((rem > half || (rem == half && (r & 1u))) ? 1u : 0u)));
+    }
+    uint32_t h = (ax >> 13) - (112u << 10);                            /* exponent rebased 127 -> 15 */
+    const uint32_t rem = ax & 0x1FFFu;
+    if (rem > 0x1000u || (rem == 0x1000u && (h & 1u))) h++;            /* a carry into the exponent is right */
+    return (uint16_t)(sign | h);
+}
+
+/* IEEE half -> float, exact */
+static inline float tlm_h2f(uint16_t hv)
+{
+    const uint32_t sign = (uint32_t)(hv & 0x8000u) << 16;
+    uint32_t e = (hv >> 10) & 0x1Fu, mt = hv & 0x3FFu, u;
+    if (e == 0) {
+        if (!mt) u = sign;
+        else {
+            e = 113;
+            while (!(mt & 0x400u)) { mt <<= 1; e--; }
+            u = sign | (e << 23) | ((mt & 0x3FFu) << 13);
+        }
+    } else if (e == 31) u = sign | 0x7F800000u | (mt << 13) | (mt ? 0x400000u : 0u);   /* a NaN comes back quiet */
+    else u = sign | ((e + 112u) << 23) | (mt << 13);
+    float f;
+    memcpy(&f, &u, 4);
+    return f;
+}
+
+/* float -> bfloat16, the top 16 bits rounded to nearest even */
+static inline uint16_t tlm_f2bf(float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, 4);
+    if ((u & 0x7FFFFFFFu) > 0x7F800000u) return (uint16_t)((u >> 16) | 0x40u);
+    u += 0x7FFFu + ((u >> 16) & 1u);
+    return (uint16_t)(u >> 16);
+}
+
+static inline float tlm_bf2f(uint16_t b)
+{
+    const uint32_t u = (uint32_t)b << 16;
+    float f;
+    memcpy(&f, &u, 4);
+    return f;
+}
+
 #endif

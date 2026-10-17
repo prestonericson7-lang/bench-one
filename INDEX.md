@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**3053 tracked files.** This page exists so you never have to guess which directory something is in.
+**3219 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -28,6 +28,7 @@ If you know what you want, use the table. If you do not, start at
 | Know where this goes next, and what has to be proven at each step | [docs/58](docs/58-roadmap-what-this-makes-possible.md) — the roadmap; every line labelled measured, arithmetic or proposal |
 | Understand the machine's equations and the levers not yet pulled | [docs/59](docs/59-going-deeper.md) — one token, positions per pass, the node ceiling, splitting across boards; speculative decoding, the 30B, the stall budget, bytes per token |
 | See a 30-billion-parameter model on the same Teensy | [docs/62](docs/62-a-30b-on-a-teensy.md) — Qwen3-Coder-30B-A3B, a mixture of experts: 8 of 128 experts a layer come off the card, the same 1.92 GB a token as the 3B; exact to the PC reference, checked against llama.cpp and float |
+| See an 80-billion-parameter model ported to it | [docs/63](docs/63-an-80b-on-a-teensy.md) — Qwen3-Next-80B-A3B: 36 of 48 layers are linear attention with a fixed-size recurrent state instead of a cache; the state at 16 bits measured free; the Teensy core exact to the PC reference, the reference checked against llama.cpp; board run pending |
 | See how it is built at each scale, and how it changes AI | [docs/60](docs/60-implementation-at-every-scale.md) — module, shelf, fabric node, bench machine, shed, network: parts, cost, power, output, gates; the five axes and the order of moves |
 | Wire the five items into one machine | [machine/README.md](machine/README.md) — the build sheet; [machine/wiring/png/](machine/wiring/png/) — nine one-screen pages, start with 1 |
 | See the machine actually work | [docs/40](docs/40-psram-bank-brought-up.md) — 8 MB of PSRAM verified on hardware, and what it cost |
@@ -56,13 +57,13 @@ If you know what you want, use the table. If you do not, start at
 ## The compartments
 
 ```
-docs/         59 numbered documents + 11 research files    the engineering record
-firmware/     578 files                                    everything that runs on a board
+docs/         60 numbered documents + 11 research files    the engineering record
+firmware/     580 files                                    everything that runs on a board
 hardware/     142 files                                    the Zynq FPGA board, enclosures, wiring drawings
 accel/        220 files                                    the FPGA and the Teensy as the Orange Pi's accelerators
 machine/      98 files                                     the five items as one machine; card tools and card evidence
 deploy/       14 files                                     the car system's installer, and the 47-check test runner
-bench-archive/ 1848 files                                  every Teensy board run, raw, one folder per run
+bench-archive/ 2011 files                                  every Teensy board run, raw, one folder per run
 run/          34 files                                     bench scripts
 evidence/     16 files                                     a build log and LoRa capture logs, kept as provenance
 tools/        not committed                                toolchains, install your own
@@ -77,7 +78,7 @@ was believed when. Full annotated list with phases: **[docs/README.md](docs/READ
 
 | | |
 |---|---|
-| **59 numbered documents**, 01 to 62 | the record itself |
+| **60 numbered documents**, 01 to 63 | the record itself |
 | Two gaps | **15 and 16** are absent with no recorded reason. **35** was deleted on purpose, for containing desktop-PC benchmarks that were skewing the conclusions around it |
 | 17 to 21 | were misfiled under `firmware/bench-one/docs/` until 2026-09-10, including "Measured hardware" and "The actual thesis" |
 | `BOM.md` | parts, with a ranked buy list |
@@ -106,7 +107,7 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 248 files
+### `bench-one/tests/` — 250 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
 cross-compiled programs. **48 experiment directories, 45 C programs, 69 result logs.**

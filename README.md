@@ -18,7 +18,7 @@ either way.
 
 | | On real hardware (measured) | Only in emulation / not yet run |
 |---|---|---|
-| Teensy 4.1 + PSRAM | a 3B model at **43.3 s a token** and, since 2026-10-16, **a 30B mixture-of-experts at 44.4 s a token** -- every printed step equal to the PC on both ([docs/62](docs/62-a-30b-on-a-teensy.md)) | — |
+| Teensy 4.1 + PSRAM | a 3B model at **43.3 s a token** and, since 2026-10-16, **a 30B mixture-of-experts at 44.4 s a token** -- every printed step equal to the PC on both ([docs/62](docs/62-a-30b-on-a-teensy.md)) | **an 80B (Qwen3-Next, linear attention + experts)**: the Teensy core equals the PC reference to the bit and the reference agrees with llama.cpp, all on the PC; not yet run on the board ([docs/63](docs/63-an-80b-on-a-teensy.md)) |
 | FPGA #1 (PZ7020) | **first full boot, 2026-10-05**: SPL, DDR3L, U-Boot, the bitstream (its HDMI test picture), the kernel and systemd all ran, read from the card's own journal. It then stopped; the last write to the card was at 8.014 s of uptime | the cause is inferred, not measured (Linux gating the fabric's AXI clock, FCLK0); the fix and a boot guard are on card #1 but it has **not booted since**; the experiment that measures the cause is ready ([EXPERIMENT.md](hardware/pz7020-starlite/linux/EXPERIMENT.md)) |
 | FPGA fabric services (GPU, matrix engine) | **none has run on silicon** | simulated, timing-closed, and run against emulated boards |
 | FPGA + Teensy together | powered on the bench together once (2026-10-05), but never worked together: FPGA #1 stopped before any fabric service started | designed and run together in emulation only ([machine/README.md](machine/README.md)) |
@@ -68,6 +68,12 @@ then 105 s a token) -- every printed step equal to the PC reference ([docs/56](d
 experts a layer per token), reads 1.92 GB a token -- the 3B's bytes for ten times the parameters. On the
 Teensy: **44.4 s a token**, every printed step equal to the PC reference on both test prompts, first answer
 token in 438.5 s when the prompt shares its opening ([docs/62](docs/62-a-30b-on-a-teensy.md)).
+
+**Next: an 80B, ported and proven on the PC, not yet run on the board.** Qwen3-Next-80B-A3B (79.7 B parameters)
+keeps a fixed-size recurrent state in 36 of its 48 layers instead of an attention cache. The Teensy's code computes it
+to the bit like the PC reference, per token and batched; the reference agrees with llama.cpp on 7 of 8 answers; storing
+the state at 16 bits, so it fits the PSRAM, adds nothing measurable to what the int8 arithmetic already costs. Projected
+on the board, not measured: about 85 s a token ([docs/63](docs/63-an-80b-on-a-teensy.md)).
 
 - **[docs/57 — What we built, what it does, and how we know](docs/57-what-we-built-and-what-it-does.md)** —
   every measured number, in plain English, each traced to its log. Read this first.

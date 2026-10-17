@@ -55,6 +55,11 @@ uint32_t plat_ps_bank_bytes(int bank);
  * the bank's: the core then moves that bank's layers to spare room on the others (tl_bank_fault). */
 int      plat_ps_read (int bank, uint32_t off, void *dst, uint32_t n);
 int      plat_ps_write(int bank, uint32_t off, const void *src, uint32_t n);
+/* A write WITHOUT the read-back (2026-10-17): for data the core checksums itself, where a bad write is found on
+ * the next read of it (and the bank then retired, the prompt re-run). It saves the board a third of the traffic
+ * of a write-heavy structure -- Qwen3-Next's recurrent state is rewritten whole every token. A board with no
+ * cheaper write may make this plat_ps_write. */
+int      plat_ps_write_nv(int bank, uint32_t off, const void *src, uint32_t n);
 
 /* THE MODEL STAYS ON THE CARD; THE PSRAM IS ONLY THE MODEL'S WORKING MEMORY (its attention cache).
  * The tokenizer's lookup tables live in a second file on the card beside the model -- the Teensy's

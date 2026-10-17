@@ -1233,6 +1233,20 @@ int plat_ps_write(int b, uint32_t off, const void *src, uint32_t n)
     }
     return 0;
 }
+static void f16_progress(int sixteenths, long bad) { say("  F16TEST %d/16 of the floats, %ld differ so far", sixteenths, bad); }
+
+/* tl_plat.h: the write without the read-back, for rows the core checksums itself (::psverify 0) */
+int plat_ps_write_nv(int b, uint32_t off, const void *src, uint32_t n)
+{
+    if ((uint64_t)off + n > BANKSZ || ps_bank(b) < 0) return -1;
+    const uint8_t *s = (const uint8_t *)src;
+    while (n) {
+        const uint32_t k = n < BLK ? n : BLK;
+        do_write(off, s, k);
+        off += k; s += k; n -= k;
+    }
+    return 0;
+}
 double plat_now(void)
 {
     static uint32_t last;
@@ -1299,6 +1313,12 @@ void plat_emit(const char *s, int n) { Serial.write((const uint8_t *)s, (size_t)
  *    ::ffngroup G   a batched pass computes gate/up G rows at a time (32..256; 32 = the pre-2026-10-16 order)
  *    ::reuse 0|1    a prompt that starts with the tokens the attention cache holds is fed from where it differs
  *                   (default 1; "REUSE m=..."); the answer is the same, the skipped positions print no step lines
+ *    ::psverify 0|1 Qwen3-Next's recurrent state (and convolution window) written with the read-back check (1, the
+ *                   default) or without it (0): its rows carry checksums, so a bad write is caught on the next read
+ *                   and handled as a failed read is; 0 saves a third of the state's PSRAM traffic ("PSVERIFY ...")
+ *    ::f16test      every float and every half through the FPU's VCVTB and through tl_math.h's integer rounding
+ *                   (a few minutes); if none differs, the state's half rounding uses the FPU ("F16TEST bad=N")
+ *    ::f16hw 0|1    the FPU's half rounding off / on (on only after a clean ::f16test this boot; "F16HW ...")
  *    ::lookup K [N] after the prompt, each pass also checks up to K tokens guessed from the context (the
  *                   tokens that followed the last 4..N tokens' most recent earlier occurrence, N default 1); 0 = off.
  *                   Same step lines as without; fewer passes when the guesses are right ("LOOKUP ...")
@@ -1482,7 +1502,8 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
     for (int i = 0; i < n; i++) { Serial.print(' '); Serial.print((long)ids[i]); }
     Serial.println();
     int m0 = 0;                                              /* positions the cache already holds for these tokens */
-    if (g_reuse && g_prefill) while (m0 < g_kv_len && m0 < n - 1 && g_ctx[m0] == ids[m0]) m0++;
+    /* a recurrent model (Qwen3-Next) cannot rewind its state to the shared opening: every prompt from position 0 */
+    if (g_reuse && g_prefill && !info.hybrid) while (m0 < g_kv_len && m0 < n - 1 && g_ctx[m0] == ids[m0]) m0++;
     if (m0) say("REUSE m=%d (the attention cache already holds positions 0..%d for these same tokens; the prompt is fed from %d)", m0, m0 - 1, m0);
     g_kv_len = m0;                                           /* rows from m0 on are about to be rewritten */
 
@@ -1542,7 +1563,7 @@ FLASHMEM static bool run_prompt_once(const char *prompt)
      * any position reads them. Simulated on the PC reference (alpha_sim.py, 63 answers) with the board's measured
      * pass costs: 4..2 tokens matched, 6 guesses -> 1.19x at the FIFO/ADMA2 costs; 4..1 and 3 guesses -> 1.31x
      * (24-token answers 1.17x) at ::fifoirq's, where 2..4 positions cost what one does. */
-    if (g_lookup > 0 && g_prefill && !ended && step0 < n + g_gen) {
+    if (g_lookup > 0 && g_prefill && !ended && step0 < n + g_gen && !info.hybrid) {   /* no guessing ahead on a recurrent state */
         int32_t *const lctx = g_ctx;                                    /* holds the prompt already (recorded above) */
         DMAMEM static int32_t lo1[64], lo2[64], lfeed[64], ldraft[64];  /* OCRAM: RAM1 is the stack's */
         DMAMEM static float   lf1[64], lf2[64];
@@ -2977,7 +2998,8 @@ FLASHMEM static void dispatch_one(char *line)
      * board forget what it holds: reuse only ever skips rows it is sure of */
     if (line[0] == ':' && line[1] == ':') {
         static const char *const SAFE[] = { "::gen", "::lookup", "::reuse", "::stats", "::hold", "::fifoirq", "::admamin", "::promptlogits", "::ringfault",
-                                            "::ffngroup", "::prefill", "::stop", "::share", "::multi", "::sdio", "::sdclk" };
+                                            "::ffngroup", "::prefill", "::stop", "::share", "::multi", "::sdio", "::sdclk", "::psverify",
+                                            "::f16test", "::f16hw" };
         bool safe = false;
         for (unsigned i = 0; i < sizeof SAFE / sizeof SAFE[0] && !safe; i++) safe = !strncmp(line, SAFE[i], strlen(SAFE[i]));
         if (!safe) g_kv_len = 0;
@@ -3033,6 +3055,28 @@ FLASHMEM static void dispatch_one(char *line)
     if (!strncmp(line, "::ringfault", 11)) {                 /* ::ringfault N: test the ring's failure path */
         g_ring_fault = atoi(line + 11);
         say("RINGFAULT %d (that ring read fails halfway; the pass must go on through the file layer, exact)", g_ring_fault);
+        return;
+    }
+    if (!strcmp(line, "::f16test")) {                        /* ::f16test: VCVTB against the integer rounding, every input */
+        say("F16TEST running: 2^32 floats and 2^16 halves, the FPU against tl_math.h");
+        const uint32_t t0 = millis();
+        const long bad = tl_f16_selftest(f16_progress);
+        const int on = bad == 0 && tl_set_f16hw(1) >= 0;
+        say("F16TEST bad=%ld in %.1f s -- %s", bad, (millis() - t0) / 1000.0,
+            on ? "identical: the state's half rounding now uses the FPU" : "NOT identical: the integer rounding stays");
+        return;
+    }
+    if (!strncmp(line, "::f16hw", 7)) {                      /* ::f16hw 0|1: the FPU's half rounding off / on */
+        const int v = atoi(line + 7) ? 1 : 0;
+        const int r = tl_set_f16hw(v);
+        say("F16HW %d%s", r < 0 ? 0 : v, r < 0 ? " (refused: run ::f16test first)" : "");
+        return;
+    }
+    if (!strncmp(line, "::psverify", 10)) {                  /* ::psverify 0|1: the recurrent state's writes read back or not */
+        const int v = atoi(line + 10) ? 1 : 0;
+        tl_set_psverify(v);
+        say("PSVERIFY %d (%s)", v, v ? "every PSRAM write read back and compared" :
+            "checksummed state rows written without the read-back; a bad one is caught on its next read");
         return;
     }
     if (!strncmp(line, "::reuse", 7)) {                      /* ::reuse 0|1: feed a prompt from where the cache differs */
@@ -3265,6 +3309,10 @@ FLASHMEM void setup()
     if (info.n_expert)
         say("    mixture of experts: %d a layer, %d picked per token, each %d wide -- only those come off the card;"
             " a pass feeds up to %d positions", info.n_expert, info.n_used, info.eff, info.batch);
+    if (info.hybrid)
+        say("    hybrid: %d of %d layers are linear attention (gated DeltaNet), each a %lu-byte recurrent state in PSRAM at 16 bits"
+            " instead of a cache; shared expert %d wide; one prompt at a time, no reuse, no lookup",
+            info.n_linear, info.n_layer, (unsigned long)info.lin_bytes, info.shexp_ff);
     say("    read from the card per token: %llu bytes", (unsigned long long)info.sd_bytes_per_token);
     say("    the model stays on the card: weights, norms and biases read from %s every pass; the tokenizer's"
         " tables in %s (%lu bytes, %s)", g_model_name, g_tok_name, (unsigned long)info.tok_store_bytes,

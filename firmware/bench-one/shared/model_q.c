@@ -134,6 +134,29 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
     }
     m->q_dim = m->n_heads * m->head_dim;
 
+    /* Rotary dimensions. Absent or equal to head_dim on every model before Qwen3-Next, which rotates the
+     * first 64 of each 256-wide head and passes the rest through. */
+    m->n_rot = (int)gguf_arch_int(g, "rope.dimension_count", 0);
+    if (m->n_rot <= 0 || m->n_rot > m->head_dim) m->n_rot = m->head_dim;
+
+    /* A gated DeltaNet hybrid (Qwen3-Next): ssm.* metadata. Layers with an attn_qkv tensor are linear. */
+    m->ssm_state = (int)gguf_arch_int(g, "ssm.state_size", 0);
+    if (m->ssm_state > 0) {
+        m->hybrid     = 1;
+        m->ssm_conv   = (int)gguf_arch_int(g, "ssm.conv_kernel", 0);
+        m->ssm_inner  = (int)gguf_arch_int(g, "ssm.inner_size", 0);
+        m->ssm_kheads = (int)gguf_arch_int(g, "ssm.group_count", 0);
+        m->ssm_vheads = (int)gguf_arch_int(g, "ssm.time_step_rank", 0);
+        m->ssm_ch     = 2 * m->ssm_kheads * m->ssm_state + m->ssm_inner;
+        if (m->ssm_conv < 2 || m->ssm_conv > 8 || m->ssm_kheads <= 0 || m->ssm_vheads <= 0 ||
+            m->ssm_vheads > 64 || m->ssm_vheads % m->ssm_kheads ||
+            m->ssm_inner != m->ssm_vheads * m->ssm_state) {
+            snprintf(g->err, sizeof(g->err), "ssm metadata: conv %d state %d groups %d heads %d inner %d",
+                     m->ssm_conv, m->ssm_state, m->ssm_kheads, m->ssm_vheads, m->ssm_inner);
+            return -1;
+        }
+    }
+
     m->n_expert      = (int)gguf_arch_int(g, "expert_count", 0);
     m->n_expert_used = (int)gguf_arch_int(g, "expert_used_count", 0);
     m->expert_ff     = (int)gguf_arch_int(g, "expert_feed_forward_length", 0);
@@ -210,8 +233,36 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         const int l = layer0 + i;          /* GLOBAL layer index, which is what the file is keyed by */
         mlayer_t *L = &m->L[i];
         L->attn_norm = load_f32(m, g, 1, "blk.%d.attn_norm.weight", l);
-        L->ffn_norm  = load_f32(m, g, 1, "blk.%d.ffn_norm.weight", l);
+        /* Qwen3-Next names the pre-feed-forward norm post_attention_norm; it is the same norm */
+        L->ffn_norm  = load_f32(m, g, 0, "blk.%d.ffn_norm.weight", l);
+        if (!L->ffn_norm) L->ffn_norm = load_f32(m, g, 1, "blk.%d.post_attention_norm.weight", l);
         if (!L->attn_norm || !L->ffn_norm) return -1;
+        L->lin_slot = -1;
+        if (m->hybrid) {
+            char nm[96];
+            snprintf(nm, sizeof nm, "blk.%d.attn_qkv.weight", l);
+            L->linear = gguf_tensor_find(g, nm) != NULL;
+        }
+        if (L->linear) {
+            if (load_q(m, g, &L->w_qkv,  "blk.%d.attn_qkv.weight", l)  ||
+                load_q(m, g, &L->w_z,    "blk.%d.attn_gate.weight", l) ||
+                load_q(m, g, &L->w_ba,   "blk.%d.ssm_ba.weight", l)    ||
+                load_q(m, g, &L->w_sout, "blk.%d.ssm_out.weight", l)) return -1;
+            L->conv1d   = load_f32(m, g, 1, "blk.%d.ssm_conv1d.weight", l);
+            L->ssm_a    = load_f32(m, g, 1, "blk.%d.ssm_a", l);
+            L->dt_bias  = load_f32(m, g, 1, "blk.%d.ssm_dt.bias", l);
+            L->ssm_norm = load_f32(m, g, 1, "blk.%d.ssm_norm.weight", l);
+            if (!L->conv1d || !L->ssm_a || !L->dt_bias || !L->ssm_norm) return -1;
+            if (L->w_qkv.rows != (uint32_t)m->ssm_ch || L->w_z.rows != (uint32_t)m->ssm_inner ||
+                L->w_ba.rows != (uint32_t)(2 * m->ssm_vheads) || L->w_sout.cols != (uint32_t)m->ssm_inner ||
+                L->w_sout.rows != (uint32_t)m->dim) {
+                snprintf(g->err, sizeof(g->err), "layer %d: linear-attention tensors %u/%u/%u/%ux%u, expected %d/%d/%d/%dx%d",
+                         l, L->w_qkv.rows, L->w_z.rows, L->w_ba.rows, L->w_sout.cols, L->w_sout.rows,
+                         m->ssm_ch, m->ssm_inner, 2 * m->ssm_vheads, m->ssm_inner, m->dim);
+                return -1;
+            }
+            L->lin_slot = m->n_linear++;
+        } else {
         /* Not required: Llama has no attention biases, Qwen2 does. */
         L->bq = load_f32(m, g, 0, "blk.%d.attn_q.bias", l);
         L->bk = load_f32(m, g, 0, "blk.%d.attn_k.bias", l);
@@ -223,6 +274,16 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
             load_q(m, g, &L->wk,     "blk.%d.attn_k.weight", l)      ||
             load_q(m, g, &L->wv,     "blk.%d.attn_v.weight", l)      ||
             load_q(m, g, &L->wo,     "blk.%d.attn_output.weight", l)) return -1;
+        /* Qwen3-Next's query projection is twice as wide: each head's query, then its sigmoid output gate */
+        const int gated = L->wq.rows == (uint32_t)(2 * m->q_dim);
+        if (!gated && L->wq.rows != (uint32_t)m->q_dim) {
+            snprintf(g->err, sizeof(g->err), "layer %d: attn_q has %u rows, expected %d or %d", l, L->wq.rows,
+                     m->q_dim, 2 * m->q_dim);
+            return -1;
+        }
+        if (gated) m->attn_gated = 1;
+        else if (m->attn_gated) { snprintf(g->err, sizeof(g->err), "layer %d: ungated attention in a gated model", l); return -1; }
+        }
 
         if (m->n_expert > 0) {
             L->router = load_f32(m, g, 1, "blk.%d.ffn_gate_inp.weight", l);
@@ -239,6 +300,20 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
                          l, L->e_gate.rows, L->e_down.rows,
                          m->expert_ff * m->n_expert, m->dim * m->n_expert);
                 return -1;
+            }
+            char nm[96];
+            snprintf(nm, sizeof nm, "blk.%d.ffn_up_shexp.weight", l);
+            if (gguf_tensor_find(g, nm)) {
+                if (load_q(m, g, &L->sh_gate, "blk.%d.ffn_gate_shexp.weight", l) ||
+                    load_q(m, g, &L->sh_up,   "blk.%d.ffn_up_shexp.weight", l)   ||
+                    load_q(m, g, &L->sh_down, "blk.%d.ffn_down_shexp.weight", l)) return -1;
+                L->sh_inp = load_f32(m, g, 1, "blk.%d.ffn_gate_inp_shexp.weight", l);
+                if (!L->sh_inp) return -1;
+                if (m->shexp_ff && (int)L->sh_up.rows != m->shexp_ff) {
+                    snprintf(g->err, sizeof(g->err), "layer %d: shared expert width %u, earlier %d", l, L->sh_up.rows, m->shexp_ff);
+                    return -1;
+                }
+                m->shexp_ff = (int)L->sh_up.rows;
             }
         } else {
             if (load_q(m, g, &L->w_gate, "blk.%d.ffn_gate.weight", l)    ||
@@ -258,6 +333,28 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
             snprintf(g->err, sizeof(g->err), "out of memory");
             return -1;
         }
+    }
+
+    if (m->hybrid) {
+        const size_t ns = (size_t)(m->n_linear ? m->n_linear : 1);
+        const int wq = m->ssm_ch > 2 * m->q_dim ? m->ssm_ch : 2 * m->q_dim;
+        m->ssm_s    = (float *)calloc(ns * (size_t)m->ssm_vheads * m->ssm_state * m->ssm_state, sizeof(float));
+        m->ssm_cs   = (float *)calloc(ns * (size_t)(m->ssm_conv - 1) * m->ssm_ch, sizeof(float));
+        m->lin_x    = (float *)calloc((size_t)wq, sizeof(float));
+        m->lin_z    = (float *)calloc((size_t)m->ssm_inner, sizeof(float));
+        m->lin_ba   = (float *)calloc((size_t)(2 * m->ssm_vheads), sizeof(float));
+        m->lin_o    = (float *)calloc((size_t)m->ssm_inner, sizeof(float));
+        m->gate_buf = (float *)calloc((size_t)m->q_dim, sizeof(float));
+        if (!m->ssm_s || !m->ssm_cs || !m->lin_x || !m->lin_z || !m->lin_ba || !m->lin_o || !m->gate_buf) {
+            snprintf(g->err, sizeof(g->err), "cannot allocate the recurrent state");
+            return -1;
+        }
+    }
+    if (m->shexp_ff) {
+        m->sh_h   = (float *)calloc((size_t)m->shexp_ff, sizeof(float));
+        m->sh_h2  = (float *)calloc((size_t)m->shexp_ff, sizeof(float));
+        m->sh_out = (float *)calloc((size_t)m->dim, sizeof(float));
+        if (!m->sh_h || !m->sh_h2 || !m->sh_out) { snprintf(g->err, sizeof(g->err), "out of memory"); return -1; }
     }
 
     m->n_streams = 1;
@@ -291,6 +388,7 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         size_t wide = (size_t)wide_x;
         if ((size_t)wide_ff > wide) wide = (size_t)wide_ff;
         if ((size_t)m->hidden > wide) wide = (size_t)m->hidden;
+        if ((size_t)m->ssm_inner > wide) wide = (size_t)m->ssm_inner;     /* ssm_out's input */
         m->xq = (int8_t *)calloc(wide, 1);
         m->xs = (float *)calloc(wide / 32 + 1, sizeof(float));
         m->xsum = (int32_t *)calloc(wide / 32 + 1, sizeof(int32_t));
@@ -312,6 +410,10 @@ int model_load_slice(model_t *m, gguf_t *g, int max_seq, int layer0, int layer1,
         per_tok += (uint64_t)L->wk.rows * L->wk.row_bytes;
         per_tok += (uint64_t)L->wv.rows * L->wv.row_bytes;
         per_tok += (uint64_t)L->wo.rows * L->wo.row_bytes;
+        per_tok += (uint64_t)L->w_qkv.rows * L->w_qkv.row_bytes + (uint64_t)L->w_z.rows * L->w_z.row_bytes;
+        per_tok += (uint64_t)L->w_ba.rows * L->w_ba.row_bytes + (uint64_t)L->w_sout.rows * L->w_sout.row_bytes;
+        per_tok += (uint64_t)L->sh_gate.rows * L->sh_gate.row_bytes + (uint64_t)L->sh_up.rows * L->sh_up.row_bytes;
+        per_tok += (uint64_t)L->sh_down.rows * L->sh_down.row_bytes;
         if (m->n_expert > 0) {
             /* Only the experts that fire are read, which is the entire reason a 30B is even worth
              * discussing on this machine. Counting all 128 would say 18 GB a token; the truth is
@@ -346,9 +448,15 @@ void model_free(model_t *m)
             qfree(&L->w_gate); qfree(&L->w_up); qfree(&L->w_down);
             free(L->q_norm); free(L->k_norm); free(L->router);
             qfree(&L->e_gate); qfree(&L->e_up); qfree(&L->e_down);
+            qfree(&L->w_qkv); qfree(&L->w_z); qfree(&L->w_ba); qfree(&L->w_sout);
+            free(L->conv1d); free(L->ssm_a); free(L->dt_bias); free(L->ssm_norm);
+            qfree(&L->sh_gate); qfree(&L->sh_up); qfree(&L->sh_down); free(L->sh_inp);
         }
         free(m->L);
     }
+    free(m->ssm_s); free(m->ssm_cs);
+    free(m->lin_x); free(m->lin_z); free(m->lin_ba); free(m->lin_o); free(m->gate_buf);
+    free(m->sh_h); free(m->sh_h2); free(m->sh_out);
     free(m->expert_hits);
     free(m->router_p);
     free(m->e_out); free(m->e_xq); free(m->e_xs);
@@ -535,6 +643,7 @@ void model_set_fast(model_t *m, int on) { m->fast = on ? 1 : 0; }
 int model_set_streams(model_t *m, int n)
 {
     if (n < 1) n = 1;
+    if (m->hybrid && n > 1) return -1;     /* one recurrent state: one sequence */
     const size_t per = (size_t)m->n_layer * (size_t)m->max_seq * (size_t)m->n_kv * (size_t)m->head_dim;
     const size_t sper = (size_t)m->n_layer * (size_t)m->max_seq * (size_t)m->n_kv;
     int8_t *k = (int8_t *)calloc(per * (size_t)n, 1);
@@ -573,6 +682,35 @@ int model_set_kv_f32(model_t *m, int on)
  * quantization step is as small as the head allows. A head of exact zeroes gets scale zero, which
  * reconstructs to zero and needs no special case. */
 void model_set_kv_int4(model_t *m, int on) { m->kv_int4 = on ? 1 : 0; }
+
+void model_set_state16(model_t *m, int mode) { m->state16 = (mode >= 1 && mode <= 3) ? mode : 0; }
+
+void model_round_router(model_t *m, int mode)
+{
+    if (mode != 1 && mode != 2) return;
+    for (int l = 0; l < m->n_layer; l++) {
+        float *r = m->L[l].router;
+        if (!r) continue;
+        for (int e = 0; e < m->n_expert; e++) {
+            float *row = r + (size_t)e * m->dim;
+            if (mode == 1) {
+                for (int i = 0; i < m->dim; i++) row[i] = tlm_bf2f(tlm_f2bf(row[i]));
+                continue;
+            }
+            float amax = 0.0f;
+            for (int i = 0; i < m->dim; i++) { const float a = fabsf(row[i]); if (a > amax) amax = a; }
+            const float s = amax / 127.0f, inv = s > 0.0f ? 1.0f / s : 0.0f;
+            for (int i = 0; i < m->dim; i++) {
+                float v = row[i] * inv;
+                v = v < 0.0f ? v - 0.5f : v + 0.5f;
+                int q = (int)v;
+                if (q > 127) q = 127;
+                if (q < -127) q = -127;
+                row[i] = (float)q * s;
+            }
+        }
+    }
+}
 
 /* Levels available either side of zero. 127 for 8-bit, 7 for 4-bit. The scale is set from the head's
  * largest magnitude either way, so nothing clips; 4 bits simply steps more coarsely. */
@@ -629,13 +767,15 @@ static void softmax(float *v, int n)
  * where a wrong choice is silent. Qwen2 and Llama as converted to GGUF use this one. The symptom of
  * the other is text that starts coherently and loses the thread after a dozen tokens, because the
  * positional information is present but scrambled. */
-static void rope(float *v, int n_heads, int head_dim, int pos, float base)
+static void rope(float *v, int n_heads, int head_dim, int n_rot, int pos, float base)
 {
-    const int half = head_dim / 2;
+    /* n_rot < head_dim (Qwen3-Next: 64 of 256): pairs (i, i + n_rot/2) for i < n_rot/2, frequencies over
+     * n_rot, and dimensions n_rot.. pass through untouched -- ggml's NeoX rotation with n_dims < ne0. */
+    const int half = n_rot / 2;
     for (int h = 0; h < n_heads; h++) {
         float *p = v + (size_t)h * head_dim;
         for (int i = 0; i < half; i++) {
-            const float freq = tlm_rope_freq(base, i, head_dim);
+            const float freq = tlm_rope_freq(base, i, n_rot);
             const float th = (float)pos * freq;
             float c, s;
             tlm_sincosf(th, &s, &c);
@@ -870,6 +1010,153 @@ static void route(model_t *m, const mlayer_t *L, const float *xin, int *pick, fl
     }
 }
 
+/* ---------------------------------------------------------------------------------------------
+ *  Qwen3-Next's gated DeltaNet (2026-10-17), transcribed from llama.cpp's qwen3next.cpp and
+ *  delta-net-base.cpp (build_layer_attn_linear, build_delta_net_autoregressive)
+ * ------------------------------------------------------------------------------------------ */
+
+/* llama.cpp's build_gdn_l2_norm: an RMS norm with eps/n, then a scale by 1/sqrt(n) -- x / sqrt(sum x^2 + eps)
+ * in two roundings, the order ggml applies them */
+static void gdn_l2norm(float *v, int n, float eps)
+{
+    float ss = 0.0f;
+    for (int i = 0; i < n; i++) ss += v[i] * v[i];
+    const float inv = 1.0f / sqrtf(ss / (float)n + eps / (float)n);
+    const float sc = 1.0f / sqrtf((float)n);
+    for (int i = 0; i < n; i++) v[i] = v[i] * inv * sc;
+}
+
+static inline float st_round(float v, int mode)
+{
+    if (mode == 1) return tlm_h2f(tlm_f2h(v));
+    if (mode == 2) return tlm_bf2f(tlm_f2bf(v));
+    return v;
+}
+
+/* A state row at 16 bits (2026-10-17). Modes 1 and 2 round each value on its own (IEEE half, bfloat16). Mode 3 is
+ * int16 with one float scale for the row: amax/32767, each value rounded half away from zero and clamped, then
+ * reconstructed as q * scale -- kv_store's rule at 15 bits. A decaying state's entries span many orders of
+ * magnitude; half loses bits below 6e-5 (subnormals), bfloat16 keeps the range but has 8 bits of mantissa; a row
+ * scale keeps 15 bits relative to the row's largest entry, the ones its dot products are made of. */
+static void st_round_row(float *row, int n, int mode)
+{
+    if (mode == 3) {
+        float amax = 0.0f;
+        for (int i = 0; i < n; i++) {
+            const float a = fabsf(row[i]);
+            if (a > amax) amax = a;
+        }
+        const float s = amax / 32767.0f;
+        const float inv = (s > 0.0f) ? 1.0f / s : 0.0f;
+        for (int i = 0; i < n; i++) {
+            float v = row[i] * inv;
+            v = (v < 0.0f) ? v - 0.5f : v + 0.5f;
+            int q = (int)v;
+            if (q > 32767) q = 32767;
+            if (q < -32767) q = -32767;
+            row[i] = (float)q * s;
+        }
+        return;
+    }
+    for (int i = 0; i < n; i++) row[i] = st_round(row[i], mode);
+}
+
+/* THE DELTA RULE, one token, every value head.
+ *
+ * S is [v_heads][ds][ds]; row j of head h holds, over the keys i, what value j has learned. Per row:
+ *     S *= exp(g)                         decay (g <= 0)
+ *     d  = beta (v_j - S . k)             what this token says value j should be, less what S predicts
+ *     S += d k                            write it in along k
+ *     o_j = S . q                         read along q (q already scaled by 1/sqrt(ds))
+ * Each row depends only on itself, so the row is the unit of work -- one read and one write of it a token, the
+ * pattern the Teensy follows with the state in PSRAM. The sums run i = 0..ds-1 in float, in that order. Value
+ * head h reads key head h / (v_heads/k_heads), llama.cpp's repeat-interleave. With mode set, the row is rounded
+ * to 16 bits after o_j is read from it, which is when the Teensy stores it. */
+static void gdn_recur(float *S, const float *q, const float *k, const float *v, const float *beta,
+                      const float *gate, int vh, int kh, int ds, float *o, int mode)
+{
+    const int rep = vh / kh;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (int h = 0; h < vh; h++) {
+        const float *qh = q + (size_t)(h / rep) * ds, *kk = k + (size_t)(h / rep) * ds;
+        const float *vv = v + (size_t)h * ds;
+        const float eg = tlm_expf(gate[h]), b = beta[h];
+        for (int j = 0; j < ds; j++) {
+            float *row = S + ((size_t)h * ds + (size_t)j) * ds;
+            float sk = 0.0f;
+            for (int i = 0; i < ds; i++) { row[i] = row[i] * eg; sk += row[i] * kk[i]; }
+            const float d = (vv[j] - sk) * b;
+            float oj = 0.0f;
+            for (int i = 0; i < ds; i++) { row[i] = row[i] + kk[i] * d; oj += row[i] * qh[i]; }
+            o[(size_t)h * ds + j] = oj;
+            if (mode) st_round_row(row, ds, mode);
+        }
+    }
+}
+
+/* One linear-attention layer: m->xb (normed) in, dim floats out. */
+static void gdn_layer(model_t *m, const mlayer_t *L, float *out)
+{
+    const int ds = m->ssm_state, vh = m->ssm_vheads, kh = m->ssm_kheads, ch = m->ssm_ch, nc = m->ssm_conv;
+    const int kd = kh * ds, vd = vh * ds, per = vh / kh;
+    float *qkv = m->lin_x, *z = m->lin_z, *ba = m->lin_ba;
+
+    { PROF_T0();
+    const qten_t *w[3] = { &L->w_qkv, &L->w_z, &L->w_ba };
+    float *o[3] = { qkv, z, ba };
+    const int r[3] = { ch, vd, 2 * vh };
+    matvec_group(m, w, o, r, 3, m->xb);
+    PROF_ADD(1); }
+
+    PROF_T0();
+    /* ba is per key head: its value heads' betas, then their alphas */
+    float beta[64], gate[64];
+    for (int h = 0; h < vh; h++) {
+        const int g = h / per, r = h % per;
+        const float b = ba[g * 2 * per + r], a = ba[g * 2 * per + per + r];
+        beta[h] = 1.0f / (1.0f + tlm_expf(-b));
+        gate[h] = tlm_softplusf(a + L->dt_bias[h]) * L->ssm_a[h];
+    }
+
+    /* the causal convolution over each channel's last nc inputs, oldest tap first, then SiLU */
+    float *cs = m->ssm_cs + (size_t)L->lin_slot * (size_t)(nc - 1) * ch;
+    for (int c = 0; c < ch; c++) {
+        const float *w = L->conv1d + (size_t)c * nc;
+        float s = 0.0f;
+        for (int t = 0; t < nc - 1; t++) s += cs[(size_t)t * ch + c] * w[t];
+        s += qkv[c] * w[nc - 1];
+        for (int t = 0; t + 1 < nc - 1; t++) cs[(size_t)t * ch + c] = cs[(size_t)(t + 1) * ch + c];
+        cs[(size_t)(nc - 2) * ch + c] = qkv[c];
+        qkv[c] = s / (1.0f + tlm_expf(-s));
+    }
+
+    float *q = qkv, *k = qkv + kd, *v = qkv + 2 * kd;
+    const float qsc = 1.0f / sqrtf((float)ds);
+    for (int g = 0; g < kh; g++) {
+        gdn_l2norm(q + (size_t)g * ds, ds, m->eps);
+        gdn_l2norm(k + (size_t)g * ds, ds, m->eps);
+        for (int i = 0; i < ds; i++) q[(size_t)g * ds + i] *= qsc;
+    }
+
+    gdn_recur(m->ssm_s + (size_t)L->lin_slot * vh * ds * ds, q, k, v, beta, gate, vh, kh, ds, m->lin_o, m->state16);
+
+    /* a gated RMSNorm per value head: norm(o) * gain * silu(z) */
+    for (int h = 0; h < vh; h++) {
+        float *oh = m->lin_o + (size_t)h * ds;
+        const float *zh = z + (size_t)h * ds;
+        rmsnorm(oh, oh, L->ssm_norm, ds, m->eps);
+        for (int i = 0; i < ds; i++) {
+            const float zz = zh[i];
+            oh[i] = oh[i] * (zz / (1.0f + tlm_expf(-zz)));
+        }
+    }
+    PROF_ADD(2);
+
+    { PROF_T0(); matvec(m, &L->w_sout, m->lin_o, out, m->dim); PROF_ADD(3); }
+}
+
 void model_layers(model_t *m, int pos, int stream)
 {
     g_kv_levels = m->kv_int4 ? 7 : 127;
@@ -891,17 +1178,34 @@ void model_layers(model_t *m, int pos, int stream)
     if (!kbuf || !vbuf || (m->n_expert > 0 && (!ffn_in || !ffn_acc))) {
         free(kbuf); free(vbuf); free(ffn_in); free(ffn_acc); return;
     }
+    /* position 0 starts a sequence: the recurrent layers forget everything */
+    if (m->hybrid && pos == 0) {
+        memset(m->ssm_s, 0, (size_t)(m->n_linear ? m->n_linear : 1) * m->ssm_vheads * m->ssm_state * m->ssm_state * sizeof(float));
+        memset(m->ssm_cs, 0, (size_t)(m->n_linear ? m->n_linear : 1) * (m->ssm_conv - 1) * m->ssm_ch * sizeof(float));
+    }
 
     for (int l = 0; l < m->n_layer; l++) {
         const mlayer_t *L = &m->L[l];
 
         { PROF_T0(); rmsnorm(m->xb, m->x, L->attn_norm, dim, m->eps); PROF_ADD(0); }
 
+        if (L->linear) {
+            gdn_layer(m, L, m->xb2);
+            for (int i = 0; i < dim; i++) m->x[i] += m->xb2[i];
+            goto ffn;
+        }
+
         { PROF_T0();
         const qten_t *qkvw[3] = { &L->wq, &L->wk, &L->wv };
-        float *qkvo[3] = { m->q, kbuf, vbuf };
-        const int qkvr[3] = { m->q_dim, kv_dim, kv_dim };
+        float *qkvo[3] = { m->attn_gated ? m->lin_x : m->q, kbuf, vbuf };
+        const int qkvr[3] = { m->attn_gated ? 2 * m->q_dim : m->q_dim, kv_dim, kv_dim };
         matvec_group(m, qkvw, qkvo, qkvr, 3, m->xb);
+        /* gated: each head's 2*hd outputs are its query, then its output gate */
+        if (m->attn_gated)
+            for (int h = 0; h < nh; h++) {
+                memcpy(m->q + (size_t)h * hd, m->lin_x + (size_t)h * 2 * hd, (size_t)hd * sizeof(float));
+                memcpy(m->gate_buf + (size_t)h * hd, m->lin_x + (size_t)h * 2 * hd + hd, (size_t)hd * sizeof(float));
+            }
         PROF_ADD(1); }
         { PROF_T0();
         if (L->bq) for (int i = 0; i < m->q_dim; i++) m->q[i] += L->bq[i];
@@ -914,8 +1218,8 @@ void model_layers(model_t *m, int pos, int stream)
 
         /* Position goes on q and k only. v carries no position, which is why the cache can be
          * written once and reread unchanged for the rest of the sequence. */
-        rope(m->q, nh, hd, pos, m->rope_base);
-        rope(kbuf, nkv, hd, pos, m->rope_base);
+        rope(m->q, nh, hd, m->n_rot, pos, m->rope_base);
+        rope(kbuf, nkv, hd, m->n_rot, pos, m->rope_base);
 
         const size_t base = sbase + ((size_t)l * m->max_seq + (size_t)pos) * kv_dim;
         const size_t sb = sscale + ((size_t)l * m->max_seq + (size_t)pos) * nkv;
@@ -968,6 +1272,13 @@ void model_layers(model_t *m, int pos, int stream)
             }
         }
 
+        /* Qwen3-Next: the attention output times sigmoid of its gate, before the output projection */
+        if (m->attn_gated)
+            for (int i = 0; i < m->q_dim; i++) {
+                const float gv = m->gate_buf[i];
+                m->xb[i] = m->xb[i] * (1.0f / (1.0f + tlm_expf(-gv)));
+            }
+
         PROF_ADD(2);
 
         { PROF_T0();
@@ -975,6 +1286,7 @@ void model_layers(model_t *m, int pos, int stream)
         for (int i = 0; i < dim; i++) m->x[i] += m->xb2[i];
         PROF_ADD(3); }
 
+ffn:
         { PROF_T0(); rmsnorm(m->xb, m->x, L->ffn_norm, dim, m->eps); PROF_ADD(0); }
 
         if (m->n_expert > 0) {
@@ -1006,6 +1318,24 @@ void model_layers(model_t *m, int pos, int stream)
                     if (pick[j] < 0) continue;
                     expert_ffn(m, L, pick[j], xin, wgt[j], ffn_acc);
                 }
+            }
+            /* Qwen3-Next's shared expert, on every token: SwiGLU of its own, scaled by sigmoid(sh_inp . x),
+             * added after the routed experts' sum (llama.cpp: moe_out + ffn_shexp * gate) */
+            if (L->sh_up.raw) {
+                const int sff = m->shexp_ff;
+                const qten_t *sw[2] = { &L->sh_gate, &L->sh_up };
+                float *so[2] = { m->sh_h, m->sh_h2 };
+                const int sr[2] = { sff, sff };
+                matvec_group(m, sw, so, sr, 2, xin);
+                for (int i = 0; i < sff; i++) {
+                    const float gg = m->sh_h[i];
+                    m->sh_h[i] = (gg / (1.0f + tlm_expf(-gg))) * m->sh_h2[i];
+                }
+                matvec(m, &L->sh_down, m->sh_h, m->sh_out, dim);
+                float gs = 0.0f;
+                for (int i = 0; i < dim; i++) gs += L->sh_inp[i] * xin[i];
+                const float sg = 1.0f / (1.0f + tlm_expf(-gs));
+                for (int i = 0; i < dim; i++) ffn_acc[i] += m->sh_out[i] * sg;
             }
             for (int i = 0; i < dim; i++) m->x[i] += ffn_acc[i];
             PROF_ADD(5);
@@ -1136,6 +1466,15 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
     const size_t sbase = (size_t)stream * (size_t)m->n_layer * (size_t)m->max_seq * (size_t)kv_dim;
     const size_t sscale = (size_t)stream * (size_t)m->n_layer * (size_t)m->max_seq * (size_t)nkv;
 
+    if (m->hybrid) {            /* the recurrence runs position by position */
+        for (int j = 0; j < n; j++) {
+            memcpy(m->x, X + (size_t)j * dim, (size_t)dim * sizeof(float));
+            model_layers(m, pos0 + j, stream);
+            memcpy(X + (size_t)j * dim, m->x, (size_t)dim * sizeof(float));
+        }
+        return;
+    }
+
     float *XB = (float *)malloc((size_t)n * dim * sizeof(float));
     float *Q  = (float *)malloc((size_t)n * dim * sizeof(float));
     float *KB = (float *)malloc((size_t)n * kv_dim * sizeof(float));
@@ -1172,8 +1511,8 @@ void model_layers_batch(model_t *m, float *X, int n, int pos0, int stream)
             if (L->bq) for (int i = 0; i < dim; i++)    qj[i] += L->bq[i];
             if (L->bk) for (int i = 0; i < kv_dim; i++) kj[i] += L->bk[i];
             if (L->bv) for (int i = 0; i < kv_dim; i++) vj[i] += L->bv[i];
-            rope(qj, nh, hd, pos0 + j, m->rope_base);
-            rope(kj, nkv, hd, pos0 + j, m->rope_base);
+            rope(qj, nh, hd, m->n_rot, pos0 + j, m->rope_base);
+            rope(kj, nkv, hd, m->n_rot, pos0 + j, m->rope_base);
 
             /* Every key and value for the batch is written BEFORE any attention runs, so a position
              * later in the batch can attend to an earlier one. */

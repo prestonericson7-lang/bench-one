@@ -221,6 +221,25 @@
       return (a0 + a1) + (a2 + a3);
   }
 
+  /* Q5_K, one 32-weight sub-block (2026-10-17): Q4_K's nibble word with each byte's fifth bit -- bit hb of the
+   * matching qh byte -- moved to bit 4. The weight is 0..31, a positive byte, so SXTB16 widens it exactly. Same
+   * products as dot_q5_k_ref's inner loop, summed in another order: the same integer. */
+  static inline int32_t gd_q5_dot32(const uint8_t *q, const uint8_t *qh, const int8_t *x, uint32_t shift, uint32_t hb)
+  {
+      int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+      for (int l = 0; l < 32; l += 8) {
+          const uint32_t q0 = ((gd_ld32(q + l)     >> shift) & 0x0F0F0F0Fu) | (((gd_ld32(qh + l)     >> hb) & 0x01010101u) << 4);
+          const uint32_t q1 = ((gd_ld32(q + l + 4) >> shift) & 0x0F0F0F0Fu) | (((gd_ld32(qh + l + 4) >> hb) & 0x01010101u) << 4);
+          const uint32_t x0 = gd_ld32(x + l);
+          const uint32_t x1 = gd_ld32(x + l + 4);
+          a0 = gd_smlad(gd_sxtb16(q0),   gd_sxtb16(x0),   a0);
+          a1 = gd_smlad(gd_sxtb16r8(q0), gd_sxtb16r8(x0), a1);
+          a2 = gd_smlad(gd_sxtb16(q1),   gd_sxtb16(x1),   a2);
+          a3 = gd_smlad(gd_sxtb16r8(q1), gd_sxtb16r8(x1), a3);
+      }
+      return (a0 + a1) + (a2 + a3);
+  }
+
   /* Q6_K, one 16-weight scale group.
    *
    * A Q6_K value is six bits split across two arrays: four bits in ql and two in qh, then biased by
@@ -1046,6 +1065,173 @@ static float dot_q6_k(const uint8_t *raw, const int8_t *xq, const float *xs, uin
     return dot_q6_k_ref(raw, xq, xs, n);
 }
 
+/* ---------------------------------------------------------------------------------------------
+ *  Q5_K (2026-10-17, for Qwen3-Next's linear-attention input projection and shared expert)
+ *
+ *  Q4_K's block with a fifth bit per weight from qh[32]: the same d, dmin and twelve bytes of 6-bit scales
+ *  and minimums, the same per-block minimum term dmin*m*sum(x), the same double combination per 32 weights.
+ *  The weight is 0..31 instead of 0..15, so a 32-term integer dot is at most 31*127*32 = 125,984.
+ * ------------------------------------------------------------------------------------------ */
+/* (flash on the Teensy: the M7 runs it only with gguf_dot_force_scalar on) */
+GD_COLD static float dot_q5_k_ref(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
+{
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 176u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4;
+        const uint8_t *qh     = blk + 16;
+        const uint8_t *q      = blk + 48;
+        const int8_t  *x  = xq + b * QK_K;
+        const float   *sx = xs + b * (QK_K / ABLK);
+
+        int is = 0;
+        for (int j = 0; j < QK_K; j += 64) {
+            const int sh = j / 32;                     /* bit 2i and 2i+1 of qh for 64-weight group i */
+            uint8_t sc, m;
+            int32_t dot, sum;
+
+            gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+            dot = 0; sum = 0;
+            for (int l = 0; l < 32; l++) {
+                const int32_t xv = x[j + l];
+                dot += (int32_t)((q[l] & 0x0F) | (((qh[l] >> sh) & 1) << 4)) * xv;
+                sum += xv;
+            }
+            total += (double)sx[is + 0] * ((double)d * sc * dot - (double)dmin * m * sum);
+
+            gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+            dot = 0; sum = 0;
+            for (int l = 0; l < 32; l++) {
+                const int32_t xv = x[j + 32 + l];
+                dot += (int32_t)((q[l] >> 4) | (((qh[l] >> (sh + 1)) & 1) << 4)) * xv;
+                sum += xv;
+            }
+            total += (double)sx[is + 1] * ((double)d * sc * dot - (double)dmin * m * sum);
+
+            q += 32;
+            is += 2;
+        }
+    }
+    return (float)total;
+}
+
+/* Q5_K with the activations' per-32 sums supplied (gguf_act_sums), as gguf_dot_q4k_presum: on the M7 the DSP
+ * sub-block, elsewhere the reference (which sums them itself). The sums are the same integers either way, so the
+ * double expression -- dot_q5_k_ref's -- sees the same operands: bit-identical to gguf_dot_q (tests/dot_verify.c). */
+float gguf_dot_q5k_presum(const void *raw_, const int8_t *xq, const float *xs, const int32_t *xsum, uint64_t n)
+{
+#if !GGUF_HAVE_M7DSP
+    (void)xsum;
+    return dot_q5_k_ref((const uint8_t *)raw_, xq, xs, n);
+#else
+    if (g_force_scalar) return dot_q5_k_ref((const uint8_t *)raw_, xq, xs, n);
+    const uint8_t *raw = (const uint8_t *)raw_;
+    const uint64_t nb = n / QK_K;
+    double total = 0.0;
+    for (uint64_t b = 0; b < nb; b++) {
+        const uint8_t *blk = raw + b * 176u;
+        uint16_t hd, hm;
+        memcpy(&hd, blk + 0, 2);
+        memcpy(&hm, blk + 2, 2);
+        const float d    = gguf_fp16(hd);
+        const float dmin = gguf_fp16(hm);
+        const uint8_t *sc_raw = blk + 4, *qh = blk + 16;
+        const uint8_t *q      = blk + 48;
+        const int8_t  *x  = xq   + b * QK_K;
+        const float   *sx = xs   + b * (QK_K / ABLK);
+        const int32_t *sm = xsum + b * (QK_K / ABLK);
+        int is = 0;
+        for (int j = 0; j < QK_K; j += 64) {
+            const uint32_t sh = (uint32_t)(j / 32);
+            uint8_t sc, m;
+            gguf_q4k_scale_min(is + 0, sc_raw, &sc, &m);
+            int32_t dot = gd_q5_dot32(q, qh, x + j, 0, sh);
+            total += (double)sx[is + 0] * ((double)d * sc * dot - (double)dmin * m * sm[is + 0]);
+            gguf_q4k_scale_min(is + 1, sc_raw, &sc, &m);
+            dot = gd_q5_dot32(q, qh, x + j + 32, 4, sh + 1);
+            total += (double)sx[is + 1] * ((double)d * sc * dot - (double)dmin * m * sm[is + 1]);
+            q += 32;
+            is += 2;
+        }
+    }
+    return (float)total;
+#endif
+}
+
+/* Q5_K against np vectors, one row read once, the sums supplied: each vector's result is gguf_dot_q5k_presum's to
+ * the bit. On the M7 each sub-block's 32 weights become 16 lane words once and feed every vector. */
+void gguf_dot_q5k_presum_n(const void *raw_, int np, const int8_t *const *xq, const float *const *xs,
+                           const int32_t *const *xsum, uint64_t n, float *out)
+{
+#if GGUF_HAVE_M7DSP
+    if (!g_force_scalar && np > 1 && np <= GGUF_NPOS_MAX) {
+        const uint8_t *raw = (const uint8_t *)raw_;
+        const uint64_t nb = n / QK_K;
+        double total[GGUF_NPOS_MAX];
+        for (int p = 0; p < np; p++) total[p] = 0.0;
+        for (uint64_t b = 0; b < nb; b++) {
+            const uint8_t *blk = raw + b * 176u;
+            uint16_t hd, hm;
+            memcpy(&hd, blk + 0, 2);
+            memcpy(&hm, blk + 2, 2);
+            const float d    = gguf_fp16(hd);
+            const float dmin = gguf_fp16(hm);
+            const uint8_t *sc_raw = blk + 4, *qh = blk + 16, *q = blk + 48;
+            for (int is = 0; is < QK_K / ABLK; is++) {
+                const uint32_t shift = (is & 1) ? 4u : 0u, hb = (uint32_t)is;
+                const uint8_t *qq = q + (is / 2) * 32;
+                uint32_t wa[8], wb[8];
+                for (int k = 0; k < 8; k++) {
+                    const uint32_t qv = ((gd_ld32(qq + 4 * k) >> shift) & 0x0F0F0F0Fu) | (((gd_ld32(qh + 4 * k) >> hb) & 0x01010101u) << 4);
+                    wa[k] = gd_sxtb16(qv);
+                    wb[k] = gd_sxtb16r8(qv);
+                }
+                uint8_t sc, m;
+                gguf_q4k_scale_min(is, sc_raw, &sc, &m);
+                for (int p = 0; p < np; p++) {
+                    const int8_t *x = xq[p] + b * QK_K + is * 32;
+                    int32_t a0 = 0, a1 = 0;
+                    for (int k = 0; k < 8; k += 2) {
+                        const uint32_t v0 = gd_ld32(x + 4 * k), v1 = gd_ld32(x + 4 * k + 4);
+                        a0 = gd_smlad(wa[k],     gd_sxtb16(v0),   a0);
+                        a1 = gd_smlad(wb[k],     gd_sxtb16r8(v0), a1);
+                        a0 = gd_smlad(wa[k + 1], gd_sxtb16(v1),   a0);
+                        a1 = gd_smlad(wb[k + 1], gd_sxtb16r8(v1), a1);
+                    }
+                    const int32_t dot = a0 + a1;
+                    total[p] += (double)xs[p][b * (QK_K / ABLK) + is] *
+                                ((double)d * sc * dot - (double)dmin * m * xsum[p][b * (QK_K / ABLK) + is]);
+                }
+            }
+        }
+        for (int p = 0; p < np; p++) out[p] = (float)total[p];
+        return;
+    }
+#endif
+    for (int p = 0; p < np; p++) out[p] = gguf_dot_q5k_presum(raw_, xq[p], xs[p], xsum[p], n);
+}
+
+/* Q5_K on its own (gguf_dot_q): the M7 sums the activations itself, then the presum kernel's arithmetic. In flash on
+ * the Teensy: the runtime reads Q5_K through the presum kernels, which have the sums already. */
+GD_COLD static float dot_q5_k(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
+{
+#if GGUF_HAVE_M7DSP
+    if (!g_force_scalar && n <= 16384) {
+        int32_t xsum[16384 / ABLK];
+        gguf_act_sums(xq, n, xsum);
+        return gguf_dot_q5k_presum(raw, xq, xs, xsum, n);
+    }
+#endif
+    return dot_q5_k_ref(raw, xq, xs, n);
+}
+
 static float dot_q8_0(const uint8_t *raw, const int8_t *xq, const float *xs, uint64_t n)
 {
     const uint64_t nb = n / 32;
@@ -1068,6 +1254,7 @@ float gguf_dot_q(uint32_t type, const void *raw, const int8_t *xq, const float *
 {
     switch (type) {
     case GGML_Q4_K: return dot_q4_k((const uint8_t *)raw, xq, xs, n);
+    case GGML_Q5_K: return dot_q5_k((const uint8_t *)raw, xq, xs, n);
     case GGML_Q6_K: return dot_q6_k((const uint8_t *)raw, xq, xs, n);
     case GGML_Q8_0: return dot_q8_0((const uint8_t *)raw, xq, xs, n);
     default: {

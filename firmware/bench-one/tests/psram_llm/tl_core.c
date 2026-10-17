@@ -85,10 +85,23 @@
 /* MIXTURE OF EXPERTS (qwen3moe, 2026-10-16). The router's 128 logits per position, the 8 picks, an expert's
  * hidden width (768 for Qwen3-30B-A3B), and the positions a batched pass feeds a MoE model (its buffers share
  * the dense feed-forward's space in PB, which holds four positions' worth). */
-#define TL_MAX_EXPERT  128
-#define TL_MAX_EUSED   8
+#define TL_MAX_EXPERT  512        /* Qwen3-Next: 512 experts, 10 used (Qwen3-30B-A3B: 128, 8) */
+#define TL_MAX_EUSED   10
 #define TL_MAX_EFF     1024
 #define TL_MOE_BATCH   4
+/* QWEN3-NEXT'S GATED DELTANET (2026-10-17): value heads, the state's side (head width), the convolution's channels
+ * (2 x key heads x state + value heads x state) and taps. The state rows go through KC TL_LROWS at a time, the
+ * convolution's channels through KC and ROW TL_CONV_BLK at a time. */
+#define TL_MAX_VHEADS  32
+#define TL_MAX_SSTATE  128
+#define TL_MAX_SSM_CH  8192
+#define TL_MAX_CONV    4
+#define TL_LROWS       64
+#define TL_CONV_BLK    1024
+/* a state row in PSRAM: its ds values at 16 bits, then -- int16 state (mode 3) only -- the row's float scale. The
+ * region is sized for the longer row; a row of the mode in use is what moves (4 bytes in 260 is 576 KB a token) */
+#define TL_SROW_MAX(ds)       ((uint32_t)(ds) * 2u + 4u)
+#define TL_SROW_BYTES(ds, md) ((uint32_t)(ds) * 2u + ((md) == 3 ? 4u : 0u))
 #define TL_ROWBUF      TL_PIPEBUF
 #define TL_KCHUNK      64         /* cache positions pulled from PSRAM per read in attention */
 #define TL_KEYMAX      1024       /* longest tokenizer string accepted                        */
@@ -267,7 +280,7 @@ static int ps_read(int b, uint32_t off, void *dst, uint32_t n)
     if (r) { snprintf(g_err, sizeof g_err, "PSRAM bank %d read failed at %lu (+%lu)", b, (unsigned long)off, (unsigned long)n); g_fault_bank = b; }
     return r;
 }
-static int ps_write(int b, uint32_t off, const void *src, uint32_t n)
+static int ps_write_how(int b, uint32_t off, const void *src, uint32_t n, int verify)
 {
     if (!n) return 0;
     if (b < 0 || b >= g_nbank || (uint64_t)off + n > g_bank_bytes[b]) {
@@ -275,12 +288,25 @@ static int ps_write(int b, uint32_t off, const void *src, uint32_t n)
         return -1;
     }
     const double t = plat_now();
-    const int r = plat_ps_write(b, off, src, n);
+    const int r = verify ? plat_ps_write(b, off, src, n) : plat_ps_write_nv(b, off, src, n);
     S.t_ps += plat_now() - t;
     S.ps_written += n;
     if (r) { snprintf(g_err, sizeof g_err, "PSRAM bank %d write failed at %lu (+%lu)", b, (unsigned long)off, (unsigned long)n); g_fault_bank = b; }
     return r;
 }
+static int ps_write(int b, uint32_t off, const void *src, uint32_t n) { return ps_write_how(b, off, src, n, 1); }
+/* tl_set_psverify: whether writes of data the core checksums itself (Qwen3-Next's recurrent state and convolution
+ * window, rewritten every token) are read back by the board as well. 1 (the default): yes, as every write. 0: no --
+ * a bad write is then found by the row's checksum on its next read, and handled as a failed read is (re-read, then
+ * the bank retired and the prompt re-run). */
+static int g_psverify = 1;
+int tl_set_psverify(int on)
+{
+    const int was = g_psverify;
+    if (on == 0 || on == 1) g_psverify = on;
+    return was;
+}
+static int ps_write_cs(int b, uint32_t off, const void *src, uint32_t n) { return ps_write_how(b, off, src, n, g_psverify); }
 int tl_fault_bank(void) { return g_fault_bank; }
 
 /* ---- the model --------------------------------------------------------------------------- */
@@ -292,12 +318,20 @@ typedef struct {
 } tten_t;
 
 typedef struct {
-    tten_t   wq, wk, wv, wo, wg, wu, wd;
-    tten_t   n_attn, n_ffn, bq, bk, bv;          /* small float tensors, read from the card where used */
-    tten_t   qn, kn;                             /* Qwen3: per-head q and k RMSNorm gains (head_dim) */
+    /* An attention layer's tensors, or -- on a Qwen3-Next linear-attention layer, which has none of them -- the
+     * gated DeltaNet's in the same places (M.lin_mask says which a layer is; nothing reads one view on the other
+     * kind of layer): w_qkv, w_z, w_ba, w_sout, conv1d [channels][taps], ssm_a, dt_bias, ssm_norm. */
+    union {
+        struct { tten_t wq, wk, wv, wo, bq, bk, bv, qn, kn; };
+        struct { tten_t lqkv, lz, lba, lout, lconv, la, ldt, lnorm, lunused_; };
+    };
+    tten_t   wg, wu, wd;                         /* the dense feed-forward, or Qwen3-Next's shared expert */
+    tten_t   n_attn, n_ffn;                      /* small float tensors, read from the card where used */
+    /* (bq bk bv: biases; qn kn: Qwen3's per-head q and k RMSNorm gains, head_dim) */
     tten_t   rt, eg, eu, ed;                     /* mixture of experts: the router (F32, experts x dim) and the
                                                     three expert stacks, expert e's rows at e x eff (gate, up)
                                                     and e x dim (down) */
+    tten_t   sgi;                                /* Qwen3-Next: the shared expert's gate row (dim) */
 } tlayer_t;
 
 static struct {
@@ -306,6 +340,17 @@ static struct {
     int      qm;                                 /* PB rows a q_dim vector takes: 1, or 2 when q_dim > dim limit */
     int      batch;                              /* positions a pass may feed (tl_batch) */
     float    eps, rope_base;
+    int      n_rot;                              /* rotary dimensions a head: head_dim, but 64 of 256 on Qwen3-Next */
+    int      attn_gated;                         /* Qwen3-Next: wq is each head's query then its output gate */
+    /* Qwen3-Next's linear-attention layers (model_q.c's hybrid): which they are, their shapes, and the PSRAM region
+     * each keeps -- vh x ds rows of ds 16-bit state values, a checksum per row, then the convolution's last
+     * conv-1 inputs TL_CONV_BLK channels a block, a checksum per block. lin_pos is the next position the
+     * recurrence expects (-1: start again at 0). */
+    int      hybrid, n_linear, shexp_ff;
+    uint64_t lin_mask;
+    int      ssm_conv, ssm_state, ssm_kheads, ssm_vheads, ssm_inner, ssm_ch;
+    uint32_t lin_bytes, r_lsum, r_conv, r_csum;
+    int      lin_pos, state16;
     tlayer_t L[TL_MAX_LAYERS];
     tten_t   embd, onorm, out;
     int      tied;
@@ -325,6 +370,13 @@ static struct {
     uint32_t ps_used;
     int      open;
 } M TL_BIG;                    /* OCRAM on the Teensy: 21 KB at 48 layers, and not touched in an inner loop */
+static int g_state16 = 1;      /* tl_set_state16: 1 IEEE half, 2 bfloat16, 3 int16 with a scale per row */
+int tl_set_state16(int mode)
+{
+    const int was = g_state16;
+    if (mode >= 1 && mode <= 3) { g_state16 = mode; M.state16 = mode; M.lin_pos = -1; }
+    return was;
+}
 /* whether M holds an open model. NOT M.open: the Teensy's startup zeroes only DTCM (.bss), never OCRAM
  * (.bss.dma, where TL_BIG puts M), so before the first tl_open M is whatever the RAM powered up holding */
 static int g_mopen;
@@ -390,7 +442,16 @@ int   tl_batch(void) { return g_mopen ? M.batch : TL_BATCH; }
 static int8_t  XQ[TL_MAX_HIDDEN];
 static float   XS[TL_MAX_HIDDEN / 32 + 1];
 static int32_t XSUM[TL_MAX_HIDDEN / 32 + 1];
-static float   ATT[TL_ATT_FLOATS] TL_BIG;
+/* The attention scores of every head -- or, during a Qwen3-Next linear-attention layer, which has no attention, that
+ * layer's scratch: every position's convolution channels (q, k, v; then z where q and k were, o where v was) and
+ * its beta/alpha pairs. A gated attention layer keeps its heads' output gates after the scores (GATE). */
+static union {
+    float att[TL_ATT_FLOATS];
+    struct { float x[TL_MOE_BATCH][TL_MAX_SSM_CH]; float ba[TL_MOE_BATCH][2 * TL_MAX_VHEADS]; } lin;
+} AT TL_BIG;
+#define ATT  (AT.att)
+#define LIN  (AT.lin)
+#define GATE (AT.att + (size_t)M.n_heads * (size_t)M.max_seq)
 
 static int8_t  KC[TL_KCHUNK * TL_MAX_KVDIM];
 static float   KCS[TL_KCHUNK * TL_MAX_KVH];
@@ -907,6 +968,11 @@ static const struct { uint32_t blk, bytes; } TYPES[16] = {
 
 static int set_tensor(tten_t *t, uint32_t type, const uint64_t *dims, uint32_t nd, uint64_t off)
 {
+    if (type == GGML_BF16) {                     /* Qwen3-Next's shared-expert gate row: one value per 2 bytes */
+        t->type = type; t->cols = (uint32_t)dims[0]; t->rows = nd > 1 ? (uint32_t)dims[1] : 1u;
+        t->row_bytes = t->cols * 2u; t->off = off; t->present = 1;
+        return 0;
+    }
     if (type >= 16 || !TYPES[type].blk) { snprintf(g_err, sizeof g_err, "tensor type %lu unsupported", (unsigned long)type); return -1; }
     t->type = type;
     t->cols = (uint32_t)dims[0];
@@ -943,7 +1009,16 @@ static int assign_tensor(const char *name, uint32_t type, const uint64_t *dims, 
         { "attn_q_norm.weight", offsetof(tlayer_t, qn) },     { "attn_k_norm.weight", offsetof(tlayer_t, kn) },
         { "ffn_gate_inp.weight", offsetof(tlayer_t, rt) },    { "ffn_gate_exps.weight", offsetof(tlayer_t, eg) },
         { "ffn_up_exps.weight", offsetof(tlayer_t, eu) },     { "ffn_down_exps.weight", offsetof(tlayer_t, ed) },
+        /* Qwen3-Next: the gated DeltaNet's tensors (in the attention fields' places), its norm names, the shared expert */
+        { "attn_qkv.weight",    offsetof(tlayer_t, lqkv) },   { "attn_gate.weight", offsetof(tlayer_t, lz) },
+        { "ssm_ba.weight",      offsetof(tlayer_t, lba) },    { "ssm_out.weight",   offsetof(tlayer_t, lout) },
+        { "ssm_conv1d.weight",  offsetof(tlayer_t, lconv) },  { "ssm_a",            offsetof(tlayer_t, la) },
+        { "ssm_dt.bias",        offsetof(tlayer_t, ldt) },    { "ssm_norm.weight",  offsetof(tlayer_t, lnorm) },
+        { "post_attention_norm.weight", offsetof(tlayer_t, n_ffn) },
+        { "ffn_gate_shexp.weight", offsetof(tlayer_t, wg) },  { "ffn_up_shexp.weight", offsetof(tlayer_t, wu) },
+        { "ffn_down_shexp.weight", offsetof(tlayer_t, wd) },  { "ffn_gate_inp_shexp.weight", offsetof(tlayer_t, sgi) },
     };
+    if (!strcmp(p, "attn_qkv.weight")) M.lin_mask |= 1ull << l;      /* this layer is linear attention */
     for (size_t k = 0; k < sizeof K / sizeof K[0]; k++)
         if (!strcmp(p, K[k].s)) return set_tensor((tten_t *)((char *)L + K[k].o), type, dims, nd, off);
     /* Anything else in a block means a model this runtime does not implement -- refuse rather than run
@@ -960,7 +1035,7 @@ static int small_check(const tten_t *t, uint32_t n)
 {
     if (!t->present) return 0;
     if (t->rows * t->cols != n || n > TL_MAX_DIM) { snprintf(g_err, sizeof g_err, "small tensor of %lu elements, expected %lu", (unsigned long)(t->rows * t->cols), (unsigned long)n); return -1; }
-    if (t->type != GGML_F32 && t->type != GGML_F16) { snprintf(g_err, sizeof g_err, "small tensor type %lu", (unsigned long)t->type); return -1; }
+    if (t->type != GGML_F32 && t->type != GGML_F16 && t->type != GGML_BF16) { snprintf(g_err, sizeof g_err, "small tensor type %lu", (unsigned long)t->type); return -1; }
     if (t->row_bytes * t->rows > TL_ROWBUF) { snprintf(g_err, sizeof g_err, "small tensor over TL_ROWBUF"); return -1; }
     return 0;
 }
@@ -978,7 +1053,7 @@ static int check_mat(const tten_t *t, uint32_t rows, uint32_t cols, const char *
         snprintf(g_err, sizeof g_err, "layer %d %s is %lux%lu, expected %lux%lu", l, what, (unsigned long)t->rows, (unsigned long)t->cols, (unsigned long)rows, (unsigned long)cols);
         return -1;
     }
-    if (t->type != GGML_Q4_K && t->type != GGML_Q6_K && t->type != GGML_Q8_0) {
+    if (t->type != GGML_Q4_K && t->type != GGML_Q5_K && t->type != GGML_Q6_K && t->type != GGML_Q8_0) {
         snprintf(g_err, sizeof g_err, "layer %d %s type %lu has no fused kernel", l, what, (unsigned long)t->type);
         return -1;
     }
@@ -996,6 +1071,125 @@ static int tok_store_sum(uint32_t bytes, uint64_t *sum)
         h = fnv_add(h, ROW, k);
     }
     *sum = h;
+    return 0;
+}
+
+/* ---- Qwen3-Next's PSRAM layout (2026-10-17) -----------------------------------------------------------------
+ * Two kinds of region: a linear layer's (its 16-bit state, the convolution's, checksums: M.lin_bytes, fixed) and an
+ * attention layer's cache (layer_bytes, growing with the positions S). Linear layers go first, from bank 0 on -- the
+ * board lists its fastest chips first, and a state is read and written whole on every pass while a cache is read
+ * only as far as the context reaches -- then the attention layers; each region first-fit in bank order, nothing
+ * straddling two banks. A layout is "spare" when every bank's regions could move to the others' free space
+ * (tl_bank_fault). S is the largest count with every region placed and a spare layout, if that leaves TL_SPARE_MIN
+ * positions; otherwise the largest with every region placed. The score buffer holds every head's scores at S
+ * positions plus a pass's output gates (GATE), which caps S too. */
+static uint32_t g_bank_ub[TL_MAX_BANKS];       /* bytes laid out in each bank (the hybrid's allocator) */
+
+TL_COLD static int hy_place(uint32_t layer_bytes, int commit, int *spare)
+{
+    uint32_t used[TL_MAX_BANKS];
+    int16_t bank_of[TL_MAX_LAYERS];
+    uint32_t base_of[TL_MAX_LAYERS];
+    memset(used, 0, sizeof used);
+    for (int pass = 0; pass < 2; pass++)
+        for (int l = 0; l < M.n_layer; l++) {
+            const int lin = (int)((M.lin_mask >> l) & 1u);
+            if (lin != (pass == 0)) continue;
+            const uint32_t need = lin ? M.lin_bytes : layer_bytes;
+            int b = 0;
+            while (b < g_nbank && (g_bank_dead[b] || (uint64_t)used[b] + need > g_bank_bytes[b])) b++;
+            if (b == g_nbank) return 0;
+            bank_of[l] = (int16_t)b; base_of[l] = used[b]; used[b] += need;
+        }
+    int ok = 1;
+    for (int d = 0; d < g_nbank && ok; d++) {
+        if (!used[d]) continue;
+        uint32_t u2[TL_MAX_BANKS];
+        memcpy(u2, used, sizeof u2);
+        for (int l = 0; l < M.n_layer && ok; l++) {
+            if (bank_of[l] != d) continue;
+            const uint32_t need = ((M.lin_mask >> l) & 1u) ? M.lin_bytes : layer_bytes;
+            int b = 0;
+            while (b < g_nbank && (b == d || g_bank_dead[b] || (uint64_t)u2[b] + need > g_bank_bytes[b])) b++;
+            if (b == g_nbank) ok = 0; else u2[b] += need;
+        }
+    }
+    *spare = ok;
+    if (commit) {
+        for (int l = 0; l < M.n_layer; l++) { PL[l].bank = bank_of[l]; PL[l].base = base_of[l]; }
+        memcpy(g_bank_ub, used, sizeof used);
+    }
+    return 1;
+}
+
+TL_COLD static int hy_layout(void)
+{
+    const uint64_t per_pos = 2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv + 8u;
+    const int64_t gate = M.attn_gated ? (int64_t)M.batch * M.q_dim : 0;
+    int s_lim = (int)(((int64_t)TL_ATT_FLOATS - gate) / M.n_heads);
+    if (s_lim > TL_MAX_SEQ) s_lim = TL_MAX_SEQ;
+    int s_max = 0, s_red = 0, spare;
+    for (int lo = 16, hi = s_lim; lo <= hi; ) {                   /* placed-at-all falls as S grows */
+        const int mid = (lo + hi) / 2;
+        if (hy_place((uint32_t)(per_pos * (uint64_t)mid), 0, &spare)) { s_max = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (s_max < 16) { snprintf(g_err, sizeof g_err, "%d PSRAM banks do not hold %d linear-attention states and %d caches of 16 positions",
+                               g_nbank, M.n_linear, M.n_layer - M.n_linear); return -1; }
+    for (int S2 = s_max; S2 >= TL_SPARE_MIN && !s_red; S2 -= (S2 > TL_SPARE_MIN + 64 ? 16 : 1))
+        if (hy_place((uint32_t)(per_pos * (uint64_t)S2), 0, &spare) && spare) s_red = S2;
+    M.max_seq = s_red ? s_red : s_max;
+    M.layer_bytes = (uint32_t)(per_pos * (uint64_t)M.max_seq);
+    const uint32_t S = (uint32_t)M.max_seq, kd = (uint32_t)M.kv_dim, sd = (uint32_t)M.n_kv * 4u;
+    M.r_ks = S * kd; M.r_v = M.r_ks + S * sd; M.r_vs = M.r_v + S * kd; M.r_sk = M.r_vs + S * sd; M.r_sv = M.r_sk + S * 4u;
+    hy_place(M.layer_bytes, 1, &spare);
+    M.one_bank_spare = spare;
+    M.layer_slots = M.n_layer; M.spare_slots = 0; M.banks_used = 0;
+    for (int b = 0; b < g_nbank; b++) { g_bank_slots[b] = 0; g_bank_used[b] = 0; M.banks_used += g_bank_ub[b] > 0; }
+    for (int l = 0; l < M.n_layer; l++) g_bank_used[PL[l].bank]++;
+    M.ps_used = (uint32_t)M.n_linear * M.lin_bytes + (uint32_t)(M.n_layer - M.n_linear) * M.layer_bytes;
+    return 0;
+}
+
+/* tl_bank_fault for the hybrid: each region of the dead bank to the end of the first live bank with room */
+TL_COLD static int hy_fault(int bank)
+{
+    uint32_t u2[TL_MAX_BANKS];
+    memcpy(u2, g_bank_ub, sizeof u2);
+    for (int l = 0; l < M.n_layer; l++) {
+        if (PL[l].bank != bank) continue;
+        const uint32_t need = ((M.lin_mask >> l) & 1u) ? M.lin_bytes : M.layer_bytes;
+        int b = 0;
+        while (b < g_nbank && (b == bank || g_bank_dead[b] || (uint64_t)u2[b] + need > g_bank_bytes[b])) b++;
+        if (b == g_nbank) { snprintf(g_err, sizeof g_err, "bank %d's layers do not fit the live banks' free space", bank); return -1; }
+        u2[b] += need;
+    }
+    g_bank_dead[bank] = 1;
+    for (int l = 0; l < M.n_layer; l++) {
+        if (PL[l].bank != bank) continue;
+        const uint32_t need = ((M.lin_mask >> l) & 1u) ? M.lin_bytes : M.layer_bytes;
+        int b = 0;
+        while (b < g_nbank && (b == bank || g_bank_dead[b] || (uint64_t)g_bank_ub[b] + need > g_bank_bytes[b])) b++;
+        PL[l].bank = b; PL[l].base = g_bank_ub[b]; g_bank_ub[b] += need;
+    }
+    g_bank_ub[bank] = 0;
+    int spare = 1;
+    for (int d = 0; d < g_nbank && spare; d++) {                    /* is the new layout still spare? */
+        if (!g_bank_ub[d] || g_bank_dead[d]) continue;
+        memcpy(u2, g_bank_ub, sizeof u2);
+        for (int l = 0; l < M.n_layer && spare; l++) {
+            if (PL[l].bank != d) continue;
+            const uint32_t need = ((M.lin_mask >> l) & 1u) ? M.lin_bytes : M.layer_bytes;
+            int b = 0;
+            while (b < g_nbank && (b == d || g_bank_dead[b] || (uint64_t)u2[b] + need > g_bank_bytes[b])) b++;
+            if (b == g_nbank) spare = 0; else u2[b] += need;
+        }
+    }
+    M.one_bank_spare = spare;
+    M.banks_used = 0;
+    for (int b = 0; b < g_nbank; b++) { g_bank_used[b] = 0; M.banks_used += g_bank_ub[b] > 0; }
+    for (int l = 0; l < M.n_layer; l++) g_bank_used[PL[l].bank]++;
+    M.lin_pos = -1;                                                 /* the states moved, empty: start again at 0 */
+    g_fault_bank = -1;
     return 0;
 }
 
@@ -1132,12 +1326,13 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
         const char *a = sc_str("general.architecture");
         if (!a) { snprintf(g_err, sizeof g_err, "no general.architecture"); FAIL(); }
         snprintf(g_arch, sizeof g_arch, "%s", a);
-        if (strcmp(g_arch, "qwen2") && strcmp(g_arch, "qwen3moe")) {
-            snprintf(g_err, sizeof g_err, "architecture %s: this runtime implements qwen2 and qwen3moe", g_arch);
+        if (strcmp(g_arch, "qwen2") && strcmp(g_arch, "qwen3moe") && strcmp(g_arch, "qwen3next")) {
+            snprintf(g_err, sizeof g_err, "architecture %s: this runtime implements qwen2, qwen3moe and qwen3next", g_arch);
             FAIL();
         }
     }
-    const int moe = !strcmp(g_arch, "qwen3moe");
+    const int hybrid = !strcmp(g_arch, "qwen3next");
+    const int moe = !strcmp(g_arch, "qwen3moe") || hybrid;
     M.n_layer   = (int)arch_int("block_count", 0);
     M.dim       = (int)arch_int("embedding_length", 0);
     M.hidden    = moe ? 0 : (int)arch_int("feed_forward_length", 0);
@@ -1155,9 +1350,40 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
     }
     M.q_dim  = M.n_heads * M.head_dim;
     M.kv_dim = M.n_kv * M.head_dim;
+    M.n_rot  = (int)arch_int("rope.dimension_count", 0);
+    if (M.n_rot <= 0 || M.n_rot > M.head_dim) M.n_rot = M.head_dim;
+    M.lin_pos = -1;
+    M.state16 = g_state16;
+    if (hybrid) {
+        M.hybrid     = 1;
+        M.ssm_conv   = (int)arch_int("ssm.conv_kernel", 0);
+        M.ssm_state  = (int)arch_int("ssm.state_size", 0);
+        M.ssm_inner  = (int)arch_int("ssm.inner_size", 0);
+        M.ssm_kheads = (int)arch_int("ssm.group_count", 0);
+        M.ssm_vheads = (int)arch_int("ssm.time_step_rank", 0);
+        M.ssm_ch     = 2 * M.ssm_kheads * M.ssm_state + M.ssm_inner;
+        M.shexp_ff   = (int)arch_int("expert_shared_feed_forward_length", 0);
+        if (M.ssm_conv < 2 || M.ssm_conv > TL_MAX_CONV || M.ssm_state < 32 || M.ssm_state > TL_MAX_SSTATE || M.ssm_state % 32 ||
+            M.ssm_kheads < 1 || M.ssm_vheads < 1 || M.ssm_vheads > TL_MAX_VHEADS || M.ssm_vheads % M.ssm_kheads ||
+            M.ssm_inner != M.ssm_vheads * M.ssm_state || M.ssm_ch > TL_MAX_SSM_CH || M.ssm_ch % TL_CONV_BLK ||
+            M.ssm_inner > 2 * M.ssm_kheads * M.ssm_state ||       /* z goes where q and k were */
+            (M.ssm_vheads * M.ssm_state) % TL_LROWS || TL_LROWS * TL_SROW_MAX(M.ssm_state) > sizeof KC ||
+            TL_CONV_BLK * (M.ssm_conv - 1) * 4 > (int)sizeof KC) {
+            snprintf(g_err, sizeof g_err, "linear attention over this build's limits (conv %d state %d groups %d heads %d inner %d)",
+                     M.ssm_conv, M.ssm_state, M.ssm_kheads, M.ssm_vheads, M.ssm_inner);
+            FAIL();
+        }
+        for (int l = 0; l < M.n_layer && l < 64; l++) M.n_linear += (int)((M.lin_mask >> l) & 1u);
+        const uint32_t rows = (uint32_t)(M.ssm_vheads * M.ssm_state), nblk = (uint32_t)(M.ssm_ch / TL_CONV_BLK);
+        M.r_lsum = rows * TL_SROW_MAX(M.ssm_state);
+        M.r_conv = M.r_lsum + rows * 4u;
+        M.r_csum = M.r_conv + nblk * (uint32_t)(M.ssm_conv - 1) * TL_CONV_BLK * 4u;
+        M.lin_bytes = M.r_csum + nblk * (uint32_t)(M.ssm_conv - 1) * 4u;   /* a checksum per tap slot of each block */
+    }
     if (!moe && arch_int("expert_count", 0) > 0) { snprintf(g_err, sizeof g_err, "%s with experts", g_arch); FAIL(); }
     if (moe && (M.n_expert < 1 || M.n_expert > TL_MAX_EXPERT || M.n_used < 1 || M.n_used > TL_MAX_EUSED ||
-                M.n_used > M.n_expert || M.eff < 32 || M.eff > TL_MAX_EFF || M.eff % 32)) {
+                M.n_used > M.n_expert || M.eff < 32 || M.eff > TL_MAX_EFF || M.eff % 32 ||
+                M.shexp_ff < 0 || M.shexp_ff > TL_MAX_EFF || M.shexp_ff > TL_MAX_EXPERT || M.shexp_ff % 32)) {
         snprintf(g_err, sizeof g_err, "experts over this build's limits (%d experts, %d used, width %d)", M.n_expert, M.n_used, M.eff);
         FAIL();
     }
@@ -1192,19 +1418,50 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
     uint64_t per_tok = 0;
     for (int l = 0; l < M.n_layer; l++) {
         tlayer_t *L = &M.L[l];
+        /* (one view of the union: on a linear layer wq..kn ARE lqkv..lunused_, so each offset moves once) */
         tten_t *all[] = { &L->wq, &L->wk, &L->wv, &L->wo, &L->wg, &L->wu, &L->wd, &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv,
-                          &L->qn, &L->kn, &L->rt, &L->eg, &L->eu, &L->ed };
+                          &L->qn, &L->kn, &L->rt, &L->eg, &L->eu, &L->ed, &L->sgi };
         for (size_t k = 0; k < sizeof all / sizeof all[0]; k++) if (all[k]->present) all[k]->off += M.data_start;
-        if (check_mat(&L->wq, (uint32_t)M.q_dim,  (uint32_t)M.dim,    "attn_q", l) ||
-            check_mat(&L->wk, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_k", l) ||
-            check_mat(&L->wv, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_v", l) ||
-            check_mat(&L->wo, (uint32_t)M.dim,    (uint32_t)M.q_dim,  "attn_output", l)) FAIL();
+        const int lin = (int)((M.lin_mask >> l) & 1u);
+        if (lin && !hybrid) { snprintf(g_err, sizeof g_err, "layer %d: linear attention in a %s model", l, g_arch); FAIL(); }
+        if (lin) {
+            const uint32_t ch = (uint32_t)M.ssm_ch, vd = (uint32_t)M.ssm_inner, vh = (uint32_t)M.ssm_vheads;
+            if (check_mat(&L->lqkv, ch, (uint32_t)M.dim, "attn_qkv", l) || check_mat(&L->lz, vd, (uint32_t)M.dim, "attn_gate", l) ||
+                check_mat(&L->lba, 2u * vh, (uint32_t)M.dim, "ssm_ba", l) || check_mat(&L->lout, (uint32_t)M.dim, vd, "ssm_out", l)) FAIL();
+            if (!L->lconv.present || L->lconv.type != GGML_F32 || L->lconv.rows != ch || L->lconv.cols != (uint32_t)M.ssm_conv ||
+                (uint64_t)TL_CONV_BLK * L->lconv.row_bytes > TL_ROWBUF) {
+                snprintf(g_err, sizeof g_err, "layer %d: ssm_conv1d is not F32 %lux%d", l, (unsigned long)ch, M.ssm_conv);
+                FAIL();
+            }
+            if (!L->la.present || !L->ldt.present || !L->lnorm.present) { snprintf(g_err, sizeof g_err, "layer %d: no ssm_a/ssm_dt/ssm_norm", l); FAIL(); }
+            const tten_t *lm[] = { &L->lqkv, &L->lz, &L->lba, &L->lout, &L->lconv };
+            for (size_t k = 0; k < 5; k++) per_tok += (uint64_t)lm[k]->rows * lm[k]->row_bytes;
+        } else {
+            /* Qwen3-Next's query projection is twice as wide: each head's query, then its output gate */
+            const int gated = L->wq.present && L->wq.rows == 2u * (uint32_t)M.q_dim;
+            if (l == 0 || (hybrid && !M.attn_gated)) M.attn_gated = gated;
+            if (gated != M.attn_gated) { snprintf(g_err, sizeof g_err, "layer %d: gated and ungated attention mixed", l); FAIL(); }
+            if (check_mat(&L->wq, (uint32_t)(M.attn_gated ? 2 * M.q_dim : M.q_dim), (uint32_t)M.dim, "attn_q", l) ||
+                check_mat(&L->wk, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_k", l) ||
+                check_mat(&L->wv, (uint32_t)M.kv_dim, (uint32_t)M.dim,    "attn_v", l) ||
+                check_mat(&L->wo, (uint32_t)M.dim,    (uint32_t)M.q_dim,  "attn_output", l)) FAIL();
+            const tten_t *mats[] = { &L->wq, &L->wk, &L->wv, &L->wo };
+            for (size_t k = 0; k < 4; k++) per_tok += (uint64_t)mats[k]->rows * mats[k]->row_bytes;
+        }
         if (!L->n_attn.present || !L->n_ffn.present) { snprintf(g_err, sizeof g_err, "layer %d has no norms", l); FAIL(); }
-        const tten_t *mats[] = { &L->wq, &L->wk, &L->wv, &L->wo };
-        for (size_t k = 0; k < 4; k++) per_tok += (uint64_t)mats[k]->rows * mats[k]->row_bytes;
         if (moe) {
-            if (L->wg.present || L->wu.present || L->wd.present) { snprintf(g_err, sizeof g_err, "layer %d: dense and expert feed-forward both", l); FAIL(); }
-            if (!L->qn.present || !L->kn.present) { snprintf(g_err, sizeof g_err, "layer %d has no q/k norms", l); FAIL(); }
+            const int shared = L->wg.present || L->wu.present || L->wd.present;
+            if (shared && !hybrid) { snprintf(g_err, sizeof g_err, "layer %d: dense and expert feed-forward both", l); FAIL(); }
+            if (shared) {                                    /* Qwen3-Next's shared expert */
+                const uint32_t sf = (uint32_t)M.shexp_ff, d = (uint32_t)M.dim;
+                if (!sf || check_mat(&L->wg, sf, d, "ffn_gate_shexp", l) || check_mat(&L->wu, sf, d, "ffn_up_shexp", l) ||
+                    check_mat(&L->wd, d, sf, "ffn_down_shexp", l) || !L->sgi.present) {
+                    if (!sf) snprintf(g_err, sizeof g_err, "layer %d: a shared expert but no expert_shared_feed_forward_length", l);
+                    FAIL();
+                }
+                per_tok += (uint64_t)sf * (L->wg.row_bytes + L->wu.row_bytes) + (uint64_t)d * L->wd.row_bytes;
+            } else if (hybrid && M.shexp_ff) { snprintf(g_err, sizeof g_err, "layer %d has no shared expert", l); FAIL(); }
+            if (!lin && (!L->qn.present || !L->kn.present)) { snprintf(g_err, sizeof g_err, "layer %d has no q/k norms", l); FAIL(); }
             const uint32_t ne = (uint32_t)M.n_expert, ef = (uint32_t)M.eff, d = (uint32_t)M.dim;
             if (!L->rt.present || L->rt.type != GGML_F32 || L->rt.rows != ne || L->rt.cols != d || L->rt.row_bytes > TL_ROWBUF) {
                 snprintf(g_err, sizeof g_err, "layer %d: the router is not an F32 %lux%lu matrix", l, (unsigned long)ne, (unsigned long)d);
@@ -1275,12 +1532,19 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
     /* ---- norms and biases: they stay in the model file; checked here, read where each layer uses them ---- */
     for (int l = 0; l < M.n_layer; l++) {
         tlayer_t *L = &M.L[l];
-        if (small_check(&L->n_attn, (uint32_t)M.dim) || small_check(&L->n_ffn, (uint32_t)M.dim) ||
-            small_check(&L->bq, (uint32_t)M.q_dim) || small_check(&L->bk, (uint32_t)M.kv_dim) ||
+        if (small_check(&L->n_attn, (uint32_t)M.dim) || small_check(&L->n_ffn, (uint32_t)M.dim) || small_check(&L->sgi, (uint32_t)M.dim)) FAIL();
+        if ((M.lin_mask >> l) & 1u) {
+            if (small_check(&L->la, (uint32_t)M.ssm_vheads) || small_check(&L->ldt, (uint32_t)M.ssm_vheads) ||
+                small_check(&L->lnorm, (uint32_t)M.ssm_state)) FAIL();
+            const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->la, &L->ldt, &L->lnorm, &L->sgi };
+            for (size_t k = 0; k < 6; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
+            continue;
+        }
+        if (small_check(&L->bq, (uint32_t)M.q_dim) || small_check(&L->bk, (uint32_t)M.kv_dim) ||
             small_check(&L->bv, (uint32_t)M.kv_dim) || small_check(&L->qn, (uint32_t)M.head_dim) ||
             small_check(&L->kn, (uint32_t)M.head_dim)) FAIL();
-        const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv, &L->qn, &L->kn };
-        for (size_t k = 0; k < 7; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
+        const tten_t *sm[] = { &L->n_attn, &L->n_ffn, &L->bq, &L->bk, &L->bv, &L->qn, &L->kn, &L->sgi };
+        for (size_t k = 0; k < 8; k++) if (sm[k]->present) per_tok += (uint64_t)sm[k]->rows * sm[k]->row_bytes;
     }
     if (small_check(&M.onorm, (uint32_t)M.dim)) FAIL();
     per_tok += (uint64_t)M.onorm.rows * M.onorm.row_bytes;
@@ -1290,7 +1554,8 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
      * whole layers. S is the largest count for which the banks hold every layer AND a spare bank's worth of
      * layer slots (so a bank that fails mid-run can be retired), as long as that leaves TL_SPARE_MIN positions;
      * otherwise the largest S for which they hold every layer. Nothing ever straddles two banks. */
-    {
+    if (M.hybrid) { if (hy_layout()) FAIL(); }
+    else {
         const uint64_t per_pos = 2u * (uint64_t)M.kv_dim + 2u * 4u * (uint64_t)M.n_kv + 8u;
         int s_red = 0, s_max = 0;
         int s_lim = TL_ATT_FLOATS / M.n_heads;                        /* every head's scores at one position */
@@ -1355,6 +1620,7 @@ TL_COLD static int tl_open_try(tl_info_t *info, char *err, int errlen, int force
         info->banks = g_nbank; info->banks_used = M.banks_used; info->layer_slots = M.layer_slots;
         info->spare_slots = M.spare_slots; info->one_bank_spare = M.one_bank_spare; info->layer_bytes = M.layer_bytes;
         info->n_expert = M.n_expert; info->n_used = M.n_used; info->eff = M.eff; info->batch = M.batch;
+        info->hybrid = M.hybrid; info->n_linear = M.n_linear; info->lin_bytes = M.lin_bytes; info->shexp_ff = M.shexp_ff;
     }
     tl_stats_reset();
     return 0;
@@ -1388,13 +1654,13 @@ static void softmax(float *v, int n)
     for (int i = 0; i < n; i++) v[i] *= inv;
 }
 
-static void rope(float *v, int n_heads, int head_dim, int pos, float base)
+static void rope(float *v, int n_heads, int head_dim, int n_rot, int pos, float base)
 {
-    const int half = head_dim / 2;
+    const int half = n_rot / 2;               /* model_q.c's: dimensions n_rot.. pass through (Qwen3-Next) */
     for (int h = 0; h < n_heads; h++) {
         float *p = v + (size_t)h * head_dim;
         for (int i = 0; i < half; i++) {
-            const float freq = tlm_rope_freq(base, i, head_dim);
+            const float freq = tlm_rope_freq(base, i, n_rot);
             const float th = (float)pos * freq;
             float c, s;
             tlm_sincosf(th, &s, &c);
@@ -1615,6 +1881,7 @@ int tl_bank_fault(int bank)
 {
     if (!g_mopen || bank < 0 || bank >= g_nbank) { snprintf(g_err, sizeof g_err, "no such bank %d", bank); return -1; }
     if (g_bank_dead[bank]) { snprintf(g_err, sizeof g_err, "bank %d already retired", bank); return -1; }
+    if (M.hybrid) return hy_fault(bank);
     int need = 0, have = 0;
     for (int l = 0; l < M.n_layer; l++) need += PL[l].bank == bank;
     for (int b = 0; b < g_nbank; b++) if (b != bank && !g_bank_dead[b]) have += g_bank_slots[b] - g_bank_used[b];
@@ -1642,6 +1909,7 @@ int tl_bank_fault(int bank)
 int tl_cache_bench(int n, double *t_write, double *t_read, uint32_t *reread)
 {
     if (!g_mopen) return -1;
+    if (M.hybrid) { snprintf(g_err, sizeof g_err, "the cache bench writes layer 0, a linear layer here"); return -1; }
     if (n > M.max_seq) n = M.max_seq;
     const uint32_t r0 = S.ps_rows_reread;
     double t = plat_now();
@@ -1733,8 +2001,8 @@ int tl_forward(int32_t token, int pos, int32_t *top1, float *l1, int32_t *top2, 
         if (L->bk.present) for (int i = 0; i < kv_dim; i++)   KB[i] += BK[i];
         if (L->bv.present) for (int i = 0; i < kv_dim; i++)   VB[i] += BV[i];
 
-        rope(Q,  nh,  hd, pos, M.rope_base);
-        rope(KB, nkv, hd, pos, M.rope_base);
+        rope(Q,  nh,  hd, M.n_rot, pos, M.rope_base);
+        rope(KB, nkv, hd, M.n_rot, pos, M.rope_base);
 
         if (kv_put(l, pos, KB, VB)) goto fail;
 
@@ -1806,13 +2074,19 @@ typedef struct {
     size_t os;
     float *b1, *b2;                                       /* head: the two best per position */
     int32_t *i1, *i2;
+    int split;                                            /* Qwen3-Next's wq: head h's rows are 2*split wide, its
+                                                             query to out, then its output gate to gout */
+    float *gout;
+    size_t gos;
+    const float *scl;                                     /* acc: out += v * scl[position] (the shared expert) */
 } it_rowsn;
 
 static void dots_n(it_rowsn *it, const uint8_t *row, float *v)
 {
     /* every position against this row in one call: the M7 unpacks its weights once for all of them */
-    if (it->presum) gguf_dot_q4k_presum_n(row, it->n, it->xqp, it->xsp, it->xmp, it->w->cols, v);
-    else            gguf_dot_q_n(it->w->type, row, it->n, it->xqp, it->xsp, it->w->cols, v);
+    if (it->presum && it->w->type == GGML_Q5_K) gguf_dot_q5k_presum_n(row, it->n, it->xqp, it->xsp, it->xmp, it->w->cols, v);
+    else if (it->presum) gguf_dot_q4k_presum_n(row, it->n, it->xqp, it->xsp, it->xmp, it->w->cols, v);
+    else                 gguf_dot_q_n(it->w->type, row, it->n, it->xqp, it->xsp, it->w->cols, v);
 }
 
 static void row_n(void *c, const uint8_t *p, int r)
@@ -1820,9 +2094,16 @@ static void row_n(void *c, const uint8_t *p, int r)
     it_rowsn *it = (it_rowsn *)c;
     float v[TL_BATCH];
     dots_n(it, p, v);
+    float *base = it->out;
+    size_t os = it->os;
+    if (it->split) {
+        const int h = r / (2 * it->split), i = r % (2 * it->split);
+        if (i < it->split) r = h * it->split + i;
+        else { r = h * it->split + i - it->split; base = it->gout; os = it->gos; }
+    }
     for (int q = 0; q < it->n; q++) {
-        float *o = it->out + (size_t)q * it->os + (size_t)r;
-        if (it->acc) *o += v[q]; else *o = v[q];
+        float *o = base + (size_t)q * os + (size_t)r;
+        if (it->acc) *o += it->scl ? v[q] * it->scl[q] : v[q]; else *o = v[q];
     }
 }
 
@@ -1850,6 +2131,9 @@ static int next_rowsn(void *v, tl_job *j)
 }
 
 /* nrows rows of w, each read once, dotted with n positions' quantized inputs: out[p*os + r] = (or +=) dot */
+static int g_split, g_split_gos;              /* stream_rows_n's next call only: a gated query (tl_step) */
+static float *g_split_gout;
+static const float *g_scl;                     /* stream_rows_n's next call only: the shared expert's per-position scale */
 static int stream_rows_n(const tten_t *w, int nrows, int n, const int8_t *xq, size_t xqs, const float *xs, size_t xss,
                          const int32_t *xsum, size_t sums, int presum, float *out, size_t os, int acc)
 {
@@ -1857,6 +2141,8 @@ static int stream_rows_n(const tten_t *w, int nrows, int n, const int8_t *xq, si
     memset(&it, 0, sizeof it);
     it.w = w; it.nrows = nrows; it.per = pipe_rows(w->row_bytes); it.n = n; it.presum = presum; it.acc = acc;
     it.out = out; it.os = os;
+    it.split = g_split; it.gout = g_split_gout; it.gos = (size_t)g_split_gos; it.scl = g_scl;
+    g_split = 0; g_split_gout = NULL; g_scl = NULL;
     if (!it.per) { snprintf(g_err, sizeof g_err, "row wider than the row buffer"); return -1; }
     for (int p = 0; p < n; p++) {
         it.xqp[p] = xq + (size_t)p * xqs;
@@ -2142,6 +2428,7 @@ static int next_moe(void *v, tl_job *j)
     return 1;
 }
 
+TL_COLD static int shexp_ffn_n(const tlayer_t *L, int n);
 static int moe_ffn_n(const tlayer_t *L, int n)
 {
     const int dim = M.dim, ne = M.n_expert, ku = M.n_used, qm = M.qm;
@@ -2214,8 +2501,346 @@ static int moe_ffn_n(const tlayer_t *L, int n)
     }
     for (int p = 0; p < n; p++) for (int i = 0; i < dim; i++) PB.c.m.acc[p][i] = 0.0f;
     if (pipeline(next_moe, it)) return -1;
+    if (L->wu.present && shexp_ffn_n(L, n)) return -1;
     for (int p = 0; p < n; p++) for (int i = 0; i < dim; i++) PB.x[p][i] += PB.c.m.acc[p][i];
     return 0;
+}
+
+/* Qwen3-Next's shared expert, model_q's: SwiGLU of its own on the same quantized input (PB.xq, set by moe_ffn_n),
+ * its down rows added to the routed sum in PB.c.m.acc times sigmoid(sgi . xin). Up lands in rl (the router's
+ * scores, spent; shexp_ff <= TL_MAX_EXPERT checked at open), the hidden in h. Flash on the Teensy: once a layer,
+ * its rows go through the ITCM kernels. */
+TL_COLD static int shexp_ffn_n(const tlayer_t *L, int n)
+{
+    const int dim = M.dim, qm = M.qm;
+    {
+        const int sff = M.shexp_ff;
+        const size_t XQS = (size_t)qm * TL_MAX_DIM, XSS = (size_t)qm * NBD;
+        float sg[TL_MOE_BATCH];
+        if (small_read(&L->sgi, (uint32_t)dim, BQ)) return -1;
+        for (int p = 0; p < n; p++) {
+            float gs = 0.0f;
+            for (int i = 0; i < dim; i++) gs += BQ[i] * PB.c.m.xin[p][i];
+            sg[p] = 1.0f / (1.0f + tlm_expf(-gs));
+        }
+        if (stream_rows_n(&L->wg, sff, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                          L->wg.type == GGML_Q4_K || L->wg.type == GGML_Q5_K, &PB.c.m.h[0][0], TL_MAX_EFF, 0) ||
+            stream_rows_n(&L->wu, sff, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                          L->wu.type == GGML_Q4_K || L->wu.type == GGML_Q5_K, &PB.c.m.rl[0][0], TL_MAX_EXPERT, 0)) return -1;
+        const int dp = L->wd.type == GGML_Q4_K;
+        for (int p = 0; p < n; p++) {
+            for (int i = 0; i < sff; i++) {
+                const float gg = PB.c.m.h[p][i];
+                PB.c.m.h[p][i] = (gg / (1.0f + tlm_expf(-gg))) * PB.c.m.rl[p][i];
+            }
+            gguf_quantize_act(PB.c.m.h[p], (uint64_t)sff, PB.c.m.hq[p], PB.c.m.hs[p]);
+            if (dp) gguf_act_sums(PB.c.m.hq[p], (uint64_t)sff, PB.c.m.hsum[p]);
+        }
+        g_scl = sg;
+        if (stream_rows_n(&L->wd, dim, n, &PB.c.m.hq[0][0], TL_MAX_EFF, &PB.c.m.hs[0][0], TL_MAX_EFF / 32 + 1,
+                          &PB.c.m.hsum[0][0], TL_MAX_EFF / 32 + 1, dp, &PB.c.m.acc[0][0], TL_MAX_DIM, 1)) return -1;
+    }
+    return 0;
+}
+
+/* ================================================================================================
+ *  Qwen3-Next's gated DeltaNet -- model_q.c's gdn_layer, for the n consecutive positions of a pass (2026-10-17)
+ *
+ *  Each position's arithmetic is model_q's, operation for operation; the positions of a pass go through each step
+ *  in order. That is the same computation because every step is per channel (the convolution) or per state row
+ *  (the delta rule), and each channel and each row sees its positions in order. The state comes out of PSRAM a
+ *  block of TL_LROWS rows at a time, each row checked against its checksum, goes through every position, and goes
+ *  back at 16 bits -- rounded after every position, as model_q rounds after every token. At position 0 neither the
+ *  state nor the convolution is read: both start at zero.
+ * ============================================================================================== */
+static float G_LA[TL_MAX_VHEADS], G_LDT[TL_MAX_VHEADS], G_LN[TL_MAX_SSTATE];
+
+/* HALF PRECISION BY THE FPU (2026-10-17). tl_math.h's tlm_f2h/tlm_h2f round in integer arithmetic so every processor
+ * gets the same bits -- about a dozen instructions a value, four values per state element a token. The M7's VCVTB
+ * does it in one, IF it rounds the same way; that is not assumed: tl_f16_selftest compares the two on every float and
+ * every half, on the board, and only a clean run lets tl_set_f16hw(1) switch it on. On a PC built with -mf16c the
+ * same switch takes F16C (proven equal to tlm_f2h on all 2^32 floats, docs/63). Default off. */
+#if defined(__IMXRT1062__)
+  #define TL_F16HW 1
+  static inline uint16_t f16hw_f2h(float f)
+  {
+      float t;
+      uint32_t u;
+      __asm__("vcvtb.f16.f32 %0, %1" : "=t"(t) : "t"(f));
+      __asm__("vmov %0, %1" : "=r"(u) : "t"(t));
+      return (uint16_t)u;
+  }
+  static inline float f16hw_h2f(uint16_t h)
+  {
+      float t, r;
+      __asm__("vmov %0, %1" : "=t"(t) : "r"((uint32_t)h));
+      __asm__("vcvtb.f32.f16 %0, %1" : "=t"(r) : "t"(t));
+      return r;
+  }
+#elif defined(__F16C__)
+  #include <immintrin.h>
+  #define TL_F16HW 1
+  static inline uint16_t f16hw_f2h(float f) { return (uint16_t)_cvtss_sh(f, _MM_FROUND_TO_NEAREST_INT); }
+  static inline float    f16hw_h2f(uint16_t h) { return _cvtsh_ss(h); }
+#else
+  #define TL_F16HW 0
+  static inline uint16_t f16hw_f2h(float f) { return tlm_f2h(f); }
+  static inline float    f16hw_h2f(uint16_t h) { return tlm_h2f(h); }
+#endif
+static int g_f16hw, g_f16_proven;
+#if TL_F16HW
+static int f16_is_nan(uint16_t h) { return (h & 0x7C00u) == 0x7C00u && (h & 0x3FFu); }
+static int f32_is_nan(uint32_t u) { return (u & 0x7F800000u) == 0x7F800000u && (u & 0x7FFFFFu); }
+#endif
+
+TL_COLD long tl_f16_selftest(void (*progress)(int sixteenths, long bad))
+{
+#if TL_F16HW
+    long bad = 0;
+    for (uint32_t h = 0; h < 65536u; h++) {
+        const float a = tlm_h2f((uint16_t)h), b = f16hw_h2f((uint16_t)h);
+        uint32_t ua, ub;
+        memcpy(&ua, &a, 4);
+        memcpy(&ub, &b, 4);
+        if (ua != ub && !(f32_is_nan(ua) && f32_is_nan(ub))) bad++;
+    }
+    uint32_t u = 0;
+    do {
+        float f;
+        memcpy(&f, &u, 4);
+        const uint16_t a = tlm_f2h(f), b = f16hw_f2h(f);
+        if (a != b && !(f16_is_nan(a) && f16_is_nan(b))) bad++;    /* NaN payloads apart: a state is never NaN */
+        if (!(u & 0x0FFFFFFFu) && progress) progress((int)(u >> 28), bad);
+    } while (++u != 0u);
+    g_f16_proven = bad == 0;
+    return bad;
+#else
+    (void)progress;
+    return -1;
+#endif
+}
+
+int tl_set_f16hw(int on)
+{
+    if (on == 1 && !g_f16_proven) return -1;       /* not before a clean self-test on this processor */
+    const int was = g_f16hw;
+    if (on == 0 || on == 1) g_f16hw = on;
+    return was;
+}
+
+/* model_q.c's st_round_row, mode 3, verbatim: the row to int16 with one float scale (amax / 32767, rounded half away
+ * from zero, clamped), row[] left holding what the integers stand for; returns the scale, q[] the integers */
+static float st_row16(float *row, int16_t *q, int n)
+{
+    float amax = 0.0f;
+    for (int i = 0; i < n; i++) {
+        const float a = fabsf(row[i]);
+        if (a > amax) amax = a;
+    }
+    const float s = amax / 32767.0f;
+    const float inv = (s > 0.0f) ? 1.0f / s : 0.0f;
+    for (int i = 0; i < n; i++) {
+        float v = row[i] * inv;
+        v = (v < 0.0f) ? v - 0.5f : v + 0.5f;
+        int k = (int)v;
+        if (k > 32767) k = 32767;
+        if (k < -32767) k = -32767;
+        q[i] = (int16_t)k;
+        row[i] = (float)k * s;
+    }
+    return s;
+}
+
+/* model_q.c's gdn_l2norm, verbatim */
+TL_COLD static void gdn_l2norm(float *v, int n, float eps)
+{
+    float ss = 0.0f;
+    for (int i = 0; i < n; i++) ss += v[i] * v[i];
+    const float inv = 1.0f / sqrtf(ss / (float)n + eps / (float)n);
+    const float sc = 1.0f / sqrtf((float)n);
+    for (int i = 0; i < n; i++) v[i] = v[i] * inv * sc;
+}
+
+/* n rows of rb bytes at region offset a into dst, their checksums from s into sums; a row whose checksum fails is
+ * read again, up to three times (cache_read's rule) */
+TL_COLD static int lin_read(int l, uint32_t a, uint32_t s, uint8_t *dst, uint32_t *sums, int n, uint32_t rb, const char *what)
+{
+    const int b = PL[l].bank;
+    const uint32_t base = PL[l].base;
+    if (ps_read(b, base + a, dst, (uint32_t)n * rb) || ps_read(b, base + s, sums, (uint32_t)n * 4u)) return -1;
+    for (int j = 0; j < n; j++) {
+        int tries = 0;
+        while (row_sum(dst + (size_t)j * rb, rb, NULL, 0) != sums[j]) {
+            if (++tries > 3) {
+                S.ps_rows_bad++;
+                g_fault_bank = b;
+                snprintf(g_err, sizeof g_err, "PSRAM bank %d: %s row %d of layer %d never read back right", b, what, j, l);
+                return -1;
+            }
+            if (ps_read(b, base + a + (uint32_t)j * rb, dst + (size_t)j * rb, rb) || ps_read(b, base + s + (uint32_t)j * 4u, &sums[j], 4)) return -1;
+        }
+        if (tries) {
+            S.ps_rows_reread++;
+            if (S.ps_rows_reread <= 8) plat_log("    %s row re-read: bank %d, layer %d, right after %d more read(s)", what, b, l, tries);
+        }
+    }
+    return 0;
+}
+
+TL_COLD static int lin_layer_n(int l, const tlayer_t *L, int n, int pos0)
+{
+    const int dim = M.dim, ds = M.ssm_state, vh = M.ssm_vheads, kh = M.ssm_kheads, ch = M.ssm_ch, nc = M.ssm_conv;
+    const int kd = kh * ds, vd = vh * ds, per = vh / kh, qm = M.qm, md = M.state16;
+    const int hw = md == 1 && g_f16hw;               /* the FPU's half conversion, once proven equal (tl_f16_selftest) */
+    const size_t XQS = (size_t)qm * TL_MAX_DIM, XSS = (size_t)qm * NBD;
+    const int fresh = pos0 == 0;
+    const int b = PL[l].bank;
+    const uint32_t rb = PL[l].base;
+
+    if (small_read(&L->la, (uint32_t)vh, G_LA) || small_read(&L->ldt, (uint32_t)vh, G_LDT) ||
+        small_read(&L->lnorm, (uint32_t)ds, G_LN)) return -1;
+    /* w_qkv, w_ba (and after the recurrence w_z) share one quantization of the normed input: matvec_group */
+    for (int p = 0; p < n; p++) {
+        rmsnorm(XB, PB.x[p], G_A, dim, M.eps);
+        gguf_quantize_act(XB, (uint64_t)dim, PB.xq[p * qm], PB.xs[p * qm]);
+        gguf_act_sums(PB.xq[p * qm], (uint64_t)dim, PB.xsum[p * qm]);
+    }
+    if (stream_rows_n(&L->lqkv, ch, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                      L->lqkv.type == GGML_Q4_K || L->lqkv.type == GGML_Q5_K, &LIN.x[0][0], TL_MAX_SSM_CH, 0) ||
+        stream_rows_n(&L->lba, 2 * vh, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                      L->lba.type == GGML_Q4_K, &LIN.ba[0][0], 2 * TL_MAX_VHEADS, 0)) return -1;
+
+    /* beta and the decay per value head (ba is per key head: its value heads' betas, then their alphas) */
+    float beta[TL_MOE_BATCH][TL_MAX_VHEADS], eg[TL_MOE_BATCH][TL_MAX_VHEADS];
+    for (int p = 0; p < n; p++)
+        for (int h = 0; h < vh; h++) {
+            const int g = h / per, r = h % per;
+            const float bb = LIN.ba[p][g * 2 * per + r], a = LIN.ba[p][g * 2 * per + per + r];
+            beta[p][h] = 1.0f / (1.0f + tlm_expf(-bb));
+            const float gate = tlm_softplusf(a + G_LDT[h]) * G_LA[h];
+            eg[p][h] = tlm_expf(gate);
+        }
+
+    /* the convolution, TL_CONV_BLK channels at a time: their weights off the card into ROW, their last nc-1 inputs
+     * out of PSRAM into KC, every position in order, the new inputs back.
+     *
+     * THE INPUTS ARE A RING (2026-10-17): position q's raw inputs live in tap slot q mod (nc-1), each slot with its own
+     * checksum, so a token writes the one slot that changed instead of all nc-1 -- a third of the convolution's
+     * writes on this model. In KC they are laid out oldest first, exactly the window the arithmetic always used. */
+    const int m1 = nc - 1;
+    const uint32_t tapb = TL_CONV_BLK * 4u;
+    for (int c0 = 0; c0 < ch; c0 += TL_CONV_BLK) {
+        const int bi = c0 / TL_CONV_BLK;
+        float *cs = (float *)KC;
+        if (sd_read(L->lconv.off + (uint64_t)c0 * L->lconv.row_bytes, ROW, TL_CONV_BLK * L->lconv.row_bytes)) return -1;
+        const float *w = (const float *)ROW;
+        if (fresh) memset(cs, 0, (size_t)m1 * tapb);
+        else for (int t = 0; t < m1; t++) {                  /* window place t: position pos0 - m1 + t, slot (pos0 + t) mod m1 */
+            const int slot = (pos0 + t) % m1, rec = bi * m1 + slot;
+            if (lin_read(l, M.r_conv + (uint32_t)rec * tapb, M.r_csum + (uint32_t)rec * 4u, (uint8_t *)(cs + (size_t)t * TL_CONV_BLK),
+                         &SUMC[t], 1, tapb, "convolution")) return -1;
+        }
+        for (int p = 0; p < n; p++) {
+            float *x = LIN.x[p] + c0;
+            for (int c = 0; c < TL_CONV_BLK; c++) {
+                const float *wc = w + (size_t)c * nc;
+                float s = 0.0f;
+                for (int t = 0; t < nc - 1; t++) s += cs[(size_t)t * TL_CONV_BLK + c] * wc[t];
+                s += x[c] * wc[nc - 1];
+                for (int t = 0; t + 1 < nc - 1; t++) cs[(size_t)t * TL_CONV_BLK + c] = cs[(size_t)(t + 1) * TL_CONV_BLK + c];
+                cs[(size_t)(nc - 2) * TL_CONV_BLK + c] = x[c];
+                x[c] = s / (1.0f + tlm_expf(-s));
+            }
+        }
+        /* back: the slots of the positions this pass fed that are still in the window (all of them at position 0, so
+         * slots of positions before the sequence read back as zero) */
+        for (int t = 0; t < m1; t++) {
+            const int q = pos0 + n - m1 + t;
+            if (!fresh && q < pos0) continue;
+            const int slot = ((q % m1) + m1) % m1, rec = bi * m1 + slot;
+            const float *tp = cs + (size_t)t * TL_CONV_BLK;
+            SUMC[t] = row_sum(tp, tapb, NULL, 0);
+            if (ps_write_cs(b, rb + M.r_conv + (uint32_t)rec * tapb, tp, tapb) ||
+                ps_write_cs(b, rb + M.r_csum + (uint32_t)rec * 4u, &SUMC[t], 4)) return -1;
+        }
+    }
+
+    const float qsc = 1.0f / sqrtf((float)ds);
+    for (int p = 0; p < n; p++)
+        for (int g = 0; g < kh; g++) {
+            float *q = LIN.x[p] + (size_t)g * ds;
+            gdn_l2norm(q, ds, M.eps);
+            gdn_l2norm(LIN.x[p] + kd + (size_t)g * ds, ds, M.eps);
+            for (int i = 0; i < ds; i++) q[i] *= qsc;
+        }
+
+    /* the delta rule: model_q.c's gdn_recur, a block of state rows at a time, every position on each row in order;
+     * o_j goes where v_j was */
+    float row[TL_MAX_SSTATE];
+    int16_t rq[TL_MAX_SSTATE];
+    uint8_t *sr = (uint8_t *)KC;
+    const uint32_t srb = TL_SROW_BYTES(ds, md);
+    for (int r0 = 0; r0 < vd; r0 += TL_LROWS) {
+        if (fresh) memset(sr, 0, (size_t)TL_LROWS * srb);
+        else if (lin_read(l, (uint32_t)r0 * srb, M.r_lsum + (uint32_t)r0 * 4u, sr, SUMC, TL_LROWS, srb, "state")) return -1;
+        for (int j = 0; j < TL_LROWS; j++) {
+            const int rr = r0 + j, h = rr / ds, jj = rr % ds, g = h / per;
+            uint8_t *sp = sr + (size_t)j * srb;
+            uint16_t *s16 = (uint16_t *)sp;
+            float sc = 0.0f;
+            if (md == 3) memcpy(&sc, sp + (size_t)ds * 2u, 4);          /* the scale exists only in an int16 row */
+            if (md == 3)      for (int i = 0; i < ds; i++) row[i] = (float)(int16_t)s16[i] * sc;
+            else if (md == 2) for (int i = 0; i < ds; i++) row[i] = tlm_bf2f(s16[i]);
+            else if (hw)      for (int i = 0; i < ds; i++) row[i] = f16hw_h2f(s16[i]);
+            else              for (int i = 0; i < ds; i++) row[i] = tlm_h2f(s16[i]);
+            for (int p = 0; p < n; p++) {
+                const float *qh = LIN.x[p] + (size_t)g * ds, *kk = LIN.x[p] + kd + (size_t)g * ds;
+                float *vo = LIN.x[p] + 2 * kd + (size_t)h * ds + jj;
+                const float e = eg[p][h], bb = beta[p][h];
+                float sk = 0.0f;
+                for (int i = 0; i < ds; i++) { row[i] = row[i] * e; sk += row[i] * kk[i]; }
+                const float d = (*vo - sk) * bb;
+                float oj = 0.0f;
+                for (int i = 0; i < ds; i++) { row[i] = row[i] + kk[i] * d; oj += row[i] * qh[i]; }
+                *vo = oj;
+                /* rounded to 16 bits after every position, and the 16-bit value kept where the row is stored: after the
+                 * last position s16 holds exactly what the row now stands for (f2h(h2f(h)) == h) */
+                if (md == 3)      sc = st_row16(row, rq, ds);
+                else if (md == 2) for (int i = 0; i < ds; i++) { const uint16_t v = tlm_f2bf(row[i]); s16[i] = v; row[i] = tlm_bf2f(v); }
+                else if (hw)      for (int i = 0; i < ds; i++) { const uint16_t v = f16hw_f2h(row[i]); s16[i] = v; row[i] = f16hw_h2f(v); }
+                else              for (int i = 0; i < ds; i++) { const uint16_t v = tlm_f2h(row[i]); s16[i] = v; row[i] = tlm_h2f(v); }
+            }
+            if (md == 3) {                                      /* the last rounding's integers and scale */
+                for (int i = 0; i < ds; i++) s16[i] = (uint16_t)rq[i];
+                memcpy(sp + (size_t)ds * 2u, &sc, 4);
+            }
+            SUMC[j] = row_sum(sp, srb, NULL, 0);
+        }
+        if (ps_write_cs(b, rb + (uint32_t)r0 * srb, sr, (uint32_t)TL_LROWS * srb) ||
+            ps_write_cs(b, rb + M.r_lsum + (uint32_t)r0 * 4u, SUMC, (uint32_t)TL_LROWS * 4u)) return -1;
+    }
+
+    /* z, from the same quantized input, where q and k were */
+    if (stream_rows_n(&L->lz, vd, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+                      L->lz.type == GGML_Q4_K, &LIN.x[0][0], TL_MAX_SSM_CH, 0)) return -1;
+    /* the gated RMSNorm per value head, then o quantized for ssm_out */
+    const int op = L->lout.type == GGML_Q4_K;
+    for (int p = 0; p < n; p++) {
+        float *o = LIN.x[p] + 2 * kd;
+        for (int h = 0; h < vh; h++) {
+            float *oh = o + (size_t)h * ds;
+            const float *zh = LIN.x[p] + (size_t)h * ds;
+            rmsnorm(oh, oh, G_LN, ds, M.eps);
+            for (int i = 0; i < ds; i++) {
+                const float zz = zh[i];
+                oh[i] = oh[i] * (zz / (1.0f + tlm_expf(-zz)));
+            }
+        }
+        gguf_quantize_act(o, (uint64_t)vd, PB.xq[p * qm], PB.xs[p * qm]);
+        if (op) gguf_act_sums(PB.xq[p * qm], (uint64_t)vd, PB.xsum[p * qm]);
+    }
+    return stream_rows_n(&L->lout, dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS, op,
+                         &PB.x[0][0], TL_MAX_DIM, 1);
 }
 
 int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
@@ -2234,6 +2859,15 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
     }
     for (int p = 0; p < n; p++)
         if (tok[p] < 0 || tok[p] >= M.vocab) { snprintf(g_err, sizeof g_err, "token %d outside the vocabulary", (int)tok[p]); return -1; }
+    if (M.hybrid) {                         /* one recurrent state: one sequence, its positions in order */
+        for (int p = 0; p < n; p++)
+            if (base[p] != 0 || pos[p] != pos[0] + p) { snprintf(g_err, sizeof g_err, "a recurrent model takes one sequence's consecutive positions"); return -1; }
+        if (pos[0] != 0 && pos[0] != M.lin_pos) {
+            snprintf(g_err, sizeof g_err, "position %d does not continue the recurrent state (at %d): start again at 0", pos[0], M.lin_pos);
+            return -1;
+        }
+        M.lin_pos = -1;                     /* until this pass completes */
+    }
     const double t_start = plat_now();
     double ts = t_start;
 #define STAGE(field) do { const double tn = plat_now(); S.field += tn - ts; ts = tn; } while (0)
@@ -2253,6 +2887,11 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
     for (int l = 0; l < M.n_layer; l++) {
         const tlayer_t *L = &M.L[l];
         if (small_read(&L->n_attn, (uint32_t)dim, G_A) || small_read(&L->n_ffn, (uint32_t)dim, G_F)) goto fail;
+        if ((M.lin_mask >> l) & 1u) {                    /* Qwen3-Next: a gated DeltaNet layer, no attention */
+            if (lin_layer_n(l, L, n, pos[0])) goto fail;
+            STAGE(t_att);
+            goto ffn;
+        }
         if (L->bq.present && small_read(&L->bq, (uint32_t)M.q_dim, BQ)) goto fail;
         if (L->bk.present && small_read(&L->bk, (uint32_t)kv_dim, BK)) goto fail;
         if (L->bv.present && small_read(&L->bv, (uint32_t)kv_dim, BV)) goto fail;
@@ -2265,7 +2904,9 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
             gguf_quantize_act(XB, L->wq.cols, PB.xq[p * qm], PB.xs[p * qm]);
             gguf_act_sums(PB.xq[p * qm], L->wq.cols, PB.xsum[p * qm]);   /* presum == gguf_dot_q to the bit (dot_verify) */
         }
-        if (stream_rows_n(&L->wq, M.q_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
+        /* a gated query (Qwen3-Next): each head's 2*hd rows are its query (to PB.c.q) then its output gate (GATE) */
+        if (M.attn_gated) { g_split = hd; g_split_gout = GATE; g_split_gos = M.q_dim; }
+        if (stream_rows_n(&L->wq, M.attn_gated ? 2 * M.q_dim : M.q_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
                           L->wq.type == GGML_Q4_K, &PB.c.q[0][0], XQS, 0) ||
             stream_rows_n(&L->wk, kv_dim, n, &PB.xq[0][0], XQS, &PB.xs[0][0], XSS, &PB.xsum[0][0], XSS,
                           L->wk.type == GGML_Q4_K, &PB.k[0][0], TL_MAX_KVDIM, 0) ||
@@ -2280,8 +2921,8 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
             if (L->bv.present) for (int i = 0; i < kv_dim; i++)   v[i] += BV[i];
             if (L->qn.present) head_norm(q, nh,  hd, G_QN, M.eps);   /* Qwen3: within each head, before the rotation */
             if (L->kn.present) head_norm(k, nkv, hd, G_KN, M.eps);
-            rope(q, nh,  hd, pos[p], M.rope_base);
-            rope(k, nkv, hd, pos[p], M.rope_base);
+            rope(q, nh,  hd, M.n_rot, pos[p], M.rope_base);
+            rope(k, nkv, hd, M.n_rot, pos[p], M.rope_base);
             if (kv_put(l, base[p] + pos[p], k, v)) goto fail;
         }
         /* every slot's key and value are in the cache before any slot attends, so a later position of the
@@ -2290,6 +2931,13 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
         const int wo_presum = L->wo.type == GGML_Q4_K;
         for (int p = 0; p < n; p++) {
             if (attention(l, base[p], pos[p], PB.c.q[p * qm], AO)) goto fail;
+            if (M.attn_gated) {                  /* model_q: the attention output times sigmoid of its gate */
+                const float *gp = GATE + (size_t)p * M.q_dim;
+                for (int i = 0; i < M.q_dim; i++) {
+                    const float gv = gp[i];
+                    AO[i] = AO[i] * (1.0f / (1.0f + tlm_expf(-gv)));
+                }
+            }
             gguf_quantize_act(AO, L->wo.cols, PB.xq[p * qm], PB.xs[p * qm]);
             if (wo_presum) gguf_act_sums(PB.xq[p * qm], L->wo.cols, PB.xsum[p * qm]);
         }
@@ -2298,6 +2946,7 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
                           &PB.x[0][0], TL_MAX_DIM, 1)) goto fail;
         STAGE(t_wo);
 
+ffn:
         if (M.n_expert) {
             if (moe_ffn_n(L, n)) goto fail;
             STAGE(t_ffn);
@@ -2351,6 +3000,7 @@ int tl_step(const int32_t *tok, const int *pos, const int *base, int n,
     }
     STAGE(t_head);
 #undef STAGE
+    if (M.hybrid) M.lin_pos = pos[n - 1] + 1;
     S.t_total += plat_now() - t_start;
     return 0;
 
@@ -2393,6 +3043,7 @@ int tl_multi_share(int on) { const int was = g_share; g_share = on ? 1 : 0; retu
 int tl_multi_begin(tl_seq_t *s, int ns)
 {
     if (!g_mopen) { snprintf(g_err, sizeof g_err, "model not open"); return -1; }
+    if (M.hybrid) { snprintf(g_err, sizeof g_err, "a recurrent model answers one prompt at a time"); return -1; }
     if (ns < 1 || ns > M.batch) { snprintf(g_err, sizeof g_err, "%d sequences (1..%d)", ns, M.batch); return -1; }
     int row = 0;
     for (int i = 0; i < ns; i++) {

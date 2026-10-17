@@ -1,0 +1,18 @@
+open 2.32 s: 48 layers dim 2048 hidden 0 heads 16/2 head_dim 256 vocab 151936 merges 151387 max_seq 1147 batch 4 experts 10/512 width 512
+params 79674391296  file 48506100512 bytes  read per token 2430879872 bytes
+PSRAM: 8 banks of 8388608; the attention cache on 7 of them, 1147 positions, one layer per region (1202056 bytes), 48 layer slots, 0 spare (any one bank can fail); nothing of the model. Tokenizer store 8301328 bytes (built now)
+  step 0: 63.69 s, SD 2318.3 MB, PSRAM read 12.3 KB written 40909.4 KB
+  step 1: 26.22 s, SD 2318.3 MB, PSRAM read 40921.7 KB written 40909.4 KB
+  step 2: 23.82 s, SD 2318.3 MB, PSRAM read 40934.0 KB written 40909.4 KB
+  step 3: 23.83 s, SD 2318.3 MB, PSRAM read 40946.2 KB written 40909.4 KB
+  step 4: 22.76 s, SD 2318.3 MB, PSRAM read 40958.5 KB written 40909.4 KB
+  step 5: 32.50 s, SD 2318.3 MB, PSRAM read 40970.8 KB written 40909.4 KB
+  step 6: 13.53 s, SD 2318.3 MB, PSRAM read 40983.1 KB written 40909.4 KB
+  step 7: 16.44 s, SD 2318.3 MB, PSRAM read 40995.4 KB written 40909.4 KB
+  step 8: 26.60 s, SD 2318.3 MB, PSRAM read 41007.7 KB written 40909.4 KB
+  step 9: 12.52 s, SD 2318.3 MB, PSRAM read 41019.9 KB written 40909.4 KB
+  step 10: 21.82 s, SD 2318.3 MB, PSRAM read 41032.2 KB written 40909.4 KB
+  step 11: 20.62 s, SD 2318.3 MB, PSRAM read 41044.5 KB written 40909.4 KB
+  step 12: 34.71 s, SD 2318.3 MB, PSRAM read 41056.8 KB written 40909.4 KB
+
+The capital of France is Paris. The capital of Germany is Berlin.

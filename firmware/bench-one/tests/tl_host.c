@@ -189,6 +189,20 @@ int plat_ps_write(int b, uint32_t a, const void *s, uint32_t n)
     memcpy(PSB[b] + a, s, n);
     return 0;
 }
+/* The write without a read-back (tl_plat.h). TL_PS_CORRUPT="b:n" makes the n-th such write to bank b land with its
+ * first byte flipped and report success -- the silent bad write a board would not see without the read-back -- so
+ * the core's row checksums are proven to catch it on the next read (then: retire the bank, re-run, same lines). */
+static int  CORRUPT_B = -1;
+static long CORRUPT_N = -1, CORRUPT_W;
+int plat_ps_write_nv(int b, uint32_t a, const void *s, uint32_t n)
+{
+    const int r = plat_ps_write(b, a, s, n);
+    if (!r && b == CORRUPT_B && ++CORRUPT_W == CORRUPT_N && n) {
+        PSB[b][a] ^= 0x5Au;
+        fprintf(stderr, "  [silent corruption injected: bank %d, unverified write %ld, offset %lu]\n", b, CORRUPT_W, (unsigned long)a);
+    }
+    return r;
+}
 double plat_now(void)
 {
 #if defined(_WIN32)
@@ -256,6 +270,14 @@ int main(int argc, char **argv)
         memset(PSB[b], 0xA5, PS_SIZE);
     }
     if (getenv("TL_PS_FAULT") && *getenv("TL_PS_FAULT") && sscanf(getenv("TL_PS_FAULT"), "%d:%ld", &FAULT_B, &FAULT_N) != 2) { fprintf(stderr, "TL_PS_FAULT is bank:nth_write\n"); return 1; }
+    if (getenv("TL_PS_CORRUPT") && *getenv("TL_PS_CORRUPT") && sscanf(getenv("TL_PS_CORRUPT"), "%d:%ld", &CORRUPT_B, &CORRUPT_N) != 2) { fprintf(stderr, "TL_PS_CORRUPT is bank:nth_unverified_write\n"); return 1; }
+    if (getenv("TL_PSVERIFY")) tl_set_psverify(atoi(getenv("TL_PSVERIFY")));   /* 0: checksummed rows written without a read-back */
+    if (getenv("TL_F16HW") && atoi(getenv("TL_F16HW"))) {   /* the state's half rounding by the unit, after the exhaustive check */
+        const double tf = plat_now();
+        const long bad = tl_f16_selftest(NULL);
+        fprintf(stderr, "f16 self-test: %ld of 2^32 floats and 2^16 halves differ (%.1f s)%s\n", bad, plat_now() - tf,
+                tl_set_f16hw(1) < 0 ? " -- the unit is NOT used" : " -- the unit is used");
+    }
 
     tl_info_t in;
     char err[200];
@@ -263,6 +285,7 @@ int main(int argc, char **argv)
     if (tl_open(&in, err, sizeof err)) { fprintf(stderr, "tl_open: %s\n", err); return 1; }
     memset(g_rc_n, 0, sizeof g_rc_n); memset(g_rc_b, 0, sizeof g_rc_b); memset(g_rc_hist, 0, sizeof g_rc_hist);  /* census: passes only */
     /* TL_FFN_GROUP=g: the batched pass's gate/up group (32 = the pre-2026-10-16 card order); never a result */
+    if (getenv("TL_STATE16")) tl_set_state16(atoi(getenv("TL_STATE16")));   /* Qwen3-Next: 1 half (default), 2 bfloat16, 3 row-scaled int16 */
     if (getenv("TL_FFN_GROUP") && tl_set_ffn_group(atoi(getenv("TL_FFN_GROUP"))) < 0) {
         fprintf(stderr, "TL_FFN_GROUP must be 32..256, a multiple of 32\n"); return 1;
     }

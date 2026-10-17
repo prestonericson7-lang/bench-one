@@ -120,6 +120,8 @@ cmd_build() {
     gcc -O3 -std=c11 -Wall -Wextra -o gfx_bench.exe gfx_bench.c -lm || die "gfx_bench"
     gcc -O2 -std=c11 -Wall -Wextra -o disk_stream.exe disk_stream.c || die "disk_stream"
     gcc $CFLAGS -o moe_route.exe moe_route.c $CORE $MODELSRC -lm || die "moe_route"
+    # Qwen3-Next: the cost of the 16-bit recurrent state (and of a rounded router), several variants in lockstep
+    gcc $CFLAGS -o ppl_state.exe ppl_state.c $CORE $MODELSRC -lm || die "ppl_state"
 
     # The ARM builds are what run on a Luckfox. Static, because the board's libc is not this one.
     local ARM="$ROOT/tools/arm-linux-gnueabihf/bin/arm-none-linux-gnueabihf-gcc.exe"

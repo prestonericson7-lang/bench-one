@@ -1,0 +1,107 @@
+
+[suite 2026-10-16 17:10:32] suite start: 2 entries x 1 runs, bench x 0, tests file tests_multi_ring.txt
+
+[suite 2026-10-16 17:10:32] port COM38 open
+
+[suite 2026-10-16 17:10:32] >>> I
+17:10:33 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf batch 8 experts 0/0
+
+[suite 2026-10-16 17:10:33] >>> I
+17:10:33 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf batch 8 experts 0/0
+
+[suite 2026-10-16 17:10:33] identity: I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf batch 8 experts 0/0
+
+[suite 2026-10-16 17:10:33] >>> ::fifoirq 3
+17:10:34 | FIFOIRQ 3 wml 128 (the card streaming by ADMA2 into a ring, arithmetic under it)
+
+[suite 2026-10-16 17:10:34] board command ::fifoirq 3 -> FIFOIRQ 3 wml 128 (the card streaming by ADMA2 into a ring, arithmetic under it)
+
+[suite 2026-10-16 17:10:41] >>> ::gen 4
+17:10:41 | GEN 4
+
+[suite 2026-10-16 17:10:41] >>> ::multi 2
+17:10:42 | MULTI 2
+
+[suite 2026-10-16 17:10:42] group ring2 run 1: 2 prompts together, gen 4
+
+[suite 2026-10-16 17:10:42] >>> The capital of France is
+
+[suite 2026-10-16 17:10:42] >>> Q: What is 17 + 25?\nA:
+17:10:42 |   multi prompt 0: "The capital of France is"  (5 tokens)
+17:10:42 | S0 prompt ids: 785 6722 315 9625 374
+17:10:42 |   multi prompt 1: "Q: What is 17 + 25?\x0AA:"  (14 tokens)
+17:10:42 | S1 prompt ids: 48 25 3555 374 220 16 22 488 220 17 20 5267 32 25
+17:10:42 | 
+17:10:42 |   answering 2 prompts together, 4 tokens each
+17:13:11 | S0 step 0 pos 0 fed 785 -> top1 220 16.2387638 top2 323 15.7758684 text " "
+17:13:11 | S0 step 1 pos 1 fed 6722 -> top1 315 18.2073002 top2 3283 18.1817608 text " of"
+17:13:11 | S0 step 2 pos 2 fed 315 -> top1 279 16.3747082 top2 264 15.0106459 text " the"
+17:13:11 | S0 step 3 pos 3 fed 9625 -> top1 374 21.0897179 top2 11 20.6507797 text " is"
+17:13:11 | S1 step 0 pos 0 fed 48 -> top1 198 11.1436224 top2 220 11.0372753 text "\x0A"
+17:13:11 | S1 step 1 pos 1 fed 25 -> top1 3555 12.5304346 top2 576 12.4700565 text " What"
+17:13:11 | S1 step 2 pos 2 fed 3555 -> top1 374 20.4366665 top2 525 18.8898525 text " is"
+17:13:11 | S1 step 3 pos 3 fed 374 -> top1 279 19.7904205 top2 264 18.204916 text " the"
+17:13:11 |     multi pass=1 slots=8: 148.1 s: SD 1834.8 MB in 3.0 s (607.97 MB/s), PSRAM 377 KB read 150.8 KB written in 0.17 s, compute 144.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012
+17:13:11 | STAGES multi pass=1 slots=8 embed=0.007 qkv=8.03 att=0.997 wo=6.06 ffn=114.60 head=18.39 hidden=63.88 temp_c=49.0
+17:13:11 | CARD multi pass=1 slots=8 fifoirq opens=3277 interrupts=3811529
+17:15:39 | S0 step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+17:15:39 | S1 step 4 pos 4 fed 220 -> top1 16 17.367445 top2 17 16.9371243 text "1"
+17:15:39 | S1 step 5 pos 5 fed 16 -> top1 15 18.1897011 top2 14 17.6334038 text "0"
+17:15:39 | S1 step 6 pos 6 fed 22 -> top1 17779 17.1650429 top2 20 16.7240982 text " divided"
+17:15:39 | S1 step 7 pos 7 fed 488 -> top1 220 21.411211 top2 10293 16.9030704 text " "
+17:15:39 | S1 step 8 pos 8 fed 220 -> top1 16 21.4364433 top2 17 20.988821 text "1"
+17:15:39 | S1 step 9 pos 9 fed 17 -> top1 18 18.3468914 top2 20 17.7576351 text "3"
+17:15:39 | S1 step 10 pos 10 fed 20 -> top1 5267 19.0039597 top2 30 18.4711266 text "?\x0A"
+17:15:39 |     multi pass=2 slots=8: 148.4 s: SD 1834.8 MB in 3.0 s (608.08 MB/s), PSRAM 1149 KB read 150.8 KB written in 0.37 s, compute 145.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.01
+17:15:39 | STAGES multi pass=2 slots=8 embed=0.007 qkv=8.03 att=1.345 wo=6.06 ffn=114.61 head=18.40 hidden=63.86 temp_c=49.6
+17:15:39 | CARD multi pass=2 slots=8 fifoirq opens=3277 interrupts=3811529
+17:17:03 | S0 step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+17:17:03 | S1 step 11 pos 11 fed 5267 -> top1 32 16.9803524 top2 18837 14.195364 text "A"
+17:17:03 | S1 step 12 pos 12 fed 32 -> top1 25 19.6883602 top2 510 18.6740665 text ":"
+17:17:03 | S1 step 13 pos 13 fed 25 -> top1 220 18.3870277 top2 576 15.8514872 text " "
+17:17:03 |     multi pass=3 slots=4: 84.0 s: SD 1834.8 MB in 4.6 s (399.93 MB/s), PSRAM 848 KB read 75.4 KB written in 0.26 s, compute 79.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:17:03 | STAGES multi pass=3 slots=4 embed=0.003 qkv=4.60 att=0.799 wo=3.39 ffn=64.52 head=10.64 hidden=42.55 temp_c=50.3
+17:17:03 | CARD multi pass=3 slots=4 fifoirq opens=3277 interrupts=3811528
+17:17:54 | S0 step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+17:17:54 | S1 step 14 pos 14 fed 220 -> top1 19 19.8962555 top2 16 17.3152504 text "4"
+17:17:54 |     multi pass=4 slots=2: 51.0 s: SD 1834.8 MB in 5.5 s (334.63 MB/s), PSRAM 415 KB read 37.7 KB written in 0.14 s, compute 45.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:17:54 | STAGES multi pass=4 slots=2 embed=0.002 qkv=2.88 att=0.401 wo=2.04 ffn=39.04 head=6.68 hidden=32.22 temp_c=50.9
+17:17:54 | CARD multi pass=4 slots=2 fifoirq opens=3277 interrupts=3811439
+17:18:45 | S0 step 7 pos 7 fed 12095 -> top1 374 20.5606785 top2 702 17.2204037 text " is"
+17:18:45 | S1 step 15 pos 15 fed 19 -> top1 17 21.0174179 top2 18 14.3962431 text "2"
+17:18:45 |     multi pass=5 slots=2: 51.2 s: SD 1834.8 MB in 5.6 s (328.08 MB/s), PSRAM 452 KB read 37.7 KB written in 0.15 s, compute 45.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:18:45 | STAGES multi pass=5 slots=2 embed=0.001 qkv=2.88 att=0.418 wo=2.04 ffn=39.15 head=6.68 hidden=32.28 temp_c=50.9
+17:18:45 | CARD multi pass=5 slots=2 fifoirq opens=3277 interrupts=3811312
+17:19:36 | S0 step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+17:19:36 | S1 step 16 pos 16 fed 17 -> top1 198 17.4048309 top2 271 15.0999613 text "\x0A"
+17:19:36 |     multi pass=6 slots=2: 51.3 s: SD 1834.8 MB in 5.7 s (320.84 MB/s), PSRAM 490 KB read 37.7 KB written in 0.16 s, compute 45.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:19:36 | STAGES multi pass=6 slots=2 embed=0.002 qkv=2.88 att=0.434 wo=2.04 ffn=39.28 head=6.68 hidden=32.31 temp_c=51.6
+17:19:36 | CARD multi pass=6 slots=2 fifoirq opens=3277 interrupts=3811197
+17:20:22 | S1 step 17 pos 17 fed 198 -> top1 33 15.7412558 top2 2610 15.0620537 text "B"
+17:20:22 |     multi pass=7 slots=1: 45.5 s: SD 1834.8 MB in 16.3 s (112.43 MB/s), PSRAM 339 KB read 18.8 KB written in 0.11 s, compute 29.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s
+17:20:22 | STAGES multi pass=7 slots=1 embed=0.001 qkv=2.65 att=0.265 wo=1.90 ffn=35.13 head=5.57 hidden=28.80 temp_c=50.9
+17:20:22 | CARD multi pass=7 slots=1 fifoirq opens=3277 interrupts=3765629
+17:20:22 |   ANSWER S0: " Paris. Paris is the"
+17:20:22 |   ANSWER S1: " 42\x0AB"
+17:20:22 |   2 prompts, 7 passes over the weights for 27 positions in 579 s, 82.8 s per pass; one at a time they would take 11 passes
+17:20:22 | RUN multi=2 n_gen=4 passes=7 positions=27 shared=0 solo_passes=11 total_s=579.5 per_pass_s=82.79 sd_gb=12.543 sd_mbs=293.66 sd_s=43.7 compute_s=534.4 hidden_s=295.9 ps_s=1.4 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=42 ps_sw_s=0.09 temp_max_c=5
+
+[suite 2026-10-16 17:20:52] group ring2 run 1 done: 2/2 prompts equal the PC reference; RUN multi=2 n_gen=4 passes=7 positions=27 shared=0 solo_passes=11 total_s=579.5 per_pass_s=82.79 sd_gb=12.543 sd_mbs=293.66 sd_s=43.7 compute_s=534.4 hidden_s=295.9 ps_s=1.4 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=42 ps_sw_s=0.09 temp_max_c=5
+
+[suite 2026-10-16 17:20:52] round 1 complete; passes.md updated
+
+[suite 2026-10-16 17:20:52] suite complete
+
+[suite 2026-10-16 17:20:52] >>> ::stats
+17:20:52 | STACK never_used 24652 bytes (the deepest the stack has gone since boot leaves this much)
+17:20:52 |   DONE. Type another prompt and press Enter.
+17:20:52 | STATS bank 0 CS0 quad write 4 read 16 burst 96 rate_mb_s 9.51
+17:20:52 | STATS bank 1 CS1 quad write 3 read 20 burst 96 rate_mb_s 8.37
+17:20:52 | STATS bank 2 Y5 single 0x0B write 3 read 9 burst 64 rate_mb_s 3.12
+17:20:52 | STATS bank 3 Y1 single 0x0B write 7 read 10 burst 56 rate_mb_s 2.95
+17:20:52 | STATS bank 4 Y4 single 0x0B write 8 read 10 burst 56 rate_mb_s 2.95
+17:20:52 | STATS bank 5 Y3 single 0x0B write 3 read 10 burst 56 rate_mb_s 2.95
+17:20:52 | STATS bank 6 Y2 single 0x0B write 3 read 11 burst 56 rate_mb_s 2.84
+17:20:52 | STATS bank 7 Y0 single 0x0B write 5 read 11 burst 56 rate_mb_s 2.84
+17:20:52 | STATS stack_never_used 24652
+17:20:52 | STATS ps_fix_r 0 ps_fix_w 0 ps_bad 0 temp_c 50.3 gen 4 max_seq 2608 uptime_s 3465

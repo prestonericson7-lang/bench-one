@@ -1,0 +1,6 @@
+# 2026-10-16: two prompts answered together on the DMA ring (::fifoirq 3), every line against tl_ref
+::fifoirq 3
+@multi ring2 | 4
+france | The capital of France is
+arith | Q: What is 17 + 25?\nA:
+@end

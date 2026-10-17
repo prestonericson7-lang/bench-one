@@ -95,6 +95,19 @@ int plat_tok_flush(void) { return TKF ? fflush(TKF) : 0; }
  * exit, to stderr: commands and bytes by size, so a card model (per-command cost + rate) can be checked against
  * the board's measured pass. A count of the code's reads, never a timing. */
 static long long g_rc_n[2], g_rc_b[2], g_rc_hist[2][8];
+/* The board's ring (::fifoirq 3, rq_read) as a count: a pipeline read CONTINUES the open card stream when its first
+ * sector is at most one behind where the stream stands (the tail sector is cached) and at most 2 x 16 ahead (skipped
+ * forward); anything else opens a new stream (a CMD12 and a CMD18), and every plain read closes it (mf_read_at). */
+static long long g_rc_opens;
+static int       g_rc_ring;                 /* a stream is open */
+static uint64_t  g_rc_pos;                  /* the sector after the last one the open stream delivered */
+static void ring_census(int kind, uint64_t off, uint32_t n)
+{
+    if (kind) { g_rc_ring = 0; return; }
+    const uint64_t s0 = off / 512u, s1 = (off + n + 511u) / 512u;
+    if (!g_rc_ring || s0 + 1u < g_rc_pos || s0 > g_rc_pos + 32u) { g_rc_opens++; g_rc_ring = 1; }
+    g_rc_pos = s1;
+}
 static void read_census(int kind, uint64_t bytes)
 {
     static const uint64_t lim[7] = { 1024, 4096, 8192, 16384, 20480, 24576, 32768 };
@@ -110,13 +123,14 @@ static void read_census_print(void)
         for (int h = 0; h < 8; h++) fprintf(stderr, " %s:%lld", nm[h], g_rc_hist[k][h]);
         fprintf(stderr, "\n");
     }
+    fprintf(stderr, "READCENSUS ring streams opened %lld (the board's ::fifoirq 3 restarts)\n", g_rc_opens);
 }
 static int g_rc_on = -1, g_rc_in_overlap;
 
 int plat_sd_read(uint64_t off, void *dst, uint32_t n)
 {
     if (g_rc_on < 0) { g_rc_on = getenv("TL_READCENSUS") && atoi(getenv("TL_READCENSUS")); if (g_rc_on) atexit(read_census_print); }
-    if (g_rc_on && !g_rc_in_overlap) read_census(1, n);
+    if (g_rc_on && !g_rc_in_overlap) { read_census(1, n); ring_census(1, off, n); }
 #if defined(_WIN32)
     if (_fseeki64(F, (long long)off, SEEK_SET)) return -1;
 #else
@@ -145,7 +159,7 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
         memset(d - pre, 0xA5, pre);
         memset(d + n, 0x5A, end - pre - n);
         if (g_rc_on < 0) { g_rc_on = getenv("TL_READCENSUS") && atoi(getenv("TL_READCENSUS")); if (g_rc_on) atexit(read_census_print); }
-        if (g_rc_on) read_census(0, end);
+        if (g_rc_on) { read_census(0, end); ring_census(0, off, n); }
     }
     g_rc_in_overlap = 1;
     const int r = plat_sd_read(off, dst, n);

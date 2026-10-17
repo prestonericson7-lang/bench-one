@@ -1,0 +1,161 @@
+16:41:01 > I
+16:41:01 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 16 sdio dma overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf batch 8 experts 0/0
+16:41:01 > ::gen 4
+16:41:01 | GEN 4
+16:41:01 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the capital of France?<|im_end|>\n<|im_start|>assistant\n
+16:41:01 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the capital of France?<|im_end|>\x0A<|im_start|>assistant\x0A"  (36 tokens, generating 4, promp
+16:41:01 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6722 315 9625 30 151645 198 151644 77091 198
+16:41:01 | SDPATH adma
+16:43:09 |     prefill=0..7: 127.3 s: SD 1591.4 MB in 1.4 s (1149.97 MB/s), PSRAM 678 KB read 150.8 KB written in 0.25 s, compute 125.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 7 (0.014 s)
+16:43:09 | STAGES prefill=0..7 embed=0.010 qkv=7.99 att=1.132 wo=6.17 ffn=111.95 head=0.00 hidden=83.12 temp_c=48.3
+16:43:09 | CARD prefill=0..7 fifoirq opens=0 interrupts=0
+16:45:16 |     prefill=8..15: 127.8 s: SD 1591.4 MB in 1.3 s (1179.09 MB/s), PSRAM 1884 KB read 150.8 KB written in 0.56 s, compute 125.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:45:16 | STAGES prefill=8..15 embed=0.009 qkv=7.99 att=1.671 wo=6.17 ffn=111.93 head=0.00 hidden=83.11 temp_c=49.0
+16:45:16 | CARD prefill=8..15 fifoirq opens=0 interrupts=0
+16:47:25 |     prefill=16..23: 128.4 s: SD 1591.4 MB in 1.4 s (1145.15 MB/s), PSRAM 3090 KB read 150.8 KB written in 0.87 s, compute 126.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:47:25 | STAGES prefill=16..23 embed=0.009 qkv=8.00 att=2.205 wo=6.17 ffn=111.97 head=0.00 hidden=83.15 temp_c=50.3
+16:47:25 | CARD prefill=16..23 fifoirq opens=0 interrupts=0
+16:49:34 |     prefill=24..31: 128.9 s: SD 1591.4 MB in 1.4 s (1144.96 MB/s), PSRAM 4296 KB read 150.8 KB written in 1.19 s, compute 126.3 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:49:34 | STAGES prefill=24..31 embed=0.009 qkv=8.00 att=2.740 wo=6.17 ffn=111.97 head=0.00 hidden=83.16 temp_c=50.3
+16:49:34 | CARD prefill=24..31 fifoirq opens=0 interrupts=0
+16:49:34 |   card: 4 positions in this pass -> FIFO
+16:49:34 |     SD up (FIFO_SDIO), clock 99000 kHz
+16:49:34 |     qwen3b.gguf: 1929903072 bytes
+16:49:34 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+16:49:34 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+16:49:34 | SDIO fifo
+16:49:34 | SDPATH file
+16:50:53 | step 35 pos 35 fed 198 -> top1 785 22.8206406 top2 59604 18.7449856 text "The"
+16:50:53 |   >> <|im_start|>system
+16:50:53 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:50:53 | <|im_start|>user
+16:50:53 | What is the capital of France?<|im_end|>
+16:50:53 | <|im_start|>assistant
+16:50:53 | The
+16:50:53 |     prefill=32..35: 79.6 s: SD 1834.8 MB in 6.3 s (289.18 MB/s), PSRAM 2600 KB read 75.4 KB written in 0.72 s, compute 72.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:50:53 | STAGES prefill=32..35 embed=0.003 qkv=4.60 att=1.576 wo=3.38 ffn=64.51 head=5.57 hidden=42.34 temp_c=50.9
+16:50:53 | CARD prefill=32..35 fifoirq opens=3277 interrupts=3811516
+16:51:36 | step 36 pos 36 fed 785 -> top1 6722 25.9797974 top2 18374 15.7268457 text " capital"
+16:51:36 |   >> <|im_start|>system
+16:51:36 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:51:36 | <|im_start|>user
+16:51:36 | What is the capital of France?<|im_end|>
+16:51:36 | <|im_start|>assistant
+16:51:36 | The capital
+16:51:36 |     step=36: 43.2 s: SD 1834.8 MB in 14.0 s (131.06 MB/s), PSRAM 697 KB read 18.8 KB written in 0.20 s, compute 29.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:51:36 | STAGES step=36 embed=0.001 qkv=2.65 att=0.418 wo=1.90 ffn=32.69 head=5.56 hidden=28.44 temp_c=50.9
+16:51:36 | CARD step=36 fifoirq opens=217 interrupts=3759509
+16:52:20 | step 37 pos 37 fed 6722 -> top1 315 25.4700813 top2 3283 22.5378876 text " of"
+16:52:20 |   >> <|im_start|>system
+16:52:20 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:52:20 | <|im_start|>user
+16:52:20 | What is the capital of France?<|im_end|>
+16:52:20 | <|im_start|>assistant
+16:52:20 | The capital of
+16:52:20 |     step=37: 43.4 s: SD 1834.8 MB in 14.2 s (129.39 MB/s), PSRAM 716 KB read 18.8 KB written in 0.21 s, compute 29.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:52:20 | STAGES step=37 embed=0.001 qkv=2.65 att=0.427 wo=1.90 ffn=32.87 head=5.56 hidden=28.44 temp_c=51.6
+16:52:20 | CARD step=37 fifoirq opens=217 interrupts=3759509
+16:53:03 | step 38 pos 38 fed 315 -> top1 9625 26.1995945 top2 49000 16.6921177 text " France"
+16:53:03 |   >> <|im_start|>system
+16:53:03 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:53:03 | <|im_start|>user
+16:53:03 | What is the capital of France?<|im_end|>
+16:53:03 | <|im_start|>assistant
+16:53:03 | The capital of France
+16:53:03 |     step=38: 43.4 s: SD 1834.8 MB in 14.2 s (129.37 MB/s), PSRAM 735 KB read 18.8 KB written in 0.21 s, compute 29.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:53:03 | STAGES step=38 embed=0.001 qkv=2.65 att=0.435 wo=1.90 ffn=32.87 head=5.56 hidden=28.44 temp_c=51.6
+16:53:03 | CARD step=38 fifoirq opens=217 interrupts=3759509
+16:53:47 | step 39 pos 39 fed 9625 -> top1 374 24.0872097 top2 11 15.8200359 text " is"
+16:53:47 |   >> <|im_start|>system
+16:53:47 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:53:47 | <|im_start|>user
+16:53:47 | What is the capital of France?<|im_end|>
+16:53:47 | <|im_start|>assistant
+16:53:47 | The capital of France is
+16:53:47 |     step=39: 43.3 s: SD 1834.8 MB in 14.1 s (130.56 MB/s), PSRAM 754 KB read 18.8 KB written in 0.22 s, compute 29.0 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:53:47 | STAGES step=39 embed=0.001 qkv=2.65 att=0.443 wo=1.91 ffn=32.73 head=5.56 hidden=28.44 temp_c=51.6
+16:53:47 | CARD step=39 fifoirq opens=217 interrupts=3759509
+16:53:47 |   ANSWER: "The capital of France is"
+16:53:47 |   9 passes over the weights in 765 s (prompt 592 s), 85.0 s each; 15.18 GB read from the card
+16:53:47 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+16:53:47 | RUN n_prompt=36 n_gen=4 prefill=1 passes=9 total_s=765.3 prompt_s=591.9 per_pass_s=85.03 sd_gb=15.175 sd_mbs=227.61 sd_s=68.3 compute_s=692.6 hidden_s=488.6 ps_s=4.4 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=53 ps_sw_s=0.11 temp_max_c=51.6
+16:53:56 > <|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\n<|im_start|>assistant\n
+16:53:56 | STACK never_used 24652 bytes (the deepest the stack has gone since boot leaves this much)
+16:53:56 |   DONE. Type another prompt and press Enter.
+16:53:56 |   prompt: "<|im_start|>system\x0AYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\x0A<|im_start|>user\x0AWhat is the difference between SPI and I2C? Answer in two sentences.<|im_end|>\x0A<|im_start|>assistant
+16:53:56 | prompt ids: 151644 8948 198 2610 525 1207 16948 11 3465 553 54364 14817 13 1446 525 264 10950 17847 13 151645 198 151644 872 198 3838 374 279 6672 1948 20429 323 358 17 34 30 21806 304 1378 22870 13 151645 198 151644 77091 198
+16:53:56 | REUSE m=27 (the attention cache already holds positions 0..26 for these same tokens; the prompt is fed from 27)
+16:53:56 |   card: 8 positions in this pass -> ADMA2 with the arithmetic under the read
+16:53:56 |     SD up (DMA_SDIO), clock 99000 kHz
+16:53:56 |     qwen3b.gguf: 1929903072 bytes
+16:53:56 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+16:53:56 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+16:53:56 | SDIO dma
+16:53:56 | SDPATH adma
+16:56:05 |     prefill=27..34: 129.1 s: SD 1591.4 MB in 1.4 s (1171.13 MB/s), PSRAM 4749 KB read 150.8 KB written in 1.30 s, compute 126.4 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:56:05 | STAGES prefill=27..34 embed=0.010 qkv=7.99 att=2.940 wo=6.17 ffn=111.94 head=0.00 hidden=83.17 temp_c=51.6
+16:56:05 | CARD prefill=27..34 fifoirq opens=0 interrupts=0
+16:58:15 |     prefill=35..42: 129.6 s: SD 1591.4 MB in 1.4 s (1159.60 MB/s), PSRAM 5955 KB read 150.8 KB written in 1.61 s, compute 126.6 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:58:15 | STAGES prefill=35..42 embed=0.010 qkv=7.99 att=3.475 wo=6.17 ffn=111.95 head=0.00 hidden=83.22 temp_c=51.6
+16:58:15 | CARD prefill=35..42 fifoirq opens=0 interrupts=0
+16:58:15 |   card: 2 positions in this pass -> FIFO
+16:58:15 |     SD up (FIFO_SDIO), clock 99000 kHz
+16:58:15 |     qwen3b.gguf: 1929903072 bytes
+16:58:15 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+16:58:15 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+16:58:15 | SDIO fifo
+16:58:15 | SDPATH file
+16:59:05 | step 44 pos 44 fed 198 -> top1 39779 19.3530884 top2 40 15.8442087 text "SPI"
+16:59:05 |   >> <|im_start|>system
+16:59:05 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:59:05 | <|im_start|>user
+16:59:05 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+16:59:05 | <|im_start|>assistant
+16:59:05 | SPI
+16:59:05 |     prefill=43..44: 50.6 s: SD 1834.8 MB in 7.4 s (249.15 MB/s), PSRAM 1677 KB read 37.7 KB written in 0.46 s, compute 42.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:59:05 | STAGES prefill=43..44 embed=0.001 qkv=2.87 att=0.960 wo=2.04 ffn=39.17 head=5.57 hidden=32.15 temp_c=51.6
+16:59:05 | CARD prefill=43..44 fifoirq opens=3277 interrupts=3811334
+16:59:49 | step 45 pos 45 fed 39779 -> top1 320 20.2314739 top2 374 18.7457199 text " ("
+16:59:49 |   >> <|im_start|>system
+16:59:49 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+16:59:49 | <|im_start|>user
+16:59:49 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+16:59:49 | <|im_start|>assistant
+16:59:49 | SPI (
+16:59:49 |     step=45: 43.5 s: SD 1834.8 MB in 14.2 s (129.65 MB/s), PSRAM 867 KB read 18.8 KB written in 0.24 s, compute 29.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+16:59:49 | STAGES step=45 embed=0.001 qkv=2.65 att=0.493 wo=1.90 ffn=32.86 head=5.56 hidden=28.46 temp_c=51.6
+16:59:49 | CARD step=45 fifoirq opens=217 interrupts=3759509
+17:00:32 | step 46 pos 46 fed 320 -> top1 5915 26.6293812 top2 16374 19.2809315 text "Serial"
+17:00:32 |   >> <|im_start|>system
+17:00:32 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+17:00:32 | <|im_start|>user
+17:00:32 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+17:00:32 | <|im_start|>assistant
+17:00:32 | SPI (Serial
+17:00:32 |     step=46: 43.5 s: SD 1834.8 MB in 14.2 s (129.62 MB/s), PSRAM 886 KB read 18.8 KB written in 0.25 s, compute 29.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:00:32 | STAGES step=46 embed=0.001 qkv=2.65 att=0.502 wo=1.90 ffn=32.86 head=5.56 hidden=28.46 temp_c=51.6
+17:00:32 | CARD step=46 fifoirq opens=217 interrupts=3759509
+17:01:16 | step 47 pos 47 fed 5915 -> top1 83000 28.7934093 top2 34588 20.9415283 text " Peripheral"
+17:01:16 |   >> <|im_start|>system
+17:01:16 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+17:01:16 | <|im_start|>user
+17:01:16 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+17:01:16 | <|im_start|>assistant
+17:01:16 | SPI (Serial Peripheral
+17:01:16 |     step=47: 43.5 s: SD 1834.8 MB in 14.2 s (129.67 MB/s), PSRAM 904 KB read 18.8 KB written in 0.25 s, compute 29.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:01:16 | STAGES step=47 embed=0.001 qkv=2.65 att=0.510 wo=1.90 ffn=32.86 head=5.56 hidden=28.46 temp_c=51.6
+17:01:16 | CARD step=47 fifoirq opens=217 interrupts=3759509
+17:01:59 | step 48 pos 48 fed 83000 -> top1 20019 30.4374809 top2 5665 23.3292427 text " Interface"
+17:01:59 |   >> <|im_start|>system
+17:01:59 | You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+17:01:59 | <|im_start|>user
+17:01:59 | What is the difference between SPI and I2C? Answer in two sentences.<|im_end|>
+17:01:59 | <|im_start|>assistant
+17:01:59 | SPI (Serial Peripheral Interface
+17:01:59 |     step=48: 43.5 s: SD 1834.8 MB in 14.1 s (129.99 MB/s), PSRAM 923 KB read 18.8 KB written in 0.26 s, compute 29.1 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:01:59 | STAGES step=48 embed=0.001 qkv=2.65 att=0.518 wo=1.90 ffn=32.82 head=5.56 hidden=28.46 temp_c=51.6
+17:01:59 | CARD step=48 fifoirq opens=217 interrupts=3759509
+17:01:59 |   ANSWER: "SPI (Serial Peripheral Interface"
+17:01:59 |   7 passes over the weights in 483 s (prompt 309 s), 69.0 s each; 12.07 GB read from the card
+17:01:59 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+17:01:59 | RUN n_prompt=45 n_gen=4 prefill=1 passes=7 total_s=483.1 prompt_s=309.3 per_pass_s=69.02 sd_gb=12.067 sd_mbs=185.35 sd_s=66.7 compute_s=412.1 hidden_s=312.4 ps_s=4.4 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=42 ps_sw_s=0.09 temp_max_c=51.6

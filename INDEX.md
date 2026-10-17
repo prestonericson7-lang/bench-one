@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**2735 tracked files.** This page exists so you never have to guess which directory something is in.
+**3033 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -57,12 +57,12 @@ If you know what you want, use the table. If you do not, start at
 
 ```
 docs/         59 numbered documents + 11 research files    the engineering record
-firmware/     570 files                                    everything that runs on a board
+firmware/     577 files                                    everything that runs on a board
 hardware/     142 files                                    the Zynq FPGA board, enclosures, wiring drawings
 accel/        220 files                                    the FPGA and the Teensy as the Orange Pi's accelerators
 machine/      98 files                                     the five items as one machine; card tools and card evidence
 deploy/       14 files                                     the car system's installer, and the 47-check test runner
-bench-archive/ 1539 files                                  every Teensy board run, raw, one folder per run
+bench-archive/ 1829 files                                  every Teensy board run, raw, one folder per run
 run/          34 files                                     bench scripts
 evidence/     16 files                                     a build log and LoRa capture logs, kept as provenance
 tools/        not committed                                toolchains, install your own
@@ -106,10 +106,10 @@ it.
 | `bench_*.{c,h}` | the earlier hyperdimensional-computing and deep-belief work |
 | `bench_pins.h` `bench_ports.h` | the pin and port map as code, so a wiring change is a compile error |
 
-### `bench-one/tests/` — 240 files
+### `bench-one/tests/` — 247 files
 
 One experiment per directory for anything that targets a board; loose `.c` files for host and
-cross-compiled programs. **48 experiment directories, 44 C programs, 69 result logs.**
+cross-compiled programs. **48 experiment directories, 45 C programs, 69 result logs.**
 
 | directory | what it tests |
 |---|---|

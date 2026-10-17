@@ -1,0 +1,39 @@
+17:02:51 > I
+17:02:51 | I bench-one psram_llm v9 banks 8 ps_bytes 67108864 max_seq 2608 gen 4 sdio fifo overlap 1 align 1 slice 0 clk 99000 model qwen3b.gguf batch 8 experts 0/0
+17:02:51 > ::gen 4
+17:02:51 | GEN 4
+17:02:51 > ::ringfault 200
+17:02:51 | RINGFAULT 200 (that ring read fails halfway; the pass must go on through the file layer, exact)
+17:02:51 > The capital of France is
+17:02:51 |   prompt: "The capital of France is"  (5 tokens, generating 4, prompt batched through tl_prefill)
+17:02:51 | prompt ids: 785 6722 315 9625 374
+17:02:51 |     fifoirq 3: read of 47 sectors at 640149 stopped (0x10000000, PRES_STATE 0xFF88820E, ADMA_ERR 0x00000003); back to the file layer
+17:02:51 |     fifoirq OFF; the card restarted, this block read through the file layer
+17:02:51 |     SD up (FIFO_SDIO), clock 99000 kHz
+17:02:51 |     qwen3b.gguf: 1929903072 bytes
+17:02:51 |     contiguous on the card, sectors 40448..3809789 (exFAT): every seek is one addition (checked in 0 ms)
+17:02:51 |     qwen3b.tok: 8301328 bytes on the card, contiguous
+17:05:05 | step 4 pos 4 fed 374 -> top1 12095 19.1167145 top2 1304 14.9582863 text " Paris"
+17:05:05 |   >> The capital of France is Paris
+17:05:05 |     prefill=0..4: 134.6 s: SD 1834.8 MB in 46.5 s (39.44 MB/s), PSRAM 283 KB read 94.2 KB written in 0.13 s, compute 87.9 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:05:05 | STAGES prefill=0..4 embed=0.004 qkv=7.83 att=0.649 wo=5.97 ffn=110.85 head=9.26 hidden=0.07 temp_c=49.0
+17:06:17 | step 5 pos 5 fed 12095 -> top1 13 22.4336185 top2 11 21.4667625 text "."
+17:06:17 |   >> The capital of France is Paris.
+17:06:17 |     step=5: 72.0 s: SD 1834.8 MB in 44.1 s (41.56 MB/s), PSRAM 113 KB read 18.8 KB written in 0.05 s, compute 27.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:06:17 | STAGES step=5 embed=0.001 qkv=4.33 att=0.159 wo=3.22 ffn=55.04 head=9.23 hidden=0.00 temp_c=48.3
+17:07:29 | step 6 pos 6 fed 13 -> top1 12095 16.7851734 top2 576 16.597023 text " Paris"
+17:07:29 |   >> The capital of France is Paris. Paris
+17:07:29 |     step=6: 72.0 s: SD 1834.8 MB in 44.2 s (41.55 MB/s), PSRAM 132 KB read 18.8 KB written in 0.05 s, compute 27.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:07:29 | STAGES step=6 embed=0.001 qkv=4.33 att=0.168 wo=3.22 ffn=55.05 head=9.23 hidden=0.00 temp_c=48.3
+17:08:41 | step 7 pos 7 fed 12095 -> top1 374 20.5606785 top2 702 17.2204037 text " is"
+17:08:41 |   >> The capital of France is Paris. Paris is
+17:08:41 |     step=7: 72.0 s: SD 1834.8 MB in 44.2 s (41.55 MB/s), PSRAM 151 KB read 18.8 KB written in 0.06 s, compute 27.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:08:41 | STAGES step=7 embed=0.001 qkv=4.33 att=0.176 wo=3.22 ffn=55.05 head=9.23 hidden=0.00 temp_c=49.0
+17:09:53 | step 8 pos 8 fed 374 -> top1 279 18.5935287 top2 3881 18.486763 text " the"
+17:09:53 |   >> The capital of France is Paris. Paris is the
+17:09:53 |     step=8: 72.0 s: SD 1834.8 MB in 44.2 s (41.55 MB/s), PSRAM 170 KB read 18.8 KB written in 0.06 s, compute 27.8 s; PSRAM self-check so far: 0 rows re-read, 0 writes re-done, 0 unresolved; chip selects this pass 6 (0.012 s)
+17:09:53 | STAGES step=8 embed=0.001 qkv=4.33 att=0.184 wo=3.22 ffn=55.05 head=9.23 hidden=0.00 temp_c=49.0
+17:09:53 |   ANSWER: " Paris. Paris is the"
+17:09:53 |   5 passes over the weights in 423 s (prompt 135 s), 84.5 s each; 8.96 GB read from the card
+17:09:53 |   PSRAM self-check over the whole run: 0 rows re-read, 0 writes re-done, 0 unresolved
+17:09:53 | RUN n_prompt=5 n_gen=4 prefill=1 passes=5 total_s=422.5 prompt_s=134.6 per_pass_s=84.51 sd_gb=8.959 sd_mbs=41.11 sd_s=223.1 compute_s=199.0 hidden_s=0.1 ps_s=0.4 ps_fix_r=0 ps_fix_w=0 ps_bad=0 ps_sw=30 ps_sw_s=0.06 temp_max_c=49.0

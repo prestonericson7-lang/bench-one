@@ -151,3 +151,4 @@ been in can be returned to by flashing one file. Newest last.
 | 20261016-120228 | psram_llm | ac88742+dirty | 1819 | 2026-10-16 final for the SanDisk Ultra: ::fifoirq 3 (DMA ring) and ::admamin 8 by default |
 | 20261016-123156 | psram_llm | e7b49f1+dirty | 1819 | 2026-10-16: ::reuse -- a prompt is fed from the first position the attention cache does not already hold |
 | 20261016-135957 | psram_llm | e7b49f1+dirty | 2489 | logits-last, stack HWM, ringfault, kbench stages (PC regression 20261016-124252 ALL IDENTICAL) |
+| 20261016-162235 | psram_llm | 9dc7866+dirty | 2489 | 30B MoE support (qwen3moe), kernels without spills + exact Q6_K tail; PC: 3B full + 30B quick regressions ALL IDENTICAL (9dc7866) |

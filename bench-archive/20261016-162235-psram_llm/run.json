@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-162235",
+  "sketch": "psram_llm",
+  "git": "9dc7866",
+  "git_dirty": true,
+  "seconds": 45,
+  "note": "30B MoE support (qwen3moe), kernels without spills + exact Q6_K tail; PC: 3B full + 30B quick regressions ALL IDENTICAL (9dc7866)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 714381
+}

@@ -132,4 +132,12 @@ position's picks from the expert-hit counters, and counted distinct experts over
   the guess is right more than 32% of the time; verifying three costs 1.80 and needs 0.8 accepted tokens a pass. Weaker
   than on the dense 3B, where a guess costs almost nothing extra -- but not nothing.
 
+**What the jumps cost the card stream.** The board reads by ADMA2 into a ring that keeps one card stream open while
+reads follow each other; a read that jumps restarts it (a CMD12 and a CMD18). `tl_host`'s read census now models
+exactly that rule (`TL_READCENSUS=1`, "ring streams opened"); on the 3B it predicts **217 streams a decode pass --
+the board's own count for the same pass (`CARD step=36 fifoirq opens=217`, `20261016-164101`)**. On the 30B it
+predicts **1,393 a pass**: per layer the router, three slices of each of eight experts, the attention matrices and the
+small norms (each a plain read, which closes the stream). What a restart costs on this card is a board number; at
+1 ms it is 1.4 s a token, at 3 ms 4 s. Measured below.
+
 *(Board results follow.)*

@@ -518,7 +518,35 @@ stack**: GCC's scheduling before register allocation hoists every load and lane 
 
 `dot_verify` (native, and the M7 instructions emulated): every kernel identical to the scalar reference on 512 rows of
 11,008, batched at 1, 2, 5 and 8 vectors; both models' forward passes through the emulated M7 kernels identical to
-`tl_ref` (`m7_rerun.py`). Board speed: below.
+`tl_ref` (`m7_rerun.py`). On the board (`20261016-162235`, the same rows as `135957`, outputs compared bit for bit on
+every row by the bench itself):
+
+| kernel | before | after |
+|---|---|---|
+| Q4_K batched, 2 / 4 / 8 vectors (cycles a weight a vector) | 3.965 / 3.485 / 3.232 | **3.632 / 3.154 / 2.895** (-8% / -9.5% / -10.4%) |
+| ... its integer loop alone, 8 vectors | 2.427 | **1.988** (-18%: the spills) |
+| Q4_K batched, 8 vectors (`::bench`, M weights a second a vector) | 183.4 | **204.6** |
+| Q6_K single vector, 11,008-wide rows / 2,048-wide | 77.0 / 78.5 | **83.8 / 85.6** (+9%) |
+| Q6_K batched, 8 vectors | 121 | **137** (+13%) |
+| Q4_K presum single (unchanged code) / plain dot single | 114.1 / 105.3 | 114.5 / **108.2** |
+
+Two honest side effects of the file-wide pragma: the pre-widened batched kernel (`_nw`, not used by the model) went
+3.220 -> 3.287, and the flash-resident instrumentation copy of the single kernel (`::bench q4k_stage`) 5.753 -> 6.600 --
+neither is on the model's path, but the latter's stage figures now compare only within one build.
+
+The whole firmware on the board (`20261016-164101-psram_llm-model`, the 3B, `::gen 4`): every printed step identical
+to `tl_ref` on both prompts. The France chat question (36 tokens, cold): eight-position prompt passes 127.3-128.9 s
+(161-164 s on 2026-09-28), the output head skipped on all but the last (`head=0.00`), first answer token **591.9 s**,
+then **43.3 s** a token (each decode pass hid 28.4 s of arithmetic under its card reads and waited 14.0 s for the
+card). The SPI/I2C chat question right after, reusing the 27 positions it shares: first answer token **309.3 s** --
+this morning, cold, 920.2 s. The stack never came within 24,652 bytes of its end.
+
+**The ring's failure path, on purpose** (`::ringfault 200`, `20261016-170251-psram_llm-model`): the 200th ring read
+from the command on failed halfway through, inside the first prompt pass. The board turned the ring off, restarted
+the card, read that block through the file layer and finished the prompt -- every printed step identical to `tl_ref`
+(" Paris. Paris is the"), no crash; decoding then ran in the plain mode at 72.0 s a token, as it should without the
+ring. `::fifoirq 3` put it back, and **two prompts answered together on the ring** (`::multi`, `20261016-171032-
+psram_llm-suite`): both equal the PC reference, 7 passes for 27 positions where one at a time takes 11.
 
 ## For the FPGA
 

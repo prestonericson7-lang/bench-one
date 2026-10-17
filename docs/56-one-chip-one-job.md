@@ -534,6 +534,24 @@ Two honest side effects of the file-wide pragma: the pre-widened batched kernel 
 3.220 -> 3.287, and the flash-resident instrumentation copy of the single kernel (`::bench q4k_stage`) 5.753 -> 6.600 --
 neither is on the model's path, but the latter's stage figures now compare only within one build.
 
+**The double tail, two vectors abreast.** The M7 issues in order, so each `total +=` waited for its term and the next
+vector's work waited behind it. One build carried a runtime switch between the tails as written and the same operations
+with every term computed before any is added (`20261016-190125`, the same rows, outputs compared bit for bit -- all
+identical): the batched Q4_K with two vectors' terms abreast won (2.965 -> 2.785 at 8 vectors, 3.239 -> 3.071 at 4,
+3.747 -> 3.552 at 2); the same reordering **lost** on the Q6_K tails (single 6.58 -> 6.76, eight vectors 4.25 -> 4.53)
+and on the single-vector Q4_K (4.94 -> 5.00) -- the eight-term arrays spill, and the integer work no longer hides the
+double latency. Kept where it won, the switch removed (it cost 2% itself). Final (`20261016-190518`): Q4_K batched
+**3.514 / 3.048 / 2.776** cycles a weight a vector at 2 / 4 / 8 vectors -- this morning 3.965 / 3.485 / 3.232 --
+and `::bench` **213.2 M weights a second a vector** at eight (183.4 this morning, +16%).
+
+**Q6_K batched, four vectors per lane-word load** (PC-proven; board timing pending -- the card was out for the 30B's
+copy). The lane words of a six-bit weight word are built once per offset and parked on the stack; the two-vector loop
+reloaded both for every vector pair, four loads per four SMLADs on the one load/store unit. Now each pair of lane words
+feeds four vectors from registers: 27 instructions and 6 loads for 8 SMLADs where the pair loop took 14 and 4 for 4 --
+a quarter fewer load/store operations per multiply-add. The same products summed per vector and scale group: `dot_verify`
+identical for every vector count 1..8 (the check now covers every count, so the groups of four, the pair and the single
+after them are each exercised), both models' forward passes through the emulated M7 kernels identical (`m7_rerun.py`).
+
 The whole firmware on the board (`20261016-164101-psram_llm-model`, the 3B, `::gen 4`): every printed step identical
 to `tl_ref` on both prompts. The France chat question (36 tokens, cold): eight-position prompt passes 127.3-128.9 s
 (161-164 s on 2026-09-28), the output head skipped on all but the last (`head=0.00`), first answer token **591.9 s**,

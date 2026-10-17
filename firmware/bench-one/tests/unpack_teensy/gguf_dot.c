@@ -1310,7 +1310,25 @@ void gguf_dot_q4k_presum_n(const void *raw_, int np, const int8_t *const *xq, co
                     }
                     dot0[p] = a0; dot1[p] = c0;
                 }
-                for (int p2 = 0; p2 < np; p2++) {
+                /* TWO VECTORS ABREAST IN THE DOUBLE TAIL (2026-10-16). The M7 issues in order: each `total +=` waited for
+                 * its term, and the next vector's work waited behind it. Here two vectors' four terms are computed
+                 * before any is added, then each total takes its two terms in the original order -- every double
+                 * operation the same, on the same operands, in the same order per vector: the same bits (dot_verify).
+                 * Board A/B on the same rows (20261016-190125): 2.965 -> 2.785 cycles a weight a vector at 8 vectors,
+                 * 3.239 -> 3.071 at 4, 3.747 -> 3.552 at 2. The same reordering LOST on the Q6_K tails (single 6.58 ->
+                 * 6.76, eight vectors 4.25 -> 4.53) and on the single-vector Q4_K (4.94 -> 5.00), so those stay as written. */
+                int p2 = 0;
+                for (; p2 + 1 < np; p2 += 2) {
+                    const float   *sxa = xs[p2] + b * (QK_K / ABLK), *sxb = xs[p2 + 1] + b * (QK_K / ABLK);
+                    const int32_t *sma = xsum[p2] + b * (QK_K / ABLK), *smb = xsum[p2 + 1] + b * (QK_K / ABLK);
+                    const double ea = (double)sxa[is + 0] * (A0 * dot0[p2] - B0 * sma[is + 0]);
+                    const double eb = (double)sxb[is + 0] * (A0 * dot0[p2 + 1] - B0 * smb[is + 0]);
+                    const double fa = (double)sxa[is + 1] * (A1 * dot1[p2] - B1 * sma[is + 1]);
+                    const double fb = (double)sxb[is + 1] * (A1 * dot1[p2 + 1] - B1 * smb[is + 1]);
+                    total[p2] += ea; total[p2 + 1] += eb;
+                    total[p2] += fa; total[p2 + 1] += fb;
+                }
+                for (; p2 < np; p2++) {
                     const float   *sx = xs[p2] + b * (QK_K / ABLK);
                     const int32_t *sm = xsum[p2] + b * (QK_K / ABLK);
                     total[p2] += (double)sx[is + 0] * (A0 * dot0[p2] - B0 * sm[is + 0]);
@@ -1548,6 +1566,33 @@ void gguf_dot_q_n(uint32_t type, const void *raw_, int np, const int8_t *const *
                         wb[k] = gd_sxtb16r8(qv);
                     }
                     int p = 0;
+                    /* FOUR VECTORS PER LANE-WORD LOAD (2026-10-16). The lane words live in wa/wb on the stack, and the
+                     * two-vector loop below reloads both for every pair: four loads per four SMLADs, one load/store
+                     * unit. Here each pair of lane words is loaded once for four vectors, whose accumulators stay in
+                     * registers. The same products summed per vector and scale group: the same integers (exact). */
+                    for (; p + 3 < np; p += 4) {
+                        const int8_t *x0 = xq[p] + b * QK_K + n128 + 32 * o, *x1 = xq[p + 1] + b * QK_K + n128 + 32 * o;
+                        const int8_t *x2 = xq[p + 2] + b * QK_K + n128 + 32 * o, *x3 = xq[p + 3] + b * QK_K + n128 + 32 * o;
+                        for (int g = 0; g < 2; g++) {
+                            int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+                            for (int k = 4 * g; k < 4 * g + 4; k++) {
+                                const uint32_t la = wa[k], lb = wb[k];
+                                uint32_t v = gd_ld32(x0 + 4 * k);
+                                a0 = gd_smlad(la, gd_sxtb16(v), a0);
+                                a0 = gd_smlad(lb, gd_sxtb16r8(v), a0);
+                                v = gd_ld32(x1 + 4 * k);
+                                a1 = gd_smlad(la, gd_sxtb16(v), a1);
+                                a1 = gd_smlad(lb, gd_sxtb16r8(v), a1);
+                                v = gd_ld32(x2 + 4 * k);
+                                a2 = gd_smlad(la, gd_sxtb16(v), a2);
+                                a2 = gd_smlad(lb, gd_sxtb16r8(v), a2);
+                                v = gd_ld32(x3 + 4 * k);
+                                a3 = gd_smlad(la, gd_sxtb16(v), a3);
+                                a3 = gd_smlad(lb, gd_sxtb16r8(v), a3);
+                            }
+                            dot[p][o][g] = a0; dot[p + 1][o][g] = a1; dot[p + 2][o][g] = a2; dot[p + 3][o][g] = a3;
+                        }
+                    }
                     for (; p + 1 < np; p += 2) {
                         const int8_t *x0 = xq[p] + b * QK_K + n128 + 32 * o, *x1 = xq[p + 1] + b * QK_K + n128 + 32 * o;
                         for (int g = 0; g < 2; g++) {

@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-190518",
+  "sketch": "psram_llm",
+  "git": "02adc06",
+  "git_dirty": true,
+  "seconds": 45,
+  "note": "final kernels: batched Q4_K tail two vectors abreast (A/B 190125: -6%), switch removed; dot_verify IDENTICAL",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 714381
+}

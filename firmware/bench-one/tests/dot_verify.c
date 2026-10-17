@@ -215,7 +215,7 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
         }
         for (int r = 0; r < rows; r++) {
             const uint8_t *row = w + (size_t)r * rowb;
-            for (int np = 1; np <= NP; np += (np < 2 ? 1 : 3)) {       /* 1, 2, 5, 8 vectors */
+            for (int np = 1; np <= NP; np++) {                          /* every count 1..8: the groups of four, the pair and the single after them (2026-10-16) */
                 float o[GGUF_NPOS_MAX];
                 if (type == GGML_Q4_K)
                     gguf_dot_q4k_presum_n(row, np, (const int8_t *const *)bq, (const float *const *)bs,
@@ -250,12 +250,12 @@ static int run_type(uint32_t type, const char *name, int rows, int cols, uint64_
            bytes / 1048576.0, reps);
     if (type == GGML_Q4_K)
         printf("    presum kernel: %s\n", presum_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
-    printf("    batched kernel, 1/2/5/8 vectors per row: %s\n",
+    printf("    batched kernel, 1..8 vectors per row: %s\n",
            batch_differ ? "DIFFERS from the single-vector kernel" : "IDENTICAL to the single-vector kernel on every row and vector");
     if (type == GGML_Q4_K || type == GGML_Q6_K)
         printf("    widened-activation kernel: %s\n", wid_differ ? "DIFFERS from the scalar reference" : "IDENTICAL to the scalar reference on every row");
     if (type == GGML_Q4_K)
-        printf("    pre-widened batched kernel, 1/2/5/8 vectors: %s\n",
+        printf("    pre-widened batched kernel, 1..8 vectors: %s\n",
                batchw_differ ? "DIFFERS from the batched kernel" : "IDENTICAL to the batched kernel on every row and vector");
     differ += presum_differ + batch_differ + wid_differ + batchw_differ;
     if (differ) {

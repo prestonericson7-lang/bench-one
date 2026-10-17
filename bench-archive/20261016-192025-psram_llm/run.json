@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-192025",
+  "sketch": "psram_llm",
+  "git": "02adc06",
+  "git_dirty": true,
+  "seconds": 45,
+  "note": "Q6_K batched: four vectors per lane-word load (dot_verify 1..8 vectors IDENTICAL)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 717261
+}

@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-190125",
+  "sketch": "psram_llm",
+  "git": "02adc06",
+  "git_dirty": true,
+  "seconds": 45,
+  "note": "GD_TAIL A/B in ::kbench (double tails: terms first, adds in order; dot_verify both modes IDENTICAL)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 725901
+}

@@ -1,6 +1,6 @@
 # Index — everything in this repository, and where to find it
 
-**3033 tracked files.** This page exists so you never have to guess which directory something is in.
+**3042 tracked files.** This page exists so you never have to guess which directory something is in.
 
 Every count here is checked against the actual tree by `.claude/verify-index.sh`, which exists because
 an index that drifts is worse than no index: it gets believed. It caught two stale counts within
@@ -62,7 +62,7 @@ hardware/     142 files                                    the Zynq FPGA board, 
 accel/        220 files                                    the FPGA and the Teensy as the Orange Pi's accelerators
 machine/      98 files                                     the five items as one machine; card tools and card evidence
 deploy/       14 files                                     the car system's installer, and the 47-check test runner
-bench-archive/ 1829 files                                  every Teensy board run, raw, one folder per run
+bench-archive/ 1838 files                                  every Teensy board run, raw, one folder per run
 run/          34 files                                     bench scripts
 evidence/     16 files                                     a build log and LoRa capture logs, kept as provenance
 tools/        not committed                                toolchains, install your own

@@ -2460,6 +2460,8 @@ FLASHMEM static void kbench(void)
         say("KBENCH stages np %d full %.3f no_double %.3f no_double_no_scales %.3f cycles_per_weight_vector stage0_identical %s",
             np, cst[0], cst[1], cst[2], sdiffer ? "NO" : "yes");
     }
+    /* (2026-10-16: a GD_TAIL A/B ran here once -- the double tails with every term computed before the adds. Kept for the
+     * batched Q4_K, two vectors abreast, -6%; it lost on the Q6_K tails and the single-vector Q4_K. 20261016-190125.) */
     say("KBENCH end temp_c %.1f", tempmonGetTemp());
 }
 

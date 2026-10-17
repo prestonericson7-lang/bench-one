@@ -152,3 +152,6 @@ been in can be returned to by flashing one file. Newest last.
 | 20261016-123156 | psram_llm | e7b49f1+dirty | 1819 | 2026-10-16: ::reuse -- a prompt is fed from the first position the attention cache does not already hold |
 | 20261016-135957 | psram_llm | e7b49f1+dirty | 2489 | logits-last, stack HWM, ringfault, kbench stages (PC regression 20261016-124252 ALL IDENTICAL) |
 | 20261016-162235 | psram_llm | 9dc7866+dirty | 2489 | 30B MoE support (qwen3moe), kernels without spills + exact Q6_K tail; PC: 3B full + 30B quick regressions ALL IDENTICAL (9dc7866) |
+| 20261016-190125 | psram_llm | 02adc06+dirty | 2489 | GD_TAIL A/B in ::kbench (double tails: terms first, adds in order; dot_verify both modes IDENTICAL) |
+| 20261016-190518 | psram_llm | 02adc06+dirty | 2548 | final kernels: batched Q4_K tail two vectors abreast (A/B 190125: -6%), switch removed; dot_verify IDENTICAL |
+| 20261016-192025 | psram_llm | 02adc06+dirty | 2382 | Q6_K batched: four vectors per lane-word load (dot_verify 1..8 vectors IDENTICAL) |

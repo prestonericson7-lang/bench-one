@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-212158",
+  "sketch": "psram_llm",
+  "git": "6a27dd3",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "exFAT chain walk: a FAT-chained but unbroken file used by sector arithmetic (the 30B's first boot said FRAGMENTED)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 720141
+}

@@ -18,7 +18,7 @@ either way.
 
 | | On real hardware (measured) | Only in emulation / not yet run |
 |---|---|---|
-| Teensy 4.1 + PSRAM | a 3B model, every token equal to the PC; **2026-10-16: 43.3 s a token** (was 105), the card streaming by DMA into a ring (below) | **a 30B mixture-of-experts** (Qwen3-Coder-30B-A3B): exact to the PC reference in the board's own runtime, not yet run on the board ([docs/62](docs/62-a-30b-on-a-teensy.md)) |
+| Teensy 4.1 + PSRAM | a 3B model at **43.3 s a token** and, since 2026-10-16, **a 30B mixture-of-experts at 44.4 s a token** -- every printed step equal to the PC on both ([docs/62](docs/62-a-30b-on-a-teensy.md)) | — |
 | FPGA #1 (PZ7020) | **first full boot, 2026-10-05**: SPL, DDR3L, U-Boot, the bitstream (its HDMI test picture), the kernel and systemd all ran, read from the card's own journal. It then stopped; the last write to the card was at 8.014 s of uptime | the cause is inferred, not measured (Linux gating the fabric's AXI clock, FCLK0); the fix and a boot guard are on card #1 but it has **not booted since**; the experiment that measures the cause is ready ([EXPERIMENT.md](hardware/pz7020-starlite/linux/EXPERIMENT.md)) |
 | FPGA fabric services (GPU, matrix engine) | **none has run on silicon** | simulated, timing-closed, and run against emulated boards |
 | FPGA + Teensy together | powered on the bench together once (2026-10-05), but never worked together: FPGA #1 stopped before any fabric service started | designed and run together in emulation only ([machine/README.md](machine/README.md)) |
@@ -64,10 +64,10 @@ are used, and the kernels lost their register spills: a chat question's first an
 (36 tokens) or 309.3 s when it shares its opening with the previous prompt (on 2026-09-28: 15.9 minutes,
 then 105 s a token) -- every printed step equal to the PC reference ([docs/56](docs/56-one-chip-one-job.md)).
 
-**Next: a 30B on the same board.** Qwen3-Coder-30B-A3B, a mixture of experts, reads 1.92 GB a token -- the
-3B's bytes for ten times the parameters -- and the board's runtime now computes it exactly as the PC
-reference does, checked against llama.cpp and the float path. It has not run on the board yet
-([docs/62](docs/62-a-30b-on-a-teensy.md)).
+**And a 30B on the same board.** Qwen3-Coder-30B-A3B, a mixture of experts (30.5 B parameters, 8 of 128
+experts a layer per token), reads 1.92 GB a token -- the 3B's bytes for ten times the parameters. On the
+Teensy: **44.4 s a token**, every printed step equal to the PC reference on both test prompts, first answer
+token in 438.5 s when the prompt shares its opening ([docs/62](docs/62-a-30b-on-a-teensy.md)).
 
 - **[docs/57 — What we built, what it does, and how we know](docs/57-what-we-built-and-what-it-does.md)** —
   every measured number, in plain English, each traced to its log. Read this first.

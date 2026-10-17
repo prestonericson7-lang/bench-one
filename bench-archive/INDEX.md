@@ -155,3 +155,5 @@ been in can be returned to by flashing one file. Newest last.
 | 20261016-190125 | psram_llm | 02adc06+dirty | 2489 | GD_TAIL A/B in ::kbench (double tails: terms first, adds in order; dot_verify both modes IDENTICAL) |
 | 20261016-190518 | psram_llm | 02adc06+dirty | 2548 | final kernels: batched Q4_K tail two vectors abreast (A/B 190125: -6%), switch removed; dot_verify IDENTICAL |
 | 20261016-192025 | psram_llm | 02adc06+dirty | 2382 | Q6_K batched: four vectors per lane-word load (dot_verify 1..8 vectors IDENTICAL) |
+| 20261016-212158 | psram_llm | 6a27dd3+dirty | 1194 | exFAT chain walk: a FAT-chained but unbroken file used by sector arithmetic (the 30B's first boot said FRAGMENTED) |
+| 20261016-212543 | psram_llm | 6a27dd3+dirty | 1194 | exFAT files of up to 32 runs read run by run (the 30B is 2 runs) |

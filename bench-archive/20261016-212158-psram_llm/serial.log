@@ -1,0 +1,95 @@
+
+========================================================================
+  psram_llm v9 -- a 3B-parameter language model on a Teensy 4.1
+  the model: all of it on the microSD, streamed every token
+  PSRAM:     the attention cache -- the model's working memory, nothing of the model
+  cpu 600 MHz, 45.1 C
+========================================================================
+
+  PSRAM discovery: asking all ten selects for an identity
+    CS0  PRESENT  id 0D 5D
+    CS1  PRESENT  id 0D 5D
+    Y0   PRESENT  id 0D 5D
+    Y1   PRESENT  id 0D 5D
+    Y2   PRESENT  id 0D 5D
+    Y3   PRESENT  id 0D 5D
+    Y4   PRESENT  id 0D 5D
+    Y5   PRESENT  id 0D 5D
+    Y6   absent   id 00 00
+    Y7   absent   id 00 00
+  8 chips answered
+
+  qualifying each: quad first, then single-bit, confirmed over 1024 kB four times
+      CS0  quad        edge write  0 read 13, running at write  3 read 18 burst 96 setup  0 ->  8.90 MB/s
+      CS1  quad        edge write  0 read 14, running at write  3 read 20 burst 96 setup  0 ->  8.37 MB/s
+      Y0   no quad setting survives 1024 kB
+      Y0   single 0x03 edge write  3 read 13, running at write  6 read 18 burst 40 setup 16 ->  2.17 MB/s
+21:22:59 | [boot_capture] COM38 open
+21:22:59 |       Y1   single 0x03 edge write  4 read 11, running at write  7 read 14 burst 48 setup 16 ->  2.52 MB/s
+21:23:02 |       Y1   single 0x0B edge write  4 read  7, running at write  7 read 10 burst 56 setup 16 ->  2.95 MB/s
+21:23:04 |       Y2   no quad setting survives 1024 kB
+21:23:07 |       Y2   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+21:23:09 |       Y2   single 0x0B edge write  0 read  8, running at write  3 read 11 burst 56 setup 16 ->  2.83 MB/s
+21:23:12 |       Y3   no quad setting survives 1024 kB
+21:23:14 |       Y3   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+21:23:16 |       Y3   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+21:23:19 |       Y4   no quad setting survives 1024 kB
+21:23:22 |       Y4   single 0x03 edge write  5 read 10, running at write  8 read 13 burst 56 setup 16 ->  2.65 MB/s
+21:23:24 |       Y4   single 0x0B edge write  5 read  7, running at write  8 read 10 burst 56 setup 16 ->  2.95 MB/s
+21:23:27 |       Y5   no quad setting survives 1024 kB
+21:23:29 |       Y5   single 0x03 edge write  0 read 11, running at write  3 read 14 burst 48 setup 16 ->  2.52 MB/s
+21:23:32 |       Y5   single 0x0B edge write  0 read  7, running at write  3 read 10 burst 56 setup 16 ->  2.95 MB/s
+21:23:34 |   proving every byte: fill all 8 banks (64 MB) with bank-tagged data, then read all back
+21:23:34 |     CS0  filled 8 MB in 0.3 s
+21:23:34 |     CS1  filled 8 MB in 0.3 s
+21:23:36 |     Y3   filled 8 MB in 1.3 s
+21:23:38 |     Y4   filled 8 MB in 1.9 s
+21:23:39 |     Y5   filled 8 MB in 1.3 s
+21:23:41 |     Y1   filled 8 MB in 1.8 s
+21:23:42 |     Y2   filled 8 MB in 1.3 s
+21:23:44 |     Y0   filled 8 MB in 1.7 s
+21:23:45 |     CS0  quad        read back 8 MB in 0.9 s (8.90 MB/s): 0 wrong
+21:23:46 |     CS1  quad        read back 8 MB in 1.0 s (8.36 MB/s): 0 wrong
+21:23:49 |     Y3   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+21:23:51 |     Y4   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+21:23:54 |     Y5   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+21:23:57 |     Y1   single 0x0B read back 8 MB in 2.8 s (2.95 MB/s): 0 wrong
+21:24:00 |     Y2   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+21:24:03 |     Y0   single 0x0B read back 8 MB in 3.0 s (2.83 MB/s): 0 wrong
+21:24:03 |   PSRAM in use: 8 banks, 67108864 bytes
+21:24:03 |   SD card
+21:24:03 |     SD up on attempt 1 (DMA_SDIO), clock 49500 kHz
+21:24:03 |     uSDHC at boot: WTMK_LVL 0x08100810 PROT_CTRL 0x08800022 MIX_CTRL 0x80000010 SYS_CTRL 0x008E003F VEND_SPEC 0x30007809 VEND_SPEC2 0x00019006
+21:24:03 |     model.txt: qwen30b.gguf (tokenizer store qwen30b.tok)
+21:24:03 |     qwen30b.gguf: 18556688736 bytes
+21:24:03 |     exFAT FAT chain walked: 2 runs
+21:24:03 |     FRAGMENTED on the card (exFAT): backward seeks walk the cluster chain; 4 forward-moving read handles instead
+21:24:03 | CARD id manufacturer 0x03 oem SD product SK64G rev 8.6 made 2026-03 sectors 124997632
+21:24:03 | CLKSWEEP begin temp_c 45.7
+21:24:03 |     SD up (FIFO_SDIO), clock 49500 kHz
+21:24:03 |     qwen30b.gguf: 18556688736 bytes
+21:24:03 |     exFAT FAT chain walked: 2 runs
+21:24:03 |     FRAGMENTED on the card (exFAT): backward seeks walk the cluster chain; 4 forward-moving read handles instead
+21:24:04 | CLKSWEEP khz 49500 divider 4 mb_s 22.50 (SdFat's, the reference)
+21:24:05 | CLKSWEEP khz 66000 divider 3 mb_s 29.32 regions 8 wrong 0 failed 0
+21:24:05 | CLKSWEEP khz 99000 divider 2 mb_s 42.43 regions 8 wrong 0 failed 0
+21:24:05 |     SD up (DMA_SDIO), clock 49500 kHz
+21:24:05 |     qwen30b.gguf: 18556688736 bytes
+21:24:05 |     exFAT FAT chain walked: 2 runs
+21:24:05 |     FRAGMENTED on the card (exFAT): backward seeks walk the cluster chain; 4 forward-moving read handles instead
+21:24:05 | CLKSWEEP best khz 99000 divider 2 mb_s 42.43 (kept)
+21:24:05 | CLKSWEEP end temp_c 45.7
+21:24:06 |     sequential read: 32 MB in 0.83 s = 40.47 MB/s
+21:24:06 |   opening the model: all of it stays on the card; the PSRAM gets the attention cache and nothing else
+21:24:06 |     qwen30b.tok: 8301328 bytes on the card, contiguous
+21:24:10 |     3.8 s; PSRAM self-check: 0 reads corrected, 0 writes re-done, 0 unresolved
+21:24:10 |     48 layers, dim 2048, hidden 0, 32 heads (4 kv), head_dim 128, vocabulary 151936, 151387 merges
+21:24:10 |     30532122624 parameters in the file
+21:24:10 |     mixture of experts: 128 a layer, 8 picked per token, each 768 wide -- only those come off the card; a pass feeds up to 4 positions
+21:24:10 |     read from the card per token: 1919597696 bytes
+21:24:10 |     the model stays on the card: weights, norms and biases read from qwen30b.gguf every pass; the tokenizer's tables in qwen30b.tok (8301328 bytes, checked against the model and reused)
+21:24:10 |     PSRAM: 8 chips, the attention cache on 7 of them, one layer per region (1198064 bytes), 1126 positions; 56 layer slots, 8 spare (any one chip can fail) -- nothing of the model
+21:24:10 |     layer -> chip: CS0 CS0 CS0 CS0 CS0 CS0 CS0 CS1 CS1 CS1 CS1 CS1 CS1 CS1 Y3 Y3 Y3 Y3 Y3 Y3 Y3 Y4 Y4 Y4 Y4 Y4 Y4 Y4 Y5 Y5 Y5 Y5 Y5 Y5 Y5 Y1 Y1 Y1 Y1 Y1 Y1 Y1 Y2 Y2 Y2 Y2 Y2 Y2
+21:24:10 |   READY. Type a prompt and press Enter within 30 s, or the default runs
+21:24:10 > ::hold
+21:24:10 | HOLD waiting for prompts

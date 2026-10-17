@@ -156,7 +156,43 @@ predicts **1,393 a pass**: per layer the router, three slices of each of eight e
 small norms (each a plain read, which closes the stream). What a restart costs on this card is a board number; at
 1 ms it is 1.4 s a token, at 3 ms 4 s. Measured below.
 
-*(Board results follow.)*
+## On the board (2026-10-16, evening)
+
+**It runs, and it is exact.** The Teensy 4.1 with eight PSRAM chips and the 64 GB SanDisk Ultra, `qwen30b.gguf` on the
+card (copied and verified by reading it back from the card: sha256 equal to the blob's name), `model.txt` naming it.
+
+The France chat question (36 tokens; `20261016-212820-psram_llm-model`): every step the board printed identical to
+`tl_ref` on the same file -- ids, both logits to every printed digit, the second-best token:
+
+| step | the board | equals the PC |
+|---|---|---|
+| 35 | "The" 44.2448807 | yes |
+| 36 | " capital" 48.8016815 | yes |
+| 37 | " of" 46.037365 | yes |
+| 38 | " France" 48.0650063 | yes |
+| 39 | " is" 46.3870621 | yes |
+
+| | measured on the board |
+|---|---|
+| each answer token | **44.4 - 44.5 s** (the 3B: 43.3 s) |
+| card bytes a token | 1,830.7 MiB -- arithmetic 29.2 s, 28.4 s of it under the card's reads; waited 14.7 s for the card |
+| card stream restarts a token | **1,394** -- the PC census predicted 1,393 |
+| a four-position prompt pass | 89 - 104 s (2.9 - 3.8 GiB each: the experts of four positions, the attention once) |
+| first answer token, 36-token prompt | 856.2 s (14.3 min), 9 prompt passes |
+| die temperature | 55.5 C at most |
+
+**The card first said FRAGMENTED.** SdFat's exFAT `contiguousRange()` only reports the NoFatChain flag, and a file
+written by growing it keeps a FAT chain. The board now walks the chain itself (`exfat_chain_contig`): `qwen30b.gguf`
+is two runs -- its first 8 MB at sector 3,726,848, the rest at 3,909,120 -- and every read looks its sector up in its
+run, a read across the break split in two. Before that fix every MoE jump would have walked the cluster chain.
+
+Right after it, the SPI/I2C chat question (45 tokens, the first 27 already in the attention cache: `::reuse`):
+every printed step identical to `tl_ref` again, first answer token **438.5 s**, then 44.7 s a token, answer "SPI
+(Serial Peripheral Interface". The die never passed 56.1 C; the stack never came within 23,896 bytes of its end.
+
+**What that is:** a 30.5-billion-parameter model answering on a 600 MHz microcontroller, every printed number equal to
+the PC reference, at the speed of the 3B -- because a token reads the same 1.92 GB either way. The card is the wall
+for both; the 30B is the larger model for free.
 
 ## Going bigger on a 128 GB card (planning, not built)
 

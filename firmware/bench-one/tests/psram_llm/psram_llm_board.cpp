@@ -954,6 +954,39 @@ static void poll_stop(void)
 #define MF_POOL 4
 static bool     mf_contig;
 static uint32_t mf_sector0;                  /* the model file's first sector when it is contiguous */
+/* (2026-10-16) On exFAT, SdFat's contiguousRange() walks nothing: it reports the file's NoFatChain flag. A file
+ * written by growing it (Python's writes, not Explorer's preallocating copy) keeps a FAT chain even when its
+ * clusters are one unbroken run -- the 30B's first boot said FRAGMENTED, and every MoE read would have walked the
+ * chain. exfat_chain_contig() walks that chain once from the card's own FAT; when it is one run, the file is used
+ * by sector arithmetic exactly like a flagged one, and mf_chain routes the plain reads around SdFat's seekSet,
+ * which on a chained file walks from the first cluster at every backward seek. */
+static bool     mf_chain;
+static uint8_t  mf_secbuf[2048] __attribute__((aligned(32)));   /* DTCM: SdFat's DMA reads only target DTCM */
+/* A FEW RUNS ARE AS GOOD AS ONE (2026-10-16): the 30B's walk found 2. Each run of consecutive clusters: the file offset
+ * it starts at, its first sector, its length. Every sector is looked up in its run (mf_sec), and a read that crosses
+ * from one run into the next is split in two (fq_try, mf_read_sectors); the ring restarts once at the break, as it
+ * does at any jump. mf_nrun 0 or 1: one run, mf_sector0 + off / 512 as always. */
+#define MF_RUNS_MAX 32
+static struct { uint64_t off, len; uint32_t sec; } mf_run[MF_RUNS_MAX];
+static int mf_nrun;
+static inline int mf_runi(uint64_t off)
+{
+    int i = 0;
+    while (i + 1 < mf_nrun && off >= mf_run[i + 1].off) i++;
+    return i;
+}
+static inline uint32_t mf_sec(uint64_t off)
+{
+    if (mf_nrun <= 1) return (uint32_t)(mf_sector0 + off / 512u);
+    const int i = mf_runi(off);
+    return mf_run[i].sec + (uint32_t)((off - mf_run[i].off) / 512u);
+}
+static inline uint64_t mf_run_end(uint64_t off)               /* where the run holding off ends (file offset) */
+{
+    if (mf_nrun <= 1) return ~0ull;
+    const int i = mf_runi(off);
+    return mf_run[i].off + mf_run[i].len;
+}
 static FsFile   mfp[MF_POOL];
 static uint64_t mfp_pos[MF_POOL];
 static uint32_t mfp_used[MF_POOL], mfp_tick;
@@ -1078,6 +1111,69 @@ FLASHMEM static void model_name_load(void)
     say("    model.txt: %s (tokenizer store %s)", g_model_name, g_tok_name);
 }
 
+static inline uint32_t rd32le(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
+
+/* exFAT: the file's cluster chain, followed in the card's FAT from its first cluster -- one run of consecutive clusters
+ * or not. The volume's layout from its own boot sector (the MBR's first partition). *runs = the runs counted (at least
+ * 1); false on anything unexpected, which leaves the file to the fragmented path, as before. */
+FLASHMEM static bool exfat_chain_contig(uint32_t first_sector, uint64_t size, int *runs)
+{
+    uint8_t *b = mf_secbuf;
+    *runs = 0;
+    if (!sd.card()->readSectors(0, b, 1) || b[510] != 0x55 || b[511] != 0xAA) return false;
+    const uint32_t part = rd32le(b + 454);
+    if (!sd.card()->readSectors(part, b, 1) || memcmp(b + 3, "EXFAT   ", 8) || b[108] != 9) return false;
+    const uint32_t fat0 = part + rd32le(b + 80), heap = part + rd32le(b + 88);
+    const uint8_t spc = b[109];
+    if (first_sector < heap || ((first_sector - heap) & ((1u << spc) - 1u))) return false;
+    uint32_t c = ((first_sector - heap) >> spc) + 2u;
+    const uint64_t csize = 512ull << spc;
+    const uint32_t nclu = (uint32_t)((size + csize - 1u) / csize);
+    uint32_t cached = 0xFFFFFFFFu;                    /* first of the four FAT sectors in b */
+    int r = 1;
+    uint32_t run0 = 0;                                /* the cluster index (within the file) where this run began */
+    mf_nrun = 0;
+    mf_run[0].off = 0; mf_run[0].sec = first_sector;
+    for (uint32_t i = 0; i + 1u < nclu; i++) {
+        const uint32_t fs = fat0 + (c >> 7);          /* 128 four-byte entries a sector */
+        if (cached == 0xFFFFFFFFu || fs < cached || fs >= cached + 4u) {
+            if (!sd.card()->readSectors(fs, b, 4)) return false;
+            cached = fs;
+        }
+        const uint32_t nx = rd32le(b + (fs - cached) * 512u + (c & 127u) * 4u);
+        if (nx != c + 1u) {
+            if (nx < 2u || nx >= 0xFFFFFFF7u) { *runs = r + 1; mf_nrun = 0; return false; }   /* the chain ends early */
+            if (r >= MF_RUNS_MAX) { *runs = r + 1; mf_nrun = 0; return false; }
+            mf_run[r - 1].len = (uint64_t)(i + 1u - run0) * csize;
+            run0 = i + 1u;
+            mf_run[r].off = (uint64_t)run0 * csize;
+            mf_run[r].sec = heap + ((nx - 2u) << spc);
+            r++;
+        }
+        c = nx;
+    }
+    mf_run[r - 1].len = (uint64_t)(nclu - run0) * csize;
+    mf_nrun = r;
+    *runs = r;
+    return true;                                      /* any count up to MF_RUNS_MAX: read run by run */
+}
+
+/* n bytes at off of a contiguous file by sector arithmetic, through the DTCM bounce buffer (mf_chain's plain reads) */
+static int mf_read_sectors(uint64_t off, uint8_t *dst, uint32_t n)
+{
+    while (n) {
+        const uint32_t pre = (uint32_t)(off & 511u);
+        uint32_t k = (n < sizeof mf_secbuf - pre) ? n : (uint32_t)(sizeof mf_secbuf - pre);
+        const uint64_t re = mf_run_end(off);                  /* never past the run holding off */
+        if (off + k > re) k = (uint32_t)(re - off);
+        const uint32_t ns = (pre + k + 511u) / 512u;
+        if (!sd.card()->readSectors(mf_sec(off), mf_secbuf, ns)) return -1;
+        memcpy(dst, mf_secbuf + pre, k);
+        off += k; dst += k; n -= k;
+    }
+    return 0;
+}
+
 /* the model file open, and whether its clusters are one run (then every seek is one addition) */
 FLASHMEM static bool model_file_open(void)
 {
@@ -1089,7 +1185,24 @@ FLASHMEM static bool model_file_open(void)
     const uint32_t t0 = millis();
     mf_contig = mf.contiguousRange(&s0, &s1);
     mf_sector0 = s0;
+    mf_chain = false;
+    mf_nrun = 0;
     const uint8_t ft = sd.fatType();
+    if (!mf_contig && ft == FAT_TYPE_EXFAT) {
+        int runs = 0;
+        const uint32_t first = mf.firstSector();
+        if (exfat_chain_contig(first, mf_size, &runs)) {
+            mf_contig = true; mf_chain = true; mf_sector0 = first;
+            s0 = first; s1 = mf_sec(mf_size - 1u);
+            say("    exFAT FAT chain walked: %d run%s of consecutive clusters (no NoFatChain flag) -- used by sector arithmetic%s",
+                runs, runs == 1 ? "" : "s", runs == 1 ? "" : ", run by run");
+            for (int i = 0; i < mf_nrun && runs > 1; i++)
+                say("      run %d: file %llu..%llu at sector %lu", i, (unsigned long long)mf_run[i].off,
+                    (unsigned long long)(mf_run[i].off + mf_run[i].len), (unsigned long)mf_run[i].sec);
+        } else {
+            say("    exFAT FAT chain walked: %d runs%s", runs, runs ? "" : " (layout not readable)");
+        }
+    }
     if (mf_contig) {
         say("    contiguous on the card, sectors %lu..%lu (%s): every seek is one addition (checked in %lu ms)",
             (unsigned long)s0, (unsigned long)s1, ft == FAT_TYPE_EXFAT ? "exFAT" : "FAT32", (unsigned long)(millis() - t0));
@@ -1398,7 +1511,7 @@ FLASHMEM __attribute__((noinline)) static void fq_close(void)
 /* ::fifoirq 3: whole sectors at file offset a into d out of the ring, working `work` while blocks are not in */
 FLASHMEM __attribute__((noinline)) static int rq_read(uint64_t a, uint8_t *d, uint32_t len, int (*work)(void *), void *ctx)
 {
-    uint32_t sec = (uint32_t)(mf_sector0 + a / 512u), nsec = len / 512u;
+    uint32_t sec = mf_sec(a), nsec = len / 512u;                 /* within one run: fq_try splits at a break */
     if (sec == fq_tail_sec) { memcpy(d, fq_tail, 512); d += 512; sec++; nsec--; }
     if (!nsec) return 0;
     fqi_err = 0;
@@ -1463,7 +1576,7 @@ FLASHMEM __attribute__((noinline)) static int rq_read(uint64_t a, uint8_t *d, ui
  * caller restarts the card and reads through the file layer. */
 FLASHMEM __attribute__((noinline)) static int fq_read(uint64_t a, uint8_t *d, uint32_t len, int (*work)(void *), void *ctx)
 {
-    uint32_t sec = (uint32_t)(mf_sector0 + a / 512u), nsec = len / 512u;
+    uint32_t sec = mf_sec(a), nsec = len / 512u;                 /* within one run: fq_try splits at a break */
     if (sec == fq_tail_sec) { memcpy(d, fq_tail, 512); d += 512; sec++; nsec--; }
     if (!nsec) return 0;
     fqi_dst = (uint32_t *)d; fqi_total = nsec; fqi_done = 0; fqi_err = 0; fqi_parked = 0; fqi_wpos = 0;
@@ -1549,7 +1662,15 @@ FLASHMEM __attribute__((noinline)) static bool fq_try(uint64_t off, void *dst, u
     const uint32_t len = (pre + n + 511u) & ~511u;
     if (((uintptr_t)d & 3u) || a + len > ((mf_size + 511u) & ~511ull)) return false;
     if (g_fifoirq == 2 && ((uintptr_t)d < 0x20000000u || (uintptr_t)d + len > 0x20080000u)) return false;  /* DMA: DTCM only */
-    if ((g_fifoirq == 3 ? rq_read(a, d, len, work, ctx) : fq_read(a, d, len, work, ctx)) == 0) return true;
+    const uint64_t re = mf_run_end(a);
+    int rr;
+    if (a + len <= re) rr = g_fifoirq == 3 ? rq_read(a, d, len, work, ctx) : fq_read(a, d, len, work, ctx);
+    else {                                                    /* across a break between runs: one read in each */
+        const uint32_t l1 = (uint32_t)(re - a);
+        rr = g_fifoirq == 3 ? rq_read(a, d, l1, work, ctx) : fq_read(a, d, l1, work, ctx);
+        if (!rr) rr = g_fifoirq == 3 ? rq_read(re, d + l1, len - l1, work, ctx) : fq_read(re, d + l1, len - l1, work, ctx);
+    }
+    if (rr == 0) return true;
     g_fifoirq = 0;
     say("    fifoirq OFF; the card restarted, this block read through the file layer");
     if (!sdio_switch(false)) halt("the card did not restart; power-cycle the Teensy (unplug USB for 2 s)");
@@ -1579,10 +1700,10 @@ int plat_sd_read_overlap(uint64_t off, void *dst, uint32_t n, int (*work)(void *
     /* ::sdpath adma (v9b): whole sectors of the contiguous model file straight through the card object with an
      * ADMA2 descriptor table for this very buffer -- no file layer, no cluster splitting, one CMD18 -- and the
      * core's rows run in SdFat's wait for it, exactly as with simple DMA. The pipeline buffers are DTCM. */
-    if (g_sdpath == 1 && g_dma && mf_contig && (a % 512u) == 0 && (len % 512u) == 0 && len <= 8u * 32768u &&
+    if (g_sdpath == 1 && g_dma && mf_contig && mf_nrun <= 1 && (a % 512u) == 0 && (len % 512u) == 0 && len <= 8u * 32768u &&
         ((uintptr_t)d % 4u) == 0 && a + len <= ((mf_size + 511u) & ~511ull)) {
         adma_arm(d, len);
-        const bool ok = sd.card()->readSectors((uint32_t)(mf_sector0 + a / 512u), d, len / 512u);
+        const bool ok = sd.card()->readSectors(mf_sec(a), d, len / 512u);
         adma_disarm();
         g_ywork = 0;
         if (!ok) { say("    ADMA2 read failed at %llu (+%lu): SdFat error 0x%02X", (unsigned long long)a, (unsigned long)len, (unsigned)sd.sdErrorCode()); return -1; }
@@ -1617,6 +1738,13 @@ static int mf_read_at(uint64_t off, void *dst, uint32_t n, uint32_t need)
 }
 static int mf_read_once(uint64_t off, void *dst, uint32_t n, uint32_t need)
 {
+    if (mf_chain) {                                           /* contiguous by the chain walk: never SdFat's seekSet */
+        const uint64_t end = (mf_size + 511u) & ~511ull;
+        if (off >= mf_size) return -1;
+        const uint32_t k = (off + n > end) ? (uint32_t)(end - off) : n;
+        if (k < need) return -1;
+        return mf_read_sectors(off, (uint8_t *)dst, k);
+    }
     if (mf_contig) {
         if (!mf.seekSet(off)) return -1;
         return (mf.read(dst, n) >= (int)need) ? 0 : -1;
@@ -2644,7 +2772,7 @@ FLASHMEM static bool sd_region_adma(uint64_t off, uint32_t K, uint64_t *sum, flo
         arm_dcache_flush_delete(sdbuf, K);
         adma_arm(sdbuf, K);
         const uint32_t t0 = micros();
-        const bool ok = sd.card()->readSectors((uint32_t)(mf_sector0 + (off + got) / 512u), sdbuf, K / 512u);
+        const bool ok = sd.card()->readSectors(mf_sec(off + got), sdbuf, K / 512u);
         us += micros() - t0;
         *errstat |= USDHC1_ADMA_ERR_STATUS;
         adma_disarm();
@@ -2831,7 +2959,7 @@ FLASHMEM static void sd_trace(void)
     if (!mf_contig) { say("TRACE end: the model file is not contiguous"); return; }
     const bool was_dma = g_dma;
     if (g_dma && !sdio_switch(false)) { say("TRACE end: FIFO restart failed"); return; }
-    const uint32_t sec0 = (uint32_t)(mf_sector0 + (512ull << 20) / 512u);
+    const uint32_t sec0 = mf_sec(512ull << 20);
     const float us = F_CPU_ACTUAL / 1e6f;
     /* polled: [0] entry, [1] after the request (or entry if none was needed), [2] first words ready, [3] drained;
      * the stop's Transfer Complete is the next block's entry */
@@ -2985,7 +3113,7 @@ FLASHMEM static void sd_adma_open(void)
         NVIC_ENABLE_IRQ(IRQ_SDHC1);
         USDHC1_INT_SIGNAL_EN = FX_TC | FX_ERR;
         const uint32_t t0 = micros();
-        if (!fa_start((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+        if (!fa_start(mf_sec(OFF))) err = -10;
         for (uint32_t c = 0; !err && c < fa_nchunks; c++) {
             const uint32_t tw = micros();
             while (fa_chunk <= c) {
@@ -3091,7 +3219,7 @@ FLASHMEM static void sd_adma_ring(void)
         USDHC1_INT_SIGNAL_EN = FX_TC | FX_ERR;
         uint32_t cpy = 0;
         const uint32_t t0 = micros();
-        if (!sd_cmd18_dma((uint32_t)(mf_sector0 + OFF / 512u), rg_desc)) err = -10;
+        if (!sd_cmd18_dma(mf_sec(OFF), rg_desc)) err = -10;
         static uint8_t blk[512] __attribute__((aligned(32)));
         for (uint32_t b = 0; !err && b < NB; b++) {
             const uint32_t tw = micros();
@@ -3213,7 +3341,7 @@ FLASHMEM static void sd_fifo_sweep(bool irq_only)
             uint32_t us = 0;
             int err = 0;
             fx_sdoff = 0; fx_wait_cyc = 0;
-            if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+            if (!fx_card()->readStart(mf_sec(OFF))) err = -10;
             if (!err && !gap) {                       /* readStart set Stop At Block Gap: clear it, continue */
                 USDHC1_PROT_CTRL &= ~FX_SABGREQ;
                 USDHC1_PROT_CTRL |= FX_CREQ;
@@ -3249,7 +3377,7 @@ FLASHMEM static void sd_fifo_sweep(bool irq_only)
         uint32_t cyc = 0;
         int err = 0;
         fx_wait_cyc = 0;
-        if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+        if (!fx_card()->readStart(mf_sec(OFF))) err = -10;
         uint32_t blk = 0;
         for (uint32_t got = 0; !err && got < N; got += K) {
             for (uint32_t b = 0; b < K / 512u && !err; b++, blk++) {
@@ -3300,7 +3428,7 @@ FLASHMEM static void sd_fifo_sweep(bool irq_only)
         NVIC_ENABLE_IRQ(IRQ_SDHC1);
         USDHC1_INT_SIGNAL_EN = FX_BRR | FX_TC | FX_ERR;
         const uint32_t t0 = micros();
-        if (!fx_card()->readStart((uint32_t)(mf_sector0 + OFF / 512u))) err = -10;
+        if (!fx_card()->readStart(mf_sec(OFF))) err = -10;
         for (uint32_t j = 0; !err && j < NB; j++) {
             const uint32_t tw = micros();
             while (fxi_done <= j) {                                  /* the block is not in yet */

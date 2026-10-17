@@ -1,0 +1,10 @@
+{
+  "stamp": "20261016-212543",
+  "sketch": "psram_llm",
+  "git": "6a27dd3",
+  "git_dirty": true,
+  "seconds": 8,
+  "note": "exFAT files of up to 32 runs read run by run (the 30B is 2 runs)",
+  "hex": "psram_llm.ino.hex",
+  "hex_bytes": 723021
+}

@@ -137,6 +137,10 @@ token (`model_set_state16`) exactly as the Teensy stores it.
 | PSRAM | 41 MB read and 41 MB written (the states and convolution windows); the board reads every write back to check it, so ~123 MB of transfers: 14 states on the two quad chips (~9.7 MB/s), 22 on the single-line chips (~2.6 MB/s) — **~30 s if none of it overlaps the card** |
 | compute | the delta rule and the 16-bit rounding: ~1-2 s |
 
+A prompt pass of four positions reads 4,085 MiB (the PC's count): with 512 experts and 10 picked, four positions share
+few experts, so they read ~3x one position's (the 30B's four read 1.8x). About 100 s of card a pass plus the state once,
+so a 36-token chat prompt's first answer token comes after ~9 passes, roughly **18 minutes**.
+
 So roughly **85 s a token** for an 80B, the first time it runs — twice the 30B's time for 2.6 times the parameters.
 The PSRAM part is the new wall, and the first thing to measure; doc 63's sequel will say what it really is.
 
@@ -169,7 +173,8 @@ PC not to change a single printed digit:
 **Found, not built: the routers are bfloat16 in float32's clothing.** Every one of the 50,331,648 router weights
 (`ffn_gate_inp`, 48 layers, stored F32 — 192 MiB read a token) has a zero low half: they are exactly bfloat16 values
 (the model was trained and released in bf16; the converter widened them). So were the convolution weights, `ssm_dt` and
-`ssm_norm`; the norm gains are not. A bf16 copy of the routers on the card would be read in half the bytes — 96 MiB, about
+`ssm_norm`; the norm gains are not (Qwen3-Next's norms are zero-centred and stored as 1 + w, which breaks the pattern).
+Every F32 tensor of the 30B is exact bf16 too, its routers 48 MiB a token: the same copy would save it ~0.55 s. A bf16 copy of the routers on the card would be read in half the bytes — 96 MiB, about
 **2.3 s a token** — and change no number anywhere, not even in the reference. Measured on the PC over 511 tokens: a router rounded to
 bf16 gives perplexity 3.8811 and KL exactly 0 against the F32 router's 3.8811. (Rounded to int8 per row it is not free:
 3.9094, KL 3.5e-3 — more than the int8 activations' own 2.2e-3.) Building it means a second file on the card read through the board's card pipeline (the

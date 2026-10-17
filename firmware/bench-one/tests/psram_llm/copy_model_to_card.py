@@ -3,7 +3,8 @@
 
     python copy_model_to_card.py <source.gguf> <drive:\\name.gguf> [--sha256 HEX]
 
-1. Copies in 8 MB pieces, then fsync (FlushFileBuffers): Windows' write cache holds the last of it otherwise.
+1. Copies in 8 MB pieces, then fsync (FlushFileBuffers): Windows' write cache holds the last of it otherwise. No
+   truncate() up front: on Windows the C runtime extends a file by WRITING ZEROS, which doubled the copy (2026-10-16).
 2. Reads the copy BACK FROM THE CARD with FILE_FLAG_NO_BUFFERING -- a plain read right after a copy is served from
    the PC's RAM, not the card (the raw-disk trap of 2026-09-24: 951 MB/s was the tell) -- and hashes it.
 3. Compares with --sha256, or with the source's name when it is an Ollama blob (sha256-<hex>: the name IS the hash),
@@ -72,8 +73,6 @@ def main():
         sys.exit("the card does not have room")
     t0, hs = time.time(), hashlib.sha256()
     with open(a.src, "rb") as fi, open(a.dst, "wb") as fo:
-        fo.truncate(size)                                           # one allocation up front: the card can lay it out in one run
-        fo.seek(0)
         done = 0
         while True:
             b = fi.read(PIECE)

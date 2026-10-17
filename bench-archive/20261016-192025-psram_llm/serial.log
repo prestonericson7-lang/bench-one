@@ -72,3 +72,5 @@
 19:22:17 | CLKSWEEP end: restart failed
 19:22:17 |   HALTED: the card did not restart; power-cycle the Teensy (unplug USB for 2 s)
 19:22:17 |   HALTED: SD read failed during the rate test
+
+[board_cmd 2026-10-16 19:36:46] >>> ::bench

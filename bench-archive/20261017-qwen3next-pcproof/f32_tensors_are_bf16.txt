@@ -1,0 +1,10 @@
+output_norm.weight           x1           2048 floats,          871 with a nonzero low half
+attn_norm.weight             x48         98304 floats,        83053 with a nonzero low half
+ffn_gate_inp.weight          x48      50331648 floats,            0 with a nonzero low half  -> EXACTLY bfloat16
+post_attention_norm.weight   x48         98304 floats,        80190 with a nonzero low half
+ssm_a                        x36          1152 floats,         1152 with a nonzero low half
+ssm_conv1d.weight            x36       1179648 floats,            0 with a nonzero low half  -> EXACTLY bfloat16
+ssm_dt.bias                  x36          1152 floats,            0 with a nonzero low half  -> EXACTLY bfloat16
+ssm_norm.weight              x36          4608 floats,            0 with a nonzero low half  -> EXACTLY bfloat16
+attn_k_norm.weight           x12          3072 floats,         1951 with a nonzero low half
+attn_q_norm.weight           x12          3072 floats,         1983 with a nonzero low half

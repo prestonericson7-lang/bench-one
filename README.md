@@ -72,8 +72,9 @@ token in 438.5 s when the prompt shares its opening ([docs/62](docs/62-a-30b-on-
 **Next: an 80B, ported and proven on the PC, not yet run on the board.** Qwen3-Next-80B-A3B (79.7 B parameters)
 keeps a fixed-size recurrent state in 36 of its 48 layers instead of an attention cache. The Teensy's code computes it
 to the bit like the PC reference, per token and batched; the reference agrees with llama.cpp on 7 of 8 answers; storing
-the state at 16 bits, so it fits the PSRAM, adds nothing measurable to what the int8 arithmetic already costs. Projected
-on the board, not measured: about 85 s a token ([docs/63](docs/63-an-80b-on-a-teensy.md)).
+the state at 16 bits, so it fits the PSRAM, adds nothing measurable to what the int8 arithmetic already costs. On the same
+1,023 tokens its loss is 13% below the 30B's and 19% below the 3B's. Projected on the board, not measured: about 85 s a
+token ([docs/63](docs/63-an-80b-on-a-teensy.md)).
 
 - **[docs/57 — What we built, what it does, and how we know](docs/57-what-we-built-and-what-it-does.md)** —
   every measured number, in plain English, each traced to its log. Read this first.

@@ -81,6 +81,20 @@ entries carry weight in its dot products, and a row scale set by the largest ent
 their relative precision. Measured, not argued — the argument was wrong. (Mode 3 stays in both runtimes for anyone who
 wants to check: `TL_STATE16=3`.)
 
+## Is it worth twice the time?
+
+The three models this board runs, on the same 1,023 tokens of the passage above (one tokenizer for all three, so the
+same token sequence), each on the fused int8 path the Teensy computes:
+
+| model | perplexity | loss a token | greedy pick = the actual next token | on the board, a token |
+|---|---|---|---|---|
+| Qwen2.5-Coder-3B | 2.933 | 1.076 nats | 75.6% | 43.3 s, measured |
+| Qwen3-Coder-30B-A3B | 2.716 | 0.999 nats | 79.6% | 44.4 s, measured |
+| **Qwen3-Next-80B-A3B** | **2.384** | **0.869 nats** | **80.2%** | ~85 s projected (~70-75 with the levers below) |
+
+The 80B takes 13% off the 30B's loss and 19% off the 3B's. The 30B was the free step (the 3B's time); the 80B is the
+first step that costs time, and it buys the largest drop of the three.
+
 ## What the runtime needed
 
 **`shared/model_q.c`** (the reference): the hybrid's layers transcribed from llama.cpp — the convolution and its
@@ -151,6 +165,16 @@ PC not to change a single printed digit:
    `python board_model_run.py --model D:\start\models\Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf --gen 8 --prompt "The capital of France is"`
 5. The levers, same prompt: `--pre "::f16test@^F16TEST bad=@900" --pre "::psverify 0"` — the step lines must still equal
    `tl_ref`'s, and the pass lines say what each saved (card, PSRAM and compute seconds are printed per pass).
+
+**Found, not built: the routers are bfloat16 in float32's clothing.** Every one of the 50,331,648 router weights
+(`ffn_gate_inp`, 48 layers, stored F32 — 192 MiB read a token) has a zero low half: they are exactly bfloat16 values
+(the model was trained and released in bf16; the converter widened them). So were the convolution weights, `ssm_dt` and
+`ssm_norm`; the norm gains are not. A bf16 copy of the routers on the card would be read in half the bytes — 96 MiB, about
+**2.3 s a token** — and change no number anywhere, not even in the reference. Measured on the PC over 511 tokens: a router rounded to
+bf16 gives perplexity 3.8811 and KL exactly 0 against the F32 router's 3.8811. (Rounded to int8 per row it is not free:
+3.9094, KL 3.5e-3 — more than the int8 activations' own 2.2e-3.) Building it means a second file on the card read through the board's card pipeline (the
+model file itself is never touched: its sha256 is the proof it arrived) — card-layer work to do with the board on the
+bench, after the first 80B run, not before it.
 
 Not built, deliberately: running the state's PSRAM work inside the card's waits. The read the output needs cannot
 move (it depends on this token's q, k, v), and deferring the write-back costs a second read of every row — on the

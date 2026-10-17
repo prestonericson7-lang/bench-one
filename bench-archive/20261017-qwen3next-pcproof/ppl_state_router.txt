@@ -1,0 +1,30 @@
+
+  passage: 512 tokens from C:/Users/Danie/AppData/Local/Temp/claude/D--espicpc/26cc7934-6933-4694-bbbe-c6c98ad69441/scratchpad/ppl_text.txt
+  variants: int8+fp16 (the yardstick) int8+fp16+rbf16 int8+fp16+rint8
+  36 linear-attention layers, state 32 x 128 x 128 each
+      1/511  ppl 122455.9656 122455.9656 110459.5977  KL vs first 0.00e+00 1.95e-03
+     33/511  ppl 14.2266 14.2266 14.3148  KL vs first 0.00e+00 2.97e-03
+     65/511  ppl 14.1246 14.1246 14.3005  KL vs first 0.00e+00 2.96e-03
+     97/511  ppl 6.0499 6.0499 6.0971  KL vs first 0.00e+00 2.02e-03
+    129/511  ppl 3.8721 3.8721 3.8948  KL vs first 0.00e+00 1.52e-03
+    161/511  ppl 3.8143 3.8143 3.8095  KL vs first 0.00e+00 1.91e-03
+    193/511  ppl 4.4582 4.4582 4.4553  KL vs first 0.00e+00 2.07e-03
+    225/511  ppl 5.2814 5.2814 5.2990  KL vs first 0.00e+00 2.35e-03
+    257/511  ppl 4.8290 4.8290 4.8544  KL vs first 0.00e+00 2.38e-03
+    289/511  ppl 4.6379 4.6379 4.6740  KL vs first 0.00e+00 2.34e-03
+    321/511  ppl 4.5464 4.5464 4.5919  KL vs first 0.00e+00 2.22e-03
+    353/511  ppl 4.5338 4.5338 4.5912  KL vs first 0.00e+00 2.25e-03
+    385/511  ppl 4.5901 4.5901 4.6273  KL vs first 0.00e+00 2.30e-03
+    417/511  ppl 5.0224 5.0224 5.0675  KL vs first 0.00e+00 2.52e-03
+    449/511  ppl 4.6014 4.6014 4.6391  KL vs first 0.00e+00 2.39e-03
+    481/511  ppl 4.1970 4.1970 4.2224  KL vs first 0.00e+00 2.57e-03
+
+  ===========================================================================================
+  511 tokens scored (last quarter: 128); KL in nats a token
+  variant           perplexity  KL v first      KL max     KL late    KL v 2nd    top-1     =1st
+  int8+fp16             3.8811   0.000e+00   0.000e+00   0.000e+00   0.000e+00    70.5%   100.0%
+  int8+fp16+rbf16       3.8811   0.000e+00   0.000e+00   0.000e+00   0.000e+00    70.5%   100.0%
+  int8+fp16+rint8       3.9094   3.507e-03   5.302e-01   7.102e-03   3.507e-03    70.3%    99.0%
+  ===========================================================================================
+
+exit 0

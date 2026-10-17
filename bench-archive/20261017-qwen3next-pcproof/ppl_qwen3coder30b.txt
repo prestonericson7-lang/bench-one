@@ -1,0 +1,17 @@
+
+  passage: 1024 tokens from C:/Users/Danie/AppData/Local/Temp/claude/D--espicpc/26cc7934-6933-4694-bbbe-c6c98ad69441/scratchpad/ppl_text.txt
+  weights: fused integer path
+  KV cache: int8 with a scale per head
+.........................................
+
+  ================================================
+  tokens scored                1023
+  average negative log       0.9991
+  PERPLEXITY                  2.716   <- lower is better
+  top-1 agreement             79.6%   <- how often greedy picks the real next token
+  ================================================
+
+  Run this again with the setting changed and compare. A change that leaves perplexity
+  alone is free; one that raises it is buying memory or speed with quality, which is a
+  trade worth making sometimes and worth knowing about always.
+

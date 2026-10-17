@@ -552,6 +552,13 @@ a quarter fewer load/store operations per multiply-add. The same products summed
 identical for every vector count 1..8 (the check now covers every count, so the groups of four, the pair and the single
 after them are each exercised), both models' forward passes through the emulated M7 kernels identical (`m7_rerun.py`).
 
+**Not done, and why: the batched Q4_K at four vectors per weight word.** The same trick for Q4_K -- one weight word
+feeding four vectors, low nibbles in one pass and high in a second, eight accumulators being too many -- compiles
+(explicit passes, constant shifts) spill-free to 27 and 32 instructions per 16 weight-vector products, against the pair
+loop's 30: 1.5% fewer. It saves only the weight lanes; the activation bytes' sign extension and the SMLADs, which are
+most of the loop, are per vector either way. (Written with a loop over the two halves it was worse: 34 instructions and
+two spills.) The pair loop stays.
+
 The whole firmware on the board (`20261016-164101-psram_llm-model`, the 3B, `::gen 4`): every printed step identical
 to `tl_ref` on both prompts. The France chat question (36 tokens, cold): eight-position prompt passes 127.3-128.9 s
 (161-164 s on 2026-09-28), the output head skipped on all but the last (`head=0.00`), first answer token **591.9 s**,

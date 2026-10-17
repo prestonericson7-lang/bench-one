@@ -157,3 +157,23 @@ small norms (each a plain read, which closes the stream). What a restart costs o
 1 ms it is 1.4 s a token, at 3 ms 4 s. Measured below.
 
 *(Board results follow.)*
+
+## Going bigger on a 128 GB card (planning, not built)
+
+The same architecture one size up is Qwen3-235B-A22B (`qwen3moe`: 94 layers, width 4096, 64 query heads, 128 experts of
+1536, 8 picked, 22 B parameters touched per token). Its quantizations, sized from the Hugging Face file listing of
+`unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF` (2026-10-16), against the ~119 GiB a 128 GB card holds:
+
+| quantization | file | fits | card bytes a token (22 B x the file's bits a weight) | at the card's 44 MB/s |
+|---|---|---|---|---|
+| Q2_K | 79.8 GiB | yes | ~8.0 GB | ~3 min a token |
+| UD-Q3_K_XL | 97.0 GiB | yes | ~9.5 GB | ~3.6 min |
+| Q3_K_M | 104.7 GiB | yes | ~10.5 GB | ~4 min |
+| IQ4_XS | 116.9 GiB | too tight | | |
+| Q4_K_M | 132.4 GiB | no | | |
+
+What the runtime would need: a 4096-wide residual (the query trick of this document, applied to the residual: a
+position in two rows, so a pass feeds 2 positions); 94 layers in the model table (40 KB at today's 24 bytes a tensor --
+more than the OCRAM left, so the table must shrink); the Q3_K and Q2_K fused kernels (the board has Q4_K, Q6_K and Q8_0);
+and an attention cache of ~100 KB a position, so ~550-650 positions in the 64 MB of PSRAM. Arithmetic, not measured:
+the card makes it minutes a token, not seconds -- the 30B is the model that is fast on this board.
